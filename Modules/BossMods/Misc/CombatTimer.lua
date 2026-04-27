@@ -62,7 +62,12 @@ function CombatTimer:EnsureBar()
         return
     end
     self.bar = BM.Engines.Bar(buildBarConfig(self.db))
+    local lastUpdate = 0
     self.bar.onTick = function(t)
+        if t > lastUpdate and t - lastUpdate < 0.1 then
+            return
+        end
+        lastUpdate = t
         self.bar:SetCenter(("%d:%02d"):format(math.floor(t / 60), math.floor(t % 60)))
     end
     self:ApplyPosition()
