@@ -171,6 +171,14 @@ function PalaDispel:Refresh()
     end
     self.alert:Apply(buildAlertConfig(self))
     self:ApplyPosition()
+
+    if self.editMode then
+        self.alert:SetText(self:FormatAlertText("Dispel", false, "player"))
+        self:ApplyGlow("player")
+    elseif self.myAssignedUnit then
+        self.alert:SetText(self:FormatAlertText("Dispel", false, self.myAssignedUnit))
+        self:ApplyGlow(self.myAssignedUnit)
+    end
 end
 
 -- Roster
