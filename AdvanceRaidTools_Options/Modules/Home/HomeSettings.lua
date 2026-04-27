@@ -377,6 +377,10 @@ local function fontArgs()
             build = function(parent)
                 return T:Dropdown(parent, {
                     label = L["FontFamily"],
+                    tooltip = {
+                        title = L["FontFamily"],
+                        desc = L["AddonFontDesc"]
+                    },
                     values = buildMediaList("font"),
                     get = getFont("normal"),
                     onChange = setFont("normal")
@@ -423,19 +427,36 @@ local function fontArgs()
     }
 end
 
-local function texturesArgs()
+local function moduleVisualsArgs()
     return {
-        texturesHeader = {
+        moduleVisualsHeader = {
             order = 40,
             build = function(parent)
                 return T:Header(parent, {
-                    text = L["Textures"]
+                    text = L["ModuleVisuals"]
+                })
+            end
+        },
+
+        moduleFont = {
+            order = 41,
+            width = W_HALF,
+            build = function(parent)
+                return T:Dropdown(parent, {
+                    label = L["FontFamily"],
+                    tooltip = {
+                        title = L["FontFamily"],
+                        desc = L["ModuleFontDesc"]
+                    },
+                    values = buildMediaList("font"),
+                    get = getFont("module"),
+                    onChange = setFont("module")
                 })
             end
         },
 
         statusbar = {
-            order = 41,
+            order = 42,
             width = W_HALF,
             build = function(parent)
                 return T:Dropdown(parent, {
@@ -504,7 +525,7 @@ local function appearanceGroup()
                 name = "",
                 args = presetsArgs()
             }
-        }, colorsArgs(), opacityArgs(), fontArgs(), texturesArgs(), resetArgs())
+        }, colorsArgs(), opacityArgs(), fontArgs(), moduleVisualsArgs(), resetArgs())
     }
 end
 

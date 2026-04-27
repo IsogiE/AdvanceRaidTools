@@ -15,7 +15,6 @@ P.modules.BossMods_DarkQuasar = {
         dangerColor = {0.90, 0.10, 0.10, 1}
     },
     font = {
-        face = "Friz Quadrata TT",
         size = 12,
         outline = ""
     },
@@ -60,25 +59,21 @@ local function buildBarConfig(mod)
             h = db.bar.height
         },
         statusBar = {
-            texture = db.bar.texture,
             color = db.bar.safeColor
         },
         label = {
-            face = db.font.face,
             size = db.font.size,
             outline = db.font.outline,
             color = {1, 1, 1, 1},
             justify = "LEFT"
         },
         right = {
-            face = db.font.face,
             size = db.font.size,
             outline = db.font.outline,
             color = {1, 1, 1, 1},
             justify = "RIGHT"
         },
         center = {
-            face = db.font.face,
             size = db.font.size,
             outline = db.font.outline,
             color = {1, 1, 1, 1},

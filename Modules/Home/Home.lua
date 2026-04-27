@@ -28,6 +28,7 @@ P.cosmetic.opacity = {
 }
 P.cosmetic.fonts = {
     normal = "PT Sans Narrow",
+    module = "PT Sans Narrow",
     size = 12,
     outline = "OUTLINE"
 }
@@ -111,6 +112,7 @@ function HomeSettings:SyncMediaTable()
 
     if LSM then
         E.media.normFont = LSM:Fetch("font", db.fonts.normal) or E.media.normFont
+        E.media.moduleFont = LSM:Fetch("font", db.fonts.module) or E.media.normFont
         E.media.statusbarTexture = LSM:Fetch("statusbar", db.textures.statusbar) or E.media.normTex
     end
     E.media.normFontSize = db.fonts.size or 12

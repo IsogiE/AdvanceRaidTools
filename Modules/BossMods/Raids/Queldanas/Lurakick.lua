@@ -22,7 +22,6 @@ P.modules.BossMods_Lurakick = {
         color = {0.3, 0.3, 0.3, 1}
     },
     font = {
-        face = "Friz Quadrata TT",
         size = 12,
         outline = "OUTLINE",
         justify = "LEFT"

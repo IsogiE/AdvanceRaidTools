@@ -478,50 +478,8 @@ local function buildResourcesTab(mod, isDisabled)
         end
     }
 
-    args.healthFont = {
-        order = 65,
-        width = "1/2",
-        build = function(parent)
-            return T:Dropdown(parent, {
-                label = L["FontFamily"],
-                values = function() return sharedMediaValues("font") end,
-                get = function()
-                    return mod.db.healthFont
-                end,
-                onChange = function(v)
-                    mod.db.healthFont = v
-                    refreshLive()
-                end,
-                disabled = function()
-                    return healthDisabled() or mod.db.healthTextMode == "off"
-                end
-            })
-        end
-    }
-
-    args.powerFont = {
-        order = 66,
-        width = "1/2",
-        build = function(parent)
-            return T:Dropdown(parent, {
-                label = L["FontFamily"],
-                values = function() return sharedMediaValues("font") end,
-                get = function()
-                    return mod.db.font
-                end,
-                onChange = function(v)
-                    mod.db.font = v
-                    refreshLive()
-                end,
-                disabled = function()
-                    return powerDisabled() or mod.db.powerTextMode == "off"
-                end
-            })
-        end
-    }
-
     args.healthFontSize = {
-        order = 67,
+        order = 65,
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
@@ -545,7 +503,7 @@ local function buildResourcesTab(mod, isDisabled)
     }
 
     args.powerFontSize = {
-        order = 68,
+        order = 66,
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {

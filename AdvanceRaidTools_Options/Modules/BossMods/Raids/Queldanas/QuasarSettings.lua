@@ -10,14 +10,6 @@ local OUTLINE_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
-local function fontValues()
-    return E:MediaList("font")
-end
-
-local function statusbarValues()
-    return E:MediaList("statusbar")
-end
-
 local function borderValues()
     local t = E:MediaList("border")
     t["None"] = nil
@@ -171,18 +163,6 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {barWidth, barHeight})
 
-    local barTex = dropdown({
-        label = L["BossMods_DQBarTexture"],
-        values = statusbarValues,
-        get = function()
-            return mod.db.bar.texture
-        end,
-        onChange = function(v)
-            mod.db.bar.texture = v
-        end
-    })
-    y = row(y, {barTex})
-
     local safeCol = color({
         label = L["BossMods_DQSafeColor"],
         hasAlpha = true,
@@ -271,16 +251,6 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     -- Font
     y = section(y, "Font")
 
-    local fontFace = dropdown({
-        label = L["Font"],
-        values = fontValues,
-        get = function()
-            return mod.db.font.face
-        end,
-        onChange = function(v)
-            mod.db.font.face = v
-        end
-    })
     local fontSize = slider({
         label = L["FontSize"],
         min = 8,
@@ -293,8 +263,6 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
             mod.db.font.size = math.floor(v)
         end
     })
-    y = row(y, {fontFace, fontSize})
-
     local fontOutline = dropdown({
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -305,7 +273,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
             mod.db.font.outline = v
         end
     })
-    y = row(y, {fontOutline})
+    y = row(y, {fontSize, fontOutline})
 
     -- TTS
     y = section(y, "TextToSpeech")

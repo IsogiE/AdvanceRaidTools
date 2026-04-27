@@ -21,7 +21,6 @@ P.modules.QoL_Resources = {
     showHealthBorder = true,
     healthBorderColor = {0, 0, 0, 1},
     healthTextMode = "off",
-    healthFont = "Friz Quadrata TT",
     healthFontSize = 12,
 
     -- Power bar
@@ -31,7 +30,6 @@ P.modules.QoL_Resources = {
     showPowerBorder = true,
     powerBorderColor = {0, 0, 0, 1},
     powerTextMode = "off",
-    font = "Friz Quadrata TT",
     fontSize = 12
 }
 
@@ -236,7 +234,7 @@ function Resources:UpdatePowerText(bar)
         bar.artPowerText:SetPoint("CENTER", bar, "CENTER", 0, 0)
     end
     local fs = bar.artPowerText
-    fs:SetFont(E:FetchFont(db.font), db.fontSize or 12, "OUTLINE")
+    fs:SetFont(E:FetchModuleFont(), db.fontSize or 12, "OUTLINE")
     fs:Show()
 
     if mode == "percent" then
@@ -277,7 +275,7 @@ function Resources:UpdateHealthText(bar)
         bar.artHealthText:SetPoint("CENTER", bar, "CENTER", 0, 0)
     end
     local fs = bar.artHealthText
-    fs:SetFont(E:FetchFont(db.healthFont), db.healthFontSize or 12, "OUTLINE")
+    fs:SetFont(E:FetchModuleFont(), db.healthFontSize or 12, "OUTLINE")
     fs:Show()
 
     if mode == "percent" then
@@ -425,6 +423,7 @@ function Resources:OnEnable()
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "OnSpecChanged")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Apply")
+    self:RegisterMessage("ART_MEDIA_UPDATED", "Apply")
     self:Apply()
 end
 

@@ -35,10 +35,6 @@ local DECIMALS_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
-local function fontValues()
-    return E:MediaList("font")
-end
-
 local function borderValues()
     local t = E:MediaList("border")
     t["None"] = nil
@@ -360,16 +356,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     })
     y = row(rightPanel, y, widthPx, {countOx, countOy})
 
-    local countFont = dropdown({
-        label = L["Font"],
-        values = fontValues,
-        get = function()
-            return mod.db.style.count.face
-        end,
-        onChange = function(v)
-            mod.db.style.count.face = v
-        end
-    })
     local countSize = slider({
         label = L["FontSize"],
         min = 7,
@@ -382,8 +368,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.count.size = math.floor(v)
         end
     })
-    y = row(rightPanel, y, widthPx, {countFont, countSize})
-
     local countOutline = dropdown({
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -394,6 +378,8 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.count.outline = v
         end
     })
+    y = row(rightPanel, y, widthPx, {countSize, countOutline})
+
     local countColor = color({
         label = L["BossMods_CountColor"],
         hasAlpha = true,
@@ -404,7 +390,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.count.color = {r, g, b, a}
         end
     })
-    y = row(rightPanel, y, widthPx, {countOutline, countColor})
+    y = row(rightPanel, y, widthPx, {countColor})
 
     -- Timer
     y = section(rightPanel, y, widthPx, "BossMods_TimerSection")
@@ -457,16 +443,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     })
     y = row(rightPanel, y, widthPx, {timerOx, timerOy})
 
-    local timerFont = dropdown({
-        label = L["Font"],
-        values = fontValues,
-        get = function()
-            return mod.db.style.timer.face
-        end,
-        onChange = function(v)
-            mod.db.style.timer.face = v
-        end
-    })
     local timerSize = slider({
         label = L["FontSize"],
         min = 7,
@@ -479,8 +455,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.timer.size = math.floor(v)
         end
     })
-    y = row(rightPanel, y, widthPx, {timerFont, timerSize})
-
     local timerOutline = dropdown({
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -491,6 +465,8 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.timer.outline = v
         end
     })
+    y = row(rightPanel, y, widthPx, {timerSize, timerOutline})
+
     local timerColor = color({
         label = L["BossMods_TimerColor"],
         hasAlpha = true,
@@ -501,7 +477,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.timer.color = {r, g, b, a}
         end
     })
-    y = row(rightPanel, y, widthPx, {timerOutline, timerColor})
+    y = row(rightPanel, y, widthPx, {timerColor})
 
     local timerDecimals = dropdown({
         label = L["BossMods_TimerDecimals"],

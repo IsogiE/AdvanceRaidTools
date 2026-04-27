@@ -16,10 +16,6 @@ local JUSTIFY_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
-local function buildFontValues()
-    return E:MediaList("font")
-end
-
 local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
@@ -49,18 +45,6 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     y = y + T:PlaceFull(rightPanel, desc, y, widthPx) + ROW_GAP
 
     -- Font row
-    local fontFace = track(T:Dropdown(rightPanel, {
-        label = L["Font"],
-        values = buildFontValues,
-        get = function()
-            return mod.db.font.face
-        end,
-        onChange = function(v)
-            mod.db.font.face = v;
-            refreshLive()
-        end,
-        disabled = isDisabled
-    }))
     local fontSize = track(T:Slider(rightPanel, {
         label = L["FontSize"],
         min = 8,
@@ -76,8 +60,6 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = isDisabled
     }))
-    y = y + T:PlaceRow(rightPanel, {fontFace, fontSize}, y, widthPx) + ROW_GAP
-
     local fontOutline = track(T:Dropdown(rightPanel, {
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -90,6 +72,8 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = isDisabled
     }))
+    y = y + T:PlaceRow(rightPanel, {fontSize, fontOutline}, y, widthPx) + ROW_GAP
+
     local fontJustify = track(T:Dropdown(rightPanel, {
         label = L["BossMods_Justify"],
         values = JUSTIFY_VALUES,
@@ -102,7 +86,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = isDisabled
     }))
-    y = y + T:PlaceRow(rightPanel, {fontOutline, fontJustify}, y, widthPx) + ROW_GAP
+    y = y + T:PlaceRow(rightPanel, {fontJustify}, y, widthPx) + ROW_GAP
 
     local fontColor = track(T:ColorSwatch(rightPanel, {
         label = L["BossMods_FontColor"],

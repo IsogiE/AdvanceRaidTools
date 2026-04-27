@@ -39,7 +39,6 @@ P.modules.BossMods_LuraMap = {
         }
     },
     font = {
-        face = "Friz Quadrata TT",
         size = 10,
         outline = "OUTLINE"
     }

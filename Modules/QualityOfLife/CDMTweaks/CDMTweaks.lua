@@ -9,7 +9,6 @@ P.modules.QoL_CDMTweaks = {
     auraOverride = false,
     stackFontEnabled = false,
     stackFontViewer = "EssentialCooldownViewer",
-    stackFont = "Friz Quadrata TT",
     stackFontSize = 14,
     stackColor = {1, 1, 1, 1}
 }
@@ -107,7 +106,7 @@ end
 
 local function applyFontToItem(self_, item)
     local db = self_.db
-    local font = E:FetchFont(db.stackFont)
+    local font = E:FetchModuleFont()
     local r, g, b, a = E:ColorTuple(db.stackColor, 1, 1, 1, 1)
 
     for _, fs in ipairs(collectStackFontStrings(item)) do
@@ -509,6 +508,7 @@ function CDMTweaks:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "Apply")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Apply")
+    self:RegisterMessage("ART_MEDIA_UPDATED", "Apply")
     self:Apply()
 end
 

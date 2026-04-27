@@ -20,10 +20,6 @@ local AUDIO_TYPE_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
-local function fontValues()
-    return E:MediaList("font")
-end
-
 local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
@@ -126,16 +122,6 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     -- Text
     y = section(y, "BossMods_PDTextSection")
 
-    local fontFace = dropdown({
-        label = L["Font"],
-        values = fontValues,
-        get = function()
-            return mod.db.font.face
-        end,
-        onChange = function(v)
-            mod.db.font.face = v
-        end
-    })
     local fontSize = slider({
         label = L["FontSize"],
         min = 10,
@@ -148,8 +134,6 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
             mod.db.font.size = math.floor(v)
         end
     })
-    y = row(y, {fontFace, fontSize})
-
     local fontOutline = dropdown({
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -160,7 +144,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
             mod.db.font.outline = v
         end
     })
-    y = row(y, {fontOutline})
+    y = row(y, {fontSize, fontOutline})
 
     -- Colors
     y = section(y, "Colors")

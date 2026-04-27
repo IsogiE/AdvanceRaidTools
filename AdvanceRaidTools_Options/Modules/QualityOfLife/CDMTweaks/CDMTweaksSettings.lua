@@ -1,10 +1,6 @@
 local E, L = unpack(ART)
 local T = E.Templates
 
-local function sharedMediaValues(kind)
-    return E:MediaList(kind)
-end
-
 local function buildCDMTweaksTab(mod, isDisabled)
     local function refreshLive()
         mod:Refresh()
@@ -236,27 +232,8 @@ local function buildCDMTweaksTab(mod, isDisabled)
         return isDisabled() or not mod.db.stackFontEnabled
     end
 
-    args.stackFont = {
-        order = 44,
-        width = "1/2",
-        build = function(parent)
-            return T:Dropdown(parent, {
-                label = L["FontFamily"],
-                values = function() return sharedMediaValues("font") end,
-                get = function()
-                    return mod.db.stackFont
-                end,
-                onChange = function(v)
-                    mod.db.stackFont = v
-                    refreshLive()
-                end,
-                disabled = stackDisabled
-            })
-        end
-    }
-
     args.stackFontSize = {
-        order = 45,
+        order = 44,
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
@@ -278,7 +255,7 @@ local function buildCDMTweaksTab(mod, isDisabled)
     }
 
     args.stackColor = {
-        order = 46,
+        order = 45,
         width = "1/2",
         build = function(parent)
             return T:ColorSwatch(parent, {

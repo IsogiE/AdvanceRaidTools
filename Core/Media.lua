@@ -94,6 +94,10 @@ function E:FetchFont(name)
     return lsmFetch("font", name) or E.media.normFont or FALLBACK_FONT
 end
 
+function E:FetchModuleFont(name)
+    return lsmFetch("font", name) or E.media.moduleFont or E.media.normFont or FALLBACK_FONT
+end
+
 function E:FetchStatusBar(name)
     return lsmFetch("statusbar", name) or E.media.statusbarTexture or E.media.normTex or FALLBACK_STATUSBAR
 end

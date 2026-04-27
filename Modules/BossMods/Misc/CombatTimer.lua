@@ -8,7 +8,6 @@ P.modules.BossMods_CombatTimer = {
         y = 0
     },
     font = {
-        face = "Friz Quadrata TT",
         size = 20,
         outline = "OUTLINE",
         justify = "CENTER",
@@ -37,7 +36,6 @@ local function buildBarConfig(db)
         autoSize = true,
         autoSizePad = 6,
         center = {
-            face = db.font.face,
             size = db.font.size,
             outline = db.font.outline,
             justify = db.font.justify,

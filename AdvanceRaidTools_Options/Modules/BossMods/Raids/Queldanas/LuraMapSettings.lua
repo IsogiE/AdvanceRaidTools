@@ -10,10 +10,6 @@ local OUTLINE_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
-local function fontValues()
-    return E:MediaList("font")
-end
-
 -- Track which anchors are currently unlocked
 local function makeEditCoordinator(mod)
     local unlocked = {}
@@ -126,16 +122,6 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     -- Font
     y = section(y, "Font")
 
-    local fontFace = dropdown({
-        label = L["Font"],
-        values = fontValues,
-        get = function()
-            return mod.db.font.face
-        end,
-        onChange = function(v)
-            mod.db.font.face = v
-        end
-    })
     local fontSize = slider({
         label = L["FontSize"],
         min = 6,
@@ -148,8 +134,6 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             mod.db.font.size = math.floor(v)
         end
     })
-    y = row(y, {fontFace, fontSize})
-
     local fontOutline = dropdown({
         label = L["Outline"],
         values = OUTLINE_VALUES,
@@ -160,7 +144,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             mod.db.font.outline = v
         end
     })
-    y = row(y, {fontOutline})
+    y = row(y, {fontSize, fontOutline})
 
     -- Intermission
     y = section(y, "BossMods_LMIntermission")

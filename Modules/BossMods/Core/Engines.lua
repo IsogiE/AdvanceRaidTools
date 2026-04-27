@@ -6,8 +6,8 @@ local Engines = BossMods.Engines
 
 local WHITE = E.media.blankTex
 
-local function fetchFont(face)
-    return E:FetchFont(face)
+local function fetchFont()
+    return E:FetchModuleFont()
 end
 local function fetchStatusBar(tex)
     return E:FetchStatusBar(tex)
@@ -28,7 +28,7 @@ local function applyFontIfChanged(fs, font, size, outline)
 end
 
 local function applyFontTo(fs, style, parent, anchor)
-    applyFontIfChanged(fs, fetchFont(style.face), style.size or 12, style.outline or "")
+    applyFontIfChanged(fs, fetchFont(), style.size or 12, style.outline or "")
     fs:ClearAllPoints()
     local justify = style.justify or anchor.justify
     if justify == "CENTER" then
@@ -784,7 +784,7 @@ function Engines.AuraDisplay(config)
     end
 
     local function applyLabelStyle(fs, style)
-        applyFontIfChanged(fs, fetchFont(style.face), style.size or 11, style.outline or "OUTLINE")
+        applyFontIfChanged(fs, fetchFont(), style.size or 11, style.outline or "OUTLINE")
         local r, g, b, a = colorTuple(style.color, 1, 1, 1, 1)
         fs:SetTextColor(r, g, b, a)
         fs:ClearAllPoints()
@@ -1316,7 +1316,7 @@ function Engines.AssignmentList(config)
     local function applyFonts()
         local style = state.config.style or {}
         local font = style.font or {}
-        local fontPath = fetchFont(font.face)
+        local fontPath = fetchFont()
         local size = font.size or 12
         local outline = font.outline or "OUTLINE"
 
@@ -1496,7 +1496,7 @@ function Engines.TextAlert(config)
             frame:SetSize(c.size.w or 400, c.size.h or 80)
         end
         local font = c.font or {}
-        applyFontIfChanged(text, fetchFont(font.face), font.size or 28, font.outline or "OUTLINE")
+        applyFontIfChanged(text, fetchFont(), font.size or 28, font.outline or "OUTLINE")
         if font.color then
             local r, g, b, a = colorTuple(font.color, 1, 1, 1, 1)
             text:SetTextColor(r, g, b, a)
@@ -1824,7 +1824,7 @@ function Engines.RaidMap(spec)
 
     local function applyFontToNodes(anchorData)
         local font = (state.spec.style and state.spec.style.font) or {}
-        local fontPath = fetchFont(font.face)
+        local fontPath = fetchFont()
         local size = font.size or 10
         local outline = font.outline or "OUTLINE"
         for _, node in ipairs(anchorData.nodes) do

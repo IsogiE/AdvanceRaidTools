@@ -12,7 +12,6 @@ P.modules.BossMods_PalaDispel = {
         h = 80
     },
     font = {
-        face = "Friz Quadrata TT",
         size = 28,
         outline = "OUTLINE"
     },
@@ -91,7 +90,6 @@ local function buildAlertConfig(mod)
             h = db.size.h
         },
         font = {
-            face = db.font.face,
             size = db.font.size,
             outline = db.font.outline,
             color = {1, 1, 1, 1}
