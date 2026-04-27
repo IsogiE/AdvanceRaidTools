@@ -146,7 +146,6 @@ end
 local function updateResultRow(m, row, item)
     local entry = item.entry
     local st = m:GetEntryStatus(entry)
-    local latest = m:GetLatestVersion()
 
     if st == "up_to_date" or st == "outdated" or st == "missing" then
         applyIcon(row._icon, st)
@@ -161,8 +160,7 @@ local function updateResultRow(m, row, item)
     if st == "up_to_date" then
         vtext = CP.ok .. (entry.version or "-") .. "|r"
     elseif st == "outdated" then
-        vtext = ("%s%s|r  %s(%s %s)|r"):format(CP.outdated, entry.version or "-", CP.dim, L["AddonCheckerLatest"],
-            latest or "?")
+        vtext = CP.outdated .. (entry.version or "-") .. "|r"
     elseif st == "missing" then
         vtext = CP.missing .. L["NotInstalled"] .. "|r"
     elseif st == "pending" then
