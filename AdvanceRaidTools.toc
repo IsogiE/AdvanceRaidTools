@@ -38,8 +38,6 @@ Modules\RaidGroups\RaidGroups.lua
 
 Modules\Currency\Currency.lua
 
-Modules\Version\VersionChecker.lua
-
 Modules\AddonChecker\AddonChecker.lua
 
 Modules\Notes\Notes.lua

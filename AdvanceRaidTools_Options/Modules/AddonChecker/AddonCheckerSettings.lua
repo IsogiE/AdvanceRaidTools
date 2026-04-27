@@ -63,7 +63,7 @@ local function reportCheckError(err)
     if err == "NO_ADDON" then
         E:Printf(L["AddonCheckerPickOne"])
     elseif err == "NO_CONTEXT" then
-        E:Printf(L["VersionCheckNoContext"])
+        E:Printf(L["CheckerNoContext"])
     elseif err == "TOO_SOON" then
         E:Printf(L["CheckTooSoon"])
     else

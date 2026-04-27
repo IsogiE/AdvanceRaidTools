@@ -1,11 +1,12 @@
 local E, L, P = unpack(ART)
 
-local DEFAULT_ADDONS = {"BigWigs", "NorthernSkyRaidTools", "RCLootCouncil", "SharedMedia_Causese", "TimelineReminders"}
+local DEFAULT_ADDONS = {"AdvanceRaidTools", "BigWigs", "NorthernSkyRaidTools", "RCLootCouncil", "SharedMedia_Causese",
+                        "TimelineReminders"}
 
 P.modules.AddonChecker = {
     enabled = true,
     timeoutSeconds = 5,
-    lastAddon = nil -- last checked addon, restores the dropdown on reopen
+    lastAddon = "AdvanceRaidTools"
 }
 
 local AddonChecker = E:NewChecker("AddonChecker", {

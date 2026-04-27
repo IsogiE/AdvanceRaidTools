@@ -23,8 +23,6 @@ Modules\RaidGroups\RaidGroupSettings.lua
 
 Modules\Currency\CurrencySettings.lua
 
-Modules\Version\VersionCheckerSettings.lua
-
 Modules\AddonChecker\AddonCheckerSettings.lua
 
 Modules\Notes\NoteSettings.lua

@@ -202,7 +202,6 @@ L["DebugOff"] = "|cffff7777off|r"
 L["Home"] = "Home"
 L["Nicknames"] = "Nicknames"
 L["RaidGroups"] = "Raid Groups"
-L["VersionChecker"] = "Version Checker"
 L["CurrencyChecker"] = "Currency Checker"
 L["AddonChecker"] = "Addon Checker"
 L["Profiles"] = "Profiles"
@@ -257,8 +256,9 @@ L["Grid2_desc"] = "Nicknames on Grid2"
 L["Unhalted Unit Frames_desc"] = "Nicknames on Unhalted Unit Frames"
 L["VuhDo_desc"] = "Nicknames on VuhDo"
 
--- VersionCheckerSettings.lua / CurrencySettings.lua
+-- AddonCheckerSettings.lua / CurrencySettings.lua
 L["RunCheck"] = "Run a Check"
+L["CheckerNoContext"] = "Not in a group or guild :sadge:"
 L["Target"] = "Target"
 L["SortBy"] = "Sort By"
 L["StartCheck"] = "Start Check"
@@ -277,12 +277,6 @@ L["SortByStatus"] = "Status"
 L["SortByVersion"] = "Version"
 L["SortByName"] = "Name"
 L["SortByAmount"] = "Amount"
-
--- VersionChecker
-L["VersionCheckerDesc"] = "See who in the group is on what version of ART, and who doesn't have it at all"
-L["VersionCheckEmpty"] = "Hit Start Check to scan the group"
-L["VersionCheckNoContext"] = "Not in a group or guild :sadge:"
-L["VersionCheckFailed"] = "Version check failed: %s"
 
 -- Currency
 L["CurrencyCheckerDesc"] =
