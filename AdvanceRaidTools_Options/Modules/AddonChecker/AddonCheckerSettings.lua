@@ -186,10 +186,7 @@ local function exportResults(m)
         return nil
     end
 
-    local lines = {}
-    local header = ("%s - %s"):format(state.addonName, state.context or "?")
-    lines[#lines + 1] = header
-    lines[#lines + 1] = string.rep("=", #header)
+    local lines = {state.addonName}
 
     local latest = m:GetLatestVersion()
     for _, item in ipairs(m:GetSortedResults()) do

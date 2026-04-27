@@ -300,10 +300,6 @@ L["Favorited"] = "favorited"
 L["SaveFavorite"] = "Save Favorite"
 L["SaveFavoriteDesc"] = "Pin the current currency. Already pinned? This un-pins it"
 L["RemoveFavorite"] = "Remove Favorite"
-L["Sum"] = "Sum"
-L["Avg"] = "Avg"
-L["Min"] = "Min"
-L["Max"] = "Max"
 
 -- AddonChecker
 L["AddonCheckerDesc"] = "See who in the group has a specific addon loaded and whether it's up-to-date"

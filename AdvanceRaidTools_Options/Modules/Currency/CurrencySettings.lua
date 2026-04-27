@@ -141,16 +141,8 @@ local function getStatusText(m)
     end
 
     if state.completedAt > 0 then
-        local s = m:GetStats()
         local icon = state.currencyIcon and ("|T" .. state.currencyIcon .. ":16:16:0:0|t ") or ""
-        local parts = {icon .. "|cffffffff" .. (state.currencyName or "?") .. "|r"}
-        if s.count > 0 then
-            parts[#parts + 1] = L["Sum"] .. ": " .. E:FormatAmount(s.sum)
-            parts[#parts + 1] = L["Avg"] .. ": " .. E:FormatAmount(s.avg)
-            parts[#parts + 1] = L["Min"] .. ": " .. E:FormatAmount(s.min)
-            parts[#parts + 1] = L["Max"] .. ": " .. E:FormatAmount(s.max)
-        end
-        return table.concat(parts, "    ")
+        return icon .. "|cffffffff" .. (state.currencyName or "?") .. "|r"
     end
 
     return ""
@@ -165,11 +157,7 @@ local function exportResults(m)
         return nil
     end
 
-    local lines = {}
-    local header = ("Currency: %s (ID %d) — %s"):format(state.currencyName or "?", state.currencyID,
-        state.context or "?")
-    lines[#lines + 1] = header
-    lines[#lines + 1] = string.rep("=", #header)
+    local lines = {("Currency: %s"):format(state.currencyName or "?")}
 
     local list = m:GetSortedResults("amount")
     for _, item in ipairs(list) do
@@ -184,13 +172,6 @@ local function exportResults(m)
         elseif entry.status == m.STATUS_PENDING then
             lines[#lines + 1] = ("%s: (pending)"):format(name)
         end
-    end
-
-    local s = m:GetStats()
-    if s.count > 0 then
-        lines[#lines + 1] = ""
-        lines[#lines + 1] = ("Sum: %s | Avg: %s | Min: %s | Max: %s"):format(E:FormatAmount(s.sum),
-            E:FormatAmount(s.avg), E:FormatAmount(s.min), E:FormatAmount(s.max))
     end
 
     return table.concat(lines, "\n")

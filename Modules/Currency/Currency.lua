@@ -159,37 +159,6 @@ end
 
 -- Query
 
-function Currency:GetStats()
-    local s = {
-        count = 0,
-        sum = 0,
-        avg = 0,
-        min = nil,
-        max = nil
-    }
-    if not (self.state and self.state.results) then
-        s.min = 0;
-        s.max = 0;
-        return s
-    end
-    for _, e in pairs(self.state.results) do
-        if e.status == self.STATUS_RESPONDED and type(e.amount) == "number" then
-            s.count = s.count + 1
-            s.sum = s.sum + e.amount
-            if not s.min or e.amount < s.min then
-                s.min = e.amount
-            end
-            if not s.max or e.amount > s.max then
-                s.max = e.amount
-            end
-        end
-    end
-    s.avg = s.count > 0 and math.floor(s.sum / s.count) or 0
-    s.min = s.min or 0
-    s.max = s.max or 0
-    return s
-end
-
 function Currency:GetSortedResults(sortMode)
     local list = {}
     if not (self.state and self.state.results) then
