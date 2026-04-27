@@ -14,7 +14,9 @@ P.modules.BossMods_CombatTimer = {
         color = {1, 1, 1, 1}
     },
     background = {
-        color = {0, 0, 0, 0}
+        enabled = false,
+        color = {0, 0, 0},
+        opacity = 0.5
     },
     border = {
         enabled = false,
@@ -29,19 +31,28 @@ local CombatTimer = E:NewModule("BossMods_CombatTimer", "AceEvent-3.0")
 local BM
 
 local function buildBarConfig(db)
+    local bg = db.background
+    local bgC = bg.color or {}
+    local bgR = bgC[1] or bgC.r or 0
+    local bgG = bgC[2] or bgC.g or 0
+    local bgB = bgC[3] or bgC.b or 0
+    local bgA = bg.enabled and (bg.opacity or 0.5) or 0
     return {
         parent = UIParent,
         showFill = false,
         strata = "HIGH",
         autoSize = true,
         autoSizePad = 6,
+        centerVisualBias = true,
         center = {
             size = db.font.size,
             outline = db.font.outline,
-            justify = db.font.justify,
+            justify = "CENTER",
             color = db.font.color
         },
-        background = db.background,
+        background = {
+            color = {bgR, bgG, bgB, bgA}
+        },
         border = db.border
     }
 end

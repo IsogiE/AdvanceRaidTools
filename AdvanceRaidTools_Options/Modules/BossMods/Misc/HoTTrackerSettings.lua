@@ -145,6 +145,58 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     }))
     y = full(rightPanel, y, widthPx, desc)
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
+    -- Enables (bundled near the top)
+    local enableBg = checkbox({
+        text = L["BossMods_BgEnable"],
+        labelTop = true,
+        get = function()
+            return mod.db.style.background.enabled
+        end,
+        onChange = function(v)
+            mod.db.style.background.enabled = v
+        end
+    })
+    local enableBorder = checkbox({
+        text = L["BossMods_BorderEnable"],
+        labelTop = true,
+        get = function()
+            return mod.db.style.border.enabled
+        end,
+        onChange = function(v)
+            mod.db.style.border.enabled = v
+        end
+    })
+    local enableCount = checkbox({
+        text = L["BossMods_CountEnable"],
+        labelTop = true,
+        get = function()
+            return mod.db.style.count.enabled
+        end,
+        onChange = function(v)
+            mod.db.style.count.enabled = v
+        end
+    })
+    local enableTimer = checkbox({
+        text = L["BossMods_TimerEnable"],
+        labelTop = true,
+        get = function()
+            return mod.db.style.timer.enabled
+        end,
+        onChange = function(v)
+            mod.db.style.timer.enabled = v
+        end
+    })
+    y = row(rightPanel, y, widthPx, {enableBg, enableBorder, enableCount, enableTimer})
+
     -- Visibility
     y = section(rightPanel, y, widthPx, "BossMods_Visibility")
 
@@ -206,16 +258,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     -- Background
     y = section(rightPanel, y, widthPx, "Background")
 
-    local bgEnable = checkbox({
-        text = L["BossMods_BgEnable"],
-        labelTop = true,
-        get = function()
-            return mod.db.style.background.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.background.enabled = v
-        end
-    })
     local bgOpacity = slider({
         label = L["BackgroundOpacity"],
         min = 0,
@@ -228,8 +270,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.background.opacity = v
         end
     })
-    y = row(rightPanel, y, widthPx, {bgEnable, bgOpacity})
-
     local bgColor = color({
         label = L["BossMods_BgColor"],
         hasAlpha = false,
@@ -240,21 +280,11 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.background.color = {r, g, b}
         end
     })
-    y = row(rightPanel, y, widthPx, {bgColor})
+    y = row(rightPanel, y, widthPx, {bgOpacity, bgColor})
 
     -- Border
     y = section(rightPanel, y, widthPx, "Border")
 
-    local borderEnable = checkbox({
-        text = L["BossMods_BorderEnable"],
-        labelTop = true,
-        get = function()
-            return mod.db.style.border.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.border.enabled = v
-        end
-    })
     local borderTex = dropdown({
         label = L["BossMods_BorderTexture"],
         values = borderValues,
@@ -265,7 +295,8 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.border.texture = v
         end
     })
-    y = row(rightPanel, y, widthPx, {borderEnable, borderTex})
+
+    y = row(rightPanel, y, widthPx, {borderTex})
 
     local borderSize = slider({
         label = L["BossMods_BorderSize"],
@@ -308,16 +339,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     -- Count
     y = section(rightPanel, y, widthPx, "BossMods_CountSection")
 
-    local countEnable = checkbox({
-        text = L["BossMods_CountEnable"],
-        labelTop = true,
-        get = function()
-            return mod.db.style.count.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.count.enabled = v
-        end
-    })
     local countAnchor = dropdown({
         label = L["BossMods_Anchor"],
         values = ANCHOR_VALUES,
@@ -328,7 +349,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.count.anchor = v
         end
     })
-    y = row(rightPanel, y, widthPx, {countEnable, countAnchor})
+    y = row(rightPanel, y, widthPx, {countAnchor})
 
     local countOx = slider({
         label = L["BossMods_OffsetX"],
@@ -395,16 +416,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     -- Timer
     y = section(rightPanel, y, widthPx, "BossMods_TimerSection")
 
-    local timerEnable = checkbox({
-        text = L["BossMods_TimerEnable"],
-        labelTop = true,
-        get = function()
-            return mod.db.style.timer.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.timer.enabled = v
-        end
-    })
     local timerAnchor = dropdown({
         label = L["BossMods_Anchor"],
         values = ANCHOR_VALUES,
@@ -415,7 +426,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.timer.anchor = v
         end
     })
-    y = row(rightPanel, y, widthPx, {timerEnable, timerAnchor})
+    y = row(rightPanel, y, widthPx, {timerAnchor})
 
     local timerOx = slider({
         label = L["BossMods_OffsetX"],
@@ -544,10 +555,8 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             y = 150
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            mod:SetEditMode(v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = posNewY
 
@@ -559,6 +568,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         Refresh = tracker.refresh,
         Release = function()
             posHandle.Release()
+            unlockCtrl:Release()
             tracker.release()
         end
     }

@@ -532,6 +532,8 @@ L["BossMods_LMMain"] = "P2 Map"
 L["BossMods_LMIntermissionPosition"] = "Intermission Position"
 L["BossMods_LMMainPosition"] = "P2 Position"
 L["BossMods_LMEnableLayout"] = "Enable"
+L["BossMods_LMEnableIntermission"] = "Enable Intermission"
+L["BossMods_LMEnableMain"] = "Enable P2"
 
 -- BossMods: Queldanas -> Dirge
 L["BossMods_Dirge"] = "L'ura Memory Game"

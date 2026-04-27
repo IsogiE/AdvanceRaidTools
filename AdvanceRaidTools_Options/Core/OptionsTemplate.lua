@@ -365,9 +365,36 @@ function T:Description(parent, opts)
 
     local lastText = tostring(evalMaybeFn(opts.text) or "")
     local function measure()
-        local h = fs:GetStringHeight() or 0
-        if not h or h <= 0 then
-            h = fontSize() + 4
+        local sizeBias = (opts.sizeDelta or 0)
+        local size = (fontSize() or 12) + sizeBias
+        local lineH = size + 2
+
+        local availW = f:GetWidth() or 0
+        if availW <= 0 then
+            availW = fs:GetWidth() or 0
+        end
+
+        local unbounded = 0
+        if fs.GetUnboundedStringWidth then
+            unbounded = fs:GetUnboundedStringWidth() or 0
+        end
+        if unbounded <= 0 then
+            local text = fs:GetText() or ""
+            unbounded = #text * size * 0.5
+        end
+
+        local lines = 1
+        if availW > 0 and unbounded > 0 then
+            lines = math.max(1, math.ceil(unbounded / availW))
+        end
+        local h = lines * lineH
+
+        local reported = fs:GetStringHeight() or 0
+        if reported > h then
+            h = reported
+        end
+        if h <= 0 then
+            h = lineH
         end
         return math.max(h + 6, minH)
     end
@@ -3559,6 +3586,140 @@ end
 local POSITION_SECTION_HEADER_GAP = 10
 local POSITION_SECTION_ROW_GAP = 6
 
+-- =============================================================================
+-- T:UnlockController(parent, yOffset, widthPx, opts)
+-- opts:
+--   tracker            outer tracker for refresh integration
+--   isDisabled         function() -> bool. Grays out the toggle (module disabled).
+--   label              shown on movable ghosts when no per-anchor label supplied
+--   onEditModeChanged  function(bool) — fires when toggled
+--
+-- Returns (newY, controller). controller exposes:
+--   :Attach(movable)       — register a MovableFrame handle to lock/unlock as a group
+--   :IsUnlocked()
+--   :SetUnlocked(bool)
+--   :Refresh()             — reconciles state with isDisabled (auto-locks if disabled)
+--   :Release()
+-- =============================================================================
+function T:UnlockController(parent, yOffset, widthPx, opts)
+    opts = opts or {}
+
+    local own = {}
+    local outerTracker = opts.tracker
+    local function trackOwn(w)
+        own[#own + 1] = w
+        if outerTracker and outerTracker.track then
+            outerTracker.track(w)
+        end
+        return w
+    end
+
+    local isDisabled = opts.isDisabled or function()
+        return false
+    end
+
+    local controller = {
+        movables = {},
+        unlocked = false
+    }
+
+    local unlockCheck
+
+    function controller:Attach(movable)
+        if not movable then
+            return
+        end
+        self.movables[#self.movables + 1] = movable
+        if self.unlocked then
+            movable:SetUnlocked(true)
+        end
+    end
+
+    function controller:IsUnlocked()
+        return self.unlocked
+    end
+
+    function controller:SetUnlocked(v)
+        v = v and true or false
+        if v == self.unlocked then
+            return
+        end
+        self.unlocked = v
+        for _, m in ipairs(self.movables) do
+            m:SetUnlocked(v)
+        end
+        if opts.onEditModeChanged then
+            opts.onEditModeChanged(v)
+        end
+        if unlockCheck and unlockCheck.Refresh then
+            unlockCheck.Refresh()
+        end
+    end
+
+    function controller:Refresh()
+        if isDisabled() and self.unlocked then
+            self:SetUnlocked(false)
+        end
+    end
+
+    function controller:Release()
+        for _, m in ipairs(self.movables) do
+            m:Release()
+        end
+        wipe(self.movables)
+        if self.unlocked then
+            self.unlocked = false
+            if opts.onEditModeChanged then
+                opts.onEditModeChanged(false)
+            end
+        end
+        for _, w in ipairs(own) do
+            if w.frame then
+                w.frame:Hide()
+                w.frame:SetParent(nil)
+                w.frame:ClearAllPoints()
+            end
+        end
+        wipe(own)
+    end
+
+    unlockCheck = trackOwn(T:Checkbox(parent, {
+        text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+        labelTop = true,
+        tooltip = {
+            title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+            desc = L["BossMods_UnlockFrameDesc"] or ""
+        },
+        get = function()
+            return controller.unlocked
+        end,
+        onChange = function(_, v)
+            controller:SetUnlocked(v)
+        end,
+        disabled = isDisabled
+    }))
+
+    local origRefresh = unlockCheck.Refresh
+    unlockCheck.Refresh = function()
+        if isDisabled() and controller.unlocked then
+            controller.unlocked = false
+            for _, m in ipairs(controller.movables) do
+                m:SetUnlocked(false)
+            end
+            if opts.onEditModeChanged then
+                opts.onEditModeChanged(false)
+            end
+        end
+        if origRefresh then
+            origRefresh()
+        end
+    end
+
+    local newY = yOffset + T:PlaceRow(parent, {unlockCheck}, yOffset, widthPx) + POSITION_SECTION_ROW_GAP
+
+    return newY, controller
+end
+
 function T:PositionSection(parent, yOffset, widthPx, opts)
     opts = opts or {}
     assert(type(opts.getPosition) == "function", "PositionSection: getPosition required")
@@ -3578,10 +3739,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         return false
     end
 
-    local header = trackOwn(T:Header(parent, {
-        text = opts.headerText or (L["Position"] or "Position")
-    }))
-    local newY = yOffset + T:PlaceFull(parent, header, yOffset, widthPx) + POSITION_SECTION_HEADER_GAP
+    local newY = yOffset
 
     local movable
     if opts.anchor then
@@ -3591,42 +3749,6 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             setPosition = opts.setPosition,
             onChanged = opts.onChanged
         })
-    end
-
-    local unlockCheck = trackOwn(T:Checkbox(parent, {
-        text = L["BossMods_UnlockFrame"] or "Unlock Frame",
-        labelTop = true,
-        tooltip = {
-            title = L["BossMods_UnlockFrame"] or "Unlock Frame",
-            desc = L["BossMods_UnlockFrameDesc"] or ""
-        },
-        get = function()
-            return movable and movable:IsUnlocked() or false
-        end,
-        onChange = function(_, v)
-            if movable then
-                movable:SetUnlocked(v)
-            end
-            if opts.onEditModeChanged then
-                opts.onEditModeChanged(v)
-            end
-        end,
-        disabled = function()
-            return isDisabled() or not movable
-        end
-    }))
-
-    local origUnlockRefresh = unlockCheck.Refresh
-    unlockCheck.Refresh = function()
-        if isDisabled() and movable and movable:IsUnlocked() then
-            movable:SetUnlocked(false)
-            if opts.onEditModeChanged then
-                opts.onEditModeChanged(false)
-            end
-        end
-        if origUnlockRefresh then
-            origUnlockRefresh()
-        end
     end
 
     local resetBtn = trackOwn(T:LabelAlignedButton(parent, {
@@ -3649,18 +3771,60 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         disabled = isDisabled
     }))
 
-    newY = newY + T:PlaceRow(parent, {unlockCheck, resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
+    if opts.unlockController then
+        if movable then
+            opts.unlockController:Attach(movable)
+        end
+        newY = newY + T:PlaceRow(parent, {resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
+    else
+        local unlockCheck = trackOwn(T:Checkbox(parent, {
+            text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+            labelTop = true,
+            tooltip = {
+                title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                desc = L["BossMods_UnlockFrameDesc"] or ""
+            },
+            get = function()
+                return movable and movable:IsUnlocked() or false
+            end,
+            onChange = function(_, v)
+                if movable then
+                    movable:SetUnlocked(v)
+                end
+                if opts.onEditModeChanged then
+                    opts.onEditModeChanged(v)
+                end
+            end,
+            disabled = function()
+                return isDisabled() or not movable
+            end
+        }))
+
+        local origUnlockRefresh = unlockCheck.Refresh
+        unlockCheck.Refresh = function()
+            if isDisabled() and movable and movable:IsUnlocked() then
+                movable:SetUnlocked(false)
+                if opts.onEditModeChanged then
+                    opts.onEditModeChanged(false)
+                end
+            end
+            if origUnlockRefresh then
+                origUnlockRefresh()
+            end
+        end
+
+        newY = newY + T:PlaceRow(parent, {unlockCheck, resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
+    end
 
     return newY, {
         movable = movable,
         widgets = own,
         Release = function()
-            if movable then
+            if movable and not opts.unlockController then
                 movable:Release()
                 movable = nil
             end
-            if opts.onEditModeChanged then
-                -- Always lock on panel teardown so combat doesn't happen with a ghost overlay or a placeholder icon still active
+            if opts.onEditModeChanged and not opts.unlockController then
                 opts.onEditModeChanged(false)
             end
             for _, w in ipairs(own) do

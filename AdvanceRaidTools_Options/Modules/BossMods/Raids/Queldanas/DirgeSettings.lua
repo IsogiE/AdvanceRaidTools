@@ -16,18 +16,6 @@ local function borderValues()
     return t
 end
 
-local function makeEditCoordinator(mod)
-    local unlocked = {}
-    return function(anchorKey, v)
-        if v then
-            unlocked[anchorKey] = true
-        else
-            unlocked[anchorKey] = nil
-        end
-        mod:SetEditMode(next(unlocked) ~= nil, unlocked)
-    end
-end
-
 local function buildDirgeBody(rightPanel, mod, isDisabled)
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
@@ -41,8 +29,6 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         mod:CallIfEnabled("Refresh")
         refreshPanel()
     end
-
-    local editChanged = makeEditCoordinator(mod)
 
     local function slider(opts)
         return track(T:Slider(rightPanel, {
@@ -126,6 +112,15 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
     -- Buttons
     y = section(y, "BossMods_DirgeButtonsSection")
 
@@ -177,41 +172,6 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {clickthrough, kbPos})
 
-    -- Button order
-    y = section(y, "BossMods_DirgeOrderSection")
-
-    local SHAPE_NAMES = {"4", "6", "7", "2", "3", "5"}
-    local orderRow = {}
-    for i = 1, 6 do
-        orderRow[#orderRow + 1] = slider({
-            label = (L["Shape"] or "Shape ") .. SHAPE_NAMES[i],
-            min = 1,
-            max = 6,
-            step = 1,
-            get = function()
-                local o = mod.db.buttons.order
-                return o and o[i] or i
-            end,
-            onChange = function(v)
-                local o = mod.db.buttons.order
-                if not o then
-                    o = {1, 2, 3, 4, 5, 6}
-                    mod.db.buttons.order = o
-                end
-                local old = o[i]
-                for j = 1, 6 do
-                    if j ~= i and o[j] == v then
-                        o[j] = old;
-                        break
-                    end
-                end
-                o[i] = v
-            end
-        })
-    end
-    y = row(y, {orderRow[1], orderRow[2], orderRow[3]})
-    y = row(y, {orderRow[4], orderRow[5], orderRow[6]})
-
     local btnPosY, btnHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = frames and frames.barAnchor,
         label = L["BossMods_DirgeButtons"],
@@ -234,10 +194,8 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
             y = -150
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            editChanged("buttons", v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = btnPosY
     posHandles[#posHandles + 1] = btnHandle
@@ -338,10 +296,8 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
             y = 50
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            editChanged("squad", v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = squadPosY
     posHandles[#posHandles + 1] = squadHandle
@@ -442,10 +398,8 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
             y = 50
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            editChanged("bar", v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = barPosY
     posHandles[#posHandles + 1] = barHandle
@@ -494,6 +448,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
             for _, h in ipairs(posHandles) do
                 h.Release()
             end
+            unlockCtrl:Release()
             tracker.release()
         end
     }

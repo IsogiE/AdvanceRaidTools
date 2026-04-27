@@ -11,8 +11,7 @@ P.modules.BossMods_Dirge = {
         scale = 1.0,
         opacity = 1.0,
         clickthrough = false,
-        keybindLabelPos = "below",
-        order = {1, 2, 3, 4, 5, 6}
+        keybindLabelPos = "below"
     },
     squad = {
         position = {
@@ -162,6 +161,8 @@ local Dirge = E:NewModule("BossMods_Dirge", "AceEvent-3.0", "AceTimer-3.0")
 
 local BossMods
 
+local WHITE = [[Interface\Buttons\WHITE8x8]]
+
 local function applyBackdrop(frame, bgAlpha, border)
     local enabled = border.enabled and true or false
     local edgeFile = E:FetchBorder(border.texture)
@@ -169,22 +170,25 @@ local function applyBackdrop(frame, bgAlpha, border)
     local isPixel = (edgeFile == E.media.blankTex)
     local r, g, b, a = E:ColorTuple(border.color, 1, 1, 1, 1)
 
+    if not frame._bgTex then
+        frame._bgTex = frame:CreateTexture(nil, "BACKGROUND")
+        frame._bgTex:SetTexture(WHITE)
+        frame._bgTex:SetAllPoints(frame)
+    end
+    frame._bgTex:SetVertexColor(0, 0, 0, bgAlpha)
+
     if enabled and not isPixel then
         if frame._artBdMode ~= "edge" or frame._artBdEdgeFile ~= edgeFile or frame._artBdEdgeSize ~= edgeSize then
-            frame.backdropInfo = {
-                bgFile = [[Interface\ChatFrame\ChatFrameBackground]],
+            frame:SetBackdrop({
                 edgeFile = edgeFile,
-                tile = true,
-                tileSize = 16,
                 edgeSize = edgeSize,
                 insets = {
-                    left = 3,
-                    right = 3,
-                    top = 3,
-                    bottom = 3
+                    left = 0,
+                    right = 0,
+                    top = 0,
+                    bottom = 0
                 }
-            }
-            frame:ApplyBackdrop()
+            })
             frame._artBdMode = "edge"
             frame._artBdEdgeFile = edgeFile
             frame._artBdEdgeSize = edgeSize
@@ -194,20 +198,9 @@ local function applyBackdrop(frame, bgAlpha, border)
             enabled = false
         })
     else
-        if frame._artBdMode ~= "bg" then
-            frame.backdropInfo = {
-                bgFile = [[Interface\ChatFrame\ChatFrameBackground]],
-                tile = true,
-                tileSize = 16,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
-            }
-            frame:ApplyBackdrop()
-            frame._artBdMode = "bg"
+        if frame._artBdMode ~= "none" then
+            frame:SetBackdrop(nil)
+            frame._artBdMode = "none"
             frame._artBdEdgeFile = nil
             frame._artBdEdgeSize = nil
         end
@@ -221,8 +214,6 @@ local function applyBackdrop(frame, bgAlpha, border)
             a = a
         })
     end
-
-    frame:SetBackdropColor(0, 0, 0, bgAlpha)
 end
 
 -- Frame construction
@@ -380,10 +371,9 @@ function Dirge:ApplySettings()
         f.barAnchor:ClearAllPoints()
         f.barAnchor:SetPoint(pb.point or "CENTER", UIParent, pb.point or "CENTER", pb.x or 0, pb.y or 0)
 
-        local order = db.buttons.order or {1, 2, 3, 4, 5, 6}
         for j = 1, 6 do
             f.secureButtons[j]:ClearAllPoints()
-            f.secureButtons[j]:SetPoint("LEFT", f.barAnchor, "LEFT", ((order[j] or j) - 1) * 45, 0)
+            f.secureButtons[j]:SetPoint("LEFT", f.barAnchor, "LEFT", (j - 1) * 45, 0)
         end
 
         self:ApplyClickthrough()
@@ -1082,6 +1072,13 @@ function Dirge:SetEditMode(v, visibleKeys)
         return
     end
     self.editMode = v and true or false
+    if visibleKeys == nil and self.editMode then
+        visibleKeys = {
+            buttons = true,
+            squad = true,
+            bar = true
+        }
+    end
     self.editVisible = (self.editMode and visibleKeys) or {}
     if not self.frames then
         return

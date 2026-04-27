@@ -119,6 +119,15 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
     -- Text
     y = section(y, "BossMods_PDTextSection")
 
@@ -381,10 +390,8 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
             y = 0
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            mod:SetEditMode(v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = posNewY
 
@@ -396,6 +403,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
         Refresh = tracker.refresh,
         Release = function()
             posHandle.Release()
+            unlockCtrl:Release()
             tracker.release()
         end
     }

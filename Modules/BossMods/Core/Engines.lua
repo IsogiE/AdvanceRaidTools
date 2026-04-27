@@ -132,6 +132,13 @@ function Engines.Bar(config)
             return
         end
         frame:SetSize(sw + pad * 2, sh + pad * 2)
+        centerFS:ClearAllPoints()
+        if config.centerVisualBias then
+            local bias = math.max(0, math.floor(sh * 0.12) - 2)
+            centerFS:SetPoint("CENTER", frame, "CENTER", 0, -bias)
+        else
+            centerFS:SetPoint("CENTER", frame, "CENTER", 0, 0)
+        end
     end
 
     function handle:SetCenter(text)
@@ -1262,16 +1269,14 @@ function Engines.AssignmentList(config)
         if enabled and not isPixel then
             if display._artBdMode ~= "edge" or display._artBdEdgeFile ~= edgeFile or display._artBdEdgeSize ~= edgeSize then
                 display:SetBackdrop({
-                    bgFile = [[Interface\ChatFrame\ChatFrameBackground]],
+                    bgFile = WHITE,
                     edgeFile = edgeFile,
-                    tile = true,
-                    tileSize = 16,
                     edgeSize = edgeSize,
                     insets = {
-                        left = 3,
-                        right = 3,
-                        top = 3,
-                        bottom = 3
+                        left = 1,
+                        right = 1,
+                        top = 1,
+                        bottom = 1
                     }
                 })
                 display._artBdMode = "edge"
@@ -1285,9 +1290,7 @@ function Engines.AssignmentList(config)
         else
             if display._artBdMode ~= "bg" then
                 display:SetBackdrop({
-                    bgFile = [[Interface\ChatFrame\ChatFrameBackground]],
-                    tile = true,
-                    tileSize = 16,
+                    bgFile = WHITE,
                     insets = {
                         left = 0,
                         right = 0,

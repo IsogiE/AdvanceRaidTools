@@ -10,19 +10,6 @@ local OUTLINE_VALUES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
--- Track which anchors are currently unlocked
-local function makeEditCoordinator(mod)
-    local unlocked = {}
-    return function(anchorKey, v)
-        if v then
-            unlocked[anchorKey] = true
-        else
-            unlocked[anchorKey] = nil
-        end
-        mod:SetEditMode(next(unlocked) ~= nil, unlocked)
-    end
-end
-
 local function buildLuraMapBody(rightPanel, mod, isDisabled)
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
@@ -36,8 +23,6 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         mod:CallIfEnabled("Refresh")
         refreshPanel()
     end
-
-    local editChanged = makeEditCoordinator(mod)
 
     local function slider(opts)
         return track(T:Slider(rightPanel, {
@@ -119,6 +104,38 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
+    -- Enables
+    local intEnable = checkbox({
+        text = L["BossMods_LMEnableIntermission"] or (L["BossMods_LMIntermission"] .. " " .. L["Enable"]),
+        labelTop = true,
+        get = function()
+            return mod.db.anchors.intermission.enabled
+        end,
+        onChange = function(v)
+            mod.db.anchors.intermission.enabled = v
+        end
+    })
+    local mainEnable = checkbox({
+        text = L["BossMods_LMEnableMain"] or (L["BossMods_LMMain"] .. " " .. L["Enable"]),
+        labelTop = true,
+        get = function()
+            return mod.db.anchors.main.enabled
+        end,
+        onChange = function(v)
+            mod.db.anchors.main.enabled = v
+        end
+    })
+    y = row(y, {intEnable, mainEnable})
+
     -- Font
     y = section(y, "Font")
 
@@ -148,18 +165,6 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
 
     -- Intermission
     y = section(y, "BossMods_LMIntermission")
-
-    local intEnable = checkbox({
-        text = L["BossMods_LMEnableLayout"],
-        labelTop = true,
-        get = function()
-            return mod.db.anchors.intermission.enabled
-        end,
-        onChange = function(v)
-            mod.db.anchors.intermission.enabled = v
-        end
-    })
-    y = row(y, {intEnable})
 
     local intScale = slider({
         label = L["Scale"],
@@ -209,28 +214,14 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             y = 0
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            editChanged("intermission", v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = intPosY
     posHandles[#posHandles + 1] = intHandle
 
     -- Main
     y = section(y, "BossMods_LMMain")
-
-    local mainEnable = checkbox({
-        text = L["BossMods_LMEnableLayout"],
-        labelTop = true,
-        get = function()
-            return mod.db.anchors.main.enabled
-        end,
-        onChange = function(v)
-            mod.db.anchors.main.enabled = v
-        end
-    })
-    y = row(y, {mainEnable})
 
     local mainScale = slider({
         label = L["Scale"],
@@ -336,10 +327,8 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             y = 0
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            editChanged("main", v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = mainPosY
     posHandles[#posHandles + 1] = mainHandle
@@ -354,6 +343,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             for _, h in ipairs(posHandles) do
                 h.Release()
             end
+            unlockCtrl:Release()
             tracker.release()
         end
     }

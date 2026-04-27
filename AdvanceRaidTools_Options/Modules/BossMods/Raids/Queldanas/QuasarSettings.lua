@@ -116,6 +116,15 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     }))
     y = full(y, desc)
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
     -- General
     y = section(y, "General")
 
@@ -369,10 +378,8 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
             y = 300
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            mod:SetEditMode(v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = posNewY
 
@@ -384,6 +391,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         Refresh = tracker.refresh,
         Release = function()
             posHandle.Release()
+            unlockCtrl:Release()
             tracker.release()
         end
     }

@@ -122,6 +122,27 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
+        end
+    })
+    y = unlockY
+
+    local enableBorder = checkbox({
+        text = L["BossMods_BorderEnable"],
+        labelTop = true,
+        get = function()
+            return mod.db.border.enabled
+        end,
+        onChange = function(v)
+            mod.db.border.enabled = v
+        end
+    })
+    y = row(y, {enableBorder})
+
     -- Background & Border
     y = section(y, "BossMods_DQBgBorderSection")
 
@@ -137,18 +158,6 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
             mod.db.background.opacity = v
         end
     })
-    y = row(y, {bgOpacity})
-
-    local borderEnable = checkbox({
-        text = L["BossMods_BorderEnable"],
-        labelTop = true,
-        get = function()
-            return mod.db.border.enabled
-        end,
-        onChange = function(v)
-            mod.db.border.enabled = v
-        end
-    })
     local borderTex = dropdown({
         label = L["BossMods_BorderTexture"],
         values = borderValues,
@@ -159,7 +168,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
             mod.db.border.texture = v
         end
     })
-    y = row(y, {borderEnable, borderTex})
+    y = row(y, {bgOpacity, borderTex})
 
     local borderSize = slider({
         label = L["BossMods_BorderSize"],
@@ -277,10 +286,8 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
             y = 0
         },
         onChanged = refreshLive,
-        onEditModeChanged = function(v)
-            mod:SetEditMode(v)
-        end,
-        isDisabled = isDisabled
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl
     })
     y = posNewY
 
@@ -292,6 +299,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         Refresh = tracker.refresh,
         Release = function()
             posHandle.Release()
+            unlockCtrl:Release()
             tracker.release()
         end
     }

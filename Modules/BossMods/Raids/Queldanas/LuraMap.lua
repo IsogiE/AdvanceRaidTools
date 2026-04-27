@@ -773,7 +773,7 @@ end
 
 -- Edit
 
-function LuraMap:SetEditMode(v, visibleKeys)
+function LuraMap:SetEditMode(v)
     if not self:IsEnabled() then
         return
     end
@@ -783,10 +783,8 @@ function LuraMap:SetEditMode(v, visibleKeys)
         if not self.active then
             self.map:HideAll()
         end
-        for key in pairs(visibleKeys or {}) do
-            if self.db.anchors[key] and self.db.anchors[key].enabled then
-                self.map:Show(key)
-            end
+        for key in pairs(self.db.anchors) do
+            self.map:Show(key)
         end
     else
         self.map:SetEditMode(false)

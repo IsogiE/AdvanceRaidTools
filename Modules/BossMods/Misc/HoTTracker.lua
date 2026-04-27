@@ -130,19 +130,25 @@ local HoTTracker = E:NewModule("BossMods_HoTTracker", "AceEvent-3.0")
 
 local BM
 
+local CLASS_ORDER = {"DRUID", "EVOKER", "MONK", "PALADIN", "PRIEST", "SHAMAN"}
+
 function HoTTracker:GetAvailableSpells()
-    local _, class = UnitClass("player")
-    local spells = CLASS_SPELLS[class] or {}
     local seen = {}
     local out = {}
-    for _, sp in ipairs(spells) do
-        if not sp.hidden and not seen[sp.key] then
-            seen[sp.key] = true
-            out[#out + 1] = {
-                key = sp.key,
-                name = sp.name,
-                color = sp.color
-            }
+    for _, class in ipairs(CLASS_ORDER) do
+        local spells = CLASS_SPELLS[class]
+        if spells then
+            for _, sp in ipairs(spells) do
+                if not sp.hidden and not seen[sp.key] then
+                    seen[sp.key] = true
+                    out[#out + 1] = {
+                        key = sp.key,
+                        name = sp.name,
+                        color = sp.color,
+                        class = class
+                    }
+                end
+            end
         end
     end
     return out
