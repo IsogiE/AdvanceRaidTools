@@ -12,6 +12,7 @@
 ## DefaultState: enabled
 ## Category: Advance
 ## X-Wago-ID: qKQmRoKx
+## X-Curse-Project-ID: 1526817
 
 Locales\Locales.xml
 
