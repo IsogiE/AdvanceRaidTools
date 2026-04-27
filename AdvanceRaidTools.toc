@@ -11,6 +11,7 @@
 ## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL
 ## DefaultState: enabled
 ## Category: Advance
+## X-Wago-ID: qKQmRoKx
 
 Locales\Locales.xml
 
