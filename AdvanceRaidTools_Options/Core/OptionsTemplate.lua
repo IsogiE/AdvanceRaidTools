@@ -3879,22 +3879,6 @@ local function normalizeButtons(buttons, opts)
     end
 end
 
-local function ensureBlocker(popup)
-    if popup._blocker then
-        return popup._blocker
-    end
-    local b = CreateFrame("Button", nil, popup)
-    b:SetAllPoints(UIParent)
-    b:EnableMouse(true)
-    b:SetFrameStrata(popup:GetFrameStrata())
-    b:SetFrameLevel(math.max(0, popup:GetFrameLevel() - 1))
-    b:SetScript("OnMouseDown", function()
-    end)
-    b:Hide()
-    popup._blocker = b
-    return b
-end
-
 local function destroyPopup(popup)
     if not popup then
         return
@@ -3912,9 +3896,6 @@ local function destroyPopup(popup)
         end
     end
     popup:Hide()
-    if popup._blocker then
-        popup._blocker:Hide()
-    end
     OPAQUE_PAINT[popup] = nil
     popup:SetParent(nil)
     popup:ClearAllPoints()
@@ -3930,7 +3911,6 @@ end
 --     hideOnEscape      = true,
 --     showCloseButton   = true,
 --     movable           = true,
---     modal             = true,               -- full-screen click-blocker
 --
 --     -- PLACEMENT
 --     parent            = frame,              -- strata/level resolved above
@@ -4340,16 +4320,6 @@ local function applyEscapeClose(popup, opts)
     tinsert(UISpecialFrames, name)
 end
 
-local function applyModalBlocker(popup, opts)
-    if opts.modal == false then
-        return
-    end
-    local b = ensureBlocker(popup)
-    b:SetFrameStrata(popup:GetFrameStrata())
-    b:SetFrameLevel(math.max(0, popup:GetFrameLevel() - 1))
-    b:Show()
-end
-
 function T:Popup(opts)
     opts = shallowCopy(opts) -- never mutate caller
 
@@ -4382,7 +4352,6 @@ function T:Popup(opts)
     applyEscapeClose(popup, opts)
 
     popup:Show()
-    applyModalBlocker(popup, opts)
 
     if popup._inputInstance and popup._inputInstance.SetFocus and opts.input and opts.input.autoFocus ~= false then
         popup._inputInstance.SetFocus()
