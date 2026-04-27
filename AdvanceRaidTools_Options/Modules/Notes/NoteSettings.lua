@@ -76,7 +76,7 @@ local function reloadEditor(mod)
     end
 end
 
-local EDITOR_LINES = 20
+local EDITOR_LINES = 26
 local TOOLBAR_H = 40
 local TOKEN_STRIP_H = 22
 local ACTION_ROW_H = 24
@@ -221,8 +221,84 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     editorCol:SetPoint("TOPRIGHT", actionCol, "TOPLEFT", -COL_GAP, 0)
     editorCol:SetPoint("BOTTOMRIGHT", actionCol, "BOTTOMLEFT", -COL_GAP, 0)
 
+    local addBtn = T:Button(listHost, {
+        text = L["Notes_AddSlot"],
+        onClick = function()
+            if mod:GetSlotCount() >= mod:GetMaxSlots() then
+                return
+            end
+            local newIdx = mod:AddSlot("", "")
+            if newIdx then
+                editingSlot = newIdx
+                displayingSlot = newIdx
+                reloadEditor(mod)
+            end
+        end,
+        disabled = function()
+            return isModuleDisabled() or mod:GetSlotCount() >= mod:GetMaxSlots()
+        end
+    })
+    addBtn.frame:ClearAllPoints()
+    addBtn.frame:SetPoint("BOTTOMLEFT", listHost, "BOTTOMLEFT", 4, 4)
+    addBtn.frame:SetPoint("BOTTOMRIGHT", listHost, "BOTTOMRIGHT", -4, 4)
+
+    local removeBtn = T:Button(listHost, {
+        text = L["Notes_RemoveSlot"],
+        confirm = true,
+        confirmTitle = L["Notes_RemoveSlotConfirmTitle"],
+        confirmText = function()
+            return L["Notes_RemoveSlotConfirm"]:format(mod:GetSlotName(clampEditingSlot(mod)) or "?")
+        end,
+        onClick = function()
+            local idx = clampEditingSlot(mod)
+            if mod:RemoveSlot(idx) then
+                editingSlot = math.min(idx, mod:GetSlotCount())
+                displayingSlot = editingSlot
+                reloadEditor(mod)
+            end
+        end,
+        disabled = function()
+            if isModuleDisabled() then
+                return true
+            end
+            local idx = clampEditingSlot(mod)
+            return idx == MAIN_SLOT or idx == PINNED_PERSONAL_SLOT
+        end,
+        tooltip = function()
+            local idx = clampEditingSlot(mod)
+            if idx == MAIN_SLOT then
+                return {
+                    title = L["Notes_RemoveSlot"],
+                    desc = L["Notes_CannotRemoveMain"]
+                }
+            end
+            if idx == PINNED_PERSONAL_SLOT then
+                return {
+                    title = L["Notes_RemoveSlot"],
+                    desc = L["Notes_CannotRemovePinnedPersonal"]
+                }
+            end
+            return {
+                title = L["Notes_RemoveSlot"]
+            }
+        end
+    })
+    removeBtn.frame:ClearAllPoints()
+    removeBtn.frame:SetPoint("BOTTOMLEFT", addBtn.frame, "TOPLEFT", 0, GAP)
+    removeBtn.frame:SetPoint("BOTTOMRIGHT", addBtn.frame, "TOPRIGHT", 0, GAP)
+
+    local slotScroll = T:ScrollFrame(listHost, {
+        chrome = false,
+        mouseWheelStep = SLOT_ROW_H + 2,
+        forwardWheelToOuter = true
+    })
+    slotScroll.frame:ClearAllPoints()
+    slotScroll.frame:SetPoint("TOPLEFT", listHost, "TOPLEFT", 4, -4)
+    slotScroll.frame:SetPoint("TOPRIGHT", listHost, "TOPRIGHT", -4, -4)
+    slotScroll.frame:SetPoint("BOTTOMLEFT", removeBtn.frame, "TOPLEFT", 0, GAP)
+    slotScroll.frame:SetPoint("BOTTOMRIGHT", removeBtn.frame, "TOPRIGHT", 0, GAP)
+
     local rowPool = {}
-    local addBtn, removeBtn
 
     local function acquireRow()
         for _, row in ipairs(rowPool) do
@@ -232,7 +308,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
                 return row
             end
         end
-        local row = CreateFrame("Button", nil, listHost, "BackdropTemplate")
+        local row = CreateFrame("Button", nil, slotScroll.content, "BackdropTemplate")
         E:SetTemplate(row, "Default")
         row:SetHeight(SLOT_ROW_H)
         local fs = row:CreateFontString(nil, "OVERLAY")
@@ -261,12 +337,17 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             row._inUse = false
         end
         local selected = clampEditingSlot(mod)
+        local viewW = slotScroll.scroll:GetWidth() or 0
+        local viewH = slotScroll.scroll:GetHeight() or 0
+        if viewW > 0 then
+            slotScroll.content:SetWidth(viewW)
+        end
         local y = 4
         for i = 1, mod:GetSlotCount() do
             local row = acquireRow()
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", listHost, "TOPLEFT", 4, -y)
-            row:SetPoint("TOPRIGHT", listHost, "TOPRIGHT", -4, -y)
+            row:SetPoint("TOPLEFT", slotScroll.content, "TOPLEFT", 4, -y)
+            row:SetPoint("TOPRIGHT", slotScroll.content, "TOPRIGHT", -4, -y)
             row._text:SetText(fmtSlotLabel(mod, i))
             row._selected = (i == selected)
             if row._selected then
@@ -291,82 +372,20 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             end
         end
 
-        if not addBtn then
-            addBtn = T:Button(listHost, {
-                text = L["Notes_AddSlot"],
-                onClick = function()
-                    if mod:GetSlotCount() >= mod:GetMaxSlots() then
-                        return
-                    end
-                    local newIdx = mod:AddSlot("", "")
-                    if newIdx then
-                        editingSlot = newIdx
-                        displayingSlot = newIdx
-                        reloadEditor(mod)
-                    end
-                end,
-                disabled = function()
-                    return isModuleDisabled() or mod:GetSlotCount() >= mod:GetMaxSlots()
-                end
-            })
-            addBtn.frame:ClearAllPoints()
-            addBtn.frame:SetPoint("BOTTOMLEFT", listHost, "BOTTOMLEFT", 4, 4)
-            addBtn.frame:SetPoint("BOTTOMRIGHT", listHost, "BOTTOMRIGHT", -4, 4)
-        end
+        local contentH = mod:GetSlotCount() * (SLOT_ROW_H + 2) + 4
+        slotScroll.SetContentSize(viewW > 0 and viewW or nil, math.max(viewH, contentH))
+
         if addBtn.Refresh then
             addBtn.Refresh()
-        end
-
-        if not removeBtn then
-            removeBtn = T:Button(listHost, {
-                text = L["Notes_RemoveSlot"],
-                confirm = true,
-                confirmTitle = L["Notes_RemoveSlotConfirmTitle"],
-                confirmText = function()
-                    return L["Notes_RemoveSlotConfirm"]:format(mod:GetSlotName(clampEditingSlot(mod)) or "?")
-                end,
-                onClick = function()
-                    local idx = clampEditingSlot(mod)
-                    if mod:RemoveSlot(idx) then
-                        editingSlot = math.min(idx, mod:GetSlotCount())
-                        displayingSlot = editingSlot
-                        reloadEditor(mod)
-                    end
-                end,
-                disabled = function()
-                    if isModuleDisabled() then
-                        return true
-                    end
-                    local idx = clampEditingSlot(mod)
-                    return idx == MAIN_SLOT or idx == PINNED_PERSONAL_SLOT
-                end,
-                tooltip = function()
-                    local idx = clampEditingSlot(mod)
-                    if idx == MAIN_SLOT then
-                        return {
-                            title = L["Notes_RemoveSlot"],
-                            desc = L["Notes_CannotRemoveMain"]
-                        }
-                    end
-                    if idx == PINNED_PERSONAL_SLOT then
-                        return {
-                            title = L["Notes_RemoveSlot"],
-                            desc = L["Notes_CannotRemovePinnedPersonal"]
-                        }
-                    end
-                    return {
-                        title = L["Notes_RemoveSlot"]
-                    }
-                end
-            })
-            removeBtn.frame:ClearAllPoints()
-            removeBtn.frame:SetPoint("BOTTOMLEFT", addBtn.frame, "TOPLEFT", 0, GAP)
-            removeBtn.frame:SetPoint("BOTTOMRIGHT", addBtn.frame, "TOPRIGHT", 0, GAP)
         end
         if removeBtn.Refresh then
             removeBtn.Refresh()
         end
     end
+
+    slotScroll.frame:HookScript("OnSizeChanged", function()
+        rebuildRows()
+    end)
 
     local toolbar = CreateFrame("Frame", nil, editorCol)
     toolbar:SetPoint("TOPLEFT", 0, 0)
@@ -1151,4 +1170,6 @@ local function buildNotesPanel()
     }
 end
 
-E:RegisterOptions("Notes", 25, buildNotesPanel)
+E:RegisterOptions("Notes", 25, buildNotesPanel, {
+    core = true
+})

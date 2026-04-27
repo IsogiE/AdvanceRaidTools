@@ -3,7 +3,7 @@ local E, L, P = unpack(ART)
 local MAIN_SLOT = 1
 local PINNED_PERSONAL_SLOT = 2
 
-local MAX_SLOTS = 10
+local MAX_SLOTS = 20
 local DEFAULT_FRAME_W, DEFAULT_FRAME_H = 300, 200
 local MIN_FRAME_W, MIN_FRAME_H = 160, 80
 local MAX_SPELL_ICON = 40
