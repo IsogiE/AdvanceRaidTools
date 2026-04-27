@@ -461,6 +461,15 @@ L["BossMods_UnlockFrameDesc"] = "Drag to move"
 L["BossMods_CombatTimer"] = "Combat Timer"
 L["BossMods_CombatTimerDesc"] = "How does one even describe this, it counts time I guess, and in combat at that!"
 
+-- BossMods: Bress
+L["BossMods_Bress"] = "Battle Ress"
+L["BossMods_BressDesc"] = "Tracks battle ress charges"
+L["BossMods_BressSwipe"] = "Cooldown Swipe"
+L["BossMods_BressTimeSection"] = "Cooldown Text"
+L["BossMods_BressTimeColor"] = "Cooldown Color"
+L["BossMods_BressChargeSection"] = "Charge Text"
+L["BossMods_BressChargeColor"] = "Charge Color"
+
 -- BossMods: HoTTracker
 L["BossMods_HoTTracker"] = "Healer HoTs"
 L["BossMods_HoTTrackerDesc"] = "Counts the hots you have out on people"
