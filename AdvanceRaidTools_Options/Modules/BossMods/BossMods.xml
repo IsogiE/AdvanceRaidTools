@@ -1,0 +1,11 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Script file="BossModsSettings.lua"/>
+    <Script file="Misc\CombatTimerSettings.lua"/>
+    <Script file="Misc\HoTTrackerSettings.lua"/>
+    <Script file="Raids\Queldanas\FeatherSettings.lua"/>
+    <Script file="Raids\Queldanas\QuasarSettings.lua"/>
+    <Script file="Raids\Queldanas\LurakickSettings.lua"/>
+    <Script file="Raids\Queldanas\LuraMapSettings.lua"/>
+    <Script file="Raids\Queldanas\DirgeSettings.lua"/>
+    <Script file="Raids\Voidspire\PalaDispelSettings.lua"/>
+</Ui>

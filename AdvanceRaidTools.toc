@@ -1,0 +1,51 @@
+## Interface: 120001, 120005
+## Title: |cff1784d1Advance|r |cffffffffRaid Tools|r
+## Notes: :brick:
+## Author: Isogi
+## Version: @project-version@
+## SavedVariables: AdvanceRaidToolsDB
+## AddonCompartmentFunc: ART_OnAddonCompartmentClick
+## IconTexture: Interface\AddOns\AdvanceRaidTools\Media\Textures\Logo
+## LoadManagers: AddonLoader
+## RequiredDeps: AdvanceRaidTools_Libraries
+## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL
+## DefaultState: enabled
+## Category: Advance
+
+Locales\Locales.xml
+
+Core\Core.lua
+Core\API.lua
+Core\Callbacks.lua
+Core\Media.lua
+Core\Skin.lua
+Core\Database.lua
+Core\Modules.lua
+Core\Checker.lua
+Core\Slash.lua
+Core\Compartment.lua
+Core\Comms.lua
+Core\SpecProfiles.lua
+Core\Sharing.lua
+
+Modules\Home\Home.lua
+
+Modules\Nicknames\Nicknames.lua
+Modules\Nicknames\Addons\Nicknames.xml
+
+Modules\RaidGroups\RaidGroups.lua
+
+Modules\Currency\Currency.lua
+
+Modules\Version\VersionChecker.lua
+
+Modules\AddonChecker\AddonChecker.lua
+
+Modules\Notes\Notes.lua
+
+Modules\QualityOfLife\QualityOfLife.lua
+Modules\QualityOfLife\Circle\Circle.lua
+Modules\QualityOfLife\Resources\Resources.lua
+Modules\QualityOfLife\CDMTweaks\CDMTweaks.lua
+
+Modules\BossMods\BossMods.xml

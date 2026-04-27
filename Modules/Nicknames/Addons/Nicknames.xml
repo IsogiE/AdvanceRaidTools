@@ -1,0 +1,11 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
+    <Script file="Danders.lua"/>
+    <Script file="Blizzard.lua"/>
+    <Script file="Cell.lua"/>
+    <Script file="Unhalted.lua"/>
+    <Script file="Eqol.lua"/>
+    <Script file="Elvui.lua"/>
+    <Script file="Grid2.lua"/>
+    <Script file="LiquidAPI.lua"/>
+    <Script file="VuhDo.lua"/>
+</Ui>

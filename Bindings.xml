@@ -1,0 +1,8 @@
+<Bindings>
+    <Binding name="CLICK ART_Dirge_Btn1:LeftButton" category="ART_DIRGE"/>
+    <Binding name="CLICK ART_Dirge_Btn2:LeftButton" category="ART_DIRGE"/>
+    <Binding name="CLICK ART_Dirge_Btn3:LeftButton" category="ART_DIRGE"/>
+    <Binding name="CLICK ART_Dirge_Btn4:LeftButton" category="ART_DIRGE"/>
+    <Binding name="CLICK ART_Dirge_Btn5:LeftButton" category="ART_DIRGE"/>
+    <Binding name="CLICK ART_Dirge_Btn6:LeftButton" category="ART_DIRGE"/>
+</Bindings>

@@ -1,0 +1,9 @@
+package-as: AdvanceRaidTools
+
+move-folders:
+    AdvanceRaidTools/AdvanceRaidTools_Libraries: AdvanceRaidTools_Libraries
+    AdvanceRaidTools/AdvanceRaidTools_Options: AdvanceRaidTools_Options
+
+ignore:
+    - LICENSE
+    - README.md
