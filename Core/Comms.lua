@@ -11,6 +11,7 @@ local LibDeflate = E.Libs.LibDeflate
 
 -- Combat lockdown queues and state
 local receiveQueue = {}
+local sendQueue = {}
 local registeredProtocols = {}
 local registeredSyncs = {}
 local lastRosterGUIDs = {}
@@ -34,6 +35,7 @@ function Comms:OnDisable()
     self:UnregisterAllComm()
     wipe(lastRosterGUIDs)
     wipe(receiveQueue)
+    wipe(sendQueue)
     for _, sync in pairs(registeredSyncs) do
         wipe(sync.versions)
         sync.broadcastQueued = false
@@ -43,6 +45,7 @@ end
 function Comms:OnProfileChanged()
     wipe(lastRosterGUIDs)
     wipe(receiveQueue)
+    wipe(sendQueue)
     for _, sync in pairs(registeredSyncs) do
         wipe(sync.versions)
         sync.broadcastQueued = false
@@ -96,7 +99,18 @@ end
 
 -- sender for every registered protocol prefix
 function Comms:OnProtocolMessage(prefix, message, distribution, sender)
-    if not sender or UnitIsUnit(sender, "player") then
+    if not sender then
+        return
+    end
+    if InCombatLockdown() then
+        receiveQueue[#receiveQueue + 1] = {prefix, message, distribution, sender}
+        return
+    end
+    self:_dispatchProtocol(prefix, message, distribution, sender)
+end
+
+function Comms:_dispatchProtocol(prefix, message, distribution, sender)
+    if UnitIsUnit(sender, "player") then
         return
     end
     if not E:SafeString(sender) then
@@ -116,19 +130,27 @@ function Comms:OnProtocolMessage(prefix, message, distribution, sender)
     end
 end
 
+function Comms:_sendOrQueue(prefix, msg, dist, target)
+    if InCombatLockdown() then
+        sendQueue[#sendQueue + 1] = {prefix, msg, dist, target}
+        return
+    end
+    self:SendCommMessage(prefix, msg, dist, target)
+end
+
 -- simple broadcast since we're not doing much complicated stuff with these
 function Comms:Broadcast(prefix, message, context)
     if not prefix or not context then
         return
     end
-    self:SendCommMessage(prefix, message or "", context)
+    self:_sendOrQueue(prefix, message or "", context)
 end
 
 function Comms:Whisper(prefix, message, toName)
     if not prefix or not toName or toName == "" then
         return
     end
-    self:SendCommMessage(prefix, message or "", "WHISPER", toName)
+    self:_sendOrQueue(prefix, message or "", "WHISPER", toName)
 end
 
 function Comms:SendPayload(prefix, data, target)
@@ -141,10 +163,10 @@ function Comms:SendPayload(prefix, data, target)
     local encoded = LibDeflate:EncodeForWoWAddonChannel(compressed)
 
     if target then
-        self:SendCommMessage(prefix, encoded, "WHISPER", target)
+        self:_sendOrQueue(prefix, encoded, "WHISPER", target)
     else
         local chatType = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or (IsInRaid() and "RAID" or "PARTY")
-        self:SendCommMessage(prefix, encoded, chatType)
+        self:_sendOrQueue(prefix, encoded, chatType)
     end
 end
 
@@ -219,16 +241,6 @@ function Comms:RegisterVersionedSync(config)
         if data.version <= curr then
             return
         end
-        if InCombatLockdown() then
-            receiveQueue[#receiveQueue + 1] = function()
-                local c = sync.versions[sender] or 0
-                if data.version > c then
-                    sync.versions[sender] = data.version
-                    config.applyPayload(sender, data)
-                end
-            end
-            return
-        end
         sync.versions[sender] = data.version
         config.applyPayload(sender, data)
     end)
@@ -260,10 +272,19 @@ end
 -- better be safe, combat scary
 function Comms:PLAYER_REGEN_ENABLED()
     if #receiveQueue > 0 then
-        for _, dispatch in ipairs(receiveQueue) do
-            dispatch()
+        local pending = receiveQueue
+        receiveQueue = {}
+        for _, item in ipairs(pending) do
+            self:_dispatchProtocol(item[1], item[2], item[3], item[4])
         end
-        wipe(receiveQueue)
+    end
+
+    if #sendQueue > 0 then
+        local pending = sendQueue
+        sendQueue = {}
+        for _, item in ipairs(pending) do
+            self:SendCommMessage(item[1], item[2], item[3], item[4])
+        end
     end
 
     for _, sync in pairs(registeredSyncs) do
@@ -307,7 +328,7 @@ function Comms:OnRosterDelta()
 
     local chatType = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or (IsInRaid() and "RAID" or "PARTY")
     for _, sync in pairs(registeredSyncs) do
-        self:SendCommMessage(sync.config.requestPrefix, "ping", chatType)
+        self:_sendOrQueue(sync.config.requestPrefix, "ping", chatType)
         sync.broadcast()
     end
 end

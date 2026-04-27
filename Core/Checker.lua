@@ -204,6 +204,11 @@ function E:NewChecker(name, opts)
             return false, "DISABLED"
         end
 
+        if InCombatLockdown() then
+            E:SendMessage(MSG_FAILED, "IN_COMBAT")
+            return false, "IN_COMBAT"
+        end
+
         local now = GetTime()
         if now - (self._lastStartedAt or 0) < minStartInterval then
             E:SendMessage(MSG_FAILED, "TOO_SOON")
