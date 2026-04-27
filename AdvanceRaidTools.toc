@@ -23,6 +23,7 @@ Core\Media.lua
 Core\Skin.lua
 Core\Database.lua
 Core\Modules.lua
+Core\Roster.lua
 Core\Checker.lua
 Core\Slash.lua
 Core\Compartment.lua

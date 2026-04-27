@@ -75,12 +75,17 @@ local function resolveDisplayName(fullName, unit)
     return Ambiguate(fullName, "short")
 end
 
-local function getClass(unit)
-    if not unit then
-        return nil
+local function getClass(unit, fullName)
+    if unit then
+        local _, class = UnitClass(unit)
+        if class then
+            return class
+        end
     end
-    local _, class = UnitClass(unit)
-    return class
+    if fullName then
+        return E:GetClassByName(fullName)
+    end
+    return nil
 end
 
 function E:NewChecker(name, opts)
@@ -253,7 +258,7 @@ function E:NewChecker(name, opts)
                             entry = {
                                 status = STATUS_PENDING,
                                 displayName = resolveDisplayName(key, unit),
-                                class = getClass(unit)
+                                class = getClass(unit, key)
                             }
                         end
                         if not UnitIsConnected(unit) then
@@ -273,7 +278,7 @@ function E:NewChecker(name, opts)
             local myEntry = {
                 status = STATUS_RESPONDED,
                 displayName = resolveDisplayName(myKey, "player"),
-                class = getClass("player"),
+                class = getClass("player", myKey),
                 isSelf = true
             }
             if opts.onSelfEntry then
@@ -354,12 +359,12 @@ function E:NewChecker(name, opts)
         if not entry then
             entry = {
                 displayName = resolveDisplayName(key, unit),
-                class = getClass(unit)
+                class = getClass(unit, key)
             }
             self.state.results[key] = entry
         else
-            if unit and not entry.class then
-                entry.class = getClass(unit)
+            if not entry.class then
+                entry.class = getClass(unit, key)
             end
             if unit and E.HasNickname and E:HasNickname(unit) then
                 entry.displayName = E:GetNickname(unit)

@@ -116,7 +116,7 @@ local function setSlotValue(self, eb, name)
         eb.usedName = nil
         return
     end
-    local class = self:GetClassForName(name)
+    local class = E:GetClassByName(name)
     local r, g, b = classColor(class)
     local display = self:DisplayName(name)
     eb:SetText(colorize(display, r, g, b))
@@ -266,7 +266,7 @@ local function createSlotEditBox(self, parent, group, slot)
             return
         end
         clearAllEditFocus(RaidGroups._editor)
-        local class = RaidGroups:GetClassForName(self_.usedName)
+        local class = E:GetClassByName(self_.usedName)
         local r, g, b = classColor(class)
         self_._dragging = true
         startDragPreview(RaidGroups, self_.usedName, r, g, b)
@@ -400,7 +400,7 @@ function RaidGroups:GetUsedSlotNames()
     for _, group in ipairs(self._slots) do
         for _, eb in ipairs(group) do
             if eb.usedName and eb.usedName ~= "" then
-                used[self:NormalizeName(eb.usedName)] = true
+                used[E:NormalizeName(eb.usedName)] = true
             end
         end
     end
@@ -432,7 +432,7 @@ function RaidGroups:BuildAvailableList()
             end
         end
     elseif source == "guild" then
-        for _, entry in ipairs(self._guildCache or {}) do
+        for _, entry in ipairs(E:GetGuildCache() or {}) do
             tinsert(all, {
                 name = entry.name,
                 class = entry.class,
@@ -444,7 +444,7 @@ function RaidGroups:BuildAvailableList()
     local used = self:GetUsedSlotNames()
     local out = {}
     for _, p in ipairs(all) do
-        if not used[self:NormalizeName(p.name)] then
+        if not used[E:NormalizeName(p.name)] then
             tinsert(out, p)
         end
     end
@@ -812,7 +812,7 @@ function RaidGroups:BuildEditor()
             if checked then
                 f._raidChk.SetChecked(false)
                 f._listSource = "guild"
-                RaidGroups:EnsureGuildCache()
+                E:EnsureGuildCache()
             else
                 f._listSource = nil
             end
@@ -1099,7 +1099,7 @@ function RaidGroups:BuildEditor()
     self:RefreshPresetList()
 
     f:SetScript("OnShow", function()
-        RaidGroups:InvalidateRosterCache()
+        E:InvalidateRosterCache()
         RaidGroups:PopulateNameList()
         RaidGroups:UpdateSlotTints()
         RaidGroups:RefreshPresetList()
@@ -1163,7 +1163,7 @@ end
 
 local editorEvents = E:NewCallbackHandle()
 
-editorEvents:RegisterMessage("ART_RAIDGROUPS_ROSTER_INVALIDATED", function()
+editorEvents:RegisterMessage("ART_ROSTER_INVALIDATED", function()
     local editor = RaidGroups._editor
     if not editor or not editor:IsShown() then
         return
@@ -1176,7 +1176,7 @@ editorEvents:RegisterMessage("ART_RAIDGROUPS_ROSTER_INVALIDATED", function()
         for _, group in ipairs(RaidGroups._slots) do
             for _, eb in ipairs(group) do
                 if eb.usedName and eb.usedName ~= "" then
-                    local class = RaidGroups:GetClassForName(eb.usedName)
+                    local class = E:GetClassByName(eb.usedName)
                     local r, g, b = classColor(class)
                     eb:SetText(colorize(RaidGroups:DisplayName(eb.usedName), r, g, b))
                     eb:SetCursorPosition(0)
@@ -1201,7 +1201,7 @@ editorEvents:RegisterMessage("ART_NICKNAME_CHANGED", function()
         for _, group in ipairs(RaidGroups._slots) do
             for _, eb in ipairs(group) do
                 if eb.usedName and eb.usedName ~= "" then
-                    local class = RaidGroups:GetClassForName(eb.usedName)
+                    local class = E:GetClassByName(eb.usedName)
                     local r, g, b = classColor(class)
                     eb:SetText(colorize(RaidGroups:DisplayName(eb.usedName), r, g, b))
                     eb:SetCursorPosition(0)
