@@ -374,6 +374,10 @@ function T:Description(parent, opts)
             availW = fs:GetWidth() or 0
         end
 
+        if availW <= 1 then
+            return minH
+        end
+
         local unbounded = 0
         if fs.GetUnboundedStringWidth then
             unbounded = fs:GetUnboundedStringWidth() or 0
@@ -383,14 +387,11 @@ function T:Description(parent, opts)
             unbounded = #text * size * 0.5
         end
 
-        local lines = 1
-        if availW > 0 and unbounded > 0 then
-            lines = math.max(1, math.ceil(unbounded / availW))
-        end
+        local lines = math.max(1, math.ceil(unbounded / availW))
         local h = lines * lineH
 
         local reported = fs:GetStringHeight() or 0
-        if reported > h then
+        if reported > h and reported < (lines + 4) * lineH then
             h = reported
         end
         if h <= 0 then

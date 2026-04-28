@@ -1032,28 +1032,27 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
     ART_UI.panelRefreshers[panel] = panelRefreshers
 
     local HEADER_GAP = 14
-    local headerUsedY = 0
+    local headerHost
 
     if hasHeader then
-        local headerHost = CreateFrame("Frame", nil, panel)
+        headerHost = CreateFrame("Frame", nil, panel)
         headerHost:SetPoint("TOPLEFT", PAD, -PAD)
         headerHost:SetPoint("TOPRIGHT", -PAD, -PAD)
 
         local innerW = CONTENT_INNER_W
         ART_UI:PushFlusherOwner(headerHost)
-        headerUsedY = buildArgsInto(headerHost, headerArgs, {key}, group.handler, 0, innerW, panelRefreshers,
-            rootRefreshers, group.colGap)
-        ART_UI:PopFlusherOwner()
+        local headerUsedY, headerFinalState = buildArgsInto(headerHost, headerArgs, {key}, group.handler, 0, innerW,
+            panelRefreshers, rootRefreshers, group.colGap)
         headerHost:SetHeight(math.max(1, headerUsedY))
+        ART_UI:AddResizeFlusher(function()
+            headerHost:SetHeight(math.max(1, headerFinalState.endY))
+        end)
+        ART_UI:PopFlusherOwner()
     end
 
-    local tabBarTop = PAD + (hasHeader and (headerUsedY + HEADER_GAP) or 0)
-
     local contentHolder = CreateFrame("Frame", nil, panel)
-    contentHolder:SetPoint("TOPLEFT", PAD, -(tabBarTop + TAB_H + 6))
-    contentHolder:SetPoint("BOTTOMRIGHT", -PAD, PAD)
 
-    local tabDefs = {} -- for T:TabBar
+    local tabDefs = {}
     local tabEntries = {}
     panel._tabs = {}
 
@@ -1108,8 +1107,17 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             ART_UI:RefreshPanel(panel)
         end
     })
-    tabBar.frame:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -tabBarTop)
-    tabBar.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -tabBarTop)
+    if headerHost then
+        tabBar.frame:SetPoint("TOPLEFT", headerHost, "BOTTOMLEFT", 0, -HEADER_GAP)
+        tabBar.frame:SetPoint("TOPRIGHT", headerHost, "BOTTOMRIGHT", 0, -HEADER_GAP)
+    else
+        tabBar.frame:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -PAD)
+        tabBar.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -PAD)
+    end
+
+    contentHolder:SetPoint("TOPLEFT", tabBar.frame, "BOTTOMLEFT", 0, -6)
+    contentHolder:SetPoint("TOPRIGHT", tabBar.frame, "BOTTOMRIGHT", 0, -6)
+    contentHolder:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -PAD, PAD)
 
     for _, t in ipairs(panel._tabs) do
         t.button = tabBar.buttons[t.key]
