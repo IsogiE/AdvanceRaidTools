@@ -7,6 +7,7 @@
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
+    <Script file="Misc\BreakTimer.lua"/>
     <Script file="Raids\Queldanas\Feather.lua"/>
     <Script file="Raids\Queldanas\Quasar.lua"/>
     <Script file="Raids\Queldanas\Lurakick.lua"/>

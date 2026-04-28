@@ -1186,6 +1186,7 @@ local function buildMainFrame()
         T:HideDropdownPullout()
         GameTooltip:Hide()
         f:StopMovingOrSizing()
+        E:SendMessage("ART_OPTIONS_HIDDEN")
     end)
 
     f:RegisterForDrag("LeftButton")

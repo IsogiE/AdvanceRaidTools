@@ -460,6 +460,13 @@ L["BossMods_UnlockFrameDesc"] = "Drag to move"
 L["BossMods_CombatTimer"] = "Combat Timer"
 L["BossMods_CombatTimerDesc"] = "How does one even describe this, it counts time I guess, and in combat at that!"
 
+-- BossMods: BreakTimer
+L["BossMods_BreakTimer"] = "Break Timer"
+L["BossMods_BreakTimerDesc"] = "Show a popup with with some goated images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
+L["BossMods_BreakTimer_Duration"] = "Test duration (seconds)"
+L["BossMods_BreakTimer_Test"] = "Test"
+L["BossMods_BreakTimer_Stop"] = "Stop"
+
 -- BossMods: Bress
 L["BossMods_Bress"] = "Battle Ress"
 L["BossMods_BressDesc"] = "Tracks battle ress charges"

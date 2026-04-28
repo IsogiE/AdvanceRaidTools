@@ -4295,7 +4295,8 @@ local function buildPopupFrame(opts)
 end
 
 local function layoutPopup(popup, opts)
-    local width = math.max(POPUP_MIN_W, math.min(opts.width or POPUP_DEFAULT_W, POPUP_MAX_W))
+    local minW = opts.minWidth or POPUP_MIN_W
+    local width = math.max(minW, math.min(opts.width or POPUP_DEFAULT_W, POPUP_MAX_W))
     popup:SetWidth(width)
     local contentW = width - POPUP_PAD_X * 2
 

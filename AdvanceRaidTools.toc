@@ -8,7 +8,7 @@
 ## IconTexture: Interface\AddOns\AdvanceRaidTools\Media\Textures\Logo
 ## LoadManagers: AddonLoader
 ## RequiredDeps: AdvanceRaidTools_Libraries
-## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL
+## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, AdvanceRaidTools_Media
 ## DefaultState: enabled
 ## Category: Advance
 ## X-Wago-ID: qKQmRoKx
@@ -20,6 +20,7 @@ Core\Core.lua
 Core\API.lua
 Core\Callbacks.lua
 Core\Media.lua
+Core\Images.lua
 Core\Skin.lua
 Core\Database.lua
 Core\Modules.lua
@@ -43,6 +44,8 @@ Modules\Currency\Currency.lua
 Modules\AddonChecker\AddonChecker.lua
 
 Modules\Notes\Notes.lua
+
+Modules\Updater\Updater.lua
 
 Modules\QualityOfLife\QualityOfLife.lua
 Modules\QualityOfLife\Circle\Circle.lua

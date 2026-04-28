@@ -160,6 +160,8 @@ local function handler(input)
         E:CallModule("HomeSettings", "UpdateMinimap")
     elseif verb == "help" then
         printHelp()
+    elseif verb == "update" then
+        E:CallModule("Updater", "Trigger")
     elseif verb == "debug" then
         debugHandler(rest)
     else

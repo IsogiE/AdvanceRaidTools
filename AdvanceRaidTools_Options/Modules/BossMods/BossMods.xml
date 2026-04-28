@@ -3,6 +3,7 @@
     <Script file="Misc\CombatTimerSettings.lua"/>
     <Script file="Misc\HoTTrackerSettings.lua"/>
     <Script file="Misc\BressSettings.lua"/>
+    <Script file="Misc\BreakTimerSettings.lua"/>
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>
     <Script file="Raids\Queldanas\QuasarSettings.lua"/>
     <Script file="Raids\Queldanas\LurakickSettings.lua"/>
