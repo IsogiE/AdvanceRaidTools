@@ -436,10 +436,17 @@ end
 
 local function parseVersion(v)
     local out = {}
-    -- Strip everything that isn't a digit or dot so "v3.4.5-beta" still compares
-    local s = tostring(v or ""):gsub("[^0-9%.]", "")
-    for part in s:gmatch("[^.]+") do
+    local s = tostring(v or ""):gsub("^[vV]", "")
+    local base, rest = s:match("^([%d%.]+)(.*)$")
+    if not base then
+        return out
+    end
+    for part in base:gmatch("[^.]+") do
         out[#out + 1] = tonumber(part) or 0
+    end
+    local ahead = rest:match("^%-(%d+)%-")
+    if ahead then
+        out[#out + 1] = tonumber(ahead) or 0
     end
     return out
 end

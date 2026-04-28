@@ -186,15 +186,12 @@ local function exportResults(m)
 
     local lines = {state.addonName}
 
-    local latest = m:GetLatestVersion()
     for _, item in ipairs(m:GetSortedResults()) do
         local entry = item.entry
         local name = entry.displayName or item.key or "?"
         local st = m:GetEntryStatus(entry)
-        if st == "up_to_date" then
+        if st == "up_to_date" or st == "outdated" then
             lines[#lines + 1] = ("%s: %s"):format(name, entry.version or "-")
-        elseif st == "outdated" then
-            lines[#lines + 1] = ("%s: %s (outdated, latest %s)"):format(name, entry.version or "-", latest or "?")
         elseif st == "missing" then
             lines[#lines + 1] = ("%s: (not installed)"):format(name)
         elseif st == "offline" then
