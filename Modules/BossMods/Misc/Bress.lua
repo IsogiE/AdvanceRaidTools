@@ -124,6 +124,9 @@ function Bress:EnsureFrame()
     f._cdDuration = 0
     f._tickAcc = 0
     f:SetScript("OnUpdate", function(self, elapsed)
+        if Bress.editMode then
+            return
+        end
         self._tickAcc = self._tickAcc + elapsed
         if self._tickAcc < TICK_INTERVAL then
             return
