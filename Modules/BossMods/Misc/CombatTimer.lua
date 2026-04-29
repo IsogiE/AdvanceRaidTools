@@ -42,8 +42,6 @@ local function buildBarConfig(db)
         showFill = false,
         strata = "HIGH",
         autoSize = true,
-        autoSizePad = 6,
-        centerVisualBias = true,
         center = {
             size = db.font.size,
             outline = db.font.outline,

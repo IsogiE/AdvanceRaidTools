@@ -125,20 +125,19 @@ function Engines.Bar(config)
         if not config.autoSize then
             return
         end
-        local pad = config.autoSizePad or 4
         local sw = centerFS:GetStringWidth() or 0
-        local sh = centerFS:GetStringHeight() or 0
-        if sw <= 0 or sh <= 0 then
+        if sw <= 0 then
             return
         end
-        frame:SetSize(sw + pad * 2, sh + pad * 2)
+        local fontSize = (config.center and config.center.size) or 12
+        local pad = config.autoSizePad or 2
+        local w = math.ceil(sw) + pad * 2
+        local h = math.ceil(fontSize * 0.75) + pad * 2
+        frame:SetSize(w, h)
         centerFS:ClearAllPoints()
-        if config.centerVisualBias then
-            local bias = math.max(0, math.floor(sh * 0.12) - 2)
-            centerFS:SetPoint("CENTER", frame, "CENTER", 0, -bias)
-        else
-            centerFS:SetPoint("CENTER", frame, "CENTER", 0, 0)
-        end
+        centerFS:SetPoint("CENTER", frame, "CENTER", 0, 0)
+        centerFS:SetJustifyH("CENTER")
+        centerFS:SetJustifyV("MIDDLE")
     end
 
     function handle:SetCenter(text)
