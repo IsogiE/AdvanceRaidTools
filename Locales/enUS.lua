@@ -459,7 +459,7 @@ L["BossMods_CombatTimerDesc"] = "How does one even describe this, it counts time
 -- BossMods: BreakTimer
 L["BossMods_BreakTimer"] = "Break Timer"
 L["BossMods_BreakTimerDesc"] =
-    "Show a popup with with some goated images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
+    "Show a popup with with some fun images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
 L["BossMods_BreakTimer_Duration"] = "Test duration (seconds)"
 L["BossMods_BreakTimer_Test"] = "Test"
 L["BossMods_BreakTimer_Stop"] = "Stop"
