@@ -43,8 +43,9 @@ local function applyTextStyle(fs, cfg, parent)
     local size = cfg.size or 16
     local outline = cfg.outline or ""
     if fs._artFont ~= font or fs._artSize ~= size or fs._artOutline ~= outline then
-        fs:SetFont(font, size, outline)
-        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+        if fs:SetFont(font, size, outline) then
+            fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+        end
     end
     local r, g, b, a = E:ColorTuple(cfg.color, 1, 1, 1, 1)
     fs:SetTextColor(r, g, b, a)

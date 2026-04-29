@@ -54,8 +54,9 @@ function OH.newFont(parent, sizeDelta, layer)
     local size = OH.fontSize() + (sizeDelta or 0)
     local font = OH.fontPath()
     local outline = OH.fontOutline()
-    fs:SetFont(font, size, outline)
-    fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    if fs:SetFont(font, size, outline) then
+        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    end
     E.skinnedFontStrings[fs] = sizeDelta or 0
     return fs
 end

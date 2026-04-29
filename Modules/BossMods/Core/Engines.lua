@@ -23,8 +23,9 @@ local function applyFontIfChanged(fs, font, size, outline)
     if fs._artFont == font and fs._artSize == size and fs._artOutline == outline then
         return
     end
-    fs:SetFont(font, size, outline)
-    fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    if fs:SetFont(font, size, outline) then
+        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    end
 end
 
 local function applyFontTo(fs, style, parent, anchor)

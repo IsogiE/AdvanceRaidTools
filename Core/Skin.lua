@@ -178,8 +178,9 @@ function E:RegisterFontString(fs, sizeDelta)
     local font = E.media.normFont
     local targetSize = base + (sizeDelta or 0)
     E.skinnedFontStrings[fs] = sizeDelta or 0
-    fs:SetFont(font, targetSize, outline)
-    fs._artFont, fs._artSize, fs._artOutline = font, targetSize, outline
+    if fs:SetFont(font, targetSize, outline) then
+        fs._artFont, fs._artSize, fs._artOutline = font, targetSize, outline
+    end
     return fs
 end
 
@@ -266,8 +267,9 @@ function E:UpdateMediaFonts()
         if fs.SetFont then
             local targetSize = baseSize + (delta or 0)
             if fs._artFont ~= font or fs._artSize ~= targetSize or fs._artOutline ~= outline then
-                fs:SetFont(font, targetSize, outline)
-                fs._artFont, fs._artSize, fs._artOutline = font, targetSize, outline
+                if fs:SetFont(font, targetSize, outline) then
+                    fs._artFont, fs._artSize, fs._artOutline = font, targetSize, outline
+                end
             end
         end
     end
@@ -353,10 +355,11 @@ function E:CreateFontString(parent, localeKey, layer, fontSize)
     local size = fontSize or E.media.normFontSize or 12
     local outline = E.media.normFontOutline or "OUTLINE"
     local font = E:Fetch("font", "PT Sans Narrow") or E.media.normFont
-    fs:SetFont(font, size, outline)
     local delta = fontSize and (fontSize - (E.media.normFontSize or 12)) or 0
     E.skinnedFontStrings[fs] = delta
-    fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    if fs:SetFont(font, size, outline) then
+        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+    end
 
     if localeKey then
         fs:SetText(E:L(localeKey))

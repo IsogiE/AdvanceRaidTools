@@ -40,6 +40,48 @@ local function scheduleLSMSweep()
     end)
 end
 
+-- Font shenanigans 
+local fontPreloader
+local preloadedFonts = {}
+local function ensureFontPreloader()
+    if fontPreloader then
+        return fontPreloader
+    end
+    fontPreloader = CreateFrame("Frame", nil, UIParent)
+    -- move it well off-screen so it's never visible
+    fontPreloader:SetPoint("TOP", UIParent, "BOTTOM", 0, -90000)
+    fontPreloader:SetSize(100, 100)
+    return fontPreloader
+end
+
+local function cacheFont(name, path)
+    if not name or preloadedFonts[name] then
+        return
+    end
+    if type(path) ~= "string" or path == "" then
+        return
+    end
+    local fs = ensureFontPreloader():CreateFontString()
+    fs:SetAllPoints()
+    if pcall(fs.SetFont, fs, path, 14) then
+        pcall(fs.SetText, fs, "cache")
+    end
+    preloadedFonts[name] = fs
+end
+
+local function preloadAllFonts()
+    if not LSM then
+        return
+    end
+    local hash = LSM:HashTable("font")
+    if not hash then
+        return
+    end
+    for name, path in pairs(hash) do
+        cacheFont(name, path)
+    end
+end
+
 function E:RegisterMedia()
     if not LSM then
         return
@@ -57,6 +99,20 @@ function E:RegisterMedia()
     if LSM.RegisterCallback then
         LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_Registered", scheduleLSMSweep)
         LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_SetGlobal", scheduleLSMSweep)
+    end
+
+    -- Preload everything LSM knows about right now, then hook future
+    preloadAllFonts()
+    if not E._lsmRegisterHooked and hooksecurefunc then
+        E._lsmRegisterHooked = true
+        hooksecurefunc(LSM, "Register", function(_, mediaType, key, data)
+            if type(mediaType) ~= "string" then
+                return
+            end
+            if mediaType:lower() == "font" then
+                cacheFont(key, data)
+            end
+        end)
     end
 end
 
