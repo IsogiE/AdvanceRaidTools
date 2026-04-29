@@ -4,6 +4,7 @@ P.modules.BossMods_BreakTimer = {
     enabled = false,
     defaultDuration = 60,
     fontSize = 48,
+    strata = "DIALOG",
     position = {
         point = "CENTER",
         x = 0,
@@ -44,7 +45,7 @@ function Mod:EnsureFrame()
     end
 
     local f = CreateFrame("Frame", "ART_BreakTimerFrame", UIParent)
-    f:SetFrameStrata("DIALOG")
+    f:SetFrameStrata(self.db.strata or "DIALOG")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
@@ -181,6 +182,24 @@ function Mod:ApplyPosition()
     local y = pos.y or 0
     self.frame:ClearAllPoints()
     self.frame:SetPoint(point, UIParent, point, x, y)
+end
+
+function Mod:ApplyStrata()
+    if not self.frame then
+        return
+    end
+    self.frame:SetFrameStrata(self.db.strata or "DIALOG")
+end
+
+function Mod:ResetPosition()
+    self.db.position = {
+        point = "CENTER",
+        x = 0,
+        y = 0
+    }
+    if self.frame then
+        self:ApplyPosition()
+    end
 end
 
 function Mod:SavePosition()

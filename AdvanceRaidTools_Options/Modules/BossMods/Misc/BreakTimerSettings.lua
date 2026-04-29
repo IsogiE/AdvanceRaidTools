@@ -3,6 +3,15 @@ local T = E.Templates
 
 local ROW_GAP = 6
 
+local STRATA_VALUES = {
+    BACKGROUND = "QoL_StrataBackground",
+    LOW = "QoL_StrataLow",
+    MEDIUM = "QoL_StrataMedium",
+    HIGH = "QoL_StrataHigh",
+    DIALOG = "QoL_StrataDialog"
+}
+local STRATA_ORDER = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG"}
+
 local function buildBreakTimerBody(rightPanel, mod, isDisabled)
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
@@ -68,6 +77,41 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end
     }))
     y = row(y, {testBtn, stopBtn})
+
+    local strataValues = {}
+    for key, labelKey in pairs(STRATA_VALUES) do
+        strataValues[key] = L[labelKey] or key
+    end
+    local strataDropdown = track(T:Dropdown(rightPanel, {
+        label = L["QoL_Strata"] or "Frame Strata",
+        values = strataValues,
+        sorting = STRATA_ORDER,
+        tooltip = {
+            title = L["QoL_Strata"] or "Frame Strata",
+            desc = L["QoL_StrataDesc"] or ""
+        },
+        get = function()
+            return mod.db.strata or "DIALOG"
+        end,
+        onChange = function(v)
+            mod.db.strata = v
+            mod:ApplyStrata()
+        end,
+        disabled = function()
+            return isDisabled()
+        end
+    }))
+    local resetBtn = track(T:LabelAlignedButton(rightPanel, {
+        text = L["ResetPosition"] or "Reset Position",
+        onClick = function()
+            mod:ResetPosition()
+            tracker.refresh()
+        end,
+        disabled = function()
+            return isDisabled()
+        end
+    }))
+    y = row(y, {strataDropdown, resetBtn})
 
     local stateHandle = E:NewCallbackHandle()
     stateHandle:RegisterMessage("ART_BREAKTIMER_STATE", function()
