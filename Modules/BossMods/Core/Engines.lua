@@ -814,8 +814,8 @@ function Engines.AuraDisplay(config)
         end
         local isPixel = (edgeTex == E.media.blankTex)
 
-        if not ic.borderApplied or ic.lastBorderTex ~= edgeTex or ic.lastBorderSize ~= edgeSize or
-            ic.lastBorderPixel ~= isPixel then
+        if not ic.borderApplied or ic.lastBorderTex ~= edgeTex or ic.lastBorderSize ~= edgeSize or ic.lastBorderPixel ~=
+            isPixel then
             ic.border:ClearAllPoints()
             if isPixel then
                 ic.border:SetPoint("TOPLEFT", ic, "TOPLEFT", -edgeSize, edgeSize)

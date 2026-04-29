@@ -139,8 +139,7 @@ L["RG_GeneralDesc"] = "Build raid layouts, save them as presets, push them live 
 L["RG_Setup"] = "Setup"
 L["RG_OpenEditor"] = "Open Raid Groups Editor"
 L["RG_OpenEditorDesc"] = "Arrange groups and managing presets"
-L["RG_PresetsDesc"] =
-    "Presets are account wide. All your characters share them"
+L["RG_PresetsDesc"] = "Presets are account wide. All your characters share them"
 L["RG_SavedPresets"] = "Saved Presets"
 L["RG_NoPresetsYet"] = "No presets saved yet"
 L["RG_SelectPreset"] = "Select Preset"
@@ -371,14 +370,12 @@ L["QoL_CDMTweaksDesc"] = "Tweaks for Blizzard's Cooldown Manager"
 L["QoL_CDMTweaksLongDesc"] =
     "These only touch the Cooldown Manager visually. Use /editmode to move the CDM frames themselves"
 L["QoL_CDMCenter"] = "Icon Centering"
-L["QoL_CDMCenterDesc"] =
-    "Toggles to center & keep the row of icons or bars together"
+L["QoL_CDMCenterDesc"] = "Toggles to center & keep the row of icons or bars together"
 L["QoL_CDMCenterEssential"] = "Essential Bar"
 L["QoL_CDMCenterUtility"] = "Utility Bar"
 L["QoL_CDMCenterBuffIcon"] = "Buff Icons"
 L["QoL_CDMCenterBuffBar"] = "Buff Bar"
-L["QoL_CDMCenterBuffDesc"] =
-    "Remove the gaps between buffs and instead center them"
+L["QoL_CDMCenterBuffDesc"] = "Remove the gaps between buffs and instead center them"
 L["QoL_CDMAuraOverride"] = "Aura Cooldown Override"
 L["QoL_CDMAuraOverrideDesc"] =
     "For spells that show remaining aura time. Turn this on to show the spell's actual cooldown instead"
@@ -391,8 +388,7 @@ L["QoL_CDMViewerEssential"] = "Essential"
 L["QoL_CDMViewerUtility"] = "Utility"
 L["QoL_CDMViewerBuffIcon"] = "Buff Icons"
 L["QoL_CDMViewerBuffBar"] = "Buff Bars"
-L["QoL_CDMStackFontDesc"] =
-    "Customize the stack/charge text for CDM frames"
+L["QoL_CDMStackFontDesc"] = "Customize the stack/charge text for CDM frames"
 L["QoL_CDMStackColor"] = "Stack Color"
 
 -- Notes
@@ -462,7 +458,8 @@ L["BossMods_CombatTimerDesc"] = "How does one even describe this, it counts time
 
 -- BossMods: BreakTimer
 L["BossMods_BreakTimer"] = "Break Timer"
-L["BossMods_BreakTimerDesc"] = "Show a popup with with some goated images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
+L["BossMods_BreakTimerDesc"] =
+    "Show a popup with with some goated images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
 L["BossMods_BreakTimer_Duration"] = "Test duration (seconds)"
 L["BossMods_BreakTimer_Test"] = "Test"
 L["BossMods_BreakTimer_Stop"] = "Stop"
@@ -541,7 +538,8 @@ L["BossMods_LKSoundChannel"] = "Sound Channel"
 
 -- BossMods: Queldanas -> LuraMap
 L["BossMods_LuraMap"] = "L'ura Spread Map"
-L["BossMods_LuraMapDesc"] = "Shows a map on the screen when it's time to spread. You can choose between Intermission, P2 or both"
+L["BossMods_LuraMapDesc"] =
+    "Shows a map on the screen when it's time to spread. You can choose between Intermission, P2 or both"
 L["BossMods_LMIntermission"] = "Intermission Map"
 L["BossMods_LMMain"] = "P2 Map"
 L["BossMods_LMIntermissionPosition"] = "Intermission Position"

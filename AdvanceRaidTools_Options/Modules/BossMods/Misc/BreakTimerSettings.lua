@@ -21,12 +21,12 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
 
     local y = 0
     y = full(y, track(T:Header(rightPanel, {
-        text = L["BossMods_BreakTimer"] or "Break Timer",
+        text = L["BossMods_BreakTimer"] or "Break Timer"
     })))
     y = full(y, track(T:Description(rightPanel, {
-        text = L["BossMods_BreakTimerDesc"]
-            or "Show a popup with a random meme image and a countdown when BigWigs starts a break.",
-        sizeDelta = 1,
+        text = L["BossMods_BreakTimerDesc"] or
+            "Show a popup with a random meme image and a countdown when BigWigs starts a break.",
+        sizeDelta = 1
     })))
 
     local durationSlider = track(T:Slider(rightPanel, {
@@ -43,7 +43,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = function()
             return isDisabled()
-        end,
+        end
     }))
     y = row(y, {durationSlider})
 
@@ -55,7 +55,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = function()
             return isDisabled()
-        end,
+        end
     }))
     local stopBtn = track(T:Button(rightPanel, {
         text = L["BossMods_BreakTimer_Stop"] or "Stop",
@@ -65,7 +65,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end,
         disabled = function()
             return isDisabled() or not mod:IsRunning()
-        end,
+        end
     }))
     y = row(y, {testBtn, stopBtn})
 
@@ -93,7 +93,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         Release = function()
             stateHandle:UnregisterAllMessages()
             tracker.release()
-        end,
+        end
     }
 end
 

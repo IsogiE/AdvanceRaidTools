@@ -7,8 +7,8 @@ P.modules.BossMods_BreakTimer = {
     position = {
         point = "CENTER",
         x = 0,
-        y = 0,
-    },
+        y = 0
+    }
 }
 
 local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
@@ -187,7 +187,7 @@ function Mod:SavePosition()
     self.db.position = {
         point = point or "CENTER",
         x = math.floor((x or 0) + 0.5),
-        y = math.floor((y or 0) + 0.5),
+        y = math.floor((y or 0) + 0.5)
     }
 end
 
@@ -219,7 +219,7 @@ do
             order = 40,
             labelKey = "BossMods_BreakTimer",
             descKey = "BossMods_BreakTimerDesc",
-            moduleName = "BossMods_BreakTimer",
+            moduleName = "BossMods_BreakTimer"
         })
     end
 end

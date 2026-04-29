@@ -295,7 +295,9 @@ local function buildResourcesTab(mod, isDisabled)
         build = function(parent)
             return T:Dropdown(parent, {
                 label = L["StatusbarTexture"],
-                values = function() return sharedMediaValues("statusbar") end,
+                values = function()
+                    return sharedMediaValues("statusbar")
+                end,
                 get = function()
                     return mod.db.healthTexture
                 end,
@@ -314,7 +316,9 @@ local function buildResourcesTab(mod, isDisabled)
         build = function(parent)
             return T:Dropdown(parent, {
                 label = L["StatusbarTexture"],
-                values = function() return sharedMediaValues("statusbar") end,
+                values = function()
+                    return sharedMediaValues("statusbar")
+                end,
                 get = function()
                     return mod.db.texture
                 end,

@@ -46,7 +46,7 @@ local function discover(spec)
                     if type(lsmName) == "string" and lsmName:sub(1, plen) == prefix then
                         local d = dims[lsmName]
                         if d then
-                            list[#list + 1] = { path, d.w, d.h }
+                            list[#list + 1] = {path, d.w, d.h}
                         else
                             list[#list + 1] = path
                         end
@@ -98,7 +98,10 @@ function E:PickRandomImage(name)
 end
 
 _G.ART_Media = _G.ART_Media or {}
-_G.ART_Media.Dreams = _G.ART_Media.Dreams or { prefix = "ART_Dream_", dims = {} }
+_G.ART_Media.Dreams = _G.ART_Media.Dreams or {
+    prefix = "ART_Dream_",
+    dims = {}
+}
 
 E:RegisterImagePool("Dreams", {
     lsmType = "background",
@@ -107,5 +110,5 @@ E:RegisterImagePool("Dreams", {
     maxW = 480,
     maxH = 480,
     w = 480,
-    h = 480,
+    h = 480
 })
