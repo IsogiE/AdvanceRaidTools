@@ -843,7 +843,7 @@ function T:Checkbox(parent, opts)
     end)
 
     if opts.tooltip then
-        attachTooltip(f, opts.tooltip, opts.tooltipAnchor or "ANCHOR_RIGHT")
+        attachTooltip(f, opts.tooltip, opts.tooltipAnchor or "ANCHOR_CURSOR")
     end
 
     f:SetScript("OnClick", function(self)
