@@ -48,10 +48,16 @@ local function senderToKey(sender)
 end
 
 local function unitForSender(sender)
-    if not sender or sender == "" then
+    local senderRef = senderToKey(sender)
+    if not senderRef or not UnitExists(senderRef) then
         return nil
     end
-    if UnitIsUnit(sender, "player") then
+
+    local senderGUID = UnitGUID(senderRef)
+    if not senderGUID then
+        return nil
+    end
+    if senderGUID == UnitGUID("player") then
         return "player"
     end
     local n = GetNumGroupMembers()
@@ -61,7 +67,7 @@ local function unitForSender(sender)
     local prefix = IsInRaid() and "raid" or "party"
     for i = 1, n do
         local unit = prefix .. i
-        if UnitExists(unit) and UnitIsUnit(unit, sender) then
+        if UnitExists(unit) and UnitGUID(unit) == senderGUID then
             return unit
         end
     end

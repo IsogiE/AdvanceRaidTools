@@ -159,14 +159,32 @@ function E:GetPlayerRole()
 end
 
 function E:GetGroupUnitByName(name)
+    name = self:SafeString(name)
     if not name or name == "" then
         return nil
     end
     local num = GetNumGroupMembers() or 0
+    if num == 0 then
+        return nil
+    end
+
+    local senderRef = name
+    if not name:find("-", 1, true) then
+        local realm = (GetRealmName() or ""):gsub("%s+", "")
+        senderRef = name .. "-" .. realm
+    end
+    if not UnitExists(senderRef) then
+        return nil
+    end
+    local senderGUID = UnitGUID(senderRef)
+    if not senderGUID then
+        return nil
+    end
+
     local prefix = IsInRaid() and "raid" or "party"
     for i = 1, num do
         local unit = prefix .. i
-        if UnitExists(unit) and UnitIsUnit(unit, name) then
+        if UnitExists(unit) and UnitGUID(unit) == senderGUID then
             return unit
         end
     end
