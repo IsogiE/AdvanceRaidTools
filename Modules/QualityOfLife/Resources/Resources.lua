@@ -9,6 +9,8 @@ P.modules.QoL_Resources = {
         DAMAGER = true
     },
 
+    hideBlizzardPRD = false,
+
     -- Visibility
     showHealthBar = true,
     showPowerBar = true,
@@ -290,6 +292,18 @@ function Resources:UpdateHealthText(bar)
     end
 end
 
+local function hidePRDChildren(frame)
+    if frame.HealthBarsContainer then
+        frame.HealthBarsContainer:Hide()
+    end
+    if frame.PowerBar then
+        frame.PowerBar:Hide()
+    end
+    if frame.ClassFrameContainer then
+        frame.ClassFrameContainer:Hide()
+    end
+end
+
 -- Restore Blizzard defaults for anything we changed
 local function revert(self_)
     local frame = prd()
@@ -351,25 +365,39 @@ function Resources:Apply()
     end
     self._pendingApply = nil
 
-    if not self:IsActive() then
+    if not self:IsEnabled() then
         revert(self)
         return
     end
 
-    if GetCVar(PRD_CVAR) == "0" then
-        SetCVar(PRD_CVAR, "1")
+    if roleActive(self.db) then
+        if GetCVar(PRD_CVAR) == "0" then
+            SetCVar(PRD_CVAR, "1")
+        end
+
+        self:InstallHooks()
+
+        local frame = prd()
+        if not frame then
+            return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
+        end
+
+        applyHealthBar(self, frame)
+        applyPowerBar(self, frame)
+        applyClassFrame(self, frame)
+        return
+    end
+
+    if not self.db.hideBlizzardPRD then
+        revert(self)
+        return
     end
 
     self:InstallHooks()
-
     local frame = prd()
-    if not frame then
-        return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
+    if frame then
+        hidePRDChildren(frame)
     end
-
-    applyHealthBar(self, frame)
-    applyPowerBar(self, frame)
-    applyClassFrame(self, frame)
 end
 
 -- rely on self:IsActive() inside to no-op when disabled
@@ -383,14 +411,28 @@ function Resources:InstallHooks()
     end
 
     hooksecurefunc(frame, "SetupHealthBar", function(self_)
+        if not Resources:IsEnabled() then
+            return
+        end
         if Resources:IsActive() then
             applyHealthBar(Resources, self_)
+        elseif Resources.db.hideBlizzardPRD then
+            if self_.HealthBarsContainer then
+                self_.HealthBarsContainer:Hide()
+            end
         end
     end)
 
     hooksecurefunc(frame, "SetupPowerBar", function(self_)
+        if not Resources:IsEnabled() then
+            return
+        end
         if Resources:IsActive() then
             applyPowerBar(Resources, self_)
+        elseif Resources.db.hideBlizzardPRD then
+            if self_.PowerBar then
+                self_.PowerBar:Hide()
+            end
         end
     end)
 
@@ -408,8 +450,15 @@ function Resources:InstallHooks()
     end)
 
     hooksecurefunc(frame, "SetupClassBar", function(self_)
+        if not Resources:IsEnabled() then
+            return
+        end
         if Resources:IsActive() then
             applyClassFrame(Resources, self_)
+        elseif Resources.db.hideBlizzardPRD then
+            if self_.ClassFrameContainer then
+                self_.ClassFrameContainer:Hide()
+            end
         end
     end)
 

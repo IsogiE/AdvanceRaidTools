@@ -111,6 +111,24 @@ local function buildResourcesTab(mod, isDisabled)
         }
     end
 
+    args.hideBlizzardPRD = {
+        order = 26,
+        width = "full",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["QoL_HideBlizzardPRD"],
+                get = function()
+                    return mod.db.hideBlizzardPRD and true or false
+                end,
+                onChange = function(_, v)
+                    mod.db.hideBlizzardPRD = v and true or false
+                    refreshLive()
+                end,
+                disabled = isDisabled
+            })
+        end
+    }
+
     args.visibilityHeader = {
         order = 30,
         build = function(parent)

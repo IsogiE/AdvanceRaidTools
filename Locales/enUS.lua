@@ -351,6 +351,7 @@ L["QoL_ActiveForRolesDesc"] = "Tweaks only apply when your current spec matches 
 L["QoL_RoleTank"] = "Tank"
 L["QoL_RoleHealer"] = "Healer"
 L["QoL_RoleDamager"] = "Damage"
+L["QoL_HideBlizzardPRD"] = "Hide Blizzard PRD on Inactive Roles"
 L["QoL_ShowHealthBar"] = "Show Health Bar"
 L["QoL_ShowPowerBar"] = "Show Power Bar"
 L["QoL_ShowClassFrame"] = "Show Class Resources"
