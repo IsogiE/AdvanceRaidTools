@@ -101,6 +101,24 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
             return isDisabled()
         end
     }))
+    local scaleSlider = track(T:Slider(rightPanel, {
+        label = L["Scale"] or "Scale",
+        min = 0.5,
+        max = 2.0,
+        step = 0.05,
+        isPercent = true,
+        value = mod.db.scale or 1.0,
+        get = function()
+            return mod.db.scale or 1.0
+        end,
+        onChange = function(v)
+            mod.db.scale = v
+            mod:ApplyScale()
+        end,
+        disabled = function()
+            return isDisabled()
+        end
+    }))
     local resetBtn = track(T:LabelAlignedButton(rightPanel, {
         text = L["ResetPosition"] or "Reset Position",
         onClick = function()
@@ -111,7 +129,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
             return isDisabled()
         end
     }))
-    y = row(y, {strataDropdown, resetBtn})
+    y = row(y, {strataDropdown, scaleSlider, resetBtn})
 
     local stateHandle = E:NewCallbackHandle()
     stateHandle:RegisterMessage("ART_BREAKTIMER_STATE", function()

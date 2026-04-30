@@ -5,6 +5,7 @@ P.modules.BossMods_BreakTimer = {
     defaultDuration = 60,
     fontSize = 48,
     strata = "DIALOG",
+    scale = 1.0,
     position = {
         point = "CENTER",
         x = 0,
@@ -129,9 +130,11 @@ function Mod:Start(key, duration)
     if not duration or duration <= 0 then
         return
     end
+    if not self:Show() then
+        return
+    end
     self.breakKey = key
     self.endTime = GetTime() + duration
-    self:Show()
     self.frame._tickAcc = 0
     self.frame.timer:SetText(formatTime(duration))
     E:SendMessage("ART_BREAKTIMER_STATE", true)
@@ -150,7 +153,7 @@ end
 function Mod:Show()
     local imgPath, imgW, imgH = E:PickRandomImage(IMAGE_POOL)
     if not imgPath or not imgW or not imgH or imgW <= 0 or imgH <= 0 then
-        return
+        return false
     end
 
     local f = self.frame
@@ -171,8 +174,10 @@ function Mod:Show()
     f.timer:SetHeight(fontSize + 4)
 
     f:SetSize(imgW, imgH + TIMER_GAP + fontSize + 4)
+    self:ApplyScale()
     self:ApplyPosition()
     f:Show()
+    return true
 end
 
 function Mod:ApplyPosition()
@@ -189,6 +194,17 @@ function Mod:ApplyStrata()
         return
     end
     self.frame:SetFrameStrata(self.db.strata or "DIALOG")
+end
+
+function Mod:ApplyScale()
+    if not self.frame then
+        return
+    end
+    local scale = tonumber(self.db.scale) or 1.0
+    if scale < 0.1 then
+        scale = 0.1
+    end
+    self.frame:SetScale(scale)
 end
 
 function Mod:ResetPosition()
