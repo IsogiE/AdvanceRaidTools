@@ -29,11 +29,27 @@ local function formatTime(seconds)
     return string.format("%d:%02d", m, s)
 end
 
+local function getBigWigsBreakBarText()
+    if type(BigWigsAPI) ~= "table" or type(BigWigsAPI.GetLocale) ~= "function" then
+        return nil
+    end
+    local locale = BigWigsAPI:GetLocale("BigWigs")
+    if type(locale) ~= "table" then
+        return nil
+    end
+    local text = locale.breakBar
+    if type(text) ~= "string" or text == "" then
+        return nil
+    end
+    return text
+end
+
 local function isBreakText(text)
-    if type(text) ~= "string" then
+    if type(text) ~= "string" or text == "" then
         return false
     end
-    return text:lower():find("break", 1, true) ~= nil
+    local breakText = getBigWigsBreakBarText()
+    return breakText ~= nil and text == breakText
 end
 
 function Mod:OnModuleInitialize()
