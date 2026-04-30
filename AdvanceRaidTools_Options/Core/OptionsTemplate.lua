@@ -3568,6 +3568,178 @@ function T:PlaceFull(parent, widget, yOffset, widthPx, opts)
 end
 
 -- =============================================================================
+-- T:NumericStepper(parent, opts)
+-- Compact integer input: [label] / [- editbox +]
+-- opts:
+--   label     label shown above the input
+--   get       function() -> number (current value)
+--   set       function(int) commits a new value
+--   step      nudge amount per button click (default 1)
+--   disabled  bool | function
+-- =============================================================================
+local STEPPER_LABEL_H = 14
+local STEPPER_INPUT_H = H_EDITBOX
+local STEPPER_BTN_W = 20
+
+function T:NumericStepper(parent, opts)
+    opts = opts or {}
+    assert(type(opts.get) == "function", "NumericStepper: get required")
+    assert(type(opts.set) == "function", "NumericStepper: set required")
+
+    local step = opts.step or 1
+
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetHeight(STEPPER_LABEL_H + 2 + STEPPER_INPUT_H)
+
+    local labelFS = newFont(container, 0)
+    labelFS:SetTextColor(unpack(c_text()))
+    labelFS:SetPoint("TOPLEFT", 0, 0)
+    labelFS:SetPoint("TOPRIGHT", 0, 0)
+    labelFS:SetJustifyH("LEFT")
+    labelFS:SetWordWrap(false)
+    labelFS:SetText(opts.label or "")
+
+    local function makeNudgeButton(glyph)
+        local btn = CreateFrame("Button", nil, container, "BackdropTemplate")
+        setTemplate(btn, "Default")
+        btn:SetSize(STEPPER_BTN_W, STEPPER_INPUT_H)
+        local fs = newFont(btn, 0)
+        fs:SetText(glyph)
+        fs:SetPoint("CENTER", 0, 0)
+        btn._fs = fs
+        return btn
+    end
+
+    local minusBtn = makeNudgeButton("-")
+    minusBtn:SetPoint("TOPLEFT", 0, -(STEPPER_LABEL_H + 2))
+
+    local plusBtn = makeNudgeButton("+")
+    plusBtn:SetPoint("TOPRIGHT", 0, -(STEPPER_LABEL_H + 2))
+
+    local box = CreateFrame("Frame", nil, container, "BackdropTemplate")
+    setTemplate(box, "Default")
+    box:SetPoint("LEFT", minusBtn, "RIGHT", 2, 0)
+    box:SetPoint("RIGHT", plusBtn, "LEFT", -2, 0)
+    box:SetHeight(STEPPER_INPUT_H)
+
+    local eb = CreateFrame("EditBox", nil, box)
+    eb:SetPoint("TOPLEFT", 2, -1)
+    eb:SetPoint("BOTTOMRIGHT", -2, 1)
+    eb:SetAutoFocus(false)
+    eb:SetFont(fontPath(), fontSize(), fontOutline())
+    eb:SetTextInsets(4, 4, 0, 0)
+    eb:SetTextColor(1, 1, 1)
+    eb:SetJustifyH("CENTER")
+    eb:SetMaxLetters(8)
+    E.skinnedFontStrings[eb] = 0
+
+    local state = {
+        disabled = false
+    }
+
+    local function readDisplay()
+        local v = opts.get()
+        return math.floor((v or 0) + 0.5)
+    end
+
+    local function syncText()
+        if not eb:HasFocus() then
+            eb:SetText(tostring(readDisplay()))
+            eb:SetCursorPosition(0)
+        end
+    end
+    syncText()
+
+    local function commitFromText()
+        local txt = eb:GetText() or ""
+        local n = tonumber(txt)
+        if n then
+            opts.set(math.floor(n))
+        end
+        syncText()
+    end
+
+    eb:SetScript("OnEditFocusGained", function(self_)
+        self_:HighlightText()
+    end)
+    eb:SetScript("OnEnterPressed", function(self_)
+        commitFromText()
+        self_:ClearFocus()
+    end)
+    eb:SetScript("OnEscapePressed", function(self_)
+        self_:ClearFocus()
+        syncText()
+    end)
+    eb:SetScript("OnEditFocusLost", function()
+        commitFromText()
+    end)
+
+    local function nudge(delta)
+        if state.disabled then
+            return
+        end
+        opts.set(readDisplay() + delta)
+        syncText()
+    end
+
+    local function hookHover(btn)
+        btn:SetScript("OnEnter", function(self_)
+            if not state.disabled then
+                self_:SetBackdropBorderColor(unpack(c_accent()))
+            end
+        end)
+        btn:SetScript("OnLeave", function(self_)
+            if not state.disabled then
+                self_:SetBackdropBorderColor(unpack(c_border()))
+            end
+        end)
+    end
+    hookHover(minusBtn)
+    hookHover(plusBtn)
+
+    minusBtn:SetScript("OnClick", function()
+        nudge(-step)
+    end)
+    plusBtn:SetScript("OnClick", function()
+        nudge(step)
+    end)
+
+    local function SetDisabled(d)
+        state.disabled = d and true or false
+        eb:EnableMouse(not state.disabled)
+        eb:SetEnabled(not state.disabled)
+        minusBtn:EnableMouse(not state.disabled)
+        plusBtn:EnableMouse(not state.disabled)
+        local txt = state.disabled and c_textDim() or c_text()
+        local bdr = state.disabled and c_textDim() or c_border()
+        labelFS:SetTextColor(unpack(txt))
+        minusBtn._fs:SetTextColor(unpack(txt))
+        plusBtn._fs:SetTextColor(unpack(txt))
+        eb:SetTextColor(state.disabled and c_textDim()[1] or 1, state.disabled and c_textDim()[2] or 1,
+            state.disabled and c_textDim()[3] or 1)
+        minusBtn:SetBackdropBorderColor(unpack(bdr))
+        plusBtn:SetBackdropBorderColor(unpack(bdr))
+        box:SetBackdropBorderColor(unpack(bdr))
+    end
+
+    SetDisabled(evalMaybeFn(opts.disabled, container))
+
+    return {
+        frame = container,
+        height = container:GetHeight(),
+        editBox = eb,
+        SetDisabled = SetDisabled,
+        IsDisabled = function()
+            return state.disabled
+        end,
+        Refresh = function()
+            syncText()
+            SetDisabled(evalMaybeFn(opts.disabled, container))
+        end
+    }
+end
+
+-- =============================================================================
 -- T:PositionSection(parent, yOffset, widthPx, opts)
 -- opts:
 --   anchor              frame to reposition (optional — unlock disabled if nil)
@@ -3580,6 +3752,8 @@ end
 --                       anchor's SetPoint from db
 --   onEditModeChanged   fires when the unlock toggles (bool)
 --   isDisabled          function() -> bool
+--   showOffsets         render compact X/Y sliders above the reset button
+--   offsetMin/offsetMax slider bounds (default ±2000)
 --
 -- Returns (newY, handle). handle.Release() releases the MovableFrame, fires
 -- onEditModeChanged(false), hides/unparents the section's own widgets.
@@ -3752,6 +3926,56 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         })
     end
 
+    if opts.showOffsets then
+        local function readX()
+            return math.floor((opts.getPosition().x or 0) + 0.5)
+        end
+        local function readY()
+            return math.floor((opts.getPosition().y or 0) + 0.5)
+        end
+        local function writeX(v)
+            local pos = opts.getPosition()
+            opts.setPosition({
+                point = pos.point or "CENTER",
+                x = math.floor(v),
+                y = pos.y or 0
+            })
+            if opts.onChanged then
+                opts.onChanged()
+            end
+        end
+        local function writeY(v)
+            local pos = opts.getPosition()
+            opts.setPosition({
+                point = pos.point or "CENTER",
+                x = pos.x or 0,
+                y = math.floor(v)
+            })
+            if opts.onChanged then
+                opts.onChanged()
+            end
+        end
+
+        local posHeader = trackOwn(T:Header(parent, {
+            text = L["Position"] or "Position"
+        }))
+        newY = newY + T:PlaceFull(parent, posHeader, newY, widthPx) + POSITION_SECTION_HEADER_GAP
+
+        local xStepper = trackOwn(T:NumericStepper(parent, {
+            label = L["QoL_XOffset"] or "X Offset",
+            get = readX,
+            set = writeX,
+            disabled = isDisabled
+        }))
+        local yStepper = trackOwn(T:NumericStepper(parent, {
+            label = L["QoL_YOffset"] or "Y Offset",
+            get = readY,
+            set = writeY,
+            disabled = isDisabled
+        }))
+        newY = newY + T:PlaceRow(parent, {xStepper, yStepper}, newY, widthPx) + POSITION_SECTION_ROW_GAP
+    end
+
     local resetBtn = trackOwn(T:LabelAlignedButton(parent, {
         text = L["ResetPosition"] or "Reset Position",
         onClick = function()
@@ -3879,8 +4103,8 @@ function T:MovableFrame(anchor, opts)
         local point, _, _, x, y = self_:GetPoint(1)
         opts.setPosition({
             point = point or "CENTER",
-            x = math.floor((x or 0) + 0.5),
-            y = math.floor((y or 0) + 0.5)
+            x = x or 0,
+            y = y or 0
         })
         if opts.onChanged then
             safeCall("MovableFrame.onChanged", opts.onChanged)
