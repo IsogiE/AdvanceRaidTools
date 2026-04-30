@@ -7,35 +7,14 @@ P.modules.Updater = {
 local Mod = E:NewModule("Updater", "AceEvent-3.0")
 
 local COMM_PREFIX = "ARTUPD"
-local EXPECTED_BTAG = "Isogi#21124"
+local OFFICER_RANK_THRESHOLD = 2
 local POPUP_KEY = "ART_UPDATE_NOTICE"
 local IMAGE_POOL = "Dreams"
 
 local POPUP_BODY_PAD = 28
 local POPUP_MIN_W = 180
 
-local function getMyBattleTag()
-    if type(BNGetInfo) ~= "function" then
-        return nil
-    end
-    local presenceID, btag = BNGetInfo()
-    btag = E:SafeString(btag)
-    if btag and btag ~= "" then
-        return btag
-    end
-    if presenceID and C_BattleNet and C_BattleNet.GetAccountInfoByID then
-        local info = C_BattleNet.GetAccountInfoByID(presenceID)
-        if info then
-            local resolved = E:SafeString(info.battleTag)
-            if resolved and resolved ~= "" then
-                return resolved
-            end
-        end
-    end
-    return nil
-end
-
-local function findGuildMemberGUID(name)
+local function getGuildRankIndexByName(name)
     if not IsInGuild() then
         return nil
     end
@@ -48,41 +27,27 @@ local function findGuildMemberGUID(name)
     end
     local n = GetNumGuildMembers() or 0
     for i = 1, n do
-        local memberName, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, memberGUID = GetGuildRosterInfo(i)
+        local memberName, _, rankIndex = GetGuildRosterInfo(i)
         if memberName and E:BareName(memberName) == bare then
-            return memberGUID
+            return rankIndex
         end
     end
     return nil
 end
 
-local function resolveSenderBattleTag(sender)
-    if type(sender) ~= "string" or sender == "" then
-        return nil
+local function isOfficerRank(rankIndex)
+    return type(rankIndex) == "number" and rankIndex <= OFFICER_RANK_THRESHOLD
+end
+
+local function senderIsGuildOfficer(sender)
+    return isOfficerRank(getGuildRankIndexByName(sender))
+end
+
+local function iAmGuildOfficer()
+    if not IsInGuild() then
+        return false
     end
-    local guid
-    local unit = E:GetGroupUnitByName(sender)
-    if unit then
-        guid = UnitGUID(unit)
-    end
-    if not guid then
-        guid = findGuildMemberGUID(sender)
-    end
-    if not guid then
-        return nil
-    end
-    if not (C_BattleNet and C_BattleNet.GetAccountInfoByGUID) then
-        return nil
-    end
-    local info = C_BattleNet.GetAccountInfoByGUID(guid)
-    if not info then
-        return nil
-    end
-    local resolved = E:SafeString(info.battleTag)
-    if resolved and resolved ~= "" then
-        return resolved
-    end
-    return nil
+    return isOfficerRank(getGuildRankIndexByName(UnitName("player")))
 end
 
 function Mod:OnEnable()
@@ -99,7 +64,7 @@ function Mod:OnDisable()
 end
 
 function Mod:OnReceive(message, sender)
-    if resolveSenderBattleTag(sender) ~= EXPECTED_BTAG then
+    if not senderIsGuildOfficer(sender) then
         return
     end
     local senderVersion = E:SafeString(message) or ""
@@ -110,10 +75,7 @@ function Mod:OnReceive(message, sender)
 end
 
 function Mod:Trigger()
-    if getMyBattleTag() ~= EXPECTED_BTAG then
-        return false
-    end
-    if not IsInGuild() then
+    if not iAmGuildOfficer() then
         return false
     end
     local Comms = E:GetEnabledModule("Comms")
