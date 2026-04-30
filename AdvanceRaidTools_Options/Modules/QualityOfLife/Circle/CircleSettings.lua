@@ -38,7 +38,70 @@ local function buildCircleTab(mod, isDisabled)
         return isDisabled() or not isCrosshair()
     end
 
+    local movable
+    local function ensureMovable()
+        if movable then
+            return movable
+        end
+        if not (mod and mod.EnsureFrame) then
+            return nil
+        end
+        local f = mod:EnsureFrame()
+        if not f then
+            return nil
+        end
+        movable = T:MovableFrame(f, {
+            label = L["QoL_Circle"] or "Character Marker",
+            getPosition = function()
+                return {
+                    point = mod.db.position.point,
+                    x = mod.db.position.x,
+                    y = mod.db.position.y
+                }
+            end,
+            setPosition = function(pos)
+                mod.db.position.point = pos.point or "CENTER"
+                mod.db.position.x = pos.x or 0
+                mod.db.position.y = pos.y or 0
+                refreshLive()
+            end,
+            onChanged = refreshPanel
+        })
+        return movable
+    end
+
     return {
+        unlockFrame = {
+            order = 4,
+            width = "full",
+            build = function(parent)
+                local cb = T:Checkbox(parent, {
+                    text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                    labelTop = true,
+                    tooltip = {
+                        title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                        desc = L["BossMods_UnlockFrameDesc"] or ""
+                    },
+                    get = function()
+                        return movable and movable:IsUnlocked() or false
+                    end,
+                    onChange = function(_, v)
+                        local m = ensureMovable()
+                        if m then
+                            m:SetUnlocked(v)
+                        end
+                    end,
+                    disabled = isDisabled
+                })
+                cb.frame:HookScript("OnHide", function()
+                    if movable then
+                        movable:SetUnlocked(false)
+                    end
+                end)
+                return cb
+            end
+        },
+
         appearanceHeader = {
             order = 10,
             build = function(parent)
@@ -189,18 +252,14 @@ local function buildCircleTab(mod, isDisabled)
             order = 22,
             width = "1/2",
             build = function(parent)
-                return T:Slider(parent, {
+                return T:NumericStepper(parent, {
                     label = L["QoL_XOffset"],
-                    min = -1000,
-                    max = 1000,
-                    step = 1,
-                    value = mod.db.position.x,
-                    onChange = function(v)
-                        mod.db.position.x = math.floor(v)
-                        refreshLive()
-                    end,
                     get = function()
                         return mod.db.position.x
+                    end,
+                    set = function(v)
+                        mod.db.position.x = math.floor(v)
+                        refreshLive()
                     end,
                     disabled = isDisabled
                 })
@@ -211,18 +270,14 @@ local function buildCircleTab(mod, isDisabled)
             order = 23,
             width = "1/2",
             build = function(parent)
-                return T:Slider(parent, {
+                return T:NumericStepper(parent, {
                     label = L["QoL_YOffset"],
-                    min = -1000,
-                    max = 1000,
-                    step = 1,
-                    value = mod.db.position.y,
-                    onChange = function(v)
-                        mod.db.position.y = math.floor(v)
-                        refreshLive()
-                    end,
                     get = function()
                         return mod.db.position.y
+                    end,
+                    set = function(v)
+                        mod.db.position.y = math.floor(v)
+                        refreshLive()
                     end,
                     disabled = isDisabled
                 })
