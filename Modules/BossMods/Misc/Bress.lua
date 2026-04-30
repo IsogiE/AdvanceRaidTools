@@ -240,11 +240,23 @@ function Bress:UpdateState()
     end
 
     local current = info.currentCharges or 0
+    local maxCharges = info.maxCharges or 0
     local started = info.cooldownStartTime or 0
     local duration = info.cooldownDuration or 0
 
+    if current == 0 and maxCharges == 0 then
+        f:Hide()
+        return
+    end
+
     f.chargeText:SetFormattedText("%d", current)
-    f.chargeText:SetAlpha(current)
+    f.chargeText:SetAlpha(1)
+    if current == 0 then
+        f.chargeText:SetTextColor(1, 0, 0, 1)
+    else
+        local r, g, b, a = E:ColorTuple(self.db.chargeText.color, 1, 1, 1, 1)
+        f.chargeText:SetTextColor(r, g, b, a)
+    end
 
     f.cooldown:SetCooldown(started, duration)
     f._cdStart = started
