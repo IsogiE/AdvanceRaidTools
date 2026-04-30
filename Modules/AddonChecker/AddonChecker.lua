@@ -1,7 +1,7 @@
 local E, L, P = unpack(ART)
 
-local DEFAULT_ADDONS = {"AdvanceRaidTools", "BigWigs", "NorthernSkyRaidTools", "RCLootCouncil", "SharedMedia_Causese",
-                        "TimelineReminders"}
+local DEFAULT_ADDONS = {"AdvanceRaidTools", "AdvanceRaidTools_Media", "BigWigs", "NorthernSkyRaidTools",
+                        "RCLootCouncil", "SharedMedia_Causese", "TimelineReminders"}
 
 P.modules.AddonChecker = {
     enabled = true,
