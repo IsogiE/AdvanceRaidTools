@@ -312,17 +312,7 @@ local function createNameRow(self, parent)
         Mixin(row, BackdropTemplateMixin)
     end
 
-    row:SetBackdrop({
-        bgFile = E.media.blankTex,
-        edgeFile = E.media.blankTex,
-        edgeSize = 1,
-        insets = {
-            left = 1,
-            right = 1,
-            top = 1,
-            bottom = 1
-        }
-    })
+    E:SetTemplate(row, "Default")
     row:SetBackdropColor(0, 0, 0, 0.25)
     row:SetBackdropBorderColor(unpack(E.media.borderColor))
     row:EnableMouse(true)

@@ -83,34 +83,41 @@ local function reinforceBorder(frame)
     if not frame then
         return
     end
-    local scale = frame.GetEffectiveScale and frame:GetEffectiveScale() or 1
-    if not scale or scale <= 0 then
+    local px = E:PixelSize(frame)
+    if px <= 0 then
         return
     end
-    local px = 1 / scale
     if frame.TopEdge and frame.TopEdge.SetHeight then
         frame.TopEdge:SetHeight(px)
+        E:DisableSharpening(frame.TopEdge)
     end
     if frame.BottomEdge and frame.BottomEdge.SetHeight then
         frame.BottomEdge:SetHeight(px)
+        E:DisableSharpening(frame.BottomEdge)
     end
     if frame.LeftEdge and frame.LeftEdge.SetWidth then
         frame.LeftEdge:SetWidth(px)
+        E:DisableSharpening(frame.LeftEdge)
     end
     if frame.RightEdge and frame.RightEdge.SetWidth then
         frame.RightEdge:SetWidth(px)
+        E:DisableSharpening(frame.RightEdge)
     end
     if frame.TopLeftCorner and frame.TopLeftCorner.SetSize then
         frame.TopLeftCorner:SetSize(px, px)
+        E:DisableSharpening(frame.TopLeftCorner)
     end
     if frame.TopRightCorner and frame.TopRightCorner.SetSize then
         frame.TopRightCorner:SetSize(px, px)
+        E:DisableSharpening(frame.TopRightCorner)
     end
     if frame.BottomLeftCorner and frame.BottomLeftCorner.SetSize then
         frame.BottomLeftCorner:SetSize(px, px)
+        E:DisableSharpening(frame.BottomLeftCorner)
     end
     if frame.BottomRightCorner and frame.BottomRightCorner.SetSize then
         frame.BottomRightCorner:SetSize(px, px)
+        E:DisableSharpening(frame.BottomRightCorner)
     end
 end
 OH.reinforceBorder = reinforceBorder

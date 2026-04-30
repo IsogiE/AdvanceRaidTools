@@ -167,53 +167,25 @@ local function applyBackdrop(frame, bgAlpha, border)
     local enabled = border.enabled and true or false
     local edgeFile = E:FetchBorder(border.texture)
     local edgeSize = math.min(border.size or 16, 16)
-    local isPixel = (edgeFile == E.media.blankTex)
     local r, g, b, a = E:ColorTuple(border.color, 1, 1, 1, 1)
 
     if not frame._bgTex then
         frame._bgTex = frame:CreateTexture(nil, "BACKGROUND")
         frame._bgTex:SetTexture(WHITE)
         frame._bgTex:SetAllPoints(frame)
+        E:DisableSharpening(frame._bgTex)
     end
     frame._bgTex:SetVertexColor(0, 0, 0, bgAlpha)
 
-    if enabled and not isPixel then
-        if frame._artBdMode ~= "edge" or frame._artBdEdgeFile ~= edgeFile or frame._artBdEdgeSize ~= edgeSize then
-            frame:SetBackdrop({
-                edgeFile = edgeFile,
-                edgeSize = edgeSize,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
-            })
-            frame._artBdMode = "edge"
-            frame._artBdEdgeFile = edgeFile
-            frame._artBdEdgeSize = edgeSize
-        end
-        frame:SetBackdropBorderColor(r, g, b, a)
-        E:ApplyOuterBorder(frame, {
-            enabled = false
-        })
-    else
-        if frame._artBdMode ~= "none" then
-            frame:SetBackdrop(nil)
-            frame._artBdMode = "none"
-            frame._artBdEdgeFile = nil
-            frame._artBdEdgeSize = nil
-        end
-        E:ApplyOuterBorder(frame, {
-            enabled = enabled,
-            edgeFile = edgeFile,
-            edgeSize = edgeSize,
-            r = r,
-            g = g,
-            b = b,
-            a = a
-        })
-    end
+    E:ApplyOuterBorder(frame, {
+        enabled = enabled,
+        edgeFile = edgeFile,
+        edgeSize = edgeSize,
+        r = r,
+        g = g,
+        b = b,
+        a = a
+    })
 end
 
 -- Frame construction

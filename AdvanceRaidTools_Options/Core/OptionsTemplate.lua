@@ -214,6 +214,7 @@ local function applyOpaqueTemplate(frame, kind)
             bottom = PIXEL
         }
     })
+    E:DisablePixelSnap(frame)
     OPAQUE_PAINT[frame] = kind or "backdrop"
     paintOpaque(frame, kind)
 end

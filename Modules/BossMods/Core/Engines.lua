@@ -265,55 +265,30 @@ function Engines.Bar(config)
         local enabled = border.enabled ~= false
         local edgeFile = fetchBorder(border.texture)
         local edgeSize = math.min(border.size or 1, 16)
-        local isPixel = (edgeFile == E.media.blankTex)
         local er, eg, eb, ea = colorTuple(border.color, 0, 0, 0, 1)
 
-        if enabled and not isPixel then
-            if frame._artBdMode ~= "edge" or frame._artBdEdgeFile ~= edgeFile or frame._artBdEdgeSize ~= edgeSize then
-                frame:SetBackdrop({
-                    bgFile = WHITE,
-                    edgeFile = edgeFile,
-                    edgeSize = edgeSize,
-                    insets = {
-                        left = 1,
-                        right = 1,
-                        top = 1,
-                        bottom = 1
-                    }
-                })
-                frame._artBdMode = "edge"
-                frame._artBdEdgeFile = edgeFile
-                frame._artBdEdgeSize = edgeSize
-            end
-            frame:SetBackdropBorderColor(er, eg, eb, ea)
-            E:ApplyOuterBorder(frame, {
-                enabled = false
+        if frame._artBdMode ~= "bg" then
+            frame:SetBackdrop({
+                bgFile = WHITE,
+                insets = {
+                    left = 0,
+                    right = 0,
+                    top = 0,
+                    bottom = 0
+                }
             })
-        else
-            if frame._artBdMode ~= "bg" then
-                frame:SetBackdrop({
-                    bgFile = WHITE,
-                    insets = {
-                        left = 0,
-                        right = 0,
-                        top = 0,
-                        bottom = 0
-                    }
-                })
-                frame._artBdMode = "bg"
-                frame._artBdEdgeFile = nil
-                frame._artBdEdgeSize = nil
-            end
-            E:ApplyOuterBorder(frame, {
-                enabled = enabled,
-                edgeFile = edgeFile,
-                edgeSize = edgeSize,
-                r = er,
-                g = eg,
-                b = eb,
-                a = ea
-            })
+            E:DisablePixelSnap(frame)
+            frame._artBdMode = "bg"
         end
+        E:ApplyOuterBorder(frame, {
+            enabled = enabled,
+            edgeFile = edgeFile,
+            edgeSize = edgeSize,
+            r = er,
+            g = eg,
+            b = eb,
+            a = ea
+        })
 
         local br, bgG, bb, ba = colorTuple(bg.color, 0, 0, 0, 0.6)
         frame:SetBackdropColor(br, bgG, bb, ba)
@@ -801,6 +776,9 @@ function Engines.AuraDisplay(config)
 
     local function updateIconBorder(ic, borderCfg)
         if not borderCfg or not borderCfg.enabled then
+            E:ApplyOuterBorder(ic, {
+                enabled = false
+            })
             ic.border:Hide()
             ic.borderApplied = false
             return
@@ -808,41 +786,25 @@ function Engines.AuraDisplay(config)
         local edgeTex = fetchBorder(borderCfg.texture)
         local edgeSize = math.min(borderCfg.size or 12, 16)
         if edgeSize <= 0 then
+            E:ApplyOuterBorder(ic, {
+                enabled = false
+            })
             ic.border:Hide()
             ic.borderApplied = false
             return
         end
-        local isPixel = (edgeTex == E.media.blankTex)
-
-        if not ic.borderApplied or ic.lastBorderTex ~= edgeTex or ic.lastBorderSize ~= edgeSize or ic.lastBorderPixel ~=
-            isPixel then
-            ic.border:ClearAllPoints()
-            if isPixel then
-                ic.border:SetPoint("TOPLEFT", ic, "TOPLEFT", -edgeSize, edgeSize)
-                ic.border:SetPoint("BOTTOMRIGHT", ic, "BOTTOMRIGHT", edgeSize, -edgeSize)
-                ic.border:SetFrameLevel(ic:GetFrameLevel())
-            else
-                ic.border:SetAllPoints(ic)
-                ic.border:SetFrameLevel(ic:GetFrameLevel() + 5)
-            end
-            ic.border:SetBackdrop({
-                edgeFile = edgeTex,
-                edgeSize = edgeSize,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
-            })
-            ic.lastBorderTex = edgeTex
-            ic.lastBorderSize = edgeSize
-            ic.lastBorderPixel = isPixel
-            ic.borderApplied = true
-        end
+        ic.border:Hide()
         local r, g, b, a = colorTuple(borderCfg.color, 0, 0, 0, 1)
-        ic.border:SetBackdropBorderColor(r, g, b, a * (borderCfg.opacity or 1))
-        ic.border:Show()
+        E:ApplyOuterBorder(ic, {
+            enabled = true,
+            edgeFile = edgeTex,
+            edgeSize = edgeSize,
+            r = r,
+            g = g,
+            b = b,
+            a = a * (borderCfg.opacity or 1)
+        })
+        ic.borderApplied = true
     end
 
     local function updateDisplayBackdrop(styleCfg)
@@ -1257,7 +1219,6 @@ function Engines.AssignmentList(config)
         local enabled = state.highlight or (border.enabled ~= false)
         local edgeFile = fetchBorder(border.texture)
         local edgeSize = math.min(border.size or 16, 16)
-        local isPixel = (edgeFile == E.media.blankTex)
 
         local r, g, b, a
         if state.highlight then
@@ -1266,52 +1227,28 @@ function Engines.AssignmentList(config)
             r, g, b, a = colorTuple(border.color, 0.3, 0.3, 0.3, 1)
         end
 
-        if enabled and not isPixel then
-            if display._artBdMode ~= "edge" or display._artBdEdgeFile ~= edgeFile or display._artBdEdgeSize ~= edgeSize then
-                display:SetBackdrop({
-                    bgFile = WHITE,
-                    edgeFile = edgeFile,
-                    edgeSize = edgeSize,
-                    insets = {
-                        left = 1,
-                        right = 1,
-                        top = 1,
-                        bottom = 1
-                    }
-                })
-                display._artBdMode = "edge"
-                display._artBdEdgeFile = edgeFile
-                display._artBdEdgeSize = edgeSize
-            end
-            display:SetBackdropBorderColor(r, g, b, a)
-            E:ApplyOuterBorder(display, {
-                enabled = false
+        if display._artBdMode ~= "bg" then
+            display:SetBackdrop({
+                bgFile = WHITE,
+                insets = {
+                    left = 0,
+                    right = 0,
+                    top = 0,
+                    bottom = 0
+                }
             })
-        else
-            if display._artBdMode ~= "bg" then
-                display:SetBackdrop({
-                    bgFile = WHITE,
-                    insets = {
-                        left = 0,
-                        right = 0,
-                        top = 0,
-                        bottom = 0
-                    }
-                })
-                display._artBdMode = "bg"
-                display._artBdEdgeFile = nil
-                display._artBdEdgeSize = nil
-            end
-            E:ApplyOuterBorder(display, {
-                enabled = enabled,
-                edgeFile = edgeFile,
-                edgeSize = edgeSize,
-                r = r,
-                g = g,
-                b = b,
-                a = a
-            })
+            E:DisablePixelSnap(display)
+            display._artBdMode = "bg"
         end
+        E:ApplyOuterBorder(display, {
+            enabled = enabled,
+            edgeFile = edgeFile,
+            edgeSize = edgeSize,
+            r = r,
+            g = g,
+            b = b,
+            a = a
+        })
 
         display:SetBackdropColor(0.1, 0.1, 0.1, bg.opacity or 1)
     end

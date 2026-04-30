@@ -74,46 +74,17 @@ function Feather:ApplyBackdrop()
     local borderEnabled = border.enabled and true or false
     local edgeFile = E:FetchBorder(border.texture)
     local edgeSize = math.min(border.size or 1, 16)
-    local isPixel = (edgeFile == E.media.blankTex)
     local er, eg, eb, ea = E:ColorTuple(border.color, 0, 0, 0, 1)
 
-    if borderEnabled and not isPixel then
-        if f._artBdMode ~= "edge" or f._artBdEdgeFile ~= edgeFile or f._artBdEdgeSize ~= edgeSize then
-            f:SetBackdrop({
-                edgeFile = edgeFile,
-                edgeSize = edgeSize,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
-            })
-            f._artBdMode = "edge"
-            f._artBdEdgeFile = edgeFile
-            f._artBdEdgeSize = edgeSize
-        end
-        f:SetBackdropBorderColor(er, eg, eb, ea)
-        E:ApplyOuterBorder(f, {
-            enabled = false
-        })
-    else
-        if f._artBdMode ~= "none" then
-            f:SetBackdrop(nil)
-            f._artBdMode = "none"
-            f._artBdEdgeFile = nil
-            f._artBdEdgeSize = nil
-        end
-        E:ApplyOuterBorder(f, {
-            enabled = borderEnabled,
-            edgeFile = edgeFile,
-            edgeSize = edgeSize,
-            r = er,
-            g = eg,
-            b = eb,
-            a = ea
-        })
-    end
+    E:ApplyOuterBorder(f, {
+        enabled = borderEnabled,
+        edgeFile = edgeFile,
+        edgeSize = edgeSize,
+        r = er,
+        g = eg,
+        b = eb,
+        a = ea
+    })
 end
 
 function Feather:Apply()

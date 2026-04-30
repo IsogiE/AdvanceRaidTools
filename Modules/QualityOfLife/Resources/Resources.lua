@@ -60,59 +60,28 @@ end
 
 -- Visuals
 
-local WHITE = E.media.blankTex
-
-local function ensureCustomBorder(bar)
-    if bar.artBorder then
-        return bar.artBorder
-    end
-
-    local borders = {}
-    for _, key in ipairs({"top", "bottom", "left", "right"}) do
-        local t = bar:CreateTexture(nil, "OVERLAY")
-        t:SetTexture(WHITE)
-        borders[key] = t
-    end
-
-    borders.top:SetPoint("TOPLEFT", bar, "TOPLEFT", -1, 1)
-    borders.top:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 1, 1)
-    borders.top:SetHeight(1)
-
-    borders.bottom:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", -1, -1)
-    borders.bottom:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 1, -1)
-    borders.bottom:SetHeight(1)
-
-    borders.left:SetPoint("TOPLEFT", bar, "TOPLEFT", -1, 1)
-    borders.left:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", -1, -1)
-    borders.left:SetWidth(1)
-
-    borders.right:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 1, 1)
-    borders.right:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 1, -1)
-    borders.right:SetWidth(1)
-
-    bar.artBorder = borders
-    return borders
-end
-
 local function applyCustomBorder(bar, show, color)
-    local borders = ensureCustomBorder(bar)
-    for _, t in pairs(borders) do
-        if show then
-            t:SetVertexColor(color[1], color[2], color[3], color[4] or 1)
-            t:Show()
-        else
-            t:Hide()
-        end
+    if not show then
+        E:ApplyOuterBorder(bar, {
+            enabled = false
+        })
+        return
     end
+    E:ApplyOuterBorder(bar, {
+        enabled = true,
+        edgeFile = E.media.blankTex,
+        edgeSize = 1,
+        r = color[1],
+        g = color[2],
+        b = color[3],
+        a = color[4] or 1
+    })
 end
 
 local function hideCustomBorder(bar)
-    if not bar.artBorder then
-        return
-    end
-    for _, t in pairs(bar.artBorder) do
-        t:Hide()
-    end
+    E:ApplyOuterBorder(bar, {
+        enabled = false
+    })
 end
 
 local function applyPowerBar(self_, frame)
