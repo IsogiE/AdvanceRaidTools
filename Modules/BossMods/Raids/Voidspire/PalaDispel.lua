@@ -138,7 +138,6 @@ end
 function PalaDispel:OnDisable()
     if self.editMode then
         self:RemoveGlow("player")
-        self.alert.frame:SetBackdrop(nil)
         self.editMode = false
     end
     self:ClearAssignmentUI()
@@ -231,7 +230,6 @@ function PalaDispel:OnEncounterStart(_, encounterID)
 
     if self.editMode then
         self:RemoveGlow("player")
-        self.alert.frame:SetBackdrop(nil)
         self.editMode = false
     end
 
@@ -547,19 +545,10 @@ function PalaDispel:SetEditMode(v)
     self.editMode = v and true or false
 
     if self.editMode then
-        self.alert.frame:SetBackdrop({
-            bgFile = [[Interface\Buttons\WHITE8x8]],
-            edgeFile = [[Interface\Buttons\WHITE8x8]],
-            edgeSize = E:PixelSize(self.alert.frame)
-        })
-        E:DisablePixelSnap(self.alert.frame)
-        self.alert.frame:SetBackdropColor(0, 0.2, 0.5, 0.5)
-        self.alert.frame:SetBackdropBorderColor(0, 0.5, 1, 1)
         self.alert:SetText(self:FormatAlertText("Dispel", false, "player"))
         self.alert:Show()
         self:ApplyGlow("player")
     else
-        self.alert.frame:SetBackdrop(nil)
         self:RemoveGlow("player")
         if self.myAssignedUnit then
             self.alert:SetText(self:FormatAlertText("Dispel", false, self.myAssignedUnit))
