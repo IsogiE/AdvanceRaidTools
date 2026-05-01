@@ -45,7 +45,8 @@ local function getBigWigsBreakBarText()
 end
 
 local function isBreakText(text)
-    if type(text) ~= "string" or text == "" then
+    text = E:SafeString(text)
+    if not text then
         return false
     end
     local breakText = getBigWigsBreakBarText()
@@ -127,6 +128,9 @@ function Mod:OnDisable()
 end
 
 function Mod:OnStartBar(key, text, time)
+    if InCombatLockdown() then
+        return
+    end
     if not isBreakText(text) then
         return
     end
@@ -138,6 +142,9 @@ function Mod:OnStopBar(text)
         return
     end
     if self:IsTest() then
+        return
+    end
+    if InCombatLockdown() then
         return
     end
     if isBreakText(text) then
