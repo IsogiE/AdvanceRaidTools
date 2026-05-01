@@ -76,6 +76,10 @@ function Mod:EnsureFrame()
     end)
     f:Hide()
 
+    f.label = f:CreateFontString(nil, "OVERLAY")
+    f.label:SetJustifyH("CENTER")
+    f.label:SetJustifyV("MIDDLE")
+
     f.image = f:CreateTexture(nil, "ARTWORK")
 
     f.timer = f:CreateFontString(nil, "OVERLAY")
@@ -177,19 +181,29 @@ function Mod:Show()
     local fontPath = E:FetchModuleFont() or [[Fonts\FRIZQT__.TTF]]
     local outline = E.media.normFontOutline or "OUTLINE"
 
+    local labelH = fontSize + 4
+    local timerH = fontSize + 4
+
+    f.label:SetFont(fontPath, fontSize, outline)
+    f.label:SetText(L["BossMods_BreakTimer_Label"] or "Break")
+    f.label:ClearAllPoints()
+    f.label:SetPoint("TOP", f, "TOP", 0, 0)
+    f.label:SetWidth(imgW)
+    f.label:SetHeight(labelH)
+
     f.image:SetTexture(imgPath)
     f.image:SetSize(imgW, imgH)
     f.image:ClearAllPoints()
-    f.image:SetPoint("TOP", f, "TOP", 0, 0)
+    f.image:SetPoint("TOP", f.label, "BOTTOM", 0, -TIMER_GAP)
 
     f.timer:SetFont(fontPath, fontSize, outline)
     f.timer:SetText("")
     f.timer:ClearAllPoints()
     f.timer:SetPoint("TOP", f.image, "BOTTOM", 0, -TIMER_GAP)
     f.timer:SetWidth(imgW)
-    f.timer:SetHeight(fontSize + 4)
+    f.timer:SetHeight(timerH)
 
-    f:SetSize(imgW, imgH + TIMER_GAP + fontSize + 4)
+    f:SetSize(imgW, labelH + TIMER_GAP + imgH + TIMER_GAP + timerH)
     self:ApplyScale()
     self:ApplyPosition()
     f:Show()
