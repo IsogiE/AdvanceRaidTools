@@ -4,7 +4,7 @@ local T = E.Templates
 local ROW_GAP = 6
 
 local STRATA_VALUES = {
-    BACKGROUND = "QoL_StrataBackground",
+    BACKGROUND = "Background",
     LOW = "QoL_StrataLow",
     MEDIUM = "QoL_StrataMedium",
     HIGH = "QoL_StrataHigh",
@@ -120,7 +120,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end
     }))
     local resetBtn = track(T:LabelAlignedButton(rightPanel, {
-        text = L["ResetPosition"] or "Reset Position",
+        text = (L["Reset"] .. " " .. L["Position"]) or "Reset Position",
         onClick = function()
             mod:ResetPosition()
             tracker.refresh()

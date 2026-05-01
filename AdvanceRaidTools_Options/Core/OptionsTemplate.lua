@@ -3876,7 +3876,7 @@ function T:UnlockController(parent, yOffset, widthPx, opts)
         labelTop = true,
         tooltip = {
             title = L["BossMods_UnlockFrame"] or "Unlock Frame",
-            desc = L["BossMods_UnlockFrameDesc"] or ""
+            desc = L["DragToMove"] or ""
         },
         get = function()
             return controller.unlocked
@@ -3990,7 +3990,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
     end
 
     local resetBtn = trackOwn(T:LabelAlignedButton(parent, {
-        text = L["ResetPosition"] or "Reset Position",
+        text = (L["Reset"] .. " " .. L["Position"]) or "Reset Position",
         onClick = function()
             local def = opts.defaultPosition or {
                 point = "CENTER",
@@ -4020,7 +4020,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             labelTop = true,
             tooltip = {
                 title = L["BossMods_UnlockFrame"] or "Unlock Frame",
-                desc = L["BossMods_UnlockFrameDesc"] or ""
+                desc = L["DragToMove"] or ""
             },
             get = function()
                 return movable and movable:IsUnlocked() or false

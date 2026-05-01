@@ -9,12 +9,12 @@ local OUTLINE_VALUES = {
 
 local NAME_MODE_VALUES = {
     class = L["ClassColor"],
-    custom = L["BossMods_PDNameCustom"]
+    custom = (L["Custom"] .. " " .. L["Color"])
 }
 
 local AUDIO_TYPE_VALUES = {
-    sound = L["BossMods_PDAudioSound"],
-    tts = L["BossMods_PDAudioTTS"]
+    sound = L["Sound"],
+    tts = L["TTS"]
 }
 
 local ROW_GAP = 6
@@ -129,10 +129,10 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = unlockY
 
     -- Text
-    y = section(y, "BossMods_PDTextSection")
+    y = section(y, "Text")
 
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 10,
         max = 72,
         step = 1,
@@ -159,7 +159,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = section(y, "Colors")
 
     local actionCol = color({
-        label = L["BossMods_PDActionColor"],
+        label = (L["Action"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.colors.action
@@ -206,10 +206,10 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = row(y, {nameMode, nameCustom})
 
     -- Glow
-    y = section(y, "BossMods_PDGlowSection")
+    y = section(y, "Glow")
 
     local glowType = dropdown({
-        label = L["BossMods_PDGlowType"],
+        label = (L["Glow"] .. " " .. L["Type"]),
         values = E:GetModule("BossMods").Alerts:GetGlowTypes(),
         get = function()
             return mod.db.glow.glowType
@@ -219,7 +219,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
         end
     })
     local glowColor = color({
-        label = L["BossMods_PDGlowColor"],
+        label = (L["Glow"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.glow.color
@@ -250,7 +250,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
         end
     })
     local glowThickness = slider({
-        label = L["BossMods_PDGlowThickness"],
+        label = L["Thickness"],
         min = 1,
         max = 10,
         step = 1,
@@ -267,7 +267,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = row(y, {glowLines, glowThickness})
 
     local glowFreq = slider({
-        label = L["BossMods_PDGlowFrequency"],
+        label = L["Speed"],
         min = 0,
         max = 20,
         step = 1,
@@ -296,10 +296,10 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = row(y, {glowFreq, glowScale})
 
     -- Audio
-    y = section(y, "BossMods_PDAudioSection")
+    y = section(y, "Audio")
 
     local audioType = dropdown({
-        label = L["BossMods_PDAudioType"],
+        label = (L["Alert"] .. " " .. L["Type"]),
         values = AUDIO_TYPE_VALUES,
         get = function()
             return mod.db.audio.type
@@ -311,7 +311,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
     y = row(y, {audioType})
 
     local audioSound = dropdown({
-        label = L["BossMods_PDAudioSoundFile"],
+        label = (L["Sound"] .. " " .. L["File"]),
         values = function()
             return E:GetModule("BossMods").Alerts:GetSoundOptions()
         end,

@@ -6,7 +6,7 @@ local OUTLINES = {
     OUTLINE = L["Outline"],
     THICKOUTLINE = L["ThickOutline"],
     MONOCHROME = L["Monochrome"],
-    MONOCHROMEOUTLINE = L["MonochromeOutline"]
+    MONOCHROMEOUTLINE = (L["Monochrome"] .. " " .. L["Outline"])
 }
 local OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME", "MONOCHROMEOUTLINE"}
 
@@ -323,9 +323,9 @@ local function opacityArgs()
             width = W_HALF,
             build = function(parent)
                 return T:Slider(parent, {
-                    label = L["BackgroundOpacity"],
+                    label = (L["Background"] .. " " .. L["Opacity"]),
                     tooltip = {
-                        title = L["BackgroundOpacity"],
+                        title = (L["Background"] .. " " .. L["Opacity"]),
                         desc = L["BackgroundOpacityDesc"]
                     },
                     min = 0,
@@ -376,9 +376,9 @@ local function fontArgs()
             width = W_THIRD,
             build = function(parent)
                 return T:Dropdown(parent, {
-                    label = L["FontFamily"],
+                    label = (L["Font"] .. " Family"),
                     tooltip = {
-                        title = L["FontFamily"],
+                        title = (L["Font"] .. " Family"),
                         desc = L["AddonFontDesc"]
                     },
                     values = buildMediaList("font"),
@@ -393,9 +393,9 @@ local function fontArgs()
             width = W_THIRD,
             build = function(parent)
                 return T:Slider(parent, {
-                    label = L["FontSize"],
+                    label = (L["Font"] .. " " .. L["Size"]),
                     tooltip = {
-                        title = L["FontSize"],
+                        title = (L["Font"] .. " " .. L["Size"]),
                         desc = L["FontSizeDesc"]
                     },
                     min = 8,
@@ -412,9 +412,9 @@ local function fontArgs()
             width = W_THIRD,
             build = function(parent)
                 return T:Dropdown(parent, {
-                    label = L["FontOutline"],
+                    label = (L["Font"] .. " " .. L["Outline"]),
                     tooltip = {
-                        title = L["FontOutline"],
+                        title = (L["Font"] .. " " .. L["Outline"]),
                         desc = L["FontOutlineDesc"]
                     },
                     values = OUTLINES,
@@ -443,9 +443,9 @@ local function moduleVisualsArgs()
             width = W_HALF,
             build = function(parent)
                 return T:Dropdown(parent, {
-                    label = L["FontFamily"],
+                    label = (L["Font"] .. " Family"),
                     tooltip = {
-                        title = L["FontFamily"],
+                        title = (L["Font"] .. " Family"),
                         desc = L["ModuleFontDesc"]
                     },
                     values = buildMediaList("font"),

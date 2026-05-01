@@ -412,11 +412,11 @@ function Notes:RemoveSlot(index)
         return false
     end
     if index == MAIN_SLOT then
-        E:Printf(L["Notes_CannotRemoveMain"])
+        E:Printf(L["Notes_CannotRemove"], L["Notes_MainTag"])
         return false
     end
     if index == PINNED_PERSONAL_SLOT then
-        E:Printf(L["Notes_CannotRemovePinnedPersonal"])
+        E:Printf(L["Notes_CannotRemove"], L["Notes_PersonalTag"])
         return false
     end
     if self:GetSlotCount() <= 1 then
@@ -607,7 +607,7 @@ function Notes:SendSlot(index)
     local ok, reason = self:CanSend(index)
     if not ok then
         if reason == "NOT_IN_GROUP" then
-            E:Printf(L["Notes_SendNotInGroup"])
+            E:Printf(L["NotInGroup"])
         elseif reason == "PERSONAL" then
             E:Printf(L["Notes_SendPersonal"])
         elseif reason == "EMPTY" then

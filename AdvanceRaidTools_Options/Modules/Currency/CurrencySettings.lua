@@ -44,7 +44,7 @@ local function reportCheckError(err, id)
         return
     end
     if err == "NO_CONTEXT" then
-        E:Printf(L["CurrencyCheckNoContext"])
+        E:Printf(L["NotInGroupOrGuild"])
     elseif err == "INVALID_ID" then
         E:Printf(L["CurrencyCheckInvalidID"])
     elseif err == "UNKNOWN_CURRENCY" then
@@ -70,7 +70,7 @@ local function getPreviewText(m, id)
     end
     local info = m:GetCurrencyInfo(id)
     if not info then
-        return CP.missing .. L["CurrencyInvalidID"]:format(id) .. "|r"
+        return CP.missing .. L["CurrencyCheckUnknown"]:format(id) .. "|r"
     end
     local icon = info.iconFileID and ("|T" .. info.iconFileID .. ":16:16:0:0|t ") or ""
     local fav = m:IsFavorite(id) and ("  " .. CP.muted .. "(" .. L["Favorited"] .. ")|r") or ""

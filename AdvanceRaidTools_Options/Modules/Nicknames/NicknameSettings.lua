@@ -34,7 +34,7 @@ local function buildNicknamesPanel()
             order = 1,
             build = function(parent)
                 return T:Header(parent, {
-                    text = L["EnableIntegrations"]
+                    text = (L["Enable"] .. " " .. L["Integrations"])
                 })
             end
         },
@@ -53,7 +53,7 @@ local function buildNicknamesPanel()
         local addonKey = entry.key
         local isBlizzard = addonKey == "Blizzard"
         local label = L[entry.labelKey] or entry.labelKey
-        local tip = L[entry.labelKey .. "_desc"]
+        local tip = string.format(L["NicknamesOn"], L[entry.labelKey] or entry.labelKey)
 
         integrationArgs[addonKey] = {
             order = entry.order + 10,

@@ -721,7 +721,7 @@ function Mod:CheckGateway()
         return
     end
     local size = (self.db.font.size or 18) + 2
-    self:Set("gateway", spellTex(SPELL_GATEWAY_USE, size) .. " " .. colorize("9d6cff", loc("BossMods_GP_TextGateway")),
+    self:Set("gateway", spellTex(SPELL_GATEWAY_USE, size) .. " " .. colorize("9d6cff", loc("BossMods_GP_Gateway")),
         PRIORITY.GATEWAY)
 end
 
@@ -763,7 +763,7 @@ function Mod:OnReadyCheck()
         if class == "WARLOCK" and isSpellReady(SPELL_SOULSTONE) and not groupHasSoulstone() then
             local size = (self.db.font.size or 18) + 2
             self:Set("applySoulstone", spellTex(SPELL_SOULSTONE, size) .. " " ..
-                colorize("aa66ff", loc("BossMods_GP_TextApplySoulstone")), PRIORITY.APPLY_SS,
+                colorize("aa66ff", loc("BossMods_GP_ApplySoulstone")), PRIORITY.APPLY_SS,
                 self.db.transientDuration or 6)
         end
     end

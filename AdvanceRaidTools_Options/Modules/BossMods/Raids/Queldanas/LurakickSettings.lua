@@ -132,7 +132,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
     y = unlockY
 
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -144,10 +144,10 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
     y = row(y, {enableBorder})
 
     -- Background & Border
-    y = section(y, "BossMods_DQBgBorderSection")
+    y = section(y, L["Background"] .. " & " .. L["Border"])
 
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -159,7 +159,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         end
     })
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -171,7 +171,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
     y = row(y, {bgOpacity, borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         step = 1,
@@ -183,7 +183,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         end
     })
     local borderCol = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         get = function()
             return mod.db.border.color
         end,
@@ -197,7 +197,7 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
     y = section(y, "Font")
 
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 8,
         max = 32,
         step = 1,

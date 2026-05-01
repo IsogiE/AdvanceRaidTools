@@ -8,15 +8,15 @@ local OUTLINE_VALUES = {
 }
 
 local ANCHOR_VALUES = {
-    TOPLEFT = L["BossMods_AnchorTL"],
-    TOP = L["BossMods_AnchorT"],
-    TOPRIGHT = L["BossMods_AnchorTR"],
+    TOPLEFT = L["TopLeft"],
+    TOP = L["Top"],
+    TOPRIGHT = L["TopRight"],
     LEFT = L["Left"],
     CENTER = L["Center"],
     RIGHT = L["Right"],
-    BOTTOMLEFT = L["BossMods_AnchorBL"],
-    BOTTOM = L["BossMods_AnchorB"],
-    BOTTOMRIGHT = L["BossMods_AnchorBR"]
+    BOTTOMLEFT = L["BottomLeft"],
+    BOTTOM = L["Bottom"],
+    BOTTOMRIGHT = L["BottomRight"]
 }
 
 local ROW_GAP = 6
@@ -116,7 +116,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
         y = section(y, headerKey)
 
         local anchorDd = dropdown({
-            label = L["BossMods_Anchor"],
+            label = L["Anchor"],
             values = ANCHOR_VALUES,
             get = function()
                 return mod.db[dbField].anchor
@@ -128,7 +128,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
         y = row(y, {anchorDd})
 
         local ox = slider({
-            label = L["BossMods_OffsetX"],
+            label = L["OffsetX"],
             min = -30,
             max = 30,
             get = function()
@@ -139,7 +139,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
             end
         })
         local oy = slider({
-            label = L["BossMods_OffsetY"],
+            label = L["OffsetY"],
             min = -30,
             max = 30,
             get = function()
@@ -152,7 +152,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
         y = row(y, {ox, oy})
 
         local sz = slider({
-            label = L["FontSize"],
+            label = (L["Font"] .. " " .. L["Size"]),
             min = 7,
             max = 32,
             get = function()
@@ -175,7 +175,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
         y = row(y, {sz, outline})
 
         local col = color({
-            label = L[colorLabelKey],
+            label = L[colorLabelKey] or colorLabelKey,
             hasAlpha = true,
             get = function()
                 return mod.db[dbField].color
@@ -208,7 +208,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
     y = unlockY
 
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -230,9 +230,9 @@ local function buildBressBody(rightPanel, mod, isDisabled)
     y = row(y, {enableBorder, enableSwipe})
 
     -- Icon
-    y = section(y, "BossMods_IconSection")
+    y = section(y, "Icon")
     local iconSize = slider({
-        label = L["BossMods_IconSize"],
+        label = (L["Icon"] .. " " .. L["Size"]),
         min = 16,
         max = 256,
         get = function()
@@ -247,7 +247,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
     -- Border
     y = section(y, "Border")
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -259,7 +259,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
     y = row(y, {borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         get = function()
@@ -270,7 +270,7 @@ local function buildBressBody(rightPanel, mod, isDisabled)
         end
     })
     local borderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.border.color
@@ -282,10 +282,10 @@ local function buildBressBody(rightPanel, mod, isDisabled)
     y = row(y, {borderSize, borderColor})
 
     -- Cooldown text
-    y = textGroup(y, "timeText", "BossMods_BressTimeSection", "BossMods_BressTimeColor")
+    y = textGroup(y, "timeText", L["Cooldown"] .. " " .. L["Text"], L["Cooldown"] .. " " .. L["Color"])
 
     -- Charge text
-    y = textGroup(y, "chargeText", "BossMods_BressChargeSection", "BossMods_BressChargeColor")
+    y = textGroup(y, "chargeText", L["Charge"] .. " " .. L["Text"], L["Charge"] .. " " .. L["Color"])
 
     local posNewY, posHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = mod.frame,

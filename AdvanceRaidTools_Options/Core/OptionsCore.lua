@@ -121,7 +121,7 @@ local function buildSpecArgs()
             type = "toggle",
             order = 2,
             width = "full",
-            name = L["EnableSpecProfiles"],
+            name = (L["Enable"] .. " " .. L["SpecProfiles"]),
             get = function()
                 return E.db.char.specProfilesEnabled
             end,
@@ -323,7 +323,7 @@ local function buildImportArgs()
         type = "execute",
         order = 30,
         width = "full",
-        name = L["ImportApply"],
+        name = (L["Apply"] .. " " .. L["Import"]),
         hidden = function()
             return parsedImport == nil
         end,

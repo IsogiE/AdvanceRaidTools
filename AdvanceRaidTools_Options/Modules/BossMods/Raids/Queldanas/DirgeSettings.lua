@@ -175,7 +175,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     local btnPosY, btnHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = frames and frames.barAnchor,
         label = L["BossMods_DirgeButtons"],
-        headerText = L["BossMods_DirgeButtonsPosition"],
+        headerText = (L["BossMods_DirgeButtons"] .. " " .. L["Position"]),
         tracker = tracker,
         getPosition = function()
             local p = mod.db.buttons.position
@@ -216,7 +216,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local squadBgOp = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -230,7 +230,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     y = row(y, {squadScale, squadBgOp})
 
     local squadBorderEnable = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.squad.border.enabled
@@ -240,7 +240,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local squadBorderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.squad.border.texture
@@ -252,7 +252,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     y = row(y, {squadBorderEnable, squadBorderTex})
 
     local squadBorderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         step = 1,
@@ -264,7 +264,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local squadBorderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         get = function()
             return mod.db.squad.border.color
         end,
@@ -277,7 +277,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     local squadPosY, squadHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = frames and frames.squadAnchor,
         label = L["BossMods_DirgeSquad"],
-        headerText = L["BossMods_DirgeSquadPosition"],
+        headerText = (L["BossMods_DirgeSquad"] .. " " .. L["Position"]),
         tracker = tracker,
         getPosition = function()
             local p = mod.db.squad.position
@@ -318,7 +318,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local barBgOp = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -332,7 +332,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     y = row(y, {barScale, barBgOp})
 
     local barBorderEnable = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.bar.border.enabled
@@ -342,7 +342,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local barBorderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.bar.border.texture
@@ -354,7 +354,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     y = row(y, {barBorderEnable, barBorderTex})
 
     local barBorderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         step = 1,
@@ -366,7 +366,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     local barBorderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         get = function()
             return mod.db.bar.border.color
         end,
@@ -379,7 +379,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     local barPosY, barHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = frames and frames.seqBarAnchor,
         label = L["BossMods_DirgeBar"],
-        headerText = L["BossMods_DirgeBarPosition"],
+        headerText = (L["BossMods_DirgeBar"] .. " " .. L["Position"]),
         tracker = tracker,
         getPosition = function()
             local p = mod.db.bar.position
@@ -408,7 +408,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     y = section(y, "TextToSpeech")
 
     local ttsEnable = checkbox({
-        text = L["BossMods_DQTTSEnable"],
+        text = (L["Enable"] .. " " .. L["TTS"]),
         labelTop = true,
         get = function()
             return mod.db.tts.enabled

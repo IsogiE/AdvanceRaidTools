@@ -63,7 +63,7 @@ local function reportCheckError(err)
     if err == "NO_ADDON" then
         E:Printf(L["AddonCheckerPickOne"])
     elseif err == "NO_CONTEXT" then
-        E:Printf(L["CheckerNoContext"])
+        E:Printf(L["NotInGroupOrGuild"])
     elseif err == "TOO_SOON" then
         E:Printf(L["CheckTooSoon"])
     else
@@ -344,9 +344,9 @@ local function buildPanel()
             width = "1/3",
             build = function(parent)
                 return T:EditBox(parent, {
-                    label = L["AddonCheckerCustom"],
+                    label = (L["Custom"] .. " " .. L["Addon"]),
                     tooltip = {
-                        title = L["AddonCheckerCustom"],
+                        title = (L["Custom"] .. " " .. L["Addon"]),
                         desc = L["AddonCheckerCustomTooltip"]
                     },
                     height = 20,

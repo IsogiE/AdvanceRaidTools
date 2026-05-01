@@ -120,7 +120,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
 
     -- Enables (bundled near the top)
     local enableBg = checkbox({
-        text = L["BossMods_BgEnable"],
+        text = (L["Enable"] .. " " .. L["Background"]),
         labelTop = true,
         get = function()
             return mod.db.background.enabled
@@ -130,7 +130,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end
     })
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -144,7 +144,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     -- Font
     y = section(y, "Font")
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 8,
         max = 64,
         get = function()
@@ -167,7 +167,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     y = row(y, {fontSize, fontOutline})
 
     local fontColor = color({
-        label = L["BossMods_FontColor"],
+        label = (L["Font"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.font.color
@@ -181,7 +181,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     -- Background
     y = section(y, "Background")
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -193,7 +193,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end
     })
     local bgColor = color({
-        label = L["BossMods_BgColor"],
+        label = (L["Background"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.background.color
@@ -207,7 +207,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     -- Border
     y = section(y, "Border")
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -219,7 +219,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
     y = row(y, {borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         get = function()
@@ -230,7 +230,7 @@ local function buildCombatTimerBody(rightPanel, mod, isDisabled)
         end
     })
     local borderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.border.color

@@ -156,7 +156,7 @@ function RGUI:ShowBulkImportPrompt(parent)
     end
     E:PromptMultiline({
         key = "ART_RG_BULK_IMPORT",
-        title = L["RG_BulkImport"],
+        title = (L["Bulk"] .. " " .. L["Import"]),
         text = L["RG_BulkImportDesc"],
         parent = parent,
         input = {
@@ -166,7 +166,7 @@ function RGUI:ShowBulkImportPrompt(parent)
         },
         buttons = {{
             preset = "accept",
-            text = L["RG_ApplyBulkImport"],
+            text = (L["Apply"] .. " " .. L["Bulk"] .. " " .. L["Import"]),
             isDefault = true
         }, {
             preset = "cancel",
@@ -192,7 +192,7 @@ function RGUI:ShowBulkExportViewer(parent)
     end
     E:ShowText({
         key = "ART_RG_BULK_EXPORT",
-        title = L["RG_BulkExport"],
+        title = (L["Bulk"] .. " " .. L["Export"]),
         parent = parent,
         viewer = {
             text = m:BulkExportString() or "",
@@ -385,9 +385,9 @@ local function quickActionsArgs()
             width = "1/3",
             build = function(parent)
                 return T:Button(parent, {
-                    text = L["RG_BulkImport"],
+                    text = (L["Bulk"] .. " " .. L["Import"]),
                     tooltip = {
-                        title = L["RG_BulkImport"],
+                        title = (L["Bulk"] .. " " .. L["Import"]),
                         desc = L["RG_BulkImportDesc"]
                     },
                     onClick = function()
@@ -403,9 +403,9 @@ local function quickActionsArgs()
             width = "full",
             build = function(parent)
                 return T:Button(parent, {
-                    text = L["RG_BulkExport"],
+                    text = (L["Bulk"] .. " " .. L["Export"]),
                     tooltip = {
-                        title = L["RG_BulkExport"],
+                        title = (L["Bulk"] .. " " .. L["Export"]),
                         desc = L["RG_BulkExportDesc"]
                     },
                     disabled = function()

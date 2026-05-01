@@ -114,7 +114,7 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
 
     -- Enables (bundled near the top)
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -126,9 +126,9 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
     y = row(y, {enableBorder})
 
     -- Icon
-    y = section(y, "BossMods_IconSection")
+    y = section(y, "Icon")
     local iconSize = slider({
-        label = L["BossMods_IconSize"],
+        label = (L["Icon"] .. " " .. L["Size"]),
         min = 16,
         max = 256,
         get = function()
@@ -143,7 +143,7 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
     -- Border
     y = section(y, "Border")
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -155,7 +155,7 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
     y = row(y, {borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         get = function()
@@ -166,7 +166,7 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
         end
     })
     local borderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.border.color

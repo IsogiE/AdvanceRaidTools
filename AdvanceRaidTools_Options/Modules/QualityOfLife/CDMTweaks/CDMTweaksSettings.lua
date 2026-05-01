@@ -4,7 +4,7 @@ local T = E.Templates
 local STACK_VIEWERS = {
     {key = "EssentialCooldownViewer", labelKey = "QoL_CDMViewerEssential"},
     {key = "UtilityCooldownViewer", labelKey = "QoL_CDMViewerUtility"},
-    {key = "BuffIconCooldownViewer", labelKey = "QoL_CDMViewerBuffIcon"}
+    {key = "BuffIconCooldownViewer", labelKey = "QoL_CDMCenterBuffIcon"}
 }
 
 local function buildCDMTweaksTab(mod, isDisabled)
@@ -52,7 +52,7 @@ local function buildCDMTweaksTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:Checkbox(parent, {
-                    text = L["QoL_CDMCenterEssential"],
+                    text = (L["QoL_CDMViewerEssential"] .. " " .. L["Bar"]),
                     get = function()
                         return mod.db.centerEssential
                     end,
@@ -69,7 +69,7 @@ local function buildCDMTweaksTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:Checkbox(parent, {
-                    text = L["QoL_CDMCenterUtility"],
+                    text = (L["QoL_CDMViewerUtility"] .. " " .. L["Bar"]),
                     get = function()
                         return mod.db.centerUtility
                     end,
@@ -227,7 +227,7 @@ local function buildCDMTweaksTab(mod, isDisabled)
             width = "1/3",
             build = function(parent)
                 return T:Slider(parent, {
-                    label = L["FontSize"],
+                    label = (L["Font"] .. " " .. L["Size"]),
                     min = 6,
                     max = 40,
                     step = 1,
@@ -250,7 +250,7 @@ local function buildCDMTweaksTab(mod, isDisabled)
             build = function(parent)
                 local c = viewerCfg(key).color
                 return T:ColorSwatch(parent, {
-                    label = L["QoL_CDMStackColor"],
+                    label = (L["Stack"] .. " " .. L["Color"]),
                     labelTop = true,
                     hasAlpha = true,
                     r = c[1],

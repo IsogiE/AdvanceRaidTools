@@ -4,11 +4,11 @@ local T = E.Templates
 local SHAPES = {
     circle = "QoL_ShapeCircle",
     square = "QoL_ShapeSquare",
-    crosshair = "QoL_ShapeCrosshair"
+    crosshair = "Crosshair"
 }
 
 local STRATA_VALUES = {
-    BACKGROUND = "QoL_StrataBackground",
+    BACKGROUND = "Background",
     LOW = "QoL_StrataLow",
     MEDIUM = "QoL_StrataMedium",
     HIGH = "QoL_StrataHigh",
@@ -80,7 +80,7 @@ local function buildCircleTab(mod, isDisabled)
                     labelTop = true,
                     tooltip = {
                         title = L["BossMods_UnlockFrame"] or "Unlock Frame",
-                        desc = L["BossMods_UnlockFrameDesc"] or ""
+                        desc = L["DragToMove"] or ""
                     },
                     get = function()
                         return movable and movable:IsUnlocked() or false
@@ -167,7 +167,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:ColorSwatch(parent, {
-                    label = L["QoL_FillColor"],
+                    label = (L["Fill"] .. " " .. L["Color"]),
                     labelTop = true,
                     hasAlpha = true,
                     r = mod.db.color[1],
@@ -289,7 +289,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "full",
             build = function(parent)
                 return T:LabelAlignedButton(parent, {
-                    text = L["ResetPosition"],
+                    text = (L["Reset"] .. " " .. L["Position"]),
                     disabled = isDisabled,
                     onClick = function()
                         mod.db.position = {
@@ -319,7 +319,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:Checkbox(parent, {
-                    text = L["QoL_ShowBorder"],
+                    text = (L["Show"] .. " " .. L["Border"]),
                     labelTop = true,
                     get = function()
                         return mod.db.showBorder
@@ -339,7 +339,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:ColorSwatch(parent, {
-                    label = L["BorderColor"],
+                    label = (L["Border"] .. " " .. L["Color"]),
                     labelTop = true,
                     hasAlpha = true,
                     r = mod.db.borderColor[1],
@@ -360,7 +360,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "full",
             build = function(parent)
                 return T:Slider(parent, {
-                    label = L["QoL_BorderWidth"],
+                    label = (L["Border"] .. " " .. L["Width"]),
                     min = 1,
                     max = 20,
                     step = 1,
@@ -392,7 +392,7 @@ local function buildCircleTab(mod, isDisabled)
             width = "full",
             build = function(parent)
                 return T:Slider(parent, {
-                    label = L["QoL_CrosshairThickness"],
+                    label = (L["Crosshair"] .. " " .. L["Thickness"]),
                     min = 1,
                     max = 10,
                     step = 1,

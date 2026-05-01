@@ -143,7 +143,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Checkbox(parent, {
-                text = L["QoL_ShowHealthBar"],
+                text = (L["Show"] .. " " .. L["QoL_HealthBar"]),
                 get = function()
                     return mod.db.showHealthBar
                 end,
@@ -162,7 +162,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Checkbox(parent, {
-                text = L["QoL_ShowPowerBar"],
+                text = (L["Show"] .. " " .. L["QoL_PowerBar"]),
                 get = function()
                     return mod.db.showPowerBar
                 end,
@@ -354,7 +354,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Checkbox(parent, {
-                text = L["QoL_ShowBorder"],
+                text = (L["Show"] .. " " .. L["Border"]),
                 labelTop = true,
                 get = function()
                     return mod.db.showHealthBorder
@@ -374,7 +374,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Checkbox(parent, {
-                text = L["QoL_ShowBorder"],
+                text = (L["Show"] .. " " .. L["Border"]),
                 labelTop = true,
                 get = function()
                     return mod.db.showPowerBorder
@@ -394,7 +394,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:ColorSwatch(parent, {
-                label = L["BorderColor"],
+                label = (L["Border"] .. " " .. L["Color"]),
                 labelTop = true,
                 hasAlpha = true,
                 r = mod.db.healthBorderColor[1],
@@ -417,7 +417,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:ColorSwatch(parent, {
-                label = L["BorderColor"],
+                label = (L["Border"] .. " " .. L["Color"]),
                 labelTop = true,
                 hasAlpha = true,
                 r = mod.db.powerBorderColor[1],
@@ -439,7 +439,7 @@ local function buildResourcesTab(mod, isDisabled)
         order = 60,
         build = function(parent)
             return T:Header(parent, {
-                text = L["QoL_BarText"]
+                text = (L["Bar"] .. " " .. L["Text"])
             })
         end
     }
@@ -505,7 +505,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
-                label = L["FontSize"],
+                label = (L["Font"] .. " " .. L["Size"]),
                 min = 6,
                 max = 40,
                 step = 1,
@@ -529,7 +529,7 @@ local function buildResourcesTab(mod, isDisabled)
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
-                label = L["FontSize"],
+                label = (L["Font"] .. " " .. L["Size"]),
                 min = 6,
                 max = 40,
                 step = 1,

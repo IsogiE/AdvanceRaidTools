@@ -140,7 +140,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     y = section(y, "Font")
 
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 6,
         max = 24,
         step = 1,
@@ -250,7 +250,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     y = row(y, {mainScale, mainOpacity})
 
     local bgColor = color({
-        label = L["BossMods_BgColor"],
+        label = (L["Background"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.anchors.main.bgColor
@@ -264,7 +264,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         end
     })
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -278,7 +278,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     y = row(y, {bgColor, bgOpacity})
 
     local borderCol = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.anchors.main.borderColor
@@ -292,7 +292,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         end
     })
     local borderOpacity = slider({
-        label = L["BossMods_BorderOpacity"],
+        label = (L["Border"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,

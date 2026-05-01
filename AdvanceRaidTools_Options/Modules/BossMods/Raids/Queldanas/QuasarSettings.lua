@@ -144,7 +144,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = row(y, {showInt})
 
     -- Bar
-    y = section(y, "BossMods_DQBarSection")
+    y = section(y, "Bar")
 
     local barWidth = slider({
         label = L["Width"],
@@ -173,7 +173,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = row(y, {barWidth, barHeight})
 
     local safeCol = color({
-        label = L["BossMods_DQSafeColor"],
+        label = (L["Safe"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.bar.safeColor
@@ -183,7 +183,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         end
     })
     local dangerCol = color({
-        label = L["BossMods_DQDangerColor"],
+        label = (L["Danger"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.bar.dangerColor
@@ -195,10 +195,10 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = row(y, {safeCol, dangerCol})
 
     -- Background / Border
-    y = section(y, "BossMods_DQBgBorderSection")
+    y = section(y, L["Background"] .. " & " .. L["Border"])
 
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -212,7 +212,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = row(y, {bgOpacity})
 
     local borderEnable = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -222,7 +222,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         end
     })
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -234,7 +234,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = row(y, {borderEnable, borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         step = 1,
@@ -246,7 +246,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         end
     })
     local borderCol = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.border.color
@@ -261,7 +261,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = section(y, "Font")
 
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 8,
         max = 36,
         step = 1,
@@ -288,7 +288,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
     y = section(y, "TextToSpeech")
 
     local ttsEnable = checkbox({
-        text = L["BossMods_DQTTSEnable"],
+        text = (L["Enable"] .. " " .. L["TTS"]),
         labelTop = true,
         get = function()
             return mod.db.tts.enabled

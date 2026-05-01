@@ -2,10 +2,10 @@ local E, L = unpack(ART)
 local T = E.Templates
 
 local SHOW_WHEN_VALUES = {
-    always = L["BossMods_ShowAlways"],
-    combat = L["BossMods_ShowCombat"],
-    nocombat = L["BossMods_ShowNoCombat"],
-    never = L["BossMods_ShowNever"]
+    always = L["Always"],
+    combat = L["InCombat"],
+    nocombat = L["OutOfCombat"],
+    never = L["Never"]
 }
 
 local OUTLINE_VALUES = {
@@ -15,15 +15,15 @@ local OUTLINE_VALUES = {
 }
 
 local ANCHOR_VALUES = {
-    TOPLEFT = L["BossMods_AnchorTL"],
-    TOP = L["BossMods_AnchorT"],
-    TOPRIGHT = L["BossMods_AnchorTR"],
+    TOPLEFT = L["TopLeft"],
+    TOP = L["Top"],
+    TOPRIGHT = L["TopRight"],
     LEFT = L["Left"],
     CENTER = L["Center"],
     RIGHT = L["Right"],
-    BOTTOMLEFT = L["BossMods_AnchorBL"],
-    BOTTOM = L["BossMods_AnchorB"],
-    BOTTOMRIGHT = L["BossMods_AnchorBR"]
+    BOTTOMLEFT = L["BottomLeft"],
+    BOTTOM = L["Bottom"],
+    BOTTOMRIGHT = L["BottomRight"]
 }
 
 local DECIMALS_VALUES = {
@@ -156,7 +156,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
 
     -- Enables (bundled near the top)
     local enableBg = checkbox({
-        text = L["BossMods_BgEnable"],
+        text = (L["Enable"] .. " " .. L["Background"]),
         labelTop = true,
         get = function()
             return mod.db.style.background.enabled
@@ -166,7 +166,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.style.border.enabled
@@ -176,7 +176,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local enableCount = checkbox({
-        text = L["BossMods_CountEnable"],
+        text = (L["Show"] .. " " .. L["Count"]),
         labelTop = true,
         get = function()
             return mod.db.style.count.enabled
@@ -186,7 +186,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local enableTimer = checkbox({
-        text = L["BossMods_TimerEnable"],
+        text = (L["Show"] .. " " .. L["Timer"]),
         labelTop = true,
         get = function()
             return mod.db.style.timer.enabled
@@ -198,7 +198,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {enableBg, enableBorder, enableCount, enableTimer})
 
     -- Visibility
-    y = section(rightPanel, y, widthPx, "BossMods_Visibility")
+    y = section(rightPanel, y, widthPx, "Visibility")
 
     local showWhenDd = dropdown({
         label = L["BossMods_ShowWhen"],
@@ -213,10 +213,10 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {showWhenDd})
 
     -- Icon
-    y = section(rightPanel, y, widthPx, "BossMods_IconSection")
+    y = section(rightPanel, y, widthPx, "Icon")
 
     local sizeSlider = slider({
-        label = L["BossMods_IconSize"],
+        label = (L["Icon"] .. " " .. L["Size"]),
         min = 16,
         max = 72,
         step = 1,
@@ -259,7 +259,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = section(rightPanel, y, widthPx, "Background")
 
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -271,7 +271,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local bgColor = color({
-        label = L["BossMods_BgColor"],
+        label = (L["Background"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.style.background.color
@@ -286,7 +286,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = section(rightPanel, y, widthPx, "Border")
 
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.style.border.texture
@@ -299,7 +299,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         step = 1,
@@ -311,7 +311,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local borderOpacity = slider({
-        label = L["BossMods_BorderOpacity"],
+        label = (L["Border"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -325,7 +325,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {borderSize, borderOpacity})
 
     local borderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.style.border.color
@@ -337,10 +337,10 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {borderColor})
 
     -- Count
-    y = section(rightPanel, y, widthPx, "BossMods_CountSection")
+    y = section(rightPanel, y, widthPx, L["Stack"] .. " " .. L["Count"])
 
     local countAnchor = dropdown({
-        label = L["BossMods_Anchor"],
+        label = L["Anchor"],
         values = ANCHOR_VALUES,
         get = function()
             return mod.db.style.count.anchor
@@ -352,7 +352,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {countAnchor})
 
     local countOx = slider({
-        label = L["BossMods_OffsetX"],
+        label = L["OffsetX"],
         min = -30,
         max = 30,
         step = 1,
@@ -364,7 +364,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local countOy = slider({
-        label = L["BossMods_OffsetY"],
+        label = L["OffsetY"],
         min = -30,
         max = 30,
         step = 1,
@@ -378,7 +378,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {countOx, countOy})
 
     local countSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 7,
         max = 24,
         step = 1,
@@ -402,7 +402,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {countSize, countOutline})
 
     local countColor = color({
-        label = L["BossMods_CountColor"],
+        label = (L["Count"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.style.count.color
@@ -414,10 +414,10 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {countColor})
 
     -- Timer
-    y = section(rightPanel, y, widthPx, "BossMods_TimerSection")
+    y = section(rightPanel, y, widthPx, "Timer")
 
     local timerAnchor = dropdown({
-        label = L["BossMods_Anchor"],
+        label = L["Anchor"],
         values = ANCHOR_VALUES,
         get = function()
             return mod.db.style.timer.anchor
@@ -429,7 +429,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {timerAnchor})
 
     local timerOx = slider({
-        label = L["BossMods_OffsetX"],
+        label = L["OffsetX"],
         min = -30,
         max = 30,
         step = 1,
@@ -441,7 +441,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     local timerOy = slider({
-        label = L["BossMods_OffsetY"],
+        label = L["OffsetY"],
         min = -30,
         max = 30,
         step = 1,
@@ -455,7 +455,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {timerOx, timerOy})
 
     local timerSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 7,
         max = 24,
         step = 1,
@@ -479,7 +479,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {timerSize, timerOutline})
 
     local timerColor = color({
-        label = L["BossMods_TimerColor"],
+        label = (L["Timer"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.style.timer.color
@@ -491,7 +491,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     y = row(rightPanel, y, widthPx, {timerColor})
 
     local timerDecimals = dropdown({
-        label = L["BossMods_TimerDecimals"],
+        label = L["Decimals"],
         values = DECIMALS_VALUES,
         get = function()
             return mod.db.style.timer.decimals

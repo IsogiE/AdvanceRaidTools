@@ -163,7 +163,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     y = unlockY
 
     local enableBg = checkbox({
-        text = L["BossMods_BgEnable"],
+        text = (L["Enable"] .. " " .. L["Background"]),
         labelTop = true,
         get = function()
             return mod.db.background.enabled
@@ -173,7 +173,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     })
     local enableBorder = checkbox({
-        text = L["BossMods_BorderEnable"],
+        text = (L["Enable"] .. " " .. L["Border"]),
         labelTop = true,
         get = function()
             return mod.db.border.enabled
@@ -186,7 +186,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
 
     y = section(y, "Font")
     local fontSize = slider({
-        label = L["FontSize"],
+        label = (L["Font"] .. " " .. L["Size"]),
         min = 10,
         max = 36,
         get = function()
@@ -209,7 +209,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     y = row(y, {fontSize, fontOutline})
 
     local fontColor = color({
-        label = L["BossMods_FontColor"],
+        label = (L["Font"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.font.color
@@ -222,7 +222,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
 
     y = section(y, "Background")
     local bgOpacity = slider({
-        label = L["BackgroundOpacity"],
+        label = (L["Background"] .. " " .. L["Opacity"]),
         min = 0,
         max = 1,
         step = 0.05,
@@ -234,7 +234,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     })
     local bgColor = color({
-        label = L["BossMods_BgColor"],
+        label = (L["Background"] .. " " .. L["Color"]),
         hasAlpha = false,
         get = function()
             return mod.db.background.color
@@ -247,7 +247,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
 
     y = section(y, "Border")
     local borderTex = dropdown({
-        label = L["BossMods_BorderTexture"],
+        label = (L["Border"] .. " " .. L["Texture"]),
         values = borderValues,
         get = function()
             return mod.db.border.texture
@@ -259,7 +259,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     y = row(y, {borderTex})
 
     local borderSize = slider({
-        label = L["BossMods_BorderSize"],
+        label = (L["Border"] .. " " .. L["Size"]),
         min = 1,
         max = 16,
         get = function()
@@ -270,7 +270,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     })
     local borderColor = color({
-        label = L["BorderColor"],
+        label = (L["Border"] .. " " .. L["Color"]),
         hasAlpha = true,
         get = function()
             return mod.db.border.color
@@ -281,7 +281,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {borderSize, borderColor})
 
-    y = section(y, "BossMods_GP_Tuning")
+    y = section(y, "Tuning")
     local durSlider = slider({
         label = L["BossMods_GP_DurabilityThreshold"],
         min = 0.05,
@@ -308,7 +308,7 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {durSlider, holdSlider})
 
-    y = section(y, "BossMods_GP_AlertsSection")
+    y = section(y, "Alerts")
     local rowWidgets = {}
     for i, def in ipairs(ALERT_TOGGLES) do
         local key = def.key

@@ -269,13 +269,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             if idx == MAIN_SLOT then
                 return {
                     title = L["Notes_RemoveSlot"],
-                    desc = L["Notes_CannotRemoveMain"]
+                    desc = string.format(L["Notes_CannotRemove"], L["Notes_MainTag"])
                 }
             end
             if idx == PINNED_PERSONAL_SLOT then
                 return {
                     title = L["Notes_RemoveSlot"],
-                    desc = L["Notes_CannotRemovePinnedPersonal"]
+                    desc = string.format(L["Notes_CannotRemove"], L["Notes_PersonalTag"])
                 }
             end
             return {
@@ -413,13 +413,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             if idx == MAIN_SLOT then
                 return {
                     title = L["Notes_SlotName"],
-                    desc = L["Notes_MainNameLocked"]
+                    desc = string.format(L["Notes_NameLocked"], L["Notes_MainTag"])
                 }
             end
             if idx == PINNED_PERSONAL_SLOT then
                 return {
                     title = L["Notes_SlotName"],
-                    desc = L["Notes_PersonalNameLocked"]
+                    desc = string.format(L["Notes_NameLocked"], L["Notes_PersonalTag"])
                 }
             end
             return {
@@ -577,7 +577,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             if reason == "NOT_IN_GROUP" then
                 return {
                     title = L["Notes_Send"],
-                    desc = L["Notes_SendNotInGroup"]
+                    desc = L["NotInGroup"]
                 }
             elseif reason == "EMPTY" then
                 return {
@@ -721,7 +721,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     rosterEmpty:SetPoint("TOPLEFT", rosterScroll.content, "TOPLEFT", 6, -6)
     rosterEmpty:SetPoint("TOPRIGHT", rosterScroll.content, "TOPRIGHT", -6, -6)
     rosterEmpty:SetJustifyH("LEFT")
-    rosterEmpty:SetText(L["Notes_RosterEmpty"])
+    rosterEmpty:SetText(L["NotInGroup"])
     rosterEmpty:Hide()
 
     local rosterRowPool = {}
@@ -938,7 +938,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
-                label = L["FontSize"],
+                label = (L["Font"] .. " " .. L["Size"]),
                 min = 8,
                 max = 32,
                 step = 1,
@@ -1010,7 +1010,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
         width = "1/2",
         build = function(parent)
             return T:Dropdown(parent, {
-                label = L["FontOutline"],
+                label = (L["Font"] .. " " .. L["Outline"]),
                 values = function()
                     return FONT_OUTLINES
                 end,
@@ -1043,7 +1043,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                 a = 0.6
             }
             return T:ColorSwatch(parent, {
-                label = L["Notes_Backdrop"],
+                label = (L["Frame"] .. " " .. L["Background"]),
                 labelTop = true,
                 r = init.r,
                 g = init.g,
@@ -1079,7 +1079,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                 a = 1
             }
             return T:ColorSwatch(parent, {
-                label = L["Notes_Border"],
+                label = (L["Frame"] .. " " .. L["Border"]),
                 labelTop = true,
                 r = init.r,
                 g = init.g,
