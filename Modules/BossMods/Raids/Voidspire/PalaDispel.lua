@@ -427,9 +427,17 @@ function PalaDispel:FormatAlertText(actionText, isDwarf, targetUnit)
 
     local name = L["Unknown"]
     if targetUnit then
-        local raw = UnitName(targetUnit)
-        if raw then
-            name = BM.NoteBlock:GetDisplayName(raw) or raw
+        if E.GetNickname then
+            local nick = E:GetNickname(targetUnit)
+            if nick and nick ~= "" then
+                name = nick
+            end
+        end
+        if name == L["Unknown"] then
+            local raw = UnitName(targetUnit)
+            if raw then
+                name = BM.NoteBlock:GetDisplayName(raw) or raw
+            end
         end
     end
 
@@ -465,8 +473,19 @@ function PalaDispel:ShowAssignment(unit, auraID, actionText, isDwarf)
     if isDwarf then
         ttsText = L["BossMods_PDUseDwarf"]
     else
-        local raw = UnitName(unit)
-        local display = raw and BM.NoteBlock:GetDisplayName(raw) or L["Unknown"]
+        local display
+        if unit then
+            if E.GetNickname then
+                local nick = E:GetNickname(unit)
+                if nick and nick ~= "" then
+                    display = nick
+                end
+            end
+            if not display then
+                local raw = UnitName(unit)
+                display = raw and BM.NoteBlock:GetDisplayName(raw) or nil
+            end
+        end
         ttsText = L["BossMods_PDDispel"] .. " " .. (display or L["Unknown"])
     end
     self:PlayAudio(ttsText)
