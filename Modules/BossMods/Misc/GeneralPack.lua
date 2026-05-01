@@ -13,7 +13,6 @@ P.modules.BossMods_GeneralPack = {
     },
     transientDuration = 6,
     durabilityThreshold = 0.30,
-    healthstoneScanSeconds = 6,
     summonGlowSeconds = 10,
     font = {
         size = 18,
@@ -36,12 +35,12 @@ P.modules.BossMods_GeneralPack = {
         petPassive = true,
         repairGear = true,
         consumableRepair = true,
-        healthstoneMissing = true,
         consumableSoulwell = true,
         applySoulstone = true,
         consumableFeast = true,
         consumableCauldron = true,
         gateway = true,
+        gatewayShardMissing = true,
         chatHealthstone = true,
         chatSummonStone = true
     }
@@ -68,6 +67,7 @@ local SPELL_GRIMOIRE_OF_SACRIFICE = 196099
 local ITEM_HEALTHSTONE = 5512
 local ITEM_DEMONIC_HEALTHSTONE = 224464
 local ITEM_DEMONIC_GATEWAY = 188152
+local ICON_GATEWAY_SHARD = 607513
 
 local CONSUMABLE_SPELL_TYPES = {
     [1259657] = "FEAST",
@@ -110,8 +110,8 @@ local PRIORITY = {
     CHAT_REQUEST = 80,
     REPAIR_GEAR = 70,
     APPLY_SS = 65,
-    HEALTHSTONE = 60,
     CONSUMABLE = 50,
+    GATEWAY_MISSING = 38,
     GATEWAY = 35
 }
 
@@ -426,7 +426,6 @@ function Mod:OnModuleInitialize()
     BM = BM or E:GetModule("BossMods")
     self.alerts = {}
     self.timers = {}
-    self.healthstoneScan = nil
     self.editMode = false
     self:EnsureAlert()
     self:ApplyVisuals()
@@ -660,6 +659,7 @@ function Mod:Recheck()
     self:CheckPet()
     self:CheckRepair()
     self:CheckGateway()
+    self:CheckGatewayShard()
     if self:IsEnabled() and not self.editMode and self.alert then
         self:Render()
     end
@@ -729,6 +729,28 @@ function Mod:CheckGateway()
     local size = (self.db.font.size or 18) + 2
     self:Set("gateway", spellTex(SPELL_GATEWAY_USE, size) .. " " .. colorize("9d6cff", loc("BossMods_GP_TextGateway")),
         PRIORITY.GATEWAY)
+end
+
+function Mod:CheckGatewayShard()
+    if InCombatLockdown() then
+        return
+    end
+    if not self:WantAlert("gatewayShardMissing") then
+        self:Clear("gatewayShardMissing")
+        return
+    end
+    if not isInsideInstance() then
+        self:Clear("gatewayShardMissing")
+        return
+    end
+    local count = C_Item.GetItemCount(ITEM_DEMONIC_GATEWAY) or 0
+    if count > 0 then
+        self:Clear("gatewayShardMissing")
+        return
+    end
+    local size = (self.db.font.size or 18) + 2
+    self:Set("gatewayShardMissing", tex(ICON_GATEWAY_SHARD, size) .. " " ..
+        colorize("ff7777", loc("BossMods_GP_TextGatewayShardMissing")), PRIORITY.GATEWAY_MISSING)
 end
 
 function Mod:OnReadyCheck()
@@ -806,7 +828,6 @@ end
 
 function Mod:OnEnterCombat()
     self:StopGlow123()
-    self:StopHealthstoneScan()
     self:ClearAll()
 end
 
@@ -846,41 +867,11 @@ function Mod:HandleChatTrigger(msg, sender)
     end
 end
 
-function Mod:StartHealthstoneScan()
-    if InCombatLockdown() then
-        return
-    end
-    if hasFullHealthstone() then
-        return
-    end
-    if not self:WantAlert("healthstoneMissing") then
-        return
-    end
-    local size = (self.db.font.size or 18) + 2
-    local seconds = self.db.healthstoneScanSeconds or 6
-    self:Set("healthstoneMissing", spellTex(SPELL_HEALTHSTONE_USE, size) .. " " ..
-        colorize("66ff99", loc("BossMods_GP_TextPickHealthstone")), PRIORITY.HEALTHSTONE, seconds)
-
-    self.healthstoneScan = true
-    self:RegisterEvent("BAG_UPDATE", "OnBagUpdate")
-end
-
-function Mod:StopHealthstoneScan()
-    self.healthstoneScan = nil
-    self:UnregisterEvent("BAG_UPDATE")
-end
-
 function Mod:OnBagUpdate()
     if InCombatLockdown() then
         return
     end
-    if not self.healthstoneScan then
-        return
-    end
-    if hasFullHealthstone() then
-        self:Clear("healthstoneMissing")
-        self:StopHealthstoneScan()
-    end
+    self:CheckGatewayShard()
 end
 
 function Mod:HandleConsumable(kind, sender)
@@ -912,6 +903,9 @@ function Mod:HandleConsumable(kind, sender)
     local size = (self.db.font.size or 18) + 2
 
     if kind == "FEAST" then
+        if inRestrictedAuraState() then
+            return
+        end
         if hasWellFedBuff(600) then
             return
         end
@@ -920,8 +914,8 @@ function Mod:HandleConsumable(kind, sender)
             return
         end
     elseif kind == "SOULWELL" then
-        if not hasFullHealthstone() then
-            self:StartHealthstoneScan()
+        if hasFullHealthstone() then
+            return
         end
     end
 
@@ -981,9 +975,6 @@ function Mod:OnSpellcast(_, unit, _, spellID)
     local kind = CONSUMABLE_SPELL_TYPES[spellID]
     if kind then
         self:BroadcastConsumable(kind)
-        if kind == "SOULWELL" and not hasFullHealthstone() then
-            self:StartHealthstoneScan()
-        end
     end
 end
 
@@ -1019,6 +1010,7 @@ function Mod:OnEnable()
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnEnterCombat")
     self:RegisterEvent("UPDATE_INVENTORY_DURABILITY", "CheckRepair")
     self:RegisterEvent("UNIT_PET", "CheckPet")
+    self:RegisterEvent("BAG_UPDATE", "OnBagUpdate")
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "OnSpellcast")
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("ACTIONBAR_UPDATE_USABLE", "CheckGateway")
@@ -1040,7 +1032,6 @@ end
 
 function Mod:OnDisable()
     self.editMode = false
-    self:StopHealthstoneScan()
     self:StopGlow123()
     self:ClearAll()
     if self.alert then

@@ -23,9 +23,6 @@ local ALERT_TOGGLES = {{
     key = "consumableRepair",
     label = "BossMods_GP_RepairBot"
 }, {
-    key = "healthstoneMissing",
-    label = "BossMods_GP_HealthstoneMissing"
-}, {
     key = "consumableSoulwell",
     label = "BossMods_GP_Soulwell"
 }, {
@@ -40,6 +37,9 @@ local ALERT_TOGGLES = {{
 }, {
     key = "gateway",
     label = "BossMods_GP_Gateway"
+}, {
+    key = "gatewayShardMissing",
+    label = "BossMods_GP_GatewayShardMissing"
 }, {
     key = "chatHealthstone",
     label = "BossMods_GP_ChatHealthstone"
