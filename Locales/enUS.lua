@@ -318,7 +318,7 @@ L["AddonCheckerNoResponse"] = "no response"
 
 -- Quality of Life
 L["QualityOfLife"] = "Quality of Life"
-L["QualityOfLifeDesc"] = "Small tweaks that didn't earn their own sidebar entry"
+L["QualityOfLifeDesc"] = "Small tweaks that didn't earn their own sidebar entry. \nFonts and textures are configured in Home > Appearance > Module Visuals"
 L["QoL_NoFeatures"] = "No QoL features have registered yet"
 
 -- QoL: Circle
@@ -437,7 +437,7 @@ L["Notes_RosterEmpty"] = "Not in a group"
 
 -- BossMods
 L["BossMods"] = "Boss Mods"
-L["BossModsDesc"] = "Alerts, assignments, and visuals. Enable what you need"
+L["BossModsDesc"] = "Alerts, assignments, and visuals. Enable what you need. \nFonts and textures are configured in Home > Appearance > Module Visuals"
 L["BossMods_Misc"] = "Misc"
 L["BossMods_Queldanas"] = "Quel'Danas"
 L["BossMods_Voidspire"] = "The Voidspire"
