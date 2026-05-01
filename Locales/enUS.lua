@@ -382,13 +382,9 @@ L["QoL_CDMAuraOverrideDesc"] =
     "For spells that show remaining aura time. Turn this on to show the spell's actual cooldown instead"
 L["QoL_CDMAuraOverrideEnable"] = "Show Cooldown Instead of Aura Duration"
 L["QoL_CDMStackFont"] = "Stack Font"
-L["QoL_CDMStackFontEnable"] = "Enable Custom Text"
-L["QoL_CDMStackViewer"] = "Frame to Change"
-L["QoL_CDMStackViewerDesc"] = "Choose what the recharge font should look like"
 L["QoL_CDMViewerEssential"] = "Essential"
 L["QoL_CDMViewerUtility"] = "Utility"
 L["QoL_CDMViewerBuffIcon"] = "Buff Icons"
-L["QoL_CDMViewerBuffBar"] = "Buff Bars"
 L["QoL_CDMStackFontDesc"] = "Customize the stack/charge text for CDM frames"
 L["QoL_CDMStackColor"] = "Stack Color"
 
@@ -464,6 +460,7 @@ L["BossMods_BreakTimerDesc"] =
 L["BossMods_BreakTimer_Duration"] = "Test duration (seconds)"
 L["BossMods_BreakTimer_Test"] = "Test"
 L["BossMods_BreakTimer_Stop"] = "Stop"
+L["BossMods_BreakTimer_Label"] = "Break"
 
 -- BossMods: Bress
 L["BossMods_Bress"] = "Battle Ress"
