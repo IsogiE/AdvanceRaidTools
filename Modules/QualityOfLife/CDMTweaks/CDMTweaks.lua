@@ -7,10 +7,11 @@ P.modules.QoL_CDMTweaks = {
     centerBuffIcon = true,
     centerBuffBar = true,
     auraOverride = false,
-    stackFontEnabled = false,
-    stackFontViewer = "EssentialCooldownViewer",
-    stackFontSize = 14,
-    stackColor = {1, 1, 1, 1}
+    stackFont = {
+        EssentialCooldownViewer = {enabled = false, size = 14, color = {1, 1, 1, 1}},
+        UtilityCooldownViewer = {enabled = false, size = 14, color = {1, 1, 1, 1}},
+        BuffIconCooldownViewer = {enabled = false, size = 14, color = {1, 1, 1, 1}}
+    }
 }
 
 local CDMTweaks = E:NewModule("QoL_CDMTweaks", "AceEvent-3.0")
@@ -104,14 +105,29 @@ local function restoreOriginalFontState(fs)
     end
 end
 
+local function getStackConfig(self_, viewerName)
+    local sf = self_.db and self_.db.stackFont
+    if type(sf) ~= "table" or not viewerName then
+        return nil
+    end
+    local cfg = sf[viewerName]
+    if type(cfg) ~= "table" then
+        return nil
+    end
+    return cfg
+end
+
 local function applyFontToItem(self_, item)
-    local db = self_.db
+    local cfg = getStackConfig(self_, item.artCDMViewer)
+    if not cfg then
+        return
+    end
     local font = E:FetchModuleFont()
-    local r, g, b, a = E:ColorTuple(db.stackColor, 1, 1, 1, 1)
+    local r, g, b, a = E:ColorTuple(cfg.color, 1, 1, 1, 1)
 
     for _, fs in ipairs(collectStackFontStrings(item)) do
         saveOriginalFontState(fs)
-        fs:SetFont(font, db.stackFontSize or 14, "OUTLINE")
+        fs:SetFont(font, cfg.size or 14, "OUTLINE")
         fs:SetTextColor(r, g, b, a)
     end
 end
@@ -123,13 +139,8 @@ local function restoreFontOnItem(item)
 end
 
 local function wantsFontOverride(self_, viewerName)
-    if not viewerName then
-        return false
-    end
-    if not self_.db.stackFontEnabled then
-        return false
-    end
-    return self_.db.stackFontViewer == viewerName
+    local cfg = getStackConfig(self_, viewerName)
+    return cfg and cfg.enabled or false
 end
 
 local function maybeApplyFontToItem(self_, item)
@@ -481,6 +492,10 @@ function CDMTweaks:Apply()
         return
     end
     self._pendingApply = nil
+
+    if type(self.db.stackFont) ~= "table" then
+        self.db.stackFont = {}
+    end
 
     if not self:IsEnabled() then
         restoreAll(self)

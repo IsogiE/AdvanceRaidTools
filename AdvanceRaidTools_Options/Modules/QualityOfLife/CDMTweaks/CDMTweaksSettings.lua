@@ -1,6 +1,12 @@
 local E, L = unpack(ART)
 local T = E.Templates
 
+local STACK_VIEWERS = {
+    {key = "EssentialCooldownViewer", labelKey = "QoL_CDMViewerEssential"},
+    {key = "UtilityCooldownViewer", labelKey = "QoL_CDMViewerUtility"},
+    {key = "BuffIconCooldownViewer", labelKey = "QoL_CDMViewerBuffIcon"}
+}
+
 local function buildCDMTweaksTab(mod, isDisabled)
     local function refreshLive()
         mod:Refresh()
@@ -172,108 +178,94 @@ local function buildCDMTweaksTab(mod, isDisabled)
                 })
             end
         },
-        stackEnabled = {
-            order = 42,
-            width = "full",
+    }
+
+    local function viewerCfg(key)
+        if type(mod.db.stackFont) ~= "table" then
+            mod.db.stackFont = {}
+        end
+        local entry = mod.db.stackFont[key]
+        if type(entry) ~= "table" then
+            entry = {enabled = false, size = 14, color = {1, 1, 1, 1}}
+            mod.db.stackFont[key] = entry
+        end
+        if type(entry.color) ~= "table" then
+            entry.color = {1, 1, 1, 1}
+        end
+        return entry
+    end
+
+    for i, viewer in ipairs(STACK_VIEWERS) do
+        local key = viewer.key
+        local label = L[viewer.labelKey] or key
+
+        local function rowDisabled()
+            return isDisabled() or not viewerCfg(key).enabled
+        end
+
+        args["stackEnable_" .. key] = {
+            order = 42 + (i - 1),
+            width = "1/3",
             build = function(parent)
                 return T:Checkbox(parent, {
-                    text = L["QoL_CDMStackFontEnable"],
+                    text = label,
                     get = function()
-                        return mod.db.stackFontEnabled
+                        return viewerCfg(key).enabled
                     end,
                     onChange = function(_, v)
-                        mod.db.stackFontEnabled = v and true or false
+                        viewerCfg(key).enabled = v and true or false
                         refreshLive()
                         refreshPanel()
                     end,
                     disabled = isDisabled
                 })
             end
-        },
-        stackViewer = {
-            order = 43,
-            width = "full",
+        }
+
+        args["stackSize_" .. key] = {
+            order = 50 + (i - 1),
+            width = "1/3",
             build = function(parent)
-                local values = {
-                    EssentialCooldownViewer = L["QoL_CDMViewerEssential"],
-                    UtilityCooldownViewer = L["QoL_CDMViewerUtility"],
-                    BuffIconCooldownViewer = L["QoL_CDMViewerBuffIcon"],
-                    BuffBarCooldownViewer = L["QoL_CDMViewerBuffBar"]
-                }
-                return T:Dropdown(parent, {
-                    label = L["QoL_CDMStackViewer"],
-                    values = values,
-                    get = function()
-                        local v = mod.db.stackFontViewer
-                        if not values[v] then
-                            v = "EssentialCooldownViewer"
-                            mod.db.stackFontViewer = v
-                        end
-                        return v
-                    end,
+                return T:Slider(parent, {
+                    label = L["FontSize"],
+                    min = 6,
+                    max = 40,
+                    step = 1,
+                    value = viewerCfg(key).size,
                     onChange = function(v)
-                        mod.db.stackFontViewer = v
+                        viewerCfg(key).size = math.floor(v)
                         refreshLive()
-                        refreshPanel()
                     end,
-                    disabled = function()
-                        return isDisabled() or not mod.db.stackFontEnabled
+                    get = function()
+                        return viewerCfg(key).size
                     end,
-                    tooltip = {
-                        title = L["QoL_CDMStackViewer"],
-                        desc = L["QoL_CDMStackViewerDesc"]
-                    }
+                    disabled = rowDisabled
                 })
             end
         }
-    }
 
-    local function stackDisabled()
-        return isDisabled() or not mod.db.stackFontEnabled
+        args["stackColor_" .. key] = {
+            order = 60 + (i - 1),
+            width = "1/3",
+            build = function(parent)
+                local c = viewerCfg(key).color
+                return T:ColorSwatch(parent, {
+                    label = L["QoL_CDMStackColor"],
+                    labelTop = true,
+                    hasAlpha = true,
+                    r = c[1],
+                    g = c[2],
+                    b = c[3],
+                    a = c[4],
+                    onChange = function(r, g, b, a)
+                        viewerCfg(key).color = {r, g, b, a}
+                        refreshLive()
+                    end,
+                    disabled = rowDisabled
+                })
+            end
+        }
     end
-
-    args.stackFontSize = {
-        order = 44,
-        width = "1/2",
-        build = function(parent)
-            return T:Slider(parent, {
-                label = L["FontSize"],
-                min = 6,
-                max = 40,
-                step = 1,
-                value = mod.db.stackFontSize,
-                onChange = function(v)
-                    mod.db.stackFontSize = math.floor(v)
-                    refreshLive()
-                end,
-                get = function()
-                    return mod.db.stackFontSize
-                end,
-                disabled = stackDisabled
-            })
-        end
-    }
-
-    args.stackColor = {
-        order = 45,
-        width = "1/2",
-        build = function(parent)
-            return T:ColorSwatch(parent, {
-                label = L["QoL_CDMStackColor"],
-                labelTop = true,
-                hasAlpha = true,
-                r = mod.db.stackColor[1],
-                g = mod.db.stackColor[2],
-                b = mod.db.stackColor[3],
-                a = mod.db.stackColor[4],
-                onChange = function(r, g, b, a)
-                    mod.db.stackColor = {r, g, b, a}
-                    refreshLive()
-                end,
-                disabled = stackDisabled
-            })
-        end
-    }
 
     return args
 end
