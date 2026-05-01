@@ -189,7 +189,7 @@ function Quasar:OnBigWigsStartBar(key, text, time)
     end
 
     local countText = type(text) == "string" and text:match("%((%d+/?%d*)%)") or nil
-    local label = countText and ("BEAM (" .. countText .. ")") or "BEAM"
+    local label = countText and (L["BossMods_DQBarLabel"] .. " (" .. countText .. ")") or L["BossMods_DQBarLabel"]
 
     local isFirst = countText == "1/6" or countText == "1"
     local isIntermission = (type(text) == "string" and text:find("/") ~= nil) or
@@ -286,7 +286,7 @@ function Quasar:OnBarTick(t, total, safe)
         self.bar:SetCenter(("BEAM COMING %.1f"):format(-t))
         if not self.hasSpokenBeamSoon and db.tts.enabled and db.tts.beamSoon then
             BM.Alerts:SpeakTTS({
-                text = "Beam soon",
+                text = L["BossMods_DQTTSBeamSoon"],
                 voiceID = db.tts.voice
             })
             self.hasSpokenBeamSoon = true
@@ -297,7 +297,7 @@ function Quasar:OnBarTick(t, total, safe)
         self.bar:SetRight(("SAFE %.1f"):format(safe - t))
         if not self.hasSpokenUnsafeSoon and db.tts.enabled and db.tts.unsafeSoon then
             BM.Alerts:SpeakTTS({
-                text = "Unsafe soon",
+                text = L["BossMods_DQTTSUnsafeSoon"],
                 voiceID = db.tts.voice
             })
             self.hasSpokenUnsafeSoon = true
@@ -347,7 +347,7 @@ function Quasar:SetEditMode(v)
             self.bar:Stop()
         end
         local db = self.db
-        self.bar:SetLabel("BEAM")
+        self.bar:SetLabel(L["BossMods_DQBarLabel"])
         self.bar:SetMode("label")
         self.bar:SetColor(db.bar.dangerColor[1], db.bar.dangerColor[2], db.bar.dangerColor[3],
             db.bar.dangerColor[4] or 1)

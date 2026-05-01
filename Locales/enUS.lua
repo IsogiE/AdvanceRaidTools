@@ -250,6 +250,11 @@ L["LoadModule"] = "This module is not loaded"
 L["Enable"] = "Enable" -- Module enable uses this L["Enable"] .. " " .. (L[contribution.name] or contribution.name),
 L["Modulenoff"] = "Turn this module on or off"
 L["AreYouSure"] = "Are you sure?"
+L["Confirm"] = "Confirm"
+L["Reload"] = "Reload"
+L["Cancel"] = "Cancel"
+L["VoiceTest"] = "Voice test"
+L["Unknown"] = "Unknown"
 L["ImportPopupText"] = "Profile name for the imported settings.\nLeave blank to overwrite the current profile"
 L["ImportProfileSwitchFailed"] = "Couldn't switch to profile '%s': %s"
 L["ExportDesc"] = "Pick what to include, then copy the string below"
@@ -492,6 +497,8 @@ L["BossMods_GP_Soulwell"] = "Soulwell Dropped"
 L["BossMods_GP_RepairBot"] = "Repair Bot Dropped"
 L["BossMods_GP_ChatHealthstone"] = "Type hs for healthstones"
 L["BossMods_GP_ChatSummonStone"] = "Summon 123"
+L["BossMods_GP_TriggerHealthstone"] = "hs"
+L["BossMods_GP_TriggerSummonStone"] = "123"
 
 -- BossMods: GeneralPack runtime alert text
 L["BossMods_GP_TextPreview"] = "General Pack — drag to move"
@@ -519,6 +526,7 @@ L["BossMods_DQTTSVoice"] = "TTS Voice"
 L["BossMods_DQTTSBeamSoon"] = "Beam Soon"
 L["BossMods_DQTTSUnsafeSoon"] = "Unsafe Soon"
 L["BossMods_DQTTSDangerCountdown"] = "Danger Countdown"
+L["BossMods_DQBarLabel"] = "BEAM"
 
 -- BossMods: Queldanas -> Lurakick (kick assignments)
 L["BossMods_Lurakick"] = "L'ura Kick Assignments"
@@ -526,6 +534,9 @@ L["BossMods_LurakickDesc"] = "Kick assignments for Prisms"
 L["BossMods_LKSoundSection"] = "Alert Sound"
 L["BossMods_LKKickSound"] = "Your-Turn Sound"
 L["BossMods_LKSoundChannel"] = "Sound Channel"
+L["BossMods_LKKickOrder"] = "Kick Order"
+L["BossMods_LKPrismN"] = "Prism %d"
+L["BossMods_LKPlaceholder"] = "Placeholder%d"
 
 -- BossMods: Queldanas -> LuraMap
 L["BossMods_LuraMap"] = "L'ura Spread Map"
@@ -559,9 +570,16 @@ L["BossMods_PDDwarfColor"] = "Dwarf Action Color"
 L["BossMods_PDNameMode"] = "Target Name Color"
 L["BossMods_PDNameCustomColor"] = "Custom Name Color"
 L["BossMods_PDGlowLines"] = "Lines / Particles"
+L["BossMods_PDDispel"] = "Dispel"
+L["BossMods_PDUseDwarf"] = "Use Dwarf"
+L["BossMods_PDUseDwarfLabel"] = "USE DWARF"
 
 -- Glow types (used by PalaDispel + any future glow callers)
 L["BossMods_GlowPixel"] = "Pixel Glow"
 L["BossMods_GlowAutocast"] = "Autocast Shine"
 L["BossMods_GlowButton"] = "Action Button Glow"
 L["BossMods_GlowProc"] = "Proc Glow"
+
+-- Updater
+L["Updater_Title"] = "New ART update available"
+L["Updater_Body"] = "Download now, or else :)"

@@ -793,7 +793,7 @@ function Mod:Glow123(sender)
     local label = frame:CreateFontString(nil, "OVERLAY")
     label:SetFont(E:FetchModuleFont() or [[Fonts\FRIZQT__.TTF]], 22, "OUTLINE")
     label:SetTextColor(0.2, 1, 0.4, 1)
-    label:SetText("123")
+    label:SetText(L["BossMods_GP_TriggerSummonStone"])
     label:SetPoint("CENTER", frame, "CENTER", 0, 0)
 
     self.glow123Frame = frame
@@ -846,7 +846,9 @@ function Mod:HandleChatTrigger(msg, sender)
         return
     end
     msg = msg:lower():gsub("^%s+", ""):gsub("%s+$", "")
-    if msg ~= "hs" and msg ~= "123" then
+    local hsTrigger = L["BossMods_GP_TriggerHealthstone"]:lower()
+    local summonTrigger = L["BossMods_GP_TriggerSummonStone"]:lower()
+    if msg ~= hsTrigger and msg ~= summonTrigger then
         return
     end
     if UnitIsUnit(sender, "player") then
@@ -857,7 +859,7 @@ function Mod:HandleChatTrigger(msg, sender)
     local size = (self.db.font.size or 18) + 2
     local hold = self.db.transientDuration or 6
 
-    if msg == "hs" then
+    if msg == hsTrigger then
         if class == "WARLOCK" and self:WantAlert("chatHealthstone") and not isSpellOnCooldown(SPELL_SOULWELL) then
             self:Set("chatHealthstone", spellTex(SPELL_HEALTHSTONE_USE, size) .. " " ..
                 colorize("aa66ff", loc("BossMods_GP_TextChatHealthstone")), PRIORITY.CHAT_REQUEST, hold)
@@ -865,7 +867,7 @@ function Mod:HandleChatTrigger(msg, sender)
         return
     end
 
-    if msg == "123" and self:WantAlert("chatSummonStone") then
+    if msg == summonTrigger and self:WantAlert("chatSummonStone") then
         self:Glow123(sender)
         if class == "WARLOCK" and not isSpellOnCooldown(SPELL_RITUAL_OF_SUMMONING) then
             self:Set("chatSummonStone", spellTex(SPELL_RITUAL_OF_SUMMONING, size) .. " " ..

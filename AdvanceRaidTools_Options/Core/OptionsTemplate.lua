@@ -559,8 +559,8 @@ function T:Button(parent, opts)
         end
         if needConfirm then
             local args = {...}
-            confirmBody = confirmBody or opts.confirmText or loc("AreYouSure", "Are you sure?")
-            local title = evalMaybeFn(opts.confirmTitle) or loc("Confirm", "Confirm")
+            confirmBody = confirmBody or opts.confirmText or loc("AreYouSure")
+            local title = evalMaybeFn(opts.confirmTitle) or loc("Confirm")
             T:Confirm({
                 title = title,
                 text = confirmBody,
@@ -3872,10 +3872,10 @@ function T:UnlockController(parent, yOffset, widthPx, opts)
     end
 
     unlockCheck = trackOwn(T:Checkbox(parent, {
-        text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+        text = L["BossMods_UnlockFrame"],
         labelTop = true,
         tooltip = {
-            title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+            title = L["BossMods_UnlockFrame"],
             desc = L["DragToMove"] or ""
         },
         get = function()
@@ -3970,18 +3970,18 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         end
 
         local posHeader = trackOwn(T:Header(parent, {
-            text = L["Position"] or "Position"
+            text = L["Position"]
         }))
         newY = newY + T:PlaceFull(parent, posHeader, newY, widthPx) + POSITION_SECTION_HEADER_GAP
 
         local xStepper = trackOwn(T:NumericStepper(parent, {
-            label = L["QoL_XOffset"] or "X Offset",
+            label = L["QoL_XOffset"],
             get = readX,
             set = writeX,
             disabled = isDisabled
         }))
         local yStepper = trackOwn(T:NumericStepper(parent, {
-            label = L["QoL_YOffset"] or "Y Offset",
+            label = L["QoL_YOffset"],
             get = readY,
             set = writeY,
             disabled = isDisabled
@@ -4016,10 +4016,10 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         newY = newY + T:PlaceRow(parent, {resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
     else
         local unlockCheck = trackOwn(T:Checkbox(parent, {
-            text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+            text = L["BossMods_UnlockFrame"],
             labelTop = true,
             tooltip = {
-                title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                title = L["BossMods_UnlockFrame"],
                 desc = L["DragToMove"] or ""
             },
             get = function()

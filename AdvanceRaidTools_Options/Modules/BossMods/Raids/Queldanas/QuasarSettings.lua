@@ -308,7 +308,7 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         onChange = function(v)
             mod.db.tts.voice = tonumber(v) or 0
             E:GetModule("BossMods").Alerts:SpeakTTS({
-                text = "Voice test",
+                text = L["VoiceTest"],
                 voiceID = mod.db.tts.voice
             })
         end,

@@ -51,7 +51,7 @@ local function buildCircleTab(mod, isDisabled)
             return nil
         end
         movable = T:MovableFrame(f, {
-            label = L["QoL_Circle"] or "Character Marker",
+            label = L["QoL_Circle"],
             getPosition = function()
                 return {
                     point = mod.db.position.point,
@@ -76,10 +76,10 @@ local function buildCircleTab(mod, isDisabled)
             width = "full",
             build = function(parent)
                 local cb = T:Checkbox(parent, {
-                    text = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                    text = L["BossMods_UnlockFrame"],
                     labelTop = true,
                     tooltip = {
-                        title = L["BossMods_UnlockFrame"] or "Unlock Frame",
+                        title = L["BossMods_UnlockFrame"],
                         desc = L["DragToMove"] or ""
                     },
                     get = function()

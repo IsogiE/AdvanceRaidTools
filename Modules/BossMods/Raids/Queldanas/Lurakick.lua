@@ -70,7 +70,7 @@ function Lurakick:EnsureList()
     end
     self.list = BM.Engines.AssignmentList(buildListConfig(self))
     self.list:Hide()
-    self.list:SetTitle("Kick Order")
+    self.list:SetTitle(L["BossMods_LKKickOrder"])
     self:ApplyPosition()
 end
 
@@ -89,7 +89,7 @@ function Lurakick:OnModuleInitialize()
     self:EnsureList()
     if self.list then
         self.list:Apply(buildListConfig(self))
-        self.list:SetTitle("Kick Order")
+        self.list:SetTitle(L["BossMods_LKKickOrder"])
         self:ApplyPosition()
         self.list:Hide()
     end
@@ -431,7 +431,7 @@ function Lurakick:UpdateDisplay()
         return
     end
 
-    self.list:SetTitle("Prism " .. (self.myGroupIdx - 1))
+    self.list:SetTitle(L["BossMods_LKPrismN"]:format(self.myGroupIdx - 1))
 
     local NoteBlock = BM.NoteBlock
     local group = self.assigns[self.myGroupIdx]
@@ -470,13 +470,13 @@ function Lurakick:SetEditMode(v)
 
     if self.editMode then
         self.list:SetRows({{
-            text = "Placeholder1",
+            text = L["BossMods_LKPlaceholder"]:format(1),
             state = "active"
         }, {
-            text = "Placeholder2",
+            text = L["BossMods_LKPlaceholder"]:format(2),
             state = "upcoming"
         }, {
-            text = "Placeholder3",
+            text = L["BossMods_LKPlaceholder"]:format(3),
             state = "upcoming"
         }})
         self.list:SetHighlight(self.castCount > 0 and self.castCount == self.myKickPos)

@@ -30,7 +30,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
 
     local y = 0
     y = full(y, track(T:Header(rightPanel, {
-        text = L["BossMods_BreakTimer"] or "Break Timer"
+        text = L["BossMods_BreakTimer"]
     })))
     y = full(y, track(T:Description(rightPanel, {
         text = L["BossMods_BreakTimerDesc"] or
@@ -39,7 +39,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
     })))
 
     local durationSlider = track(T:Slider(rightPanel, {
-        label = L["BossMods_BreakTimer_Duration"] or "Test duration (seconds)",
+        label = L["BossMods_BreakTimer_Duration"],
         min = 10,
         max = 600,
         step = 5,
@@ -57,7 +57,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
     y = row(y, {durationSlider})
 
     local testBtn = track(T:Button(rightPanel, {
-        text = L["BossMods_BreakTimer_Test"] or "Test",
+        text = L["BossMods_BreakTimer_Test"],
         onClick = function()
             mod:Test(mod.db.defaultDuration or 60)
             tracker.refresh()
@@ -67,7 +67,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end
     }))
     local stopBtn = track(T:Button(rightPanel, {
-        text = L["BossMods_BreakTimer_Stop"] or "Stop",
+        text = L["BossMods_BreakTimer_Stop"],
         onClick = function()
             mod:Stop()
             tracker.refresh()
@@ -83,11 +83,11 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         strataValues[key] = L[labelKey] or key
     end
     local strataDropdown = track(T:Dropdown(rightPanel, {
-        label = L["QoL_Strata"] or "Frame Strata",
+        label = L["QoL_Strata"],
         values = strataValues,
         sorting = STRATA_ORDER,
         tooltip = {
-            title = L["QoL_Strata"] or "Frame Strata",
+            title = L["QoL_Strata"],
             desc = L["QoL_StrataDesc"] or ""
         },
         get = function()
@@ -102,7 +102,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         end
     }))
     local scaleSlider = track(T:Slider(rightPanel, {
-        label = L["Scale"] or "Scale",
+        label = L["Scale"],
         min = 0.5,
         max = 2.0,
         step = 0.05,

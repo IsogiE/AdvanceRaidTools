@@ -5,9 +5,9 @@ local ROW_GAP = 6
 local HEADER_GAP = 10
 
 local KEYBIND_LABEL_VALUES = {
-    below = L["BossMods_DirgeKBBelow"] or "Below Icon",
-    above = L["BossMods_DirgeKBAbove"] or "Above Icon",
-    hidden = L["BossMods_DirgeKBHidden"] or "Hidden"
+    below = L["BossMods_DirgeKBBelow"],
+    above = L["BossMods_DirgeKBAbove"],
+    hidden = L["BossMods_DirgeKBHidden"]
 }
 
 local function borderValues()
@@ -428,7 +428,7 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         onChange = function(v)
             mod.db.tts.voice = tonumber(v) or 0
             E:GetModule("BossMods").Alerts:SpeakTTS({
-                text = "Voice test",
+                text = L["VoiceTest"],
                 voiceID = mod.db.tts.voice
             })
         end,

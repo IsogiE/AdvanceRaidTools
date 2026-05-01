@@ -185,7 +185,7 @@ function Mod:Show()
     local timerH = fontSize + 4
 
     f.label:SetFont(fontPath, fontSize, outline)
-    f.label:SetText(L["BossMods_BreakTimer_Label"] or "Break")
+    f.label:SetText(L["BossMods_BreakTimer_Label"])
     f.label:ClearAllPoints()
     f.label:SetPoint("TOP", f, "TOP", 0, 0)
     f.label:SetWidth(imgW)

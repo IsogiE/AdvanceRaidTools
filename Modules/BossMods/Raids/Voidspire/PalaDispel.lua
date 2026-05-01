@@ -172,10 +172,10 @@ function PalaDispel:Refresh()
     self:ApplyPosition()
 
     if self.editMode then
-        self.alert:SetText(self:FormatAlertText("Dispel", false, "player"))
+        self.alert:SetText(self:FormatAlertText(L["BossMods_PDDispel"], false, "player"))
         self:ApplyGlow("player")
     elseif self.myAssignedUnit then
-        self.alert:SetText(self:FormatAlertText("Dispel", false, self.myAssignedUnit))
+        self.alert:SetText(self:FormatAlertText(L["BossMods_PDDispel"], false, self.myAssignedUnit))
         self:ApplyGlow(self.myAssignedUnit)
     end
 end
@@ -367,7 +367,7 @@ function PalaDispel:RunAssignment()
                 if UnitIsUnit(healer, "player") then
                     local aura = C_UnitAuras.GetAuraDataByAuraInstanceID(entry[1], entry[3])
                     if aura then
-                        self:ShowAssignment(entry[1], entry[3], "Dispel", false)
+                        self:ShowAssignment(entry[1], entry[3], L["BossMods_PDDispel"], false)
                     end
                 end
                 break
@@ -394,7 +394,7 @@ function PalaDispel:RunAssignment()
             if UnitIsUnit(healer, "player") then
                 local aura = C_UnitAuras.GetAuraDataByAuraInstanceID(entry[1], entry[3])
                 if aura then
-                    self:ShowAssignment(entry[1], entry[3], "Dispel", false)
+                    self:ShowAssignment(entry[1], entry[3], L["BossMods_PDDispel"], false)
                 end
             end
         end
@@ -406,7 +406,7 @@ function PalaDispel:RunAssignment()
         if entry[5] and not slotTaken[si] and UnitIsUnit(entry[1], "player") then
             if not self.dwarfs["player"] or now >= self.dwarfs["player"] then
                 self.dwarfs["player"] = now + DWARF_RACIAL_COOLDOWN
-                self:ShowAssignment("player", entry[3], "USE DWARF", true)
+                self:ShowAssignment("player", entry[3], L["BossMods_PDUseDwarfLabel"], true)
             end
             break
         end
@@ -425,7 +425,7 @@ function PalaDispel:FormatAlertText(actionText, isDwarf, targetUnit)
         return ("|cff%s%s|r"):format(actionHex, actionText)
     end
 
-    local name = "Unknown"
+    local name = L["Unknown"]
     if targetUnit then
         local raw = UnitName(targetUnit)
         if raw then
@@ -463,11 +463,11 @@ function PalaDispel:ShowAssignment(unit, auraID, actionText, isDwarf)
 
     local ttsText
     if isDwarf then
-        ttsText = "Use Dwarf"
+        ttsText = L["BossMods_PDUseDwarf"]
     else
         local raw = UnitName(unit)
-        local display = raw and BM.NoteBlock:GetDisplayName(raw) or "Unknown"
-        ttsText = "Dispel " .. (display or "Unknown")
+        local display = raw and BM.NoteBlock:GetDisplayName(raw) or L["Unknown"]
+        ttsText = L["BossMods_PDDispel"] .. " " .. (display or L["Unknown"])
     end
     self:PlayAudio(ttsText)
 
@@ -545,13 +545,13 @@ function PalaDispel:SetEditMode(v)
     self.editMode = v and true or false
 
     if self.editMode then
-        self.alert:SetText(self:FormatAlertText("Dispel", false, "player"))
+        self.alert:SetText(self:FormatAlertText(L["BossMods_PDDispel"], false, "player"))
         self.alert:Show()
         self:ApplyGlow("player")
     else
         self:RemoveGlow("player")
         if self.myAssignedUnit then
-            self.alert:SetText(self:FormatAlertText("Dispel", false, self.myAssignedUnit))
+            self.alert:SetText(self:FormatAlertText(L["BossMods_PDDispel"], false, self.myAssignedUnit))
             self:ApplyGlow(self.myAssignedUnit)
         else
             self.alert:Hide()

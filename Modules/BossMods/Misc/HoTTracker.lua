@@ -132,6 +132,14 @@ local BM
 
 local CLASS_ORDER = {"DRUID", "EVOKER", "MONK", "PALADIN", "PRIEST", "SHAMAN"}
 
+local function spellName(sp)
+    local info = sp.id and C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(sp.id)
+    if info and info.name and info.name ~= "" then
+        return info.name
+    end
+    return sp.name
+end
+
 function HoTTracker:GetAvailableSpells()
     local seen = {}
     local out = {}
@@ -143,7 +151,7 @@ function HoTTracker:GetAvailableSpells()
                     seen[sp.key] = true
                     out[#out + 1] = {
                         key = sp.key,
-                        name = sp.name,
+                        name = spellName(sp),
                         color = sp.color,
                         class = class
                     }

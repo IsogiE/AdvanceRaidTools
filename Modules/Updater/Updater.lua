@@ -113,19 +113,19 @@ function Mod:Show()
     T:Popup({
         key = POPUP_KEY,
         replace = true,
-        title = "New ART update available",
-        text = "Download now, or else :)",
+        title = L["Updater_Title"],
+        text = L["Updater_Body"],
         width = popupWidth,
         minWidth = POPUP_MIN_W,
         build = build,
         buttons = {{
-            text = "Reload",
+            text = L["Reload"],
             isDefault = true,
             onClick = function()
                 ReloadUI()
             end
         }, {
-            text = "Cancel",
+            text = L["Cancel"],
             preset = "cancel"
         }}
     })

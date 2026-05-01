@@ -359,7 +359,7 @@ local function buildPalaDispelBody(rightPanel, mod, isDisabled)
         end,
         afterChange = function(v)
             E:GetModule("BossMods").Alerts:SpeakTTS({
-                text = "Voice test",
+                text = L["VoiceTest"],
                 voiceID = tonumber(v) or 0
             })
         end,
