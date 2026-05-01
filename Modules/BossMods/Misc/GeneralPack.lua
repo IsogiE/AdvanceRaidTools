@@ -539,9 +539,6 @@ function Mod:Render()
     if self.editMode then
         return
     end
-    if InCombatLockdown() then
-        return
-    end
 
     local list = {}
     local now = GetTime()
@@ -619,7 +616,7 @@ end
 function Mod:Clear(key)
     self.alerts[key] = nil
     self:CancelTimer(key)
-    if self:IsEnabled() and not InCombatLockdown() then
+    if self:IsEnabled() then
         self:Render()
     end
 end
@@ -711,9 +708,6 @@ function Mod:CheckRepair()
 end
 
 function Mod:CheckGateway()
-    if InCombatLockdown() then
-        return
-    end
     if not self:WantAlert("gateway") then
         self:Clear("gateway")
         return
@@ -828,7 +822,20 @@ end
 
 function Mod:OnEnterCombat()
     self:StopGlow123()
-    self:ClearAll()
+    for key, t in pairs(self.timers) do
+        if key ~= "gateway" then
+            if t and t.Cancel then
+                t:Cancel()
+            end
+            self.timers[key] = nil
+        end
+    end
+    for key in pairs(self.alerts) do
+        if key ~= "gateway" then
+            self.alerts[key] = nil
+        end
+    end
+    self:CheckGateway()
 end
 
 function Mod:HandleChatTrigger(msg, sender)
