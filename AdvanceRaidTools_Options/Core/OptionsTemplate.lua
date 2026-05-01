@@ -4101,11 +4101,25 @@ function T:MovableFrame(anchor, opts)
 
     local function onDragStop(self_)
         self_:StopMovingOrSizing()
-        local point, _, _, x, y = self_:GetPoint(1)
+        local parent = self_:GetParent() or UIParent
+        local fcx, fcy = self_:GetCenter()
+        local pcx, pcy = parent:GetCenter()
+        local point, x, y = "CENTER", 0, 0
+        if fcx and pcx then
+            local fScale = self_:GetEffectiveScale()
+            local pScale = parent:GetEffectiveScale()
+            x = math.floor((fcx * fScale - pcx * pScale) / pScale + 0.5)
+            y = math.floor((fcy * fScale - pcy * pScale) / pScale + 0.5)
+        else
+            local p, _, _, ox, oy = self_:GetPoint(1)
+            point = p or "CENTER"
+            x = ox or 0
+            y = oy or 0
+        end
         opts.setPosition({
-            point = point or "CENTER",
-            x = x or 0,
-            y = y or 0
+            point = point,
+            x = x,
+            y = y
         })
         if opts.onChanged then
             safeCall("MovableFrame.onChanged", opts.onChanged)

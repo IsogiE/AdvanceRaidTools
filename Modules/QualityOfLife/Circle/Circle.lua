@@ -97,7 +97,9 @@ function Circle:Apply()
 
     local pos = db.position
     f:ClearAllPoints()
-    f:SetPoint(pos.point or "CENTER", UIParent, pos.point or "CENTER", pos.x or 0, pos.y or 0)
+    local ratio = UIParent:GetEffectiveScale() / f:GetEffectiveScale()
+    f:SetPoint(pos.point or "CENTER", UIParent, pos.point or "CENTER",
+        (pos.x or 0) * ratio, (pos.y or 0) * ratio)
 
     self:ApplyShape()
     f:Show()
