@@ -2528,6 +2528,18 @@ function T:Slider(parent, opts)
     slider:SetValueStep(opts.step or 0.01)
     slider:SetObeyStepOnDrag(true)
 
+    local borderOverlay = CreateFrame("Frame", nil, slider, "BackdropTemplate")
+    borderOverlay:SetAllPoints(slider)
+    borderOverlay:SetFrameLevel(slider:GetFrameLevel() + 1)
+    borderOverlay:EnableMouse(false)
+    setTemplate(borderOverlay, "Default")
+    borderOverlay:SetBackdropColor(0, 0, 0, 0)
+    borderOverlay.artOnMediaUpdate = function(self_)
+        self_:SetBackdropColor(0, 0, 0, 0)
+    end
+    slider.artSkipAutoBorder = true
+    slider:SetBackdropBorderColor(0, 0, 0, 0)
+
     local thumb = slider:CreateTexture()
     thumb:SetColorTexture(1, 1, 1)
     thumb:SetSize(10, H_SLIDER - 4)
@@ -2570,13 +2582,13 @@ function T:Slider(parent, opts)
     slider:SetScript("OnEnter", function(self_)
         state.hovered = true
         if not state.disabled then
-            self_:SetBackdropBorderColor(unpack(c_accent()))
+            borderOverlay:SetBackdropBorderColor(unpack(c_accent()))
         end
     end)
     slider:SetScript("OnLeave", function(self_)
         state.hovered = false
         if not state.disabled then
-            self_:SetBackdropBorderColor(unpack(c_border()))
+            borderOverlay:SetBackdropBorderColor(unpack(c_border()))
         end
     end)
 
@@ -2607,11 +2619,11 @@ function T:Slider(parent, opts)
         if state.disabled then
             labelFS:SetTextColor(unpack(c_textDim()))
             valueFS:SetTextColor(unpack(c_textDim()))
-            slider:SetBackdropBorderColor(unpack(c_textDim()))
+            borderOverlay:SetBackdropBorderColor(unpack(c_textDim()))
         else
             labelFS:SetTextColor(unpack(c_text()))
             valueFS:SetTextColor(unpack(c_accent()))
-            slider:SetBackdropBorderColor(unpack(c_border()))
+            borderOverlay:SetBackdropBorderColor(unpack(c_border()))
         end
     end
 
