@@ -494,15 +494,10 @@ function Mod:SavePosition(pos)
     local x = (pos and pos.x) or 0
     local y = (pos and pos.y) or 0
 
-    local fw, fh = f:GetWidth(), f:GetHeight()
-    local pw, ph = UIParent:GetWidth(), UIParent:GetHeight()
-    local pox, poy = anchorOffset(point, pw, ph)
-    local fox, foy = anchorOffset(point, fw, fh)
-
     local p = self.db.position
-    p.point = "CENTER"
-    p.x = math.floor((pox + x - fox) + 0.5)
-    p.y = math.floor((poy + y - foy) + 0.5)
+    p.point = point
+    p.x = x
+    p.y = y
     self:ApplyPosition()
 end
 

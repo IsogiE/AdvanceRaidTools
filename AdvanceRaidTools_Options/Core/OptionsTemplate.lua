@@ -4120,8 +4120,8 @@ function T:MovableFrame(anchor, opts)
         if fcx and pcx then
             local fScale = self_:GetEffectiveScale()
             local pScale = parent:GetEffectiveScale()
-            x = math.floor((fcx * fScale - pcx * pScale) / pScale + 0.5)
-            y = math.floor((fcy * fScale - pcy * pScale) / pScale + 0.5)
+            x = (fcx * fScale - pcx * pScale) / pScale
+            y = (fcy * fScale - pcy * pScale) / pScale
         else
             local p, _, _, ox, oy = self_:GetPoint(1)
             point = p or "CENTER"

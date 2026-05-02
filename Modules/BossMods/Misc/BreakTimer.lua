@@ -259,8 +259,8 @@ function Mod:SavePosition()
     local point, _, _, x, y = self.frame:GetPoint(1)
     self.db.position = {
         point = point or "CENTER",
-        x = math.floor((x or 0) + 0.5),
-        y = math.floor((y or 0) + 0.5)
+        x = x or 0,
+        y = y or 0
     }
 end
 
