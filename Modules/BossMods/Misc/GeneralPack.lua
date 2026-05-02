@@ -120,7 +120,7 @@ local issecretvalue = _G.issecretvalue or function()
 end
 
 local function bareName(name)
-    if not name or issecretvalue(name) then
+    if issecretvalue(name) or not name then
         return ""
     end
     name = tostring(name)
@@ -176,8 +176,8 @@ local function isInsideInstance()
 end
 
 local function inRestrictedAuraState()
-    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown then
-        return C_ChatInfo.InChatMessagingLockdown()
+    if C_Secrets and C_Secrets.ShouldAurasBeSecret then
+        return C_Secrets.ShouldAurasBeSecret()
     end
     return false
 end
@@ -192,10 +192,12 @@ local function hasWellFedBuff(minRemaining)
         if not aura then
             break
         end
-        if aura.name and not E:IsSecret(aura.name) and aura.name:find("Well Fed") then
-            local remaining = (aura.expirationTime or 0) - GetTime()
-            if remaining > minRemaining then
-                return true
+        if (not E:IsSecret(aura.name)) and aura.name and aura.name:find("Well Fed") then
+            if (not E:IsSecret(aura.expirationTime)) and aura.expirationTime then
+                local remaining = aura.expirationTime - GetTime()
+                if remaining > minRemaining then
+                    return true
+                end
             end
         end
     end
@@ -299,7 +301,7 @@ local function groupHasSoulstone()
             if not aura then
                 break
             end
-            if aura.spellId == SPELL_SOULSTONE and not E:IsSecret(aura.spellId) then
+            if not E:IsSecret(aura.spellId) and aura.spellId == SPELL_SOULSTONE then
                 return true
             end
         end
@@ -325,7 +327,7 @@ local function groupHasSoulstone()
 end
 
 local function resolveSenderUnit(sender)
-    if not sender or sender == "" then
+    if issecretvalue(sender) or not sender or sender == "" then
         return nil
     end
     local bare = bareName(sender)
@@ -842,7 +844,7 @@ function Mod:HandleChatTrigger(msg, sender)
     if InCombatLockdown() then
         return
     end
-    if not msg or not sender or issecretvalue(msg) or issecretvalue(sender) then
+    if issecretvalue(msg) or issecretvalue(sender) or not msg or not sender then
         return
     end
     msg = msg:lower():gsub("^%s+", ""):gsub("%s+$", "")
@@ -963,6 +965,9 @@ function Mod:OnConsumableComm(_, message, _, sender)
 end
 
 function Mod:BroadcastConsumable(kind)
+    if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+        return
+    end
     local Comms = E:GetEnabledModule("Comms")
     if not Comms then
         return
