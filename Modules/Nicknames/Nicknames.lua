@@ -71,10 +71,13 @@ local BROADCAST_DEBOUNCE = 2
 local nicknameToUnitCache = {}
 
 local function safeName(s)
-    if type(s) ~= "string" or s == "" then
+    if type(s) ~= "string" then
         return nil
     end
     if issecretvalue and issecretvalue(s) then
+        return nil
+    end
+    if s == "" then
         return nil
     end
     return s
