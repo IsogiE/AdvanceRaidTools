@@ -231,6 +231,19 @@ function HomeSettings:OnInitialize()
     self:UpdateCosmetics()
 end
 
+function HomeSettings:OnEnable()
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "ResyncMediaPostLogin")
+end
+
+function HomeSettings:ResyncMediaPostLogin()
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    C_Timer.After(0, function()
+        if self:IsEnabled() and E.SendMessage then
+            E:SendMessage("ART_MEDIA_UPDATED")
+        end
+    end)
+end
+
 function HomeSettings:OnProfileChanged()
     if not self:IsEnabled() then
         return

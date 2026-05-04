@@ -20,12 +20,7 @@ local function colorTuple(c, fr, fg, fb, fa)
 end
 
 local function applyFontIfChanged(fs, font, size, outline)
-    if fs._artFont == font and fs._artSize == size and fs._artOutline == outline then
-        return
-    end
-    if fs:SetFont(font, size, outline) then
-        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
-    end
+    E:ApplyFontString(fs, font, size, outline)
 end
 
 local function applyFontTo(fs, style, parent, anchor)

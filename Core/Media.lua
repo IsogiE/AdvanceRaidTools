@@ -48,9 +48,9 @@ local function ensureFontPreloader()
         return fontPreloader
     end
     fontPreloader = CreateFrame("Frame", nil, UIParent)
-    -- move it well off-screen so it's never visible
-    fontPreloader:SetPoint("TOP", UIParent, "BOTTOM", 0, -90000)
-    fontPreloader:SetSize(100, 100)
+    fontPreloader:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
+    fontPreloader:SetSize(1, 1)
+    fontPreloader:SetAlpha(0)
     return fontPreloader
 end
 
@@ -61,10 +61,12 @@ local function cacheFont(name, path)
     if type(path) ~= "string" or path == "" then
         return
     end
-    local fs = ensureFontPreloader():CreateFontString()
+    local fs = ensureFontPreloader():CreateFontString(nil, "ARTWORK")
     fs:SetAllPoints()
-    if pcall(fs.SetFont, fs, path, 14) then
+    local ok, applied = pcall(fs.SetFont, fs, path, 14)
+    if ok and applied then
         pcall(fs.SetText, fs, "cache")
+        pcall(fs.GetStringWidth, fs)
     end
     preloadedFonts[name] = fs
 end
@@ -163,6 +165,20 @@ function E:FetchBorder(name)
         return E.media.blankTex or FALLBACK_BORDER
     end
     return lsmFetch("border", name) or E.media.blankTex or FALLBACK_BORDER
+end
+
+function E:ApplyFontString(fs, font, size, outline)
+    if not fs or not fs.SetFont or not font then
+        return false
+    end
+    if fs._artFont == font and fs._artSize == size and fs._artOutline == outline then
+        return true
+    end
+    if fs:SetFont(font, size, outline) then
+        fs._artFont, fs._artSize, fs._artOutline = font, size, outline
+        return true
+    end
+    return false
 end
 
 function E:MediaList(mediaType)
