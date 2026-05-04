@@ -167,6 +167,22 @@ function E:FetchBorder(name)
     return lsmFetch("border", name) or E.media.blankTex or FALLBACK_BORDER
 end
 
+local fontFallbackObjects = {}
+local fontFallbackCount = 0
+
+local function fontFallbackObject(font, size, outline)
+    local key = font .. "|" .. tostring(size) .. "|" .. tostring(outline or "")
+    local fontObj = fontFallbackObjects[key]
+    if not fontObj then
+        fontFallbackCount = fontFallbackCount + 1
+        local objName = "ART_FontFallback_" .. fontFallbackCount
+        fontObj = _G[objName] or CreateFont(objName)
+        fontFallbackObjects[key] = fontObj
+    end
+    fontObj:SetFont(font, size, outline or "")
+    return fontObj
+end
+
 function E:ApplyFontString(fs, font, size, outline)
     if not fs or not fs.SetFont or not font then
         return false
@@ -174,7 +190,11 @@ function E:ApplyFontString(fs, font, size, outline)
     if fs._artFont == font and fs._artSize == size and fs._artOutline == outline then
         return true
     end
-    if fs:SetFont(font, size, outline) then
+    fs:SetFont(font, size, outline)
+    if not fs:GetFont() and fs.SetFontObject then
+        pcall(fs.SetFontObject, fs, fontFallbackObject(font, size, outline))
+    end
+    if fs:GetFont() then
         fs._artFont, fs._artSize, fs._artOutline = font, size, outline
         return true
     end

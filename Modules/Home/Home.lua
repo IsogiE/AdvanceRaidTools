@@ -238,7 +238,11 @@ end
 function HomeSettings:ResyncMediaPostLogin()
     self:UnregisterEvent("PLAYER_ENTERING_WORLD")
     C_Timer.After(0, function()
-        if self:IsEnabled() and E.SendMessage then
+        if not self:IsEnabled() then
+            return
+        end
+        self:SyncMediaTable()
+        if E.SendMessage then
             E:SendMessage("ART_MEDIA_UPDATED")
         end
     end)
