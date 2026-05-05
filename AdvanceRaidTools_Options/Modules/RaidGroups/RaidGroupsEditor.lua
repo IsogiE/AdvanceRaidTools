@@ -95,6 +95,15 @@ local function stopDragPreview(self)
     end
 end
 
+local function setNameRowHover(row, hovered)
+    row:SetBackdropBorderColor(unpack(hovered and E.media.valueColor or E.media.borderColor))
+end
+
+local function resetNameRowVisual(row)
+    row:SetAlpha(1)
+    setNameRowHover(row, row:IsMouseOver() and not row._dragging)
+end
+
 local function clearAllEditFocus(editor)
     local focus = GetCurrentKeyBoardFocus()
     if focus and focus.ClearFocus then
@@ -326,13 +335,11 @@ local function createNameRow(self, parent)
 
     row:SetScript("OnEnter", function(self_)
         if not self_._dragging then
-            self_:SetBackdropBorderColor(unpack(E.media.valueColor))
+            setNameRowHover(self_, true)
         end
     end)
     row:SetScript("OnLeave", function(self_)
-        if not self_._dragging then
-            self_:SetBackdropBorderColor(unpack(E.media.borderColor))
-        end
+        setNameRowHover(self_, false)
     end)
 
     row:SetScript("OnDragStart", function(self_)
@@ -349,7 +356,7 @@ local function createNameRow(self, parent)
             return
         end
         self_._dragging = nil
-        self_:SetAlpha(1)
+        resetNameRowVisual(self_)
         stopDragPreview(RaidGroups)
 
         local target = RaidGroups:FindSlotUnderCursor()
@@ -363,9 +370,10 @@ local function createNameRow(self, parent)
     row:SetScript("OnHide", function(self_)
         if self_._dragging then
             self_._dragging = nil
-            self_:SetAlpha(1)
             stopDragPreview(RaidGroups)
         end
+        self_:SetAlpha(1)
+        setNameRowHover(self_, false)
     end)
 
     return row
@@ -488,8 +496,8 @@ function RaidGroups:RefreshVisibleRows()
                 row._r, row._g, row._b = r, g, b
                 row._label:SetText(self:DisplayName(player.name))
                 row._label:SetTextColor(r, g, b)
-                row:SetAlpha(1)
                 row:Show()
+                resetNameRowVisual(row)
             end
         else
             row:Hide()
