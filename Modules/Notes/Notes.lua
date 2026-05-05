@@ -1,4 +1,4 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
 local MAIN_SLOT = 1
 local PINNED_PERSONAL_SLOT = 2
@@ -34,7 +34,7 @@ local function makeDefaultSlotDisplay()
     }
 end
 
-P.modules.Notes = {
+E:RegisterModuleDefaults("Notes", {
     enabled = true,
     slots = {{
         -- Main's name is empty
@@ -66,7 +66,7 @@ P.modules.Notes = {
         -- Per-slot lock lives on slot.display.locked
         strata = "MEDIUM"
     }
-}
+})
 
 -- Module
 local Notes = E:NewModule("Notes", "AceEvent-3.0")
@@ -1371,7 +1371,7 @@ local function normalizeSlots(db)
     end
 end
 
-function Notes:OnModuleInitialize(db)
+function Notes:OnInitialize(db)
     db.display = db.display or {
         strata = "MEDIUM"
     }

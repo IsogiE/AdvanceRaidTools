@@ -1,6 +1,12 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Script file="BossMods.lua"/>
     <Script file="Core\Engines.lua"/>
+    <Script file="Core\Engines\Shared.lua"/>
+    <Script file="Core\Engines\Bar.lua"/>
+    <Script file="Core\Engines\AuraDisplay.lua"/>
+    <Script file="Core\Engines\AssignmentList.lua"/>
+    <Script file="Core\Engines\TextAlert.lua"/>
+    <Script file="Core\Engines\RaidMap.lua"/>
     <Script file="Core\BigWigs.lua"/>
     <Script file="Core\Alerts.lua"/>
     <Script file="Core\NoteBlock.lua"/>

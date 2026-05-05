@@ -81,6 +81,10 @@ local PRESETS = {
 }
 
 -- Module
+E:RegisterModuleDefaults("HomeSettings", {
+    enabled = true
+})
+
 local HomeSettings = E:NewModule("HomeSettings", "AceEvent-3.0")
 HomeSettings.PRESETS = PRESETS
 

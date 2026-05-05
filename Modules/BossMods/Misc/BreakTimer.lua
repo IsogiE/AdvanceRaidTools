@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_BreakTimer = {
+E:RegisterModuleDefaults("BossMods_BreakTimer", {
     enabled = false,
     defaultDuration = 60,
     fontSize = 48,
@@ -11,7 +11,7 @@ P.modules.BossMods_BreakTimer = {
         x = 0,
         y = 0
     }
-}
+})
 
 local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
 
@@ -53,7 +53,7 @@ local function isBreakText(text)
     return breakText ~= nil and text == breakText
 end
 
-function Mod:OnModuleInitialize()
+function Mod:OnInitialize()
     self:EnsureFrame()
 end
 
@@ -284,15 +284,10 @@ function Mod:Toggle(seconds)
     end
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("BreakTimer", {
-            tab = "Misc",
-            order = 40,
-            labelKey = "BossMods_BreakTimer",
-            descKey = "BossMods_BreakTimerDesc",
-            moduleName = "BossMods_BreakTimer"
-        })
-    end
-end
+E:RegisterBossModFeature("BreakTimer", {
+    tab = "Misc",
+    order = 40,
+    labelKey = "BossMods_BreakTimer",
+    descKey = "BossMods_BreakTimerDesc",
+    moduleName = "BossMods_BreakTimer"
+})

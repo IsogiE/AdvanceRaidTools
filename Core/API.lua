@@ -51,6 +51,76 @@ function E:WithModule(moduleName, fn, ...)
     return fn(mod, ...)
 end
 
+local outOfCombatQueue = {}
+local outOfCombatOrder = {}
+
+local function queueOutOfCombat(key, fn, opts)
+    if not outOfCombatQueue[key] then
+        outOfCombatOrder[#outOfCombatOrder + 1] = key
+    end
+    outOfCombatQueue[key] = {
+        fn = fn,
+        opts = opts
+    }
+end
+
+local function hasQueuedOutOfCombat()
+    return next(outOfCombatQueue) ~= nil
+end
+
+function E:CancelRunWhenOutOfCombat(key)
+    if key ~= nil then
+        outOfCombatQueue[key] = nil
+    end
+end
+
+function E:FlushRunWhenOutOfCombat()
+    if InCombatLockdown() then
+        return
+    end
+    if self.UnregisterEvent then
+        self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+
+    local queue = outOfCombatQueue
+    local order = outOfCombatOrder
+    outOfCombatQueue = {}
+    outOfCombatOrder = {}
+
+    for i = 1, #order do
+        local item = queue[order[i]]
+        if item and type(item.fn) == "function" then
+            local ok, err = pcall(item.fn)
+            if not ok then
+                geterrorhandler()(err)
+            end
+        end
+    end
+
+    if hasQueuedOutOfCombat() and self.RegisterEvent then
+        self:RegisterEvent("PLAYER_REGEN_ENABLED", "FlushRunWhenOutOfCombat")
+    end
+end
+
+function E:RunWhenOutOfCombat(key, fn, opts)
+    if type(key) == "function" and fn == nil then
+        fn = key
+        key = tostring(fn)
+    end
+    assert(type(fn) == "function", "RunWhenOutOfCombat requires a function")
+
+    if not InCombatLockdown() and not (opts and opts.alwaysQueue) then
+        return fn()
+    end
+
+    key = tostring(key or fn)
+    queueOutOfCombat(key, fn, opts)
+    if self.RegisterEvent then
+        self:RegisterEvent("PLAYER_REGEN_ENABLED", "FlushRunWhenOutOfCombat")
+    end
+    return true
+end
+
 function E:SetModuleEnabled(moduleName, enabled)
     local mod = self:GetModule(moduleName, true)
     if not mod then

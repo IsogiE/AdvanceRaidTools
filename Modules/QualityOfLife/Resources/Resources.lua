@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.QoL_Resources = {
+E:RegisterModuleDefaults("QoL_Resources", {
     enabled = false,
 
     roles = {
@@ -33,7 +33,7 @@ P.modules.QoL_Resources = {
     powerBorderColor = {0, 0, 0, 1},
     powerTextMode = "off",
     fontSize = 12
-}
+})
 
 local Resources = E:NewModule("QoL_Resources", "AceEvent-3.0")
 
@@ -329,10 +329,13 @@ end
 -- Pushes current db state onto PRD
 function Resources:Apply()
     if InCombatLockdown() then
-        self._pendingApply = true
+        E:RunWhenOutOfCombat("QoL_Resources:Apply", function()
+            if self:IsEnabled() then
+                self:Apply()
+            end
+        end)
         return
     end
-    self._pendingApply = nil
 
     if not self:IsEnabled() then
         revert(self)
@@ -439,7 +442,6 @@ end
 function Resources:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "Apply")
     self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "OnSpecChanged")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Apply")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Apply")
     self:Apply()
@@ -449,7 +451,11 @@ function Resources:OnDisable()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
     if InCombatLockdown() then
-        self._pendingRevert = true
+        E:RunWhenOutOfCombat("QoL_Resources:Revert", function()
+            if not self:IsEnabled() then
+                revert(self)
+            end
+        end)
         return
     end
     revert(self)
@@ -459,29 +465,14 @@ function Resources:OnSpecChanged()
     self:Apply()
 end
 
-function Resources:OnRegenEnabled()
-    if self._pendingApply then
-        self:Apply()
-    end
-    if self._pendingRevert then
-        self._pendingRevert = nil
-        revert(self)
-    end
-end
-
 -- Called by settings live-preview
 function Resources:Refresh()
     self:Apply()
 end
 
-do
-    local QoL = E:GetModule("QualityOfLife", true)
-    if QoL and QoL.RegisterFeature then
-        QoL:RegisterFeature("Resources", {
-            order = 20,
-            labelKey = "QoL_Resources",
-            descKey = "QoL_ResourcesDesc",
-            moduleName = "QoL_Resources"
-        })
-    end
-end
+E:RegisterQoLFeature("Resources", {
+    order = 20,
+    labelKey = "QoL_Resources",
+    descKey = "QoL_ResourcesDesc",
+    moduleName = "QoL_Resources"
+})

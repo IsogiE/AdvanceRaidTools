@@ -40,6 +40,7 @@ ART_UI.sidebarBtns = {}
 ART_UI.currentKey = nil
 ART_UI.allRefreshers = {}
 ART_UI.panelRefreshers = {}
+ART_UI.refreshDirty = {}
 local GLOBAL = {}
 
 ART_UI._resizeHooks = {}
@@ -75,6 +76,15 @@ local function runFlusherList(list)
     end
 end
 
+local function runRefreshList(list)
+    for _, fn in ipairs(list) do
+        local ok, err = pcall(fn)
+        if not ok then
+            geterrorhandler()(err)
+        end
+    end
+end
+
 function ART_UI:_runResizeFlushers()
     for owner, bucket in pairs(self._resizeHooks) do
         if owner == GLOBAL or owner:IsVisible() then
@@ -91,6 +101,52 @@ function ART_UI:CatchUp()
         if bucket.dirty and owner ~= GLOBAL and owner:IsVisible() then
             runFlusherList(bucket.list)
             bucket.dirty = false
+        end
+    end
+end
+
+local function activeTabContent(panel)
+    if not (panel and panel._tabs) then
+        return nil
+    end
+    if panel._activeTabContent and panel._activeTabContent:IsShown() then
+        return panel._activeTabContent
+    end
+    for _, t in ipairs(panel._tabs) do
+        if t.content:IsShown() then
+            return t.content
+        end
+    end
+    return nil
+end
+
+function ART_UI:MarkPanelDirty(panel, includeTabs)
+    if not panel then
+        return
+    end
+    self.refreshDirty[panel] = true
+    if includeTabs and panel._tabs then
+        for _, t in ipairs(panel._tabs) do
+            self.refreshDirty[t.content] = true
+        end
+    end
+end
+
+function ART_UI:MarkRefreshDirty(scope)
+    scope = scope or "current"
+    if scope == "all" then
+        for _, panel in pairs(self.panels) do
+            self:MarkPanelDirty(panel, true)
+        end
+        return
+    end
+
+    local panel = self.panels[self.currentKey]
+    if panel then
+        self.refreshDirty[panel] = true
+        local content = activeTabContent(panel)
+        if content then
+            self.refreshDirty[content] = true
         end
     end
 end
@@ -995,6 +1051,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
     local panel = CreateFrame("Frame", nil, parent)
     panel:SetAllPoints()
     panel:Hide()
+    ART_UI.refreshDirty[panel] = true
 
     local hasTabs = (group.childGroups == "tab") and group.args
 
@@ -1062,6 +1119,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             local tabContent = CreateFrame("Frame", nil, contentHolder)
             tabContent:SetAllPoints()
             tabContent:Hide()
+            ART_UI.refreshDirty[tabContent] = true
 
             local inner, innerW = createScrollHost(tabContent, CONTENT_INNER_W)
 
@@ -1098,13 +1156,19 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         tabPadX = TAB_PAD_X,
         tabGap = TAB_GAP,
         autoActivateFirst = false,
-        onTabChange = function(key)
-            for k, content in pairs(tabEntries) do
-                content:SetShown(k == key)
+        onTabChange = function(key, _, oldKey)
+            local oldContent = oldKey and tabEntries[oldKey]
+            if oldContent then
+                oldContent:Hide()
             end
-            panel._activeTabContent = tabEntries[key]
+
+            local content = tabEntries[key]
+            if content then
+                content:Show()
+            end
+            panel._activeTabContent = content
             ART_UI:CatchUp()
-            ART_UI:RefreshPanel(panel)
+            ART_UI:RefreshPanel(panel, false)
         end
     })
     if headerHost then
@@ -1136,8 +1200,9 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             end
         end
         if key then
-            tabBar.ActivateTab(key)
+            return tabBar.ActivateTab(key)
         end
+        return false
     end
 
     panel.ReapplyTabHighlight = tabBar.ReapplyHighlight
@@ -1397,50 +1462,55 @@ function ART_UI:SelectCategory(key)
                     break
                 end
             end
+            local activated
             if not anyActive and panel.ActivateTab then
-                panel.ActivateTab(panel._tabs[1].content)
+                activated = panel.ActivateTab(panel._tabs[1].content)
             end
+            if not activated then
+                self:RefreshPanel(panel, false)
+            end
+        else
+            self:RefreshPanel(panel, false)
         end
 
-        self:RefreshPanel(panel)
         self:CatchUp()
     end
 end
 
-function ART_UI:RefreshPanel(panel)
+function ART_UI:RefreshPanel(panel, force)
+    if not panel then
+        return false
+    end
+
+    local refreshed = false
     local headerList = ART_UI.panelRefreshers[panel]
-    if headerList then
-        for _, fn in ipairs(headerList) do
-            local ok, err = pcall(fn);
-            if not ok then
-                geterrorhandler()(err)
-            end
-        end
+    if headerList and (force or self.refreshDirty[panel]) then
+        runRefreshList(headerList)
+        self.refreshDirty[panel] = nil
+        refreshed = true
     end
 
     if panel._tabs and #panel._tabs > 0 then
-        for _, t in ipairs(panel._tabs) do
-            if t.content:IsShown() then
-                local list = ART_UI.panelRefreshers[t.content]
-                if list then
-                    for _, fn in ipairs(list) do
-                        local ok, err = pcall(fn);
-                        if not ok then
-                            geterrorhandler()(err)
-                        end
-                    end
-                end
-                return
+        local content = activeTabContent(panel)
+        if content then
+            local list = ART_UI.panelRefreshers[content]
+            if list and (force or self.refreshDirty[content]) then
+                runRefreshList(list)
+                self.refreshDirty[content] = nil
+                refreshed = true
             end
         end
-        -- no tab visible yet, nothing more to do
     end
+    return refreshed
 end
 
-function ART_UI:RefreshCurrent()
+function ART_UI:RefreshCurrent(force)
+    if force == nil then
+        force = true
+    end
     local panel = self.panels[self.currentKey]
     if panel then
-        self:RefreshPanel(panel)
+        self:RefreshPanel(panel, force)
     end
     for _, btn in pairs(self.sidebarBtns) do
         if btn.Refresh then
@@ -1449,10 +1519,13 @@ function ART_UI:RefreshCurrent()
     end
 end
 
-function ART_UI:RefreshAll()
+function ART_UI:RefreshAll(force)
+    if force == nil then
+        force = true
+    end
     local panel = self.panels[self.currentKey]
     if panel then
-        self:RefreshPanel(panel)
+        self:RefreshPanel(panel, force)
     end
     for _, btn in pairs(self.sidebarBtns) do
         if btn.Refresh then
@@ -1463,6 +1536,7 @@ end
 
 function ART_UI:QueueRefresh(scope)
     scope = scope or "current"
+    self:MarkRefreshDirty(scope)
     if self._queuedScope == "all" then
     elseif scope == "all" then
         self._queuedScope = "all"
@@ -1482,9 +1556,9 @@ function ART_UI:QueueRefresh(scope)
             return
         end
         if s == "all" then
-            self:RefreshAll()
+            self:RefreshAll(false)
         else
-            self:RefreshCurrent()
+            self:RefreshCurrent(false)
         end
     end)
 end
@@ -1539,6 +1613,7 @@ function ART_UI:Rebuild()
     self.sidebarBtns = {}
     self.allRefreshers = {}
     self.panelRefreshers = {}
+    self.refreshDirty = {}
     self._resizeHooks = {}
     self._flusherStack = {}
     self.currentKey = nil

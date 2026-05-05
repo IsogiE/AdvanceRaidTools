@@ -1,8 +1,8 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.Updater = {
+E:RegisterModuleDefaults("Updater", {
     enabled = true
-}
+})
 
 local Mod = E:NewModule("Updater", "AceEvent-3.0")
 

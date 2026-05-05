@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_Dirge = {
+E:RegisterModuleDefaults("BossMods_Dirge", {
     enabled = false,
     buttons = {
         position = {
@@ -51,7 +51,7 @@ P.modules.BossMods_Dirge = {
         enabled = false,
         voice = 0
     }
-}
+})
 
 local DEBUG_MODE = false
 local ENCOUNTER_ID = 3183
@@ -932,7 +932,11 @@ function Dirge:UpdateState()
     end
     if not self.frames then
         if InCombatLockdown() then
-            self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
+            E:RunWhenOutOfCombat("Dirge:UpdateState", function()
+                if self:IsEnabled() then
+                    self:UpdateState()
+                end
+            end)
             return
         end
         if not self:EnsureFrames() then
@@ -1016,7 +1020,11 @@ function Dirge:ApplyVisibility()
 
     if InCombatLockdown() then
         if (buttonsActive and not f.barAnchor:IsShown()) or (not buttonsActive and f.barAnchor:IsShown()) then
-            self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
+            E:RunWhenOutOfCombat("Dirge:UpdateState", function()
+                if self:IsEnabled() then
+                    self:UpdateState()
+                end
+            end)
         end
         return
     end
@@ -1029,7 +1037,6 @@ function Dirge:ApplyVisibility()
 end
 
 function Dirge:OnRegenEnabled()
-    self:UnregisterEvent("PLAYER_REGEN_ENABLED")
     self:UpdateState()
 end
 
@@ -1138,7 +1145,7 @@ end
 
 -- Lifecycle
 
-function Dirge:OnModuleInitialize()
+function Dirge:OnInitialize()
     BossMods = E:GetModule("BossMods")
     self.inEncounter = false
     self.inMythicPhase = false
@@ -1206,48 +1213,36 @@ function Dirge:OnDisable()
         return
     end
 
-    local mod = self
-    local waiter = CreateFrame("Frame")
-    waiter:RegisterEvent("PLAYER_REGEN_ENABLED")
-    waiter:SetScript("OnEvent", function(w)
-        w:UnregisterAllEvents()
-        w:SetScript("OnEvent", nil)
-        if not mod:IsEnabled() and mod.frames then
-            mod.frames.barAnchor:Hide()
+    E:RunWhenOutOfCombat("Dirge:HideButtonBar", function()
+        if not self:IsEnabled() and self.frames then
+            self.frames.barAnchor:Hide()
         end
     end)
 end
 
 -- Feature registration
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("Dirge", {
-            tab = "Queldanas",
-            order = 50,
-            labelKey = "BossMods_Dirge",
-            descKey = "BossMods_DirgeDesc",
-            moduleName = "BossMods_Dirge"
-        })
-    end
-    local NoteBlock = parent and parent.NoteBlock or nil
-    if NoteBlock and NoteBlock.RegisterNoteBlock then
-        NoteBlock:RegisterNoteBlock("Dirge", {
-            blocks = {{
-                tag = "dirge",
-                template = "dirgeStart\nPlayer1 Player2 Player3\ndirgeEnd"
-            }, {
-                tag = "requimg1",
-                template = "requimg1Start\nPlayer1 Player2 Player3\nrequimg1End"
-            }, {
-                tag = "requimg2",
-                template = "requimg2Start\nPlayer1 Player2 Player3\nrequimg2End"
-            }},
-            moduleName = "BossMods_Dirge",
-            tab = "Queldanas",
-            order = 50,
-            labelKey = "BossMods_Dirge"
-        })
-    end
-end
+E:RegisterBossModFeature("Dirge", {
+    tab = "Queldanas",
+    order = 50,
+    labelKey = "BossMods_Dirge",
+    descKey = "BossMods_DirgeDesc",
+    moduleName = "BossMods_Dirge"
+})
+
+E:RegisterBossModNoteBlock("Dirge", {
+    blocks = {{
+        tag = "dirge",
+        template = "dirgeStart\nPlayer1 Player2 Player3\ndirgeEnd"
+    }, {
+        tag = "requimg1",
+        template = "requimg1Start\nPlayer1 Player2 Player3\nrequimg1End"
+    }, {
+        tag = "requimg2",
+        template = "requimg2Start\nPlayer1 Player2 Player3\nrequimg2End"
+    }},
+    moduleName = "BossMods_Dirge",
+    tab = "Queldanas",
+    order = 50,
+    labelKey = "BossMods_Dirge"
+})

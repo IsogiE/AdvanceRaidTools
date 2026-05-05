@@ -1,6 +1,28 @@
 local E, L, P = unpack(ART)
 
 local aceNewModule = E.NewModule
+local registeredModuleDefaults = {}
+
+local function hasModuleDefaults(name)
+    return registeredModuleDefaults[name] or type(P.modules[name]) == "table"
+end
+
+function E:RegisterModuleDefaults(name, defaults)
+    assert(type(name) == "string" and name ~= "", "RegisterModuleDefaults: name required")
+    assert(type(defaults) == "table", "RegisterModuleDefaults: defaults required")
+    assert(not self:GetModule(name, true), ("RegisterModuleDefaults: '%s' already registered as a module"):format(name))
+
+    P.modules[name] = defaults
+    registeredModuleDefaults[name] = true
+    return defaults
+end
+
+function E:HasModuleDefaults(name)
+    return registeredModuleDefaults[name] and true or false
+end
+
+E:RegisterDebugChannel("ModuleDefaults")
+E:RegisterDebugChannel("ModuleLifecycle")
 
 function E:_effectiveModuleEnabled(mod)
     local own = mod.db and mod.db.enabled ~= false
@@ -38,18 +60,54 @@ function E:SetModuleParent(childName, parentName)
     end
 end
 
-local function runModuleInit(mod)
+local runModuleInit
+
+local function wrapAceModuleInitialize(mod, init)
+    if mod._artWrappedOnInitialize or type(init) ~= "function" then
+        return
+    end
+    mod._artWrappedOnInitialize = true
+    mod._artOnInitialize = init
+    mod.OnInitialize = function(self)
+        if self._artInitialized then
+            return
+        end
+        return runModuleInit(self)
+    end
+end
+
+local function callModuleInitialize(mod, fn)
+    local name = mod.moduleName
+    mod._artInitialized = true
+    local ok, err = pcall(fn, mod, mod.db)
+    if not ok then
+        E:ChannelWarn(name, "init failed: %s", err)
+    end
+end
+
+runModuleInit = function(mod)
     local name = mod.moduleName
     mod.db = E:GetDB(name)
 
     mod:SetEnabledState(E:_effectiveModuleEnabled(mod))
 
     mod.L = L
-    if mod.OnModuleInitialize then
-        local ok, err = pcall(mod.OnModuleInitialize, mod, mod.db)
-        if not ok then
-            E:ChannelWarn(name, "init failed: %s", err)
-        end
+
+    if mod._artInitialized then
+        return
+    end
+
+    local init = rawget(mod, "OnInitialize")
+    if type(init) == "function" then
+        wrapAceModuleInitialize(mod, init)
+        callModuleInitialize(mod, init)
+        return
+    end
+
+    local legacyInit = rawget(mod, "OnModuleInitialize")
+    if type(legacyInit) == "function" then
+        E:ChannelWarn("ModuleLifecycle", "module '%s' uses deprecated OnModuleInitialize; use OnInitialize(db)", name)
+        callModuleInitialize(mod, legacyInit)
     end
 end
 
@@ -60,7 +118,10 @@ function E:NewModule(name, ...)
     local mod = aceNewModule(self, name, ...)
     mod.moduleName = name
 
-    -- sanity check for default entry for this module if the declaring module didn't add one
+    if not hasModuleDefaults(name) then
+        E:ChannelWarn("ModuleDefaults", "module '%s' did not register defaults before NewModule", name)
+    end
+
     P.modules[name] = P.modules[name] or {
         enabled = true
     }
@@ -140,6 +201,162 @@ function E:InitializeAllModules()
     for _, mod in self:IterateModules() do
         if not mod.db then
             runModuleInit(mod)
+        end
+    end
+end
+
+local pendingModuleFeatures = {}
+
+local function shallowCopy(src)
+    local out = {}
+    for k, v in pairs(src) do
+        out[k] = v
+    end
+    return out
+end
+
+local function getFeatureBucket(parentName)
+    local bucket = pendingModuleFeatures[parentName]
+    if not bucket then
+        bucket = {
+            order = {},
+            entries = {}
+        }
+        pendingModuleFeatures[parentName] = bucket
+    end
+    return bucket
+end
+
+local function queueModuleFeature(parentName, key, opts)
+    local bucket = getFeatureBucket(parentName)
+    if not bucket.entries[key] then
+        bucket.order[#bucket.order + 1] = key
+    end
+    bucket.entries[key] = {
+        opts = shallowCopy(opts),
+        warned = false
+    }
+end
+
+function E:RegisterModuleFeature(parentName, key, opts)
+    assert(type(parentName) == "string" and parentName ~= "", "RegisterModuleFeature: parentName required")
+    assert(type(key) == "string" and key ~= "", "RegisterModuleFeature: key required")
+    assert(type(opts) == "table", "RegisterModuleFeature: opts required")
+
+    local parent = self:GetModule(parentName, true)
+    if parent and type(parent.RegisterFeature) == "function" then
+        parent:RegisterFeature(key, opts)
+        return true
+    end
+
+    queueModuleFeature(parentName, key, opts)
+    return false
+end
+
+function E:FlushModuleFeatureRegistrations(parentName)
+    local bucket = pendingModuleFeatures[parentName]
+    if not bucket then
+        return true
+    end
+
+    local parent = self:GetModule(parentName, true)
+    if not parent or type(parent.RegisterFeature) ~= "function" then
+        return false
+    end
+
+    for _, key in ipairs(bucket.order) do
+        local entry = bucket.entries[key]
+        if entry then
+            parent:RegisterFeature(key, entry.opts)
+        end
+    end
+
+    pendingModuleFeatures[parentName] = nil
+    return true
+end
+
+function E:FlushAllModuleFeatureRegistrations()
+    local parents = {}
+    for parentName in pairs(pendingModuleFeatures) do
+        parents[#parents + 1] = parentName
+    end
+    for _, parentName in ipairs(parents) do
+        self:FlushModuleFeatureRegistrations(parentName)
+    end
+end
+
+function E:WarnUnresolvedModuleFeatureRegistrations()
+    for parentName, bucket in pairs(pendingModuleFeatures) do
+        for _, key in ipairs(bucket.order) do
+            local entry = bucket.entries[key]
+            if entry and not entry.warned then
+                self:ChannelWarn("FeatureRegistry", "feature '%s' is still waiting for parent module '%s'", key,
+                    parentName)
+                entry.warned = true
+            end
+        end
+    end
+end
+
+function E:RegisterBossModFeature(key, opts)
+    return self:RegisterModuleFeature("BossMods", key, opts)
+end
+
+function E:RegisterQoLFeature(key, opts)
+    return self:RegisterModuleFeature("QualityOfLife", key, opts)
+end
+
+local pendingBossModNoteBlocks = {
+    order = {},
+    entries = {}
+}
+
+function E:RegisterBossModNoteBlock(key, opts)
+    assert(type(key) == "string" and key ~= "", "RegisterBossModNoteBlock: key required")
+    assert(type(opts) == "table", "RegisterBossModNoteBlock: opts required")
+
+    local BossMods = self:GetModule("BossMods", true)
+    local NoteBlock = BossMods and BossMods.NoteBlock
+    if NoteBlock and type(NoteBlock.RegisterNoteBlock) == "function" then
+        NoteBlock:RegisterNoteBlock(key, opts)
+        return true
+    end
+
+    if not pendingBossModNoteBlocks.entries[key] then
+        pendingBossModNoteBlocks.order[#pendingBossModNoteBlocks.order + 1] = key
+    end
+    pendingBossModNoteBlocks.entries[key] = {
+        opts = shallowCopy(opts),
+        warned = false
+    }
+    return false
+end
+
+function E:FlushBossModNoteBlockRegistrations()
+    local BossMods = self:GetModule("BossMods", true)
+    local NoteBlock = BossMods and BossMods.NoteBlock
+    if not NoteBlock or type(NoteBlock.RegisterNoteBlock) ~= "function" then
+        return false
+    end
+
+    for _, key in ipairs(pendingBossModNoteBlocks.order) do
+        local entry = pendingBossModNoteBlocks.entries[key]
+        if entry then
+            NoteBlock:RegisterNoteBlock(key, entry.opts)
+        end
+    end
+
+    wipe(pendingBossModNoteBlocks.order)
+    wipe(pendingBossModNoteBlocks.entries)
+    return true
+end
+
+function E:WarnUnresolvedBossModNoteBlockRegistrations()
+    for _, key in ipairs(pendingBossModNoteBlocks.order) do
+        local entry = pendingBossModNoteBlocks.entries[key]
+        if entry and not entry.warned then
+            self:ChannelWarn("FeatureRegistry", "note block '%s' is still waiting for BossMods.NoteBlock", key)
+            entry.warned = true
         end
     end
 end

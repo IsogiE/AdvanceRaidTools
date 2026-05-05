@@ -1,8 +1,8 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.RaidGroups = {
+E:RegisterModuleDefaults("RaidGroups", {
     enabled = true
-}
+})
 
 local RaidGroups = E:NewModule("RaidGroups", "AceEvent-3.0")
 
@@ -398,7 +398,16 @@ function RaidGroups:_GiveUpProcessRoster(reason)
 end
 
 function RaidGroups:ProcessRoster()
-    if InCombatLockdown() or (IsInRaid() and not E:HasBroadcastAuthority(UnitName("player"))) then
+    if InCombatLockdown() then
+        E:RunWhenOutOfCombat("RaidGroups:ProcessRoster", function()
+            if self:IsEnabled() and self._needGroup then
+                self:ProcessRoster()
+            end
+        end)
+        return
+    end
+
+    if IsInRaid() and not E:HasBroadcastAuthority(UnitName("player")) then
         self._needGroup = nil
         return
     end
@@ -549,7 +558,6 @@ end
 
 function RaidGroups:OnEnable()
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
 end
 
 function RaidGroups:OnDisable()
@@ -557,18 +565,21 @@ function RaidGroups:OnDisable()
         self._processTimer:Cancel()
         self._processTimer = nil
     end
+    E:CancelRunWhenOutOfCombat("RaidGroups:ProcessRoster")
     -- If the editor is open it will close itself on ART_RAIDGROUPS_DISABLED
     E:SendMessage("ART_RAIDGROUPS_DISABLED")
 end
 
-function RaidGroups:OnRegenEnabled()
-    if self._needGroup then
-        self:ProcessRoster()
-    end
-end
-
 function RaidGroups:OnRosterUpdate()
-    if InCombatLockdown() or not self._needGroup then
+    if not self._needGroup then
+        return
+    end
+    if InCombatLockdown() then
+        E:RunWhenOutOfCombat("RaidGroups:ProcessRoster", function()
+            if self:IsEnabled() and self._needGroup then
+                self:ProcessRoster()
+            end
+        end)
         return
     end
     if self._processTimer then

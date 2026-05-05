@@ -1,4 +1,4 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 local Nicknames = E:GetModule("Nicknames")
 
 local vuhDoHooks = {}

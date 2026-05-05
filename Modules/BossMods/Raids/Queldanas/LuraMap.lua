@@ -1,8 +1,8 @@
 -- This entire way of doing it was a mistake, I am too lazy to change it. Luml wanted it done like day of raid while the roster kept changing
 -- Promise future ones will be nicer
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_LuraMap = {
+E:RegisterModuleDefaults("BossMods_LuraMap", {
     enabled = false,
     anchors = {
         intermission = {
@@ -42,7 +42,7 @@ P.modules.BossMods_LuraMap = {
         size = 10,
         outline = "OUTLINE"
     }
-}
+})
 
 local ENCOUNTER_ID = 3183
 local MYTHIC_DIFFICULTY = 16
@@ -602,7 +602,7 @@ function LuraMap:EnsureMap()
     self.map:HideAll()
 end
 
-function LuraMap:OnModuleInitialize()
+function LuraMap:OnInitialize()
     self.active = false
     self.scheduleTokens = {}
     self.editMode = false
@@ -794,15 +794,10 @@ function LuraMap:SetEditMode(v)
     end
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("LuraMap", {
-            tab = "Queldanas",
-            order = 40,
-            labelKey = "BossMods_LuraMap",
-            descKey = "BossMods_LuraMapDesc",
-            moduleName = "BossMods_LuraMap"
-        })
-    end
-end
+E:RegisterBossModFeature("LuraMap", {
+    tab = "Queldanas",
+    order = 40,
+    labelKey = "BossMods_LuraMap",
+    descKey = "BossMods_LuraMapDesc",
+    moduleName = "BossMods_LuraMap"
+})

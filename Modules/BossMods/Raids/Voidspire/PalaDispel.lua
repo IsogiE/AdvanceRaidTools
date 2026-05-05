@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_PalaDispel = {
+E:RegisterModuleDefaults("BossMods_PalaDispel", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -35,7 +35,7 @@ P.modules.BossMods_PalaDispel = {
         channel = "Master",
         voice = 0
     }
-}
+})
 
 local ENCOUNTER_ID = 3180
 local GLOW_KEY = "ART_PalaDispel"
@@ -106,7 +106,7 @@ function PalaDispel:EnsureAlert()
     self:ApplyPosition()
 end
 
-function PalaDispel:OnModuleInitialize()
+function PalaDispel:OnInitialize()
     self.active = false
     self.affected = {}
     self.healers = {}
@@ -578,15 +578,10 @@ function PalaDispel:SetEditMode(v)
     end
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("PalaDispel", {
-            tab = "Voidspire",
-            order = 10,
-            labelKey = "BossMods_PalaDispel",
-            descKey = "BossMods_PalaDispelDesc",
-            moduleName = "BossMods_PalaDispel"
-        })
-    end
-end
+E:RegisterBossModFeature("PalaDispel", {
+    tab = "Voidspire",
+    order = 10,
+    labelKey = "BossMods_PalaDispel",
+    descKey = "BossMods_PalaDispelDesc",
+    moduleName = "BossMods_PalaDispel"
+})

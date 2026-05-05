@@ -1,13 +1,13 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
 local DEFAULT_ADDONS = {"AdvanceRaidTools", "AdvanceRaidTools_Media", "BigWigs", "NorthernSkyRaidTools",
                         "RCLootCouncil", "SharedMedia_Causese", "TimelineReminders"}
 
-P.modules.AddonChecker = {
+E:RegisterModuleDefaults("AddonChecker", {
     enabled = true,
     timeoutSeconds = 5,
     lastAddon = "AdvanceRaidTools"
-}
+})
 
 local AddonChecker = E:NewChecker("AddonChecker", {
     prefix = "ART_ACK",

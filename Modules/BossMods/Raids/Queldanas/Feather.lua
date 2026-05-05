@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_Feather = {
+E:RegisterModuleDefaults("BossMods_Feather", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -14,7 +14,7 @@ P.modules.BossMods_Feather = {
         size = 1,
         color = {0, 0, 0, 1}
     }
-}
+})
 
 local ENCOUNTER_ID = 3182
 local PLACEHOLDER_SPELL = 1241162
@@ -22,7 +22,7 @@ local FALLBACK_ICON = 132136
 
 local Feather = E:NewModule("BossMods_Feather", "AceEvent-3.0")
 
-function Feather:OnModuleInitialize()
+function Feather:OnInitialize()
     self.editMode = false
     self.active = false
     self.currentAura = nil
@@ -193,15 +193,10 @@ function Feather:SavePosition(pos)
     self:Apply()
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("Feather", {
-            tab = "Queldanas",
-            order = 10,
-            labelKey = "BossMods_Feather",
-            descKey = "BossMods_FeatherDesc",
-            moduleName = "BossMods_Feather"
-        })
-    end
-end
+E:RegisterBossModFeature("Feather", {
+    tab = "Queldanas",
+    order = 10,
+    labelKey = "BossMods_Feather",
+    descKey = "BossMods_FeatherDesc",
+    moduleName = "BossMods_Feather"
+})

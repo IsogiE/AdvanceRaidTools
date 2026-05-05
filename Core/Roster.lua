@@ -1,8 +1,8 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.Roster = {
+E:RegisterModuleDefaults("Roster", {
     enabled = true
-}
+})
 
 local Roster = E:NewModule("Roster", "AceEvent-3.0")
 
@@ -68,7 +68,6 @@ end
 
 function Roster:OnEnable()
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
     self:RegisterEvent("GUILD_ROSTER_UPDATE", "OnGuildRosterUpdate")
     self:RegisterEvent("PLAYER_GUILD_UPDATE", "OnPlayerGuildUpdate")
@@ -81,7 +80,7 @@ function Roster:OnDisable()
     _guildCache = nil
     _guildCacheAt = 0
     _classByName = nil
-    self._pendingPublish = false
+    E:CancelRunWhenOutOfCombat("Roster:Publish")
 end
 
 function Roster:NormalizeName(name)
@@ -139,7 +138,11 @@ end
 
 function Roster:Publish()
     if InCombatLockdown() then
-        self._pendingPublish = true
+        E:RunWhenOutOfCombat("Roster:Publish", function()
+            if self:IsEnabled() then
+                E:SendMessage("ART_ROSTER_INVALIDATED")
+            end
+        end)
         return
     end
     E:SendMessage("ART_ROSTER_INVALIDATED")
@@ -197,13 +200,6 @@ end
 function Roster:OnRosterUpdate()
     _classByName = nil
     self:Publish()
-end
-
-function Roster:OnRegenEnabled()
-    if self._pendingPublish then
-        self._pendingPublish = false
-        E:SendMessage("ART_ROSTER_INVALIDATED")
-    end
 end
 
 function E:GetClassByName(name)

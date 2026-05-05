@@ -47,10 +47,9 @@ local function ensureFontPreloader()
     if fontPreloader then
         return fontPreloader
     end
-    fontPreloader = CreateFrame("Frame", nil, UIParent)
-    fontPreloader:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, 0)
-    fontPreloader:SetSize(1, 1)
-    fontPreloader:SetAlpha(0)
+    fontPreloader = CreateFrame("Frame")
+    fontPreloader:SetPoint("TOP", UIParent, "BOTTOM", 0, -90000)
+    fontPreloader:SetSize(100, 100)
     return fontPreloader
 end
 
@@ -63,12 +62,12 @@ local function cacheFont(name, path)
     end
     local fs = ensureFontPreloader():CreateFontString(nil, "ARTWORK")
     fs:SetAllPoints()
-    local ok, applied = pcall(fs.SetFont, fs, path, 14)
-    if ok and applied then
+    local ok = pcall(fs.SetFont, fs, path, 14)
+    if ok then
         pcall(fs.SetText, fs, "cache")
         pcall(fs.GetStringWidth, fs)
+        preloadedFonts[name] = fs
     end
-    preloadedFonts[name] = fs
 end
 
 local function preloadAllFonts()

@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.QoL_Circle = {
+E:RegisterModuleDefaults("QoL_Circle", {
     enabled = false,
     shape = "circle",
     size = 60,
@@ -16,7 +16,7 @@ P.modules.QoL_Circle = {
         x = 0,
         y = 0
     }
-}
+})
 
 local Circle = E:NewModule("QoL_Circle", "AceEvent-3.0")
 
@@ -167,15 +167,9 @@ function Circle:Refresh()
     end
 end
 
--- Self-register with the parent at file-scope so the options panel picks it up
-do
-    local QoL = E:GetModule("QualityOfLife", true)
-    if QoL and QoL.RegisterFeature then
-        QoL:RegisterFeature("Circle", {
-            order = 10,
-            labelKey = "QoL_Circle",
-            descKey = "QoL_CircleDesc",
-            moduleName = "QoL_Circle"
-        })
-    end
-end
+E:RegisterQoLFeature("Circle", {
+    order = 10,
+    labelKey = "QoL_Circle",
+    descKey = "QoL_CircleDesc",
+    moduleName = "QoL_Circle"
+})

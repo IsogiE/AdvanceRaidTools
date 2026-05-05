@@ -1,8 +1,8 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.QualityOfLife = {
+E:RegisterModuleDefaults("QualityOfLife", {
     enabled = true
-}
+})
 
 local QoL = E:NewModule("QualityOfLife", "AceEvent-3.0")
 
@@ -48,3 +48,5 @@ E:MountMethods(_G.ART, {
 }, {
     noClobber = true
 })
+
+E:FlushModuleFeatureRegistrations("QualityOfLife")

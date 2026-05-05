@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_DarkQuasar = {
+E:RegisterModuleDefaults("BossMods_DarkQuasar", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -34,7 +34,7 @@ P.modules.BossMods_DarkQuasar = {
         unsafeSoon = false,
         dangerCountdown = false
     }
-}
+})
 
 local DARK_QUASAR_KEY = 1279420
 local ENCOUNTER_ID = 3183
@@ -107,7 +107,7 @@ function Quasar:EnsureBar()
     self:ApplyPosition()
 end
 
-function Quasar:OnModuleInitialize()
+function Quasar:OnInitialize()
     self.scheduleToken = 0
     BM = BM or E:GetModule("BossMods")
     self:EnsureBar()
@@ -362,15 +362,10 @@ function Quasar:SetEditMode(v)
     end
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("DarkQuasar", {
-            tab = "Queldanas",
-            order = 20,
-            labelKey = "BossMods_DarkQuasar",
-            descKey = "BossMods_DarkQuasarDesc",
-            moduleName = "BossMods_DarkQuasar"
-        })
-    end
-end
+E:RegisterBossModFeature("DarkQuasar", {
+    tab = "Queldanas",
+    order = 20,
+    labelKey = "BossMods_DarkQuasar",
+    descKey = "BossMods_DarkQuasarDesc",
+    moduleName = "BossMods_DarkQuasar"
+})

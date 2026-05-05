@@ -1,8 +1,8 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.Comms = {
+E:RegisterModuleDefaults("Comms", {
     enabled = true
-}
+})
 
 local Comms = E:NewModule("Comms", "AceEvent-3.0", "AceComm-3.0")
 
@@ -16,13 +16,20 @@ local registeredProtocols = {}
 local registeredSyncs = {}
 local lastRosterGUIDs = {}
 
+local function queueCommsFlush(self)
+    E:RunWhenOutOfCombat("Comms:Flush", function()
+        if self:IsEnabled() then
+            self:PLAYER_REGEN_ENABLED()
+        end
+    end)
+end
+
 function Comms:OnEnable()
     -- re-bind anything registered while we were disabled
     for prefix in pairs(registeredProtocols) do
         self:RegisterComm(prefix, "OnProtocolMessage")
     end
 
-    self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnRosterDelta")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterDelta")
 
@@ -36,6 +43,7 @@ function Comms:OnDisable()
     wipe(lastRosterGUIDs)
     wipe(receiveQueue)
     wipe(sendQueue)
+    E:CancelRunWhenOutOfCombat("Comms:Flush")
     for _, sync in pairs(registeredSyncs) do
         wipe(sync.versions)
         sync.broadcastQueued = false
@@ -104,6 +112,7 @@ function Comms:OnProtocolMessage(prefix, message, distribution, sender)
     end
     if InCombatLockdown() then
         receiveQueue[#receiveQueue + 1] = {prefix, message, distribution, sender}
+        queueCommsFlush(self)
         return
     end
     self:_dispatchProtocol(prefix, message, distribution, sender)
@@ -133,6 +142,7 @@ end
 function Comms:_sendOrQueue(prefix, msg, dist, target)
     if InCombatLockdown() then
         sendQueue[#sendQueue + 1] = {prefix, msg, dist, target}
+        queueCommsFlush(self)
         return
     end
     self:SendCommMessage(prefix, msg, dist, target)
@@ -210,6 +220,7 @@ function Comms:RegisterVersionedSync(config)
         end
         if InCombatLockdown() then
             sync.broadcastQueued = true
+            queueCommsFlush(self)
             return
         end
         local payload = config.getPayload()

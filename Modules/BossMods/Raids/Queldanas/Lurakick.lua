@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_Lurakick = {
+E:RegisterModuleDefaults("BossMods_Lurakick", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -30,7 +30,7 @@ P.modules.BossMods_Lurakick = {
         name = "None",
         channel = "Master"
     }
-}
+})
 
 local ENCOUNTER_ID = 3183
 local INSTANCE_ID = 2913
@@ -74,7 +74,7 @@ function Lurakick:EnsureList()
     self:ApplyPosition()
 end
 
-function Lurakick:OnModuleInitialize()
+function Lurakick:OnInitialize()
     self.active = false
     self.currentPhase = 1
     self.phaseSwapTime = 0
@@ -203,8 +203,8 @@ function Lurakick:ParseNote()
     local count = 1
     local inBlock = false
 
-    for line in noteText:gmatch("[^\r\n]+") do
-        line = strtrim(line)
+    for rawLine in noteText:gmatch("[^\r\n]+") do
+        local line = strtrim(rawLine)
         local lower = line:lower()
 
         if lower == "kickend" then
@@ -490,28 +490,21 @@ function Lurakick:SetEditMode(v)
     end
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("Lurakick", {
-            tab = "Queldanas",
-            order = 30,
-            labelKey = "BossMods_Lurakick",
-            descKey = "BossMods_LurakickDesc",
-            moduleName = "BossMods_Lurakick"
-        })
-    end
-    local NoteBlock = parent and parent.NoteBlock or nil
-    if NoteBlock and NoteBlock.RegisterNoteBlock then
-        NoteBlock:RegisterNoteBlock("Lurakick", {
-            blocks = {{
-                tag = "kick",
-                template = "kickStart\nPlayer1 Player2 Player3\nPlayer4 Player5 Player6\nPlayer7 Player8 Player9\nkickEnd"
-            }},
-            moduleName = "BossMods_Lurakick",
-            tab = "Queldanas",
-            order = 30,
-            labelKey = "BossMods_Lurakick"
-        })
-    end
-end
+E:RegisterBossModFeature("Lurakick", {
+    tab = "Queldanas",
+    order = 30,
+    labelKey = "BossMods_Lurakick",
+    descKey = "BossMods_LurakickDesc",
+    moduleName = "BossMods_Lurakick"
+})
+
+E:RegisterBossModNoteBlock("Lurakick", {
+    blocks = {{
+        tag = "kick",
+        template = "kickStart\nPlayer1 Player2 Player3\nPlayer4 Player5 Player6\nPlayer7 Player8 Player9\nkickEnd"
+    }},
+    moduleName = "BossMods_Lurakick",
+    tab = "Queldanas",
+    order = 30,
+    labelKey = "BossMods_Lurakick"
+})

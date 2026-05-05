@@ -221,6 +221,8 @@ function NoteBlock:RegisterNoteBlock(key, opts)
     }
 end
 
+E:FlushBossModNoteBlockRegistrations()
+
 function NoteBlock:GetNoteBlockEntry(key)
     return self._noteBlocks[key]
 end

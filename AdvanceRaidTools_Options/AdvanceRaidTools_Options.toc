@@ -11,6 +11,13 @@
 
 Core\OptionsShared.lua
 Core\OptionsTemplate.lua
+Core\Templates\Basics.lua
+Core\Templates\Scroll.lua
+Core\Templates\Inputs.lua
+Core\Templates\Dropdown.lua
+Core\Templates\Layout.lua
+Core\Templates\Popups.lua
+Core\Templates\CheckerPanel.lua
 Core\OptionsUI.lua
 Core\OptionsCore.lua
 

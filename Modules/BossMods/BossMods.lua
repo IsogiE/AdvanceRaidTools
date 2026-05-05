@@ -1,9 +1,9 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods = {
+E:RegisterModuleDefaults("BossMods", {
     enabled = true,
     activeTab = "Misc"
-}
+})
 
 local BossMods = E:NewModule("BossMods", "AceEvent-3.0")
 
@@ -126,3 +126,5 @@ BossMods:RegisterRaidTab("Voidspire", {
     labelKey = "BossMods_Voidspire",
     order = 30
 })
+
+E:FlushModuleFeatureRegistrations("BossMods")

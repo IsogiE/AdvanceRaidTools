@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.Nicknames = {
+E:RegisterModuleDefaults("Nicknames", {
     enabled = true,
     myNickname = nil,
     map = {},
@@ -15,7 +15,7 @@ P.modules.Nicknames = {
         UnhaltedUnitFrames = false,
         VuhDo = false
     }
-}
+})
 
 local Nicknames = E:NewModule("Nicknames", "AceEvent-3.0", "AceTimer-3.0")
 
@@ -139,7 +139,7 @@ local function safeCall(addonKey, handlers, method, ...)
     return ok
 end
 
-function Nicknames:OnModuleInitialize(db)
+function Nicknames:OnInitialize(db)
     local selfKey = realmKey("player")
     if selfKey and db.myNickname and db.myNickname ~= "" then
         db.map[selfKey] = db.myNickname
@@ -151,7 +151,6 @@ function Nicknames:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
     self:RegisterEvent("GROUP_FORMED", "OnGroupFormed")
     self:RegisterEvent("GROUP_LEFT", "OnGroupLeft")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterEvent("ADDON_LOADED", "OnAddonLoaded")
     self:RegisterMessage("ART_PROFILE_CHANGED", "OnProfileChanged")
 
@@ -184,6 +183,7 @@ end
 function Nicknames:OnDisable()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
+    E:CancelRunWhenOutOfCombat("Nicknames:Broadcast")
     self:CancelBroadcastTimer()
     self._broadcastPending = false
     wipe(nicknameToUnitCache)
@@ -617,6 +617,12 @@ function Nicknames:DoBroadcast()
     end
     if InCombatLockdown() then
         self._broadcastPending = true
+        E:RunWhenOutOfCombat("Nicknames:Broadcast", function()
+            if self:IsEnabled() and self._broadcastPending then
+                self._broadcastPending = false
+                self:QueueBroadcast()
+            end
+        end)
         return
     end
     self._broadcastPending = false
@@ -737,13 +743,6 @@ end
 function Nicknames:OnGroupLeft()
     self:WipeMapExceptSelf()
     self:RefreshIntegrations()
-end
-
-function Nicknames:OnRegenEnabled()
-    if self._broadcastPending then
-        self._broadcastPending = false
-        self:QueueBroadcast()
-    end
 end
 
 local liquidAPITable

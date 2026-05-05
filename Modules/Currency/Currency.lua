@@ -1,10 +1,10 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.Currency = {
+E:RegisterModuleDefaults("Currency", {
     enabled = true,
     timeoutSeconds = 5,
     favorites = {} -- array of { id = number, name = string, icon = fileID }
-}
+})
 
 local Currency = E:NewChecker("Currency", {
     prefix = "ART_CUR",

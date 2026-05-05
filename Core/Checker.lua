@@ -1,4 +1,4 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
 local STATUS_RESPONDED = "responded"
 local STATUS_PENDING = "pending"

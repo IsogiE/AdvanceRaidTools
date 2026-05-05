@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.QoL_CDMTweaks = {
+E:RegisterModuleDefaults("QoL_CDMTweaks", {
     enabled = false,
     centerEssential = true,
     centerUtility = true,
@@ -12,7 +12,7 @@ P.modules.QoL_CDMTweaks = {
         UtilityCooldownViewer = {enabled = false, size = 14, color = {1, 1, 1, 1}},
         BuffIconCooldownViewer = {enabled = false, size = 14, color = {1, 1, 1, 1}}
     }
-}
+})
 
 local CDMTweaks = E:NewModule("QoL_CDMTweaks", "AceEvent-3.0")
 
@@ -488,10 +488,13 @@ end
 
 function CDMTweaks:Apply()
     if InCombatLockdown() then
-        self._pendingApply = true
+        E:RunWhenOutOfCombat("QoL_CDMTweaks:Apply", function()
+            if self:IsEnabled() then
+                self:Apply()
+            end
+        end)
         return
     end
-    self._pendingApply = nil
 
     if type(self.db.stackFont) ~= "table" then
         self.db.stackFont = {}
@@ -521,7 +524,6 @@ end
 
 function CDMTweaks:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "Apply")
-    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnRegenEnabled")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Apply")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Apply")
     self:Apply()
@@ -531,30 +533,19 @@ function CDMTweaks:OnDisable()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
     if InCombatLockdown() then
-        self._pendingRevert = true
+        E:RunWhenOutOfCombat("QoL_CDMTweaks:Revert", function()
+            if not self:IsEnabled() then
+                restoreAll(self)
+            end
+        end)
         return
     end
     restoreAll(self)
 end
 
-function CDMTweaks:OnRegenEnabled()
-    if self._pendingApply then
-        self:Apply()
-    end
-    if self._pendingRevert then
-        self._pendingRevert = nil
-        restoreAll(self)
-    end
-end
-
-do
-    local QoL = E:GetModule("QualityOfLife", true)
-    if QoL and QoL.RegisterFeature then
-        QoL:RegisterFeature("CDMTweaks", {
-            order = 30,
-            labelKey = "QoL_CDMTweaks",
-            descKey = "QoL_CDMTweaksDesc",
-            moduleName = "QoL_CDMTweaks"
-        })
-    end
-end
+E:RegisterQoLFeature("CDMTweaks", {
+    order = 30,
+    labelKey = "QoL_CDMTweaks",
+    descKey = "QoL_CDMTweaksDesc",
+    moduleName = "QoL_CDMTweaks"
+})

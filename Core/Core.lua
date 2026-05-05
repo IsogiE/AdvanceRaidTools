@@ -89,6 +89,10 @@ function E:OnInitialize()
     self:InitializeMinimapIcon()
 
     self:InitializeAllModules()
+    self:FlushAllModuleFeatureRegistrations()
+    self:FlushBossModNoteBlockRegistrations()
+    self:WarnUnresolvedModuleFeatureRegistrations()
+    self:WarnUnresolvedBossModNoteBlockRegistrations()
 
     self:SendMessage("ART_CORE_INITIALIZED")
 

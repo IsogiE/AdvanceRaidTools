@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_HoTTracker = {
+E:RegisterModuleDefaults("BossMods_HoTTracker", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -53,7 +53,7 @@ P.modules.BossMods_HoTTracker = {
             decimals = 1
         }
     }
-}
+})
 
 local CLASS_SPELLS = {
     EVOKER = {{
@@ -189,7 +189,7 @@ function HoTTracker:EnsureDisplay()
     self:ApplyPosition()
 end
 
-function HoTTracker:OnModuleInitialize()
+function HoTTracker:OnInitialize()
     BM = BM or E:GetModule("BossMods")
     self:EnsureDisplay()
     if self.display then
@@ -254,15 +254,10 @@ function HoTTracker:SavePosition(pos)
     self:ApplyPosition()
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("HoTTracker", {
-            tab = "Misc",
-            order = 20,
-            labelKey = "BossMods_HoTTracker",
-            descKey = "BossMods_HoTTrackerDesc",
-            moduleName = "BossMods_HoTTracker"
-        })
-    end
-end
+E:RegisterBossModFeature("HoTTracker", {
+    tab = "Misc",
+    order = 20,
+    labelKey = "BossMods_HoTTracker",
+    descKey = "BossMods_HoTTrackerDesc",
+    moduleName = "BossMods_HoTTracker"
+})

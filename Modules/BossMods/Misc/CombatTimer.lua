@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_CombatTimer = {
+E:RegisterModuleDefaults("BossMods_CombatTimer", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -24,7 +24,7 @@ P.modules.BossMods_CombatTimer = {
         size = 1,
         color = {0, 0, 0, 1}
     }
-}
+})
 
 local CombatTimer = E:NewModule("BossMods_CombatTimer", "AceEvent-3.0")
 
@@ -72,7 +72,7 @@ function CombatTimer:EnsureBar()
     self.bar:Hide()
 end
 
-function CombatTimer:OnModuleInitialize()
+function CombatTimer:OnInitialize()
     BM = BM or E:GetModule("BossMods")
     self:EnsureBar()
     if self.bar then
@@ -178,15 +178,10 @@ function CombatTimer:SavePosition(pos)
     self:ApplyPosition()
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("CombatTimer", {
-            tab = "Misc",
-            order = 10,
-            labelKey = "BossMods_CombatTimer",
-            descKey = "BossMods_CombatTimerDesc",
-            moduleName = "BossMods_CombatTimer"
-        })
-    end
-end
+E:RegisterBossModFeature("CombatTimer", {
+    tab = "Misc",
+    order = 10,
+    labelKey = "BossMods_CombatTimer",
+    descKey = "BossMods_CombatTimerDesc",
+    moduleName = "BossMods_CombatTimer"
+})

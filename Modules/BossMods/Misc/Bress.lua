@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_Bress = {
+E:RegisterModuleDefaults("BossMods_Bress", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -31,7 +31,7 @@ P.modules.BossMods_Bress = {
         offsetY = 2,
         color = {1, 1, 1, 1}
     }
-}
+})
 
 local REBIRTH_SPELL = 20484
 local TICK_INTERVAL = 0.1
@@ -61,7 +61,7 @@ local function shouldShowInZone()
     return false
 end
 
-function Bress:OnModuleInitialize()
+function Bress:OnInitialize()
     self.editMode = false
     self:EnsureFrame()
     self:Apply()
@@ -267,15 +267,10 @@ function Bress:SavePosition(pos)
     self:Apply()
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("Bress", {
-            tab = "Misc",
-            order = 30,
-            labelKey = "BossMods_Bress",
-            descKey = "BossMods_BressDesc",
-            moduleName = "BossMods_Bress"
-        })
-    end
-end
+E:RegisterBossModFeature("Bress", {
+    tab = "Misc",
+    order = 30,
+    labelKey = "BossMods_Bress",
+    descKey = "BossMods_BressDesc",
+    moduleName = "BossMods_Bress"
+})

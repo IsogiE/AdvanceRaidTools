@@ -1,6 +1,6 @@
-local E, L, P = unpack(ART)
+local E, L = unpack(ART)
 
-P.modules.BossMods_GeneralPack = {
+E:RegisterModuleDefaults("BossMods_GeneralPack", {
     enabled = false,
     position = {
         point = "CENTER",
@@ -44,7 +44,7 @@ P.modules.BossMods_GeneralPack = {
         chatHealthstone = true,
         chatSummonStone = true
     }
-}
+})
 
 local Mod = E:NewModule("BossMods_GeneralPack", "AceEvent-3.0")
 
@@ -424,7 +424,7 @@ local function buildAlertConfig(mod)
     }
 end
 
-function Mod:OnModuleInitialize()
+function Mod:OnInitialize()
     BM = BM or E:GetModule("BossMods")
     self.alerts = {}
     self.timers = {}
@@ -1049,15 +1049,10 @@ function Mod:OnDisable()
     E:CallModule("Comms", "UnregisterProtocol", COMM_PREFIX)
 end
 
-do
-    local parent = E:GetModule("BossMods", true)
-    if parent and parent.RegisterFeature then
-        parent:RegisterFeature("GeneralPack", {
-            tab = "Misc",
-            order = 50,
-            labelKey = "BossMods_GeneralPack",
-            descKey = "BossMods_GeneralPackDesc",
-            moduleName = "BossMods_GeneralPack"
-        })
-    end
-end
+E:RegisterBossModFeature("GeneralPack", {
+    tab = "Misc",
+    order = 50,
+    labelKey = "BossMods_GeneralPack",
+    descKey = "BossMods_GeneralPackDesc",
+    moduleName = "BossMods_GeneralPack"
+})
