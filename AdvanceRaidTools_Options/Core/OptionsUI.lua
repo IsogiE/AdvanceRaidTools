@@ -765,10 +765,17 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
             local opt = it.widget._option
             local info = it.widget._info
             if not (opt and info) or not evalHidden(opt, info) then
+                it.widget.frame:Show()
                 visible[#visible + 1] = it
+            else
+                it.widget.frame:Hide()
             end
         end
         items = visible
+        if #items == 0 then
+            myState.endY = y
+            return
+        end
 
         local cursorX = 0
         local subItems = {}
@@ -932,6 +939,16 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
         local function place()
             local y = baseState.endY
             local fr = widget.frame
+            local opt = widget._option
+            local info = widget._info
+
+            if opt and info and evalHidden(opt, info) then
+                fr:Hide()
+                myState.endY = y
+                return
+            end
+
+            fr:Show()
             fr:ClearAllPoints()
             fr:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
             fr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -y)
@@ -946,6 +963,8 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
         end
 
         ART_UI:AddResizeFlusher(place)
+        refreshList[#refreshList + 1] = place
+        rootRefreshList[#rootRefreshList + 1] = place
         place()
         prevState = myState
     end
@@ -999,6 +1018,7 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
                 end
                 refreshList[#refreshList + 1] = wrap
                 rootRefreshList[#rootRefreshList + 1] = wrap
+                wrap()
 
                 if widget.fullWidth then
                     commitSegment()

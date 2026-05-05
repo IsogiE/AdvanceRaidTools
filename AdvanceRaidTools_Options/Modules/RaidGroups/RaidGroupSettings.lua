@@ -689,7 +689,9 @@ RaidGroupSettingsEvents:RegisterMessage("ART_RAIDGROUPS_PRESETS_CHANGED", functi
     elseif selectedPreset and m and not m:GetPresetByName(selectedPreset) then
         selectedPreset = nil
     end
-    if E.RefreshOptions then
+    if E.OptionsUI and E.OptionsUI.QueueRefresh then
+        E.OptionsUI:QueueRefresh("all")
+    elseif E.RefreshOptions then
         E:RefreshOptions()
     end
 end)
