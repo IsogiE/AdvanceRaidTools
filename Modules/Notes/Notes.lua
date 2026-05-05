@@ -88,17 +88,24 @@ Notes._resizingFrame = nil -- the frame currently being drag-resized; scopes the
 local GetTime = GetTime
 local GetSpellTexture = C_Spell and C_Spell.GetSpellTexture or GetSpellTexture
 local UnitName = UnitName
+local UnitClass = UnitClass
+local UnitExists = UnitExists
 local strsplit = strsplit
 local strtrim = strtrim
 local strlower = string.lower
 local gsub = string.gsub
 local pairs = pairs
 local ipairs = ipairs
+local sort = table.sort
+local concat = table.concat
 local tonumber = tonumber
 local wipe = wipe
 local tinsert = table.insert
 local tremove = table.remove
 local max = math.max
+
+local DISPLAY_TIMER_COLOR = "ffffd200"
+local DISPLAY_TIMER_EXPIRED_COLOR = "ff888888"
 
 -- Utilities
 
@@ -291,6 +298,262 @@ function Notes:ProcessText(slotIndex)
     return text
 end
 
+local function parseNoteTimeSeconds(value)
+    value = strtrim(tostring(value or ""))
+    if value == "" then
+        return nil
+    end
+
+    local parts = {}
+    for part in string.gmatch(value, "([^:]+)") do
+        local number = tonumber(part)
+        if not number or number < 0 then
+            return nil
+        end
+        parts[#parts + 1] = number
+    end
+
+    if #parts == 1 then
+        return parts[1]
+    elseif #parts == 2 then
+        return parts[1] * 60 + parts[2]
+    elseif #parts == 3 then
+        return parts[1] * 3600 + parts[2] * 60 + parts[3]
+    end
+
+    return nil
+end
+
+local function formatNoteTimer(seconds)
+    seconds = tonumber(seconds) or 0
+    if seconds < 0 then
+        seconds = 0
+    end
+
+    local whole = math.floor(seconds + 0.5)
+    local hours = math.floor(whole / 3600)
+    local minutes = math.floor((whole % 3600) / 60)
+    local secs = whole % 60
+
+    if hours > 0 then
+        return string.format("%d:%02d:%02d", hours, minutes, secs)
+    end
+    return string.format("%d:%02d", minutes, secs)
+end
+
+local function renderDisplayTimeToken(value)
+    local targetSeconds = parseNoteTimeSeconds(value)
+    if not targetSeconds then
+        return "{time:" .. tostring(value or "") .. "}"
+    end
+
+    local color = DISPLAY_TIMER_COLOR
+    local displaySeconds = targetSeconds
+    if Notes.encounterStartTime then
+        displaySeconds = targetSeconds - (GetTime() - Notes.encounterStartTime)
+        if displaySeconds <= 0 then
+            displaySeconds = 0
+            color = DISPLAY_TIMER_EXPIRED_COLOR
+        end
+    end
+
+    return "|c" .. color .. formatNoteTimer(displaySeconds) .. "|r"
+end
+
+function Notes:RenderDisplayTimeTokens(text)
+    if type(text) ~= "string" or text == "" then
+        return text or ""
+    end
+    return (text:gsub("{time:([^}]+)}", renderDisplayTimeToken))
+end
+
+function Notes:StripDisplayTextTags(text)
+    if type(text) ~= "string" or text == "" then
+        return text or ""
+    end
+    text = text:gsub("{[Tt][Ee][Xx][Tt]}", "")
+    text = text:gsub("{/[Tt][Ee][Xx][Tt]}", "")
+    return text
+end
+
+local function isNameBoundaryChar(c)
+    return not c or c == "" or not c:match("[%w_'%-]")
+end
+
+local function isNameBoundary(text, startIndex, endIndex)
+    local prev = startIndex > 1 and text:sub(startIndex - 1, startIndex - 1) or nil
+    local next = endIndex < #text and text:sub(endIndex + 1, endIndex + 1) or nil
+    return isNameBoundaryChar(prev) and isNameBoundaryChar(next)
+end
+
+local function addDisplayNameAlias(aliases, seen, text, class)
+    text = strtrim(E:StripColorCodes(text or ""))
+    if text == "" or not class then
+        return
+    end
+    local key = strlower(text)
+    if seen[key] then
+        return
+    end
+    seen[key] = true
+    aliases[#aliases + 1] = {
+        text = text,
+        lower = key,
+        color = E:ClassColorCode(class)
+    }
+end
+
+local function addDisplayNameUnitAliases(aliases, seen, unit)
+    if not unit or not UnitExists(unit) then
+        return
+    end
+    local name, realm = UnitName(unit)
+    local _, class = UnitClass(unit)
+    if not name or not class then
+        return
+    end
+    addDisplayNameAlias(aliases, seen, name, class)
+    if realm and realm ~= "" then
+        addDisplayNameAlias(aliases, seen, name .. "-" .. realm, class)
+    end
+    if E.GetNickname then
+        local nick = E:GetNickname(unit)
+        if nick and nick ~= "" then
+            addDisplayNameAlias(aliases, seen, nick, class)
+        end
+    end
+end
+
+local function buildDisplayNameAliases()
+    local aliases, seen = {}, {}
+    local num = GetNumGroupMembers() or 0
+    if IsInRaid() then
+        for i = 1, num do
+            addDisplayNameUnitAliases(aliases, seen, "raid" .. i)
+        end
+    else
+        addDisplayNameUnitAliases(aliases, seen, "player")
+        for i = 1, max(0, num - 1) do
+            addDisplayNameUnitAliases(aliases, seen, "party" .. i)
+        end
+    end
+    sort(aliases, function(a, b)
+        return #a.text > #b.text
+    end)
+    return aliases
+end
+
+local function colorizePlainDisplayNames(text, aliases)
+    if type(text) ~= "string" or text == "" or not aliases or #aliases == 0 then
+        return text or ""
+    end
+
+    local lowerText = strlower(text)
+    local out = {}
+    local i = 1
+    while i <= #text do
+        local match
+        for _, alias in ipairs(aliases) do
+            local len = #alias.text
+            local last = i + len - 1
+            if last <= #text and lowerText:sub(i, last) == alias.lower and isNameBoundary(lowerText, i, last) then
+                match = alias
+                break
+            end
+        end
+
+        if match then
+            out[#out + 1] = match.color .. text:sub(i, i + #match.text - 1) .. "|r"
+            i = i + #match.text
+        else
+            out[#out + 1] = text:sub(i, i)
+            i = i + 1
+        end
+    end
+    return concat(out)
+end
+
+function Notes:ColorizeDisplayNames(text)
+    if type(text) ~= "string" or text == "" then
+        return text or ""
+    end
+
+    local aliases = buildDisplayNameAliases()
+    if #aliases == 0 then
+        return text
+    end
+
+    local out = {}
+    local i = 1
+    while i <= #text do
+        local marker = text:sub(i, i + 1)
+        if marker == "|T" then
+            local stop = text:find("|t", i + 2, true)
+            if stop then
+                out[#out + 1] = text:sub(i, stop + 1)
+                i = stop + 2
+            else
+                out[#out + 1] = text:sub(i, i)
+                i = i + 1
+            end
+        elseif marker == "|c" then
+            local stop = text:find("|r", i + 10, true)
+            if stop then
+                out[#out + 1] = text:sub(i, stop + 1)
+                i = stop + 2
+            else
+                out[#out + 1] = text:sub(i, i)
+                i = i + 1
+            end
+        else
+            local nextTexture = text:find("|T", i, true)
+            local nextColor = text:find("|c", i, true)
+            local nextMarker = nextTexture
+            if nextColor and (not nextMarker or nextColor < nextMarker) then
+                nextMarker = nextColor
+            end
+            local stop = nextMarker and (nextMarker - 1) or #text
+            out[#out + 1] = colorizePlainDisplayNames(text:sub(i, stop), aliases)
+            i = stop + 1
+        end
+    end
+
+    return concat(out)
+end
+
+-- Process text for the on-screen note frame only
+function Notes:ProcessDisplayText(slotIndex)
+    local slot = self:GetSlot(slotIndex)
+    if not slot then
+        return ""
+    end
+    local raw = slot.text or ""
+    if raw == "" then
+        return ""
+    end
+
+    local text = gsub(raw, "\r\n", "\n")
+    text = self:RenderDisplayTimeTokens(text)
+
+    for _, token in ipairs(self.tokens) do
+        local ok, result = pcall(gsub, text, token.pattern, token.handler)
+        if ok and type(result) == "string" then
+            text = result
+        else
+            self:Warn("token %s failed: %s", token.pattern, tostring(result))
+        end
+    end
+
+    if E.SubstituteNicknames then
+        text = E:SubstituteNicknames(text)
+    end
+
+    text = self:StripDisplayTextTags(text)
+    text = self:ColorizeDisplayNames(text)
+
+    return text
+end
+
 -- Slot management
 local function clampIndex(self, index)
     index = tonumber(index)
@@ -377,6 +640,7 @@ function Notes:SetSlotText(index, text)
     self.processedCache[index] = nil
     E:SendMessage("ART_NOTE_CHANGED", index, text)
     self:RefreshFrame(index)
+    self:RefreshTimeTicker()
     return true
 end
 
@@ -444,6 +708,7 @@ function Notes:RemoveSlot(index)
     self:BumpRenderRevision()
     E:SendMessage("ART_NOTES_LIST_CHANGED")
     self:RefreshAllFrames()
+    self:RefreshTimeTicker()
     return true
 end
 
@@ -502,6 +767,7 @@ function Notes:SetSlotActive(index, active)
     end
     slot.active = active
     self:RefreshAllFrames()
+    self:RefreshTimeTicker()
     E:SendMessage("ART_NOTE_SLOT_ACTIVE_CHANGED", index, active)
     return true
 end
@@ -660,7 +926,7 @@ function Notes:AnyVisibleSlotUsesTime()
     for i = 1, self:GetSlotCount() do
         if self:ShouldSlotBeVisible(i) then
             local slot = self.db.slots[i]
-            if slot and slot.text and slot.text:find("{time:%d+}") then
+            if slot and slot.text and slot.text:find("{time:[^}]+}") then
                 return true
             end
         end
@@ -670,6 +936,9 @@ end
 
 function Notes:StartEncounterTicker()
     if self.encounterTicker then
+        return
+    end
+    if not self.encounterStartTime then
         return
     end
     if not self:AnyVisibleSlotUsesTime() then
@@ -691,6 +960,14 @@ function Notes:StopEncounterTicker()
     end
 end
 
+function Notes:RefreshTimeTicker()
+    if self.encounterStartTime and self:AnyVisibleSlotUsesTime() then
+        self:StartEncounterTicker()
+    else
+        self:StopEncounterTicker()
+    end
+end
+
 function Notes:OnEncounterStart(_, encounterID, encounterName, difficultyID, groupSize)
     self.currentEncounterID = encounterID
     self.currentEncounterName = encounterName
@@ -698,7 +975,7 @@ function Notes:OnEncounterStart(_, encounterID, encounterName, difficultyID, gro
     self:BumpRenderRevision()
     E:SendMessage("ART_NOTE_ENCOUNTER_START", encounterID, encounterName, difficultyID, groupSize)
     self:RefreshAllFrames()
-    self:StartEncounterTicker()
+    self:RefreshTimeTicker()
 end
 
 function Notes:OnEncounterEnd(_, encounterID, encounterName, difficultyID, groupSize, success)
@@ -719,6 +996,10 @@ end
 
 function Notes:OnZoneChanged()
     self:BumpRenderRevision()
+    self:RefreshAllFrames()
+end
+
+function Notes:OnRosterChanged()
     self:RefreshAllFrames()
 end
 
@@ -1117,7 +1398,7 @@ function Notes:RefreshFrame(slotIndex)
     -- Lock state owns grip/lockToggle visibility.
     applyLockState(frame)
 
-    local processed = self:ProcessText(slotIndex)
+    local processed = self:ProcessDisplayText(slotIndex)
     frame.textFS:SetText(processed)
     -- After setting text, size the scroll child to fit
     local w = frame.scroll:GetWidth()
@@ -1408,10 +1689,12 @@ function Notes:OnEnable()
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterChanged")
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
 
     self:RegisterMessage("ART_NICKNAME_CHANGED", "OnNicknameChanged")
+    self:RegisterMessage("ART_ROSTER_INVALIDATED", "OnRosterChanged")
 
     E:CallModule("Comms", "RegisterAuthorizedProtocol", NOTE_COMM_PREFIX, {
         OnCommReceived = function(_, prefix, msg, distribution, sender)
@@ -1441,6 +1724,7 @@ end
 function Notes:OnDisable()
     self:UnregisterAllEvents()
     self:StopEncounterTicker()
+    self.encounterStartTime = nil
     self:HideAllFrames()
     self:Unpublish()
     E:CallModule("Comms", "UnregisterProtocol", NOTE_COMM_PREFIX)
