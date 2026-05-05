@@ -145,3 +145,29 @@ local LiquidAPI = {
 if Nicknames and Nicknames.RegisterLiquidAPI then
     Nicknames:RegisterLiquidAPI(LiquidAPI)
 end
+
+local timelineRemindersHooked
+local function HookTimelineReminders()
+    if timelineRemindersHooked or not _G.TimelineReminders or not _G.TimelineReminders.GetNickname then
+        return
+    end
+
+    local originalGetNickname = _G.TimelineReminders.GetNickname
+    _G.TimelineReminders.GetNickname = function(self, unit, ...)
+        local nickname, formatString = originalGetNickname(self, unit, ...)
+        local artNickname = Nicknames and Nicknames:IsEnabled() and Nicknames:GetIfAny(unit)
+
+        return artNickname or nickname, formatString
+    end
+    timelineRemindersHooked = true
+end
+
+HookTimelineReminders()
+
+local timelineRemindersLoadFrame = CreateFrame("Frame")
+timelineRemindersLoadFrame:RegisterEvent("ADDON_LOADED")
+timelineRemindersLoadFrame:SetScript("OnEvent", function(_, _, addonName)
+    if addonName == "TimelineReminders" then
+        HookTimelineReminders()
+    end
+end)
