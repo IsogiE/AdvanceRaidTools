@@ -17,9 +17,11 @@ local SetRaidSubgroup = SetRaidSubgroup
 local SwapRaidSubgroup = SwapRaidSubgroup
 local strtrim = strtrim
 local strfind = string.find
+local strlower = string.lower
 local strmatch = string.match
 local strgmatch = string.gmatch
 local strformat = string.format
+local strsub = string.sub
 local tinsert = table.insert
 local tconcat = table.concat
 local pairs = pairs
@@ -141,17 +143,21 @@ function RaidGroups:SavePreset(name, dataString)
     if name == "" or not dataString then
         return false, L["RG_ErrorNameEmpty"]
     end
+    local normalized, err = self:ValidateAndNormalizePresetString(dataString)
+    if not normalized then
+        return false, err
+    end
     local presets = self:GetPresets()
     local existing, idx = self:GetPresetByName(name)
     if existing then
         presets[idx] = {
             name = name,
-            data = dataString
+            data = normalized
         }
     else
         tinsert(presets, {
             name = name,
-            data = dataString
+            data = normalized
         })
     end
     E:SendMessage("ART_RAIDGROUPS_PRESETS_CHANGED", name)
@@ -188,49 +194,371 @@ function RaidGroups:RenamePreset(oldName, newName)
     return true
 end
 
-function RaidGroups:BulkImport(text)
+local PRESET_STRING_VERSION = "ART_RG1"
+
+local function emptyPresetGroups()
+    local groups = {}
+    for g = 1, GROUP_COUNT do
+        local slots = {}
+        for s = 1, SLOTS_PER_GROUP do
+            slots[s] = ""
+        end
+        groups[g] = slots
+    end
+    return groups
+end
+
+local function cleanImportText(text)
+    text = strtrim(text or "")
+    if strsub(text, 1, 3) == "\239\187\191" then
+        text = strsub(text, 4)
+    end
+    if #text > 1 and strsub(text, 1, 1) == '"' and strsub(text, -1) == '"' then
+        text = strsub(text, 2, -2)
+    end
+    return text
+end
+
+local function canPresetString()
+    return C_EncodingUtil and C_EncodingUtil.EncodeBase64 and C_EncodingUtil.DecodeBase64
+end
+
+local function encodePayload(payload)
+    if not canPresetString() then
+        return nil, L["RG_PresetCodecUnsupported"]
+    end
+    local ok, encoded = pcall(C_EncodingUtil.EncodeBase64, payload or "")
+    if not ok or type(encoded) ~= "string" or encoded == "" then
+        return nil, L["RG_PresetEncodeFailed"]
+    end
+    return PRESET_STRING_VERSION .. ":" .. encoded
+end
+
+local function decodePayload(code)
+    code = cleanImportText(code)
+    local encoded = strmatch(code, "^" .. PRESET_STRING_VERSION .. ":(.+)$")
+    if not encoded then
+        return nil, strformat(L["RG_InvalidPresetCode"], PRESET_STRING_VERSION)
+    end
+    if not canPresetString() then
+        return nil, L["RG_PresetCodecUnsupported"]
+    end
+    local ok, decoded = pcall(C_EncodingUtil.DecodeBase64, encoded)
+    if not ok or type(decoded) ~= "string" or decoded == "" then
+        return nil, L["RG_PresetDecodeFailed"]
+    end
+    return decoded
+end
+
+local function splitDelimited(line, delim)
+    local out = {}
+    local start = 1
+    while true do
+        local pos = strfind(line, delim, start, true)
+        if not pos then
+            tinsert(out, strtrim(strsub(line, start)))
+            break
+        end
+        tinsert(out, strtrim(strsub(line, start, pos - 1)))
+        start = pos + #delim
+    end
+    return out
+end
+
+local function detectDelimiter(line)
+    if strfind(line, "\t", 1, true) then
+        return "\t"
+    end
+    if strfind(line, ",", 1, true) then
+        return ","
+    end
+    if strfind(line, "|", 1, true) then
+        return "|"
+    end
+    if strfind(line, ";", 1, true) then
+        return ";"
+    end
+end
+
+local function normalizeHeader(cell)
+    cell = strlower(strtrim(cell or ""))
+    cell = cell:gsub("[%s_%-%./]+", "")
+    if cell == "preset" or cell == "presettitle" or cell == "presetname" or cell == "title" then
+        return "preset"
+    end
+    if cell == "group" or cell == "grp" then
+        return "group"
+    end
+    if cell == "slot" or cell == "pos" or cell == "position" or cell == "grouppos" or cell == "groupposition" or
+        cell == "positioningroup" then
+        return "slot"
+    end
+    if cell == "character" or cell == "char" or cell == "player" or cell == "characterrealm" or cell == "playerrealm" or
+        cell == "name" then
+        return "character"
+    end
+end
+
+local function headerMapFor(cols)
+    local map = {}
+    for i, col in ipairs(cols) do
+        local key = normalizeHeader(col)
+        if key and not map[key] then
+            map[key] = i
+        end
+    end
+    if map.group and map.slot and map.character then
+        return map
+    end
+end
+
+local function normalizeGroups(groups)
+    local normalized = emptyPresetGroups()
+    local seen = {}
+    local hasAny = false
+
+    for groupNum = 1, GROUP_COUNT do
+        for slotNum = 1, SLOTS_PER_GROUP do
+            local name = groups[groupNum] and groups[groupNum][slotNum] or ""
+            name = strtrim(name or "")
+            if name ~= "" then
+                name = E:NormalizeName(name)
+                if seen[name] then
+                    return nil, strformat(L["RG_DuplicateName"], name)
+                end
+                seen[name] = true
+                hasAny = true
+            end
+            normalized[groupNum][slotNum] = name
+        end
+    end
+
+    if not hasAny then
+        return nil, L["RG_AtLeastOneGroup"]
+    end
+
+    return normalized
+end
+
+local function addImportRow(buckets, order, title, groupNum, slotNum, character, lineNum, errors)
+    if not groupNum or groupNum < 1 or groupNum > GROUP_COUNT then
+        tinsert(errors, ("Line %d: group must be 1-%d"):format(lineNum, GROUP_COUNT))
+        return
+    end
+    if not slotNum or slotNum < 1 or slotNum > SLOTS_PER_GROUP then
+        tinsert(errors, ("Line %d: slot must be 1-%d"):format(lineNum, SLOTS_PER_GROUP))
+        return
+    end
+    character = strtrim(character or "")
+    if character == "" then
+        return
+    end
+
+    title = strtrim(title or "")
+    local key = title ~= "" and title or "\001"
+    local bucket = buckets[key]
+    if not bucket then
+        bucket = {
+            name = title,
+            groups = emptyPresetGroups(),
+            assigned = {}
+        }
+        buckets[key] = bucket
+        tinsert(order, key)
+    end
+
+    bucket.assigned[groupNum] = bucket.assigned[groupNum] or {}
+    if bucket.assigned[groupNum][slotNum] then
+        tinsert(errors, ("Line %d: duplicate group %d slot %d"):format(lineNum, groupNum, slotNum))
+        return
+    end
+    bucket.assigned[groupNum][slotNum] = true
+    bucket.groups[groupNum][slotNum] = character
+end
+
+local function parsePayloadRows(text)
     local errors = {}
-    if not text or strtrim(text) == "" then
-        return 0, {L["RG_BulkImportEmpty"]}
-    end
-
-    text = strtrim(text)
-    -- tolerate wrapping quotes from copy/paste
-    if #text > 1 and text:sub(1, 1) == '"' and text:sub(-1) == '"' then
-        text = text:sub(2, -2)
-    end
-
-    local imported = 0
-    local seenInBatch = {}
+    local buckets, order = {}, {}
+    local headerMap
+    local currentTitle = ""
     local lineNum = 0
 
-    for line in strgmatch(text, "[^\r\n]+") do
+    for line in strgmatch(text or "", "[^\r\n]+") do
         lineNum = lineNum + 1
         local trimmed = strtrim(line)
         if trimmed ~= "" then
-            local name, payload = strmatch(trimmed, "^(.-):(.*)$")
-            if not (name and payload) then
-                tinsert(errors, ("Line %d: missing ':'"):format(lineNum))
+            local directiveTitle = strmatch(trimmed, "^[Pp]reset%s*[:=]%s*(.-)%s*$") or
+                strmatch(trimmed, "^[Tt]itle%s*[:=]%s*(.-)%s*$")
+            if directiveTitle then
+                currentTitle = strtrim(directiveTitle)
             else
-                name = strtrim(name)
-                payload = strtrim(payload)
-                if name == "" then
-                    tinsert(errors, ("Line %d: empty name"):format(lineNum))
-                elseif seenInBatch[name] then
-                    tinsert(errors, ("Line %d: '%s' duplicated in batch"):format(lineNum, name))
-                else
-                    local normalized, err = self:ValidateAndNormalizePresetString(payload)
-                    if not normalized then
-                        tinsert(errors, ("Line %d (%s): %s"):format(lineNum, name, err or "invalid"))
+                local delim = detectDelimiter(trimmed)
+                if delim then
+                    local cols = splitDelimited(trimmed, delim)
+                    local maybeHeader = headerMapFor(cols)
+                    if maybeHeader then
+                        headerMap = maybeHeader
                     else
-                        local ok, saveErr = self:SavePreset(name, normalized)
-                        if ok then
-                            imported = imported + 1
-                            seenInBatch[name] = true
+                        local title, groupRaw, slotRaw, character
+                        if headerMap then
+                            title = headerMap.preset and cols[headerMap.preset] or currentTitle
+                            groupRaw = cols[headerMap.group]
+                            slotRaw = cols[headerMap.slot]
+                            character = cols[headerMap.character]
+                        elseif #cols >= 4 then
+                            if tonumber(cols[1]) then
+                                groupRaw, slotRaw, character, title = cols[1], cols[2], cols[3], cols[4]
+                            else
+                                title, groupRaw, slotRaw, character = cols[1], cols[2], cols[3], cols[4]
+                            end
+                            if title == "" then
+                                title = currentTitle
+                            end
+                        elseif #cols >= 3 then
+                            title = currentTitle
+                            groupRaw, slotRaw, character = cols[1], cols[2], cols[3]
+                        end
+
+                        if groupRaw and slotRaw and character then
+                            addImportRow(buckets, order, title, tonumber(groupRaw), tonumber(slotRaw), character, lineNum,
+                                errors)
                         else
-                            tinsert(errors, ("Line %d (%s): %s"):format(lineNum, name, saveErr or "save failed"))
+                            tinsert(errors, ("Line %d: expected group, slot, character"):format(lineNum))
                         end
                     end
+                else
+                    tinsert(errors, ("Line %d: expected tab, comma, pipe, or semicolon separated columns"):format(lineNum))
+                end
+            end
+        end
+    end
+
+    if #order == 0 then
+        return nil, errors
+    end
+
+    local imports = {}
+    for _, key in ipairs(order) do
+        local bucket = buckets[key]
+        local groups, err = normalizeGroups(bucket.groups)
+        if groups then
+            tinsert(imports, {
+                name = bucket.name,
+                groups = groups
+            })
+        else
+            tinsert(errors, ("%s: %s"):format(bucket.name ~= "" and bucket.name or (L["RG_DefaultPresetName"] or "Preset"),
+                err or "invalid"))
+        end
+    end
+
+    return imports, errors
+end
+
+local function appendPayloadRows(out, groups, presetName, includePreset)
+    for groupNum = 1, GROUP_COUNT do
+        for slotNum = 1, SLOTS_PER_GROUP do
+            local name = groups[groupNum] and groups[groupNum][slotNum] or ""
+            if name and name ~= "" then
+                if includePreset then
+                    tinsert(out, ("%s,%d,%d,%s"):format(presetName or "", groupNum, slotNum, name))
+                else
+                    tinsert(out, ("%d,%d,%s"):format(groupNum, slotNum, name))
+                end
+            end
+        end
+    end
+end
+
+local function encodeGroups(groups, presetName, includePreset)
+    local out = {}
+    if includePreset then
+        tinsert(out, "preset,group,slot,character")
+        appendPayloadRows(out, groups, presetName, true)
+    else
+        if presetName and presetName ~= "" then
+            tinsert(out, "title=" .. presetName)
+        end
+        tinsert(out, "group,slot,character")
+        appendPayloadRows(out, groups, nil, false)
+    end
+    return encodePayload(tconcat(out, "\n"))
+end
+
+function RaidGroups:NextDefaultPresetName(reserved)
+    reserved = reserved or {}
+    local base = L["RG_DefaultPresetName"] or "Preset"
+    local i = 1
+    local name = ("%s %d"):format(base, i)
+    while self:GetPresetByName(name) or reserved[name] do
+        i = i + 1
+        name = ("%s %d"):format(base, i)
+    end
+    reserved[name] = true
+    return name
+end
+
+function RaidGroups:ParsePresetImportString(text)
+    text = cleanImportText(text)
+    if text == "" then
+        return nil, {L["RG_BulkImportEmpty"]}
+    end
+
+    text = text:gsub("%s+", "")
+    local payload, decodeErr = decodePayload(text)
+    if not payload then
+        return nil, {decodeErr or L["RG_InvalidString"]}
+    end
+
+    local imports, errors = parsePayloadRows(payload)
+    if not imports or #imports == 0 then
+        return nil, errors or {L["RG_InvalidString"]}
+    end
+    return imports, errors or {}
+end
+
+function RaidGroups:PresetStringToGroups(text)
+    local imports, errors = self:ParsePresetImportString(text)
+    if imports and #imports == 1 then
+        return imports[1].groups
+    end
+    if imports and #imports > 1 then
+        return nil, L["RG_OnePresetOnly"]
+    end
+    return nil, errors and errors[1] or L["RG_InvalidString"]
+end
+
+function RaidGroups:BulkImport(text)
+    local imports, errors = self:ParsePresetImportString(text)
+    errors = errors or {}
+    if not imports or #imports == 0 then
+        return 0, (#errors > 0 and errors) or {L["RG_BulkImportEmpty"]}
+    end
+
+    local imported = 0
+    local usedNames = {}
+    local reservedAutoNames = {}
+
+    for _, item in ipairs(imports) do
+        local name = strtrim(item.name or "")
+        if name == "" then
+            name = self:NextDefaultPresetName(reservedAutoNames)
+        elseif usedNames[name] then
+            tinsert(errors, ("'%s' duplicated in batch"):format(name))
+            name = nil
+        end
+
+        if name then
+            local data, encodeErr = encodeGroups(item.groups)
+            if not data then
+                tinsert(errors, ("%s: %s"):format(name, encodeErr or L["RG_PresetEncodeFailed"]))
+            else
+                local ok, saveErr = self:SavePreset(name, data)
+                if ok then
+                    imported = imported + 1
+                    usedNames[name] = true
+                else
+                    tinsert(errors, ("%s: %s"):format(name, saveErr or "save failed"))
                 end
             end
         end
@@ -239,12 +567,31 @@ function RaidGroups:BulkImport(text)
     return imported, errors
 end
 
-function RaidGroups:BulkExportString()
-    local out = {}
-    for _, preset in ipairs(self:GetPresets()) do
-        tinsert(out, preset.name .. ":" .. preset.data)
+function RaidGroups:ExportPresetString(preset)
+    if type(preset) == "string" then
+        preset = self:GetPresetByName(preset)
     end
-    return tconcat(out, "\n")
+    if not preset or not preset.data then
+        return ""
+    end
+    local groups, err = self:PresetStringToGroups(preset.data)
+    if not groups then
+        return err or ""
+    end
+    local encoded = encodeGroups(groups, preset.name)
+    return encoded or ""
+end
+
+function RaidGroups:BulkExportString()
+    local out = {"preset,group,slot,character"}
+    for _, preset in ipairs(self:GetPresets()) do
+        local groups = self:PresetStringToGroups(preset.data)
+        if groups then
+            appendPayloadRows(out, groups, preset.name, true)
+        end
+    end
+    local encoded = encodePayload(tconcat(out, "\n"))
+    return encoded or ""
 end
 
 function RaidGroups:ValidateAndNormalizePresetString(text)
@@ -252,82 +599,23 @@ function RaidGroups:ValidateAndNormalizePresetString(text)
         return nil, L["RG_InvalidString"]
     end
 
-    local parts = {}
-    for part in strgmatch(text, "([^;]+)") do
-        tinsert(parts, part)
+    local groups, err = self:PresetStringToGroups(text)
+    if not groups then
+        return nil, err
     end
-    if #parts < 1 then
-        return nil, L["RG_AtLeastOneGroup"]
-    end
-    if #parts > GROUP_COUNT then
-        return nil, L["RG_TooManyGroups"]
-    end
-
-    local groups = {}
-    for i, chunk in ipairs(parts) do
-        local num, namesStr = strmatch(chunk, "^%s*Group(%d+):%s*(.*)%s*$")
-        if not num then
-            return nil, strformat(L["RG_MalformedGroup"], i)
-        end
-        num = tonumber(num)
-        if num ~= i then
-            return nil, strformat(L["RG_WrongGroupIndex"], i, num)
-        end
-        local names = {}
-        for name in strgmatch(namesStr or "", "([^,]+)") do
-            local clean = strtrim(name)
-            if clean ~= "" then
-                tinsert(names, E:NormalizeName(clean))
-            end
-        end
-        if #names > SLOTS_PER_GROUP then
-            return nil, strformat(L["RG_TooManyInGroup"], i)
-        end
-        while #names < SLOTS_PER_GROUP do
-            tinsert(names, "")
-        end
-        groups[i] = names
-    end
-
-    -- pad missing groups
-    for i = #groups + 1, GROUP_COUNT do
-        local names = {}
-        for _ = 1, SLOTS_PER_GROUP do
-            tinsert(names, "")
-        end
-        groups[i] = names
-    end
-
-    local seen = {}
-    for gi, names in ipairs(groups) do
-        for _, name in ipairs(names) do
-            if name ~= "" then
-                if seen[name] then
-                    return nil, strformat(L["RG_DuplicateName"], name)
-                end
-                seen[name] = true
-            end
-        end
-    end
-
-    local out = {}
-    for i, names in ipairs(groups) do
-        tinsert(out, ("Group%d: %s"):format(i, tconcat(names, ",")))
-    end
-    return tconcat(out, ";")
+    return encodeGroups(groups)
 end
 
 function RaidGroups:SerializeSlots(slots)
-    local out = {}
+    local groups = emptyPresetGroups()
     for g = 1, GROUP_COUNT do
-        local names = {}
         for s = 1, SLOTS_PER_GROUP do
             local eb = slots[g][s]
-            tinsert(names, eb.usedName or "")
+            groups[g][s] = eb.usedName or ""
         end
-        tinsert(out, ("Group%d: %s"):format(g, tconcat(names, ",")))
     end
-    return tconcat(out, ";")
+    local normalized = normalizeGroups(groups)
+    return encodeGroups(normalized or groups)
 end
 
 -- Apply logic

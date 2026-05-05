@@ -110,40 +110,23 @@ function RGUI:ShowImportPrompt(parent, onAccepted)
         input = {
             multiline = 8,
             default = "",
-            maxLetters = 4000
+            maxLetters = 200000
         },
         onAccept = function(raw)
             local text = strtrim(raw or "")
             if text == "" then
                 return
             end
-            local normalized, err = m:ValidateAndNormalizePresetString(text)
-            if not normalized then
-                E:Printf(err or "Invalid preset string.")
-                return
+            local imported, errors = m:BulkImport(text)
+            if imported > 0 then
+                E:Printf(L["RG_BulkImportedN"]:format(imported))
             end
-            local defaultName = L["RG_DefaultImportName"] or ("Imported Preset " .. (#m:GetPresets() + 1))
-            E:Prompt({
-                key = "ART_RG_IMPORT_PRESET_NAME",
-                title = L["Import"],
-                text = L["RG_PromptImportName"],
-                parent = parent,
-                input = {
-                    default = defaultName,
-                    maxLetters = 48,
-                    highlight = true
-                },
-                onAccept = function(val)
-                    local name = strtrim(val or "")
-                    if name == "" then
-                        return
-                    end
-                    m:SavePreset(name, normalized)
-                    if onAccepted then
-                        onAccepted(name)
-                    end
-                end
-            })
+            for _, err in ipairs(errors or {}) do
+                E:Printf("|cffff4040%s|r", err)
+            end
+            if onAccepted and imported > 0 then
+                onAccepted()
+            end
         end
     })
 end
@@ -217,7 +200,7 @@ function RGUI:ShowExportViewer(parent, preset)
         title = preset.name or "Preset",
         parent = parent,
         viewer = {
-            text = preset.data or "",
+            text = m:ExportPresetString(preset) or "",
             lines = 12
         }
     })

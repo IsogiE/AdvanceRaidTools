@@ -125,6 +125,7 @@ local function setSlotValue(self, eb, name)
         eb.usedName = nil
         return
     end
+    name = E:NormalizeName(self:ResolveNickname(name))
     local class = E:GetClassByName(name)
     local r, g, b = classColor(class)
     local display = self:DisplayName(name)
@@ -179,6 +180,11 @@ local function getSharedSlotEditBox()
     eb:SetScript("OnEnterPressed", function(self_)
         self_:ClearFocus()
     end)
+    eb:SetScript("OnTextChanged", function(self_, userInput)
+        if userInput then
+            self_:SetTextColor(1, 1, 1)
+        end
+    end)
 
     eb:SetScript("OnEditFocusLost", function(self_)
         local slot = self_._activeSlot
@@ -224,7 +230,15 @@ local function activateSlotEdit(slot)
         slot._label:Hide()
     end
 
-    eb:SetText(slot.usedName or "")
+    if slot.usedName and slot.usedName ~= "" then
+        local class = E:GetClassByName(slot.usedName)
+        local r, g, b = classColor(class)
+        eb:SetTextColor(r, g, b)
+        eb:SetText(RaidGroups:DisplayName(slot.usedName) or slot.usedName)
+    else
+        eb:SetTextColor(1, 1, 1)
+        eb:SetText("")
+    end
     eb:Show()
     eb:SetFocus()
 end
@@ -693,18 +707,20 @@ function RaidGroups:LoadPresetIntoSlots(dataString)
     if not self._slots or not dataString then
         return
     end
+    local groups, err = self:PresetStringToGroups(dataString)
+    if not groups then
+        if err then
+            E:Printf(err)
+        end
+        return
+    end
+
     self:ClearSlots()
-    for part in strgmatch(dataString, "Group%d+:%s*[^;]+") do
-        local gnum, namesStr = strmatch(part, "Group(%d+):%s*(.*)")
-        gnum = tonumber(gnum)
-        if gnum and self._slots[gnum] then
-            local names = {}
-            for n in strgmatch(namesStr, "([^,]+)") do
-                tinsert(names, strtrim(n))
-            end
-            for s = 1, SLOTS_PER_GROUP do
-                local eb = self._slots[gnum][s]
-                local name = names[s]
+    for gnum = 1, GROUP_COUNT do
+        if self._slots[gnum] then
+            for slotNum = 1, SLOTS_PER_GROUP do
+                local eb = self._slots[gnum][slotNum]
+                local name = groups[gnum] and groups[gnum][slotNum]
                 if name and name ~= "" then
                     setSlotValue(self, eb, name)
                 end
