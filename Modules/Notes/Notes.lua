@@ -9,6 +9,13 @@ local MIN_FRAME_W, MIN_FRAME_H = 160, 80
 local MAX_SPELL_ICON = 40
 local DEFAULT_SPELL_ICON = 16
 
+local DEFAULT_TIMER_COLOR = {
+    r = 1,
+    g = 210 / 255,
+    b = 0,
+    a = 1
+}
+
 -- Profile defaults
 
 local function makeDefaultSlotDisplay()
@@ -17,6 +24,18 @@ local function makeDefaultSlotDisplay()
         fontOutline = "OUTLINE",
         fontName = "PT Sans Narrow",
         spacing = 2,
+        backgroundEnabled = true,
+        borderEnabled = true,
+        hideOutsideRaid = false,
+        hideInCombat = false,
+        hidePassedTimers = false,
+        hideTimerLinesWithoutMe = false,
+        timerColor = {
+            r = DEFAULT_TIMER_COLOR.r,
+            g = DEFAULT_TIMER_COLOR.g,
+            b = DEFAULT_TIMER_COLOR.b,
+            a = DEFAULT_TIMER_COLOR.a
+        },
         backdrop = {
             r = 0,
             g = 0,
@@ -46,6 +65,18 @@ E:RegisterModuleDefaults("Notes", {
             fontOutline = "OUTLINE",
             fontName = "PT Sans Narrow",
             spacing = 2,
+            backgroundEnabled = true,
+            borderEnabled = true,
+            hideOutsideRaid = false,
+            hideInCombat = false,
+            hidePassedTimers = false,
+            hideTimerLinesWithoutMe = false,
+            timerColor = {
+                r = DEFAULT_TIMER_COLOR.r,
+                g = DEFAULT_TIMER_COLOR.g,
+                b = DEFAULT_TIMER_COLOR.b,
+                a = DEFAULT_TIMER_COLOR.a
+            },
             backdrop = {
                 r = 0,
                 g = 0,
@@ -82,6 +113,7 @@ Notes.currentEncounterName = nil
 Notes.encounterStartTime = nil
 Notes.encounterTicker = nil --
 Notes.undoStacks = {} -- [slotIndex] = { previous text, ... } (session-only)
+Notes.editVisibleSlots = {} -- [slotIndex] = true while the options UI is temporarily showing an unlocked display
 Notes._isResizing = false -- true only while a user is dragging a frame's resize grip
 Notes._resizingFrame = nil -- the frame currently being drag-resized; scopes the OnBackdropSizeChanged gate
 
@@ -103,9 +135,11 @@ local wipe = wipe
 local tinsert = table.insert
 local tremove = table.remove
 local max = math.max
+local floor = math.floor
 
 local DISPLAY_TIMER_COLOR = "ffffd200"
 local DISPLAY_TIMER_EXPIRED_COLOR = "ff888888"
+local isNameBoundary
 
 -- Utilities
 
@@ -341,13 +375,155 @@ local function formatNoteTimer(seconds)
     return string.format("%d:%02d", minutes, secs)
 end
 
-local function renderDisplayTimeToken(value)
+local function colorComponent(v)
+    v = tonumber(v)
+    if not v then
+        return 255
+    end
+    if v < 0 then
+        v = 0
+    elseif v > 1 then
+        v = 1
+    end
+    return floor(v * 255 + 0.5)
+end
+
+local function displayTimerColorHex(display)
+    local color = display and display.timerColor
+    if type(color) ~= "table" then
+        return DISPLAY_TIMER_COLOR
+    end
+    local r = color.r or color[1] or DEFAULT_TIMER_COLOR.r
+    local g = color.g or color[2] or DEFAULT_TIMER_COLOR.g
+    local b = color.b or color[3] or DEFAULT_TIMER_COLOR.b
+    local a = color.a or color[4] or DEFAULT_TIMER_COLOR.a
+    return string.format("%02x%02x%02x%02x", colorComponent(a), colorComponent(r), colorComponent(g), colorComponent(b))
+end
+
+local function lineHasTimer(line)
+    return type(line) == "string" and line:find("{time:[^}]+}") ~= nil
+end
+
+local function lineHasPassedTimer(line)
+    if not Notes.encounterStartTime or type(line) ~= "string" then
+        return false
+    end
+    local elapsed = GetTime() - Notes.encounterStartTime
+    for value in line:gmatch("{time:([^}]+)}") do
+        local targetSeconds = parseNoteTimeSeconds(value)
+        if targetSeconds and elapsed >= targetSeconds then
+            return true
+        end
+    end
+    return false
+end
+
+local function buildPlayerNameAliases()
+    local aliases, seen = {}, {}
+    local function add(value)
+        value = strtrim(E:StripColorCodes(value or ""))
+        if value == "" then
+            return
+        end
+        local lower = strlower(value)
+        if seen[lower] then
+            return
+        end
+        seen[lower] = true
+        aliases[#aliases + 1] = {
+            text = value,
+            lower = lower
+        }
+    end
+
+    local name, realm = UnitName("player")
+    add(name)
+    if name and realm and realm ~= "" then
+        add(name .. "-" .. realm)
+    end
+    if UnitFullName then
+        local fullName, fullRealm = UnitFullName("player")
+        add(fullName)
+        if fullName and fullRealm and fullRealm ~= "" then
+            add(fullName .. "-" .. fullRealm)
+        end
+    end
+    if name and GetNormalizedRealmName then
+        local normalizedRealm = GetNormalizedRealmName()
+        if normalizedRealm and normalizedRealm ~= "" then
+            add(name .. "-" .. normalizedRealm)
+        end
+    end
+    if E.GetNickname then
+        add(E:GetNickname("player"))
+    end
+
+    sort(aliases, function(a, b)
+        return #a.text > #b.text
+    end)
+    return aliases
+end
+
+local function lineMentionsPlayer(line, aliases)
+    if type(line) ~= "string" or line == "" then
+        return false
+    end
+    local plain = strlower(E:StripColorCodes(line))
+    for _, alias in ipairs(aliases or buildPlayerNameAliases()) do
+        local from = 1
+        while true do
+            local startIndex, endIndex = plain:find(alias.lower, from, true)
+            if not startIndex then
+                break
+            end
+            if isNameBoundary(plain, startIndex, endIndex) then
+                return true
+            end
+            from = endIndex + 1
+        end
+    end
+    return false
+end
+
+local function filterDisplayLines(text, display)
+    if type(text) ~= "string" or text == "" then
+        return text or ""
+    end
+    if not (display and (display.hidePassedTimers or display.hideTimerLinesWithoutMe)) then
+        return text
+    end
+
+    local out = {}
+    local playerAliases = display.hideTimerLinesWithoutMe and buildPlayerNameAliases() or nil
+    local startIndex = 1
+    while true do
+        local newline = text:find("\n", startIndex, true)
+        local line = newline and text:sub(startIndex, newline - 1) or text:sub(startIndex)
+        local hide = false
+        if display.hidePassedTimers and lineHasPassedTimer(line) then
+            hide = true
+        end
+        if not hide and display.hideTimerLinesWithoutMe and lineHasTimer(line) and not lineMentionsPlayer(line, playerAliases) then
+            hide = true
+        end
+        if not hide then
+            out[#out + 1] = line
+        end
+        if not newline then
+            break
+        end
+        startIndex = newline + 1
+    end
+    return concat(out, "\n")
+end
+
+local function renderDisplayTimeToken(value, display)
     local targetSeconds = parseNoteTimeSeconds(value)
     if not targetSeconds then
         return "{time:" .. tostring(value or "") .. "}"
     end
 
-    local color = DISPLAY_TIMER_COLOR
+    local color = displayTimerColorHex(display)
     local displaySeconds = targetSeconds
     if Notes.encounterStartTime then
         displaySeconds = targetSeconds - (GetTime() - Notes.encounterStartTime)
@@ -360,11 +536,13 @@ local function renderDisplayTimeToken(value)
     return "|c" .. color .. formatNoteTimer(displaySeconds) .. "|r"
 end
 
-function Notes:RenderDisplayTimeTokens(text)
+function Notes:RenderDisplayTimeTokens(text, display)
     if type(text) ~= "string" or text == "" then
         return text or ""
     end
-    return (text:gsub("{time:([^}]+)}", renderDisplayTimeToken))
+    return (text:gsub("{time:([^}]+)}", function(value)
+        return renderDisplayTimeToken(value, display)
+    end))
 end
 
 function Notes:StripDisplayTextTags(text)
@@ -380,7 +558,7 @@ local function isNameBoundaryChar(c)
     return not c or c == "" or not c:match("[%w_'%-]")
 end
 
-local function isNameBoundary(text, startIndex, endIndex)
+function isNameBoundary(text, startIndex, endIndex)
     local prev = startIndex > 1 and text:sub(startIndex - 1, startIndex - 1) or nil
     local next = endIndex < #text and text:sub(endIndex + 1, endIndex + 1) or nil
     return isNameBoundaryChar(prev) and isNameBoundaryChar(next)
@@ -532,8 +710,10 @@ function Notes:ProcessDisplayText(slotIndex)
         return ""
     end
 
+    local display = slot.display or makeDefaultSlotDisplay()
     local text = gsub(raw, "\r\n", "\n")
-    text = self:RenderDisplayTimeTokens(text)
+    text = filterDisplayLines(text, display)
+    text = self:RenderDisplayTimeTokens(text, display)
 
     for _, token in ipairs(self.tokens) do
         local ok, result = pcall(gsub, text, token.pattern, token.handler)
@@ -997,10 +1177,17 @@ end
 function Notes:OnZoneChanged()
     self:BumpRenderRevision()
     self:RefreshAllFrames()
+    self:RefreshTimeTicker()
 end
 
 function Notes:OnRosterChanged()
     self:RefreshAllFrames()
+    self:RefreshTimeTicker()
+end
+
+function Notes:OnCombatStateChanged()
+    self:RefreshAllFrames()
+    self:RefreshTimeTicker()
 end
 
 -- Display frames
@@ -1030,8 +1217,10 @@ local function applyBackdropColors(frame, display)
         b = 0,
         a = 1
     }
-    frame:SetBackdropColor(bg.r, bg.g, bg.b, bg.a)
-    frame:SetBackdropBorderColor(br.r, br.g, br.b, br.a)
+    local bgAlpha = display.backgroundEnabled == false and 0 or bg.a
+    local borderAlpha = display.borderEnabled == false and 0 or br.a
+    frame:SetBackdropColor(bg.r, bg.g, bg.b, bgAlpha)
+    frame:SetBackdropBorderColor(br.r, br.g, br.b, borderAlpha)
 end
 
 local function savePosition(frame)
@@ -1083,6 +1272,9 @@ end
 -- each slot owns its own `locked` flag on slot.display
 local function isFrameLocked(frame)
     if not frame then
+        return false
+    end
+    if Notes.editVisibleSlots and Notes.editVisibleSlots[frame.slotIndex] then
         return false
     end
     local slot = Notes:GetSlot(frame.slotIndex)
@@ -1165,9 +1357,11 @@ local function applyGhostColors(ghost, display)
         b = 0,
         a = 1
     }
-    ghost.fill:SetColorTexture(bg.r or 0, bg.g or 0, bg.b or 0, bg.a or 0.6)
+    local bgAlpha = display and display.backgroundEnabled == false and 0 or (bg.a or 0.6)
+    local borderAlpha = display and display.borderEnabled == false and 0 or (br.a or 1)
+    ghost.fill:SetColorTexture(bg.r or 0, bg.g or 0, bg.b or 0, bgAlpha)
     for _, edge in ipairs(ghost.edges) do
-        edge:SetColorTexture(br.r or 0, br.g or 0, br.b or 0, br.a or 1)
+        edge:SetColorTexture(br.r or 0, br.g or 0, br.b or 0, borderAlpha)
     end
 end
 
@@ -1355,6 +1549,7 @@ function Notes:BuildFrame(slotIndex)
     lockGlyph:SetPoint("CENTER", 0, 0)
     lockGlyph:SetText("L") -- simple glyph; avoids dependency on a lock icon asset
     lockBtn:SetScript("OnClick", function()
+        Notes:SetSlotEditMode(frame.slotIndex, false)
         Notes:SetSlotLocked(frame.slotIndex, true)
     end)
     lockBtn:SetScript("OnEnter", function(self_)
@@ -1410,6 +1605,63 @@ function Notes:RefreshFrame(slotIndex)
     frame.scroll:UpdateScrollChildRect()
 end
 
+function Notes:SetDisplayStrata(strata)
+    strata = strata or "MEDIUM"
+    self.db.display = self.db.display or {}
+    if self.db.display.strata == strata then
+        return false
+    end
+    self.db.display.strata = strata
+    for _, frame in pairs(self.frames) do
+        if frame and frame.SetFrameStrata then
+            frame:SetFrameStrata(strata)
+        end
+    end
+    return true
+end
+
+function Notes:ResetSlotPosition(index)
+    local slot = self:GetSlot(index)
+    if not slot then
+        return false
+    end
+    slot.pos = nil
+    local frame = self.frames[index]
+    if frame then
+        restorePosition(frame)
+        self:RefreshFrame(index)
+    end
+    E:SendMessage("ART_NOTES_POSITION_CHANGED", index)
+    return true
+end
+
+function Notes:ApplyDisplayToOtherSlots(index)
+    local source = self:GetSlot(index)
+    if not (source and source.display) then
+        return false
+    end
+
+    local copied = 0
+    for i, slot in ipairs(self.db.slots or {}) do
+        if i ~= index then
+            local locked = slot.display and slot.display.locked
+            slot.display = CopyTable(source.display)
+            slot.display.locked = locked and true or false
+            copied = copied + 1
+        end
+    end
+
+    if copied == 0 then
+        return false
+    end
+
+    self:BumpRenderRevision()
+    self:RefreshAllFrames()
+    self:RefreshTimeTicker()
+    E:SendMessage("ART_NOTES_DISPLAY_CHANGED", index)
+    return true
+end
+
 -- Per slot lock
 function Notes:SetSlotLocked(index, locked)
     local slot = self:GetSlot(index)
@@ -1435,6 +1687,46 @@ function Notes:IsSlotLocked(index)
     return slot and slot.display and slot.display.locked or false
 end
 
+function Notes:SetSlotEditMode(index, enabled)
+    local slot = self:GetSlot(index)
+    if not slot then
+        return false
+    end
+    self.editVisibleSlots = self.editVisibleSlots or {}
+    enabled = enabled and true or false
+    if (self.editVisibleSlots[index] and true or false) == enabled then
+        return false
+    end
+    if enabled then
+        self.editVisibleSlots[index] = true
+    else
+        self.editVisibleSlots[index] = nil
+    end
+    local frame = self.frames[index]
+    if frame then
+        applyLockState(frame)
+    end
+    self:RefreshAllFrames()
+    self:RefreshTimeTicker()
+    E:SendMessage("ART_NOTES_EDIT_MODE_CHANGED", index, enabled)
+    return true
+end
+
+function Notes:IsSlotEditMode(index)
+    return self.editVisibleSlots and self.editVisibleSlots[index] or false
+end
+
+function Notes:ClearEditModes()
+    if not next(self.editVisibleSlots or {}) then
+        return false
+    end
+    wipe(self.editVisibleSlots)
+    self:RefreshAllFrames()
+    self:RefreshTimeTicker()
+    E:SendMessage("ART_NOTES_EDIT_MODE_CHANGED")
+    return true
+end
+
 -- Visibility
 function Notes:ShouldSlotBeVisible(slotIndex)
     if not self:IsEnabled() then
@@ -1444,7 +1736,20 @@ function Notes:ShouldSlotBeVisible(slotIndex)
     if not slot then
         return false
     end
-    return slot.active and true or false
+    if self.editVisibleSlots and self.editVisibleSlots[slotIndex] then
+        return true
+    end
+    if not slot.active then
+        return false
+    end
+    local display = slot.display or {}
+    if display.hideOutsideRaid and not IsInRaid() then
+        return false
+    end
+    if display.hideInCombat and InCombatLockdown() then
+        return false
+    end
+    return true
 end
 
 function Notes:RefreshAllFrames()
@@ -1649,6 +1954,19 @@ local function normalizeSlots(db)
                 slot.display[k] = v
             end
         end
+        if type(slot.display.timerColor) ~= "table" then
+            slot.display.timerColor = {
+                r = DEFAULT_TIMER_COLOR.r,
+                g = DEFAULT_TIMER_COLOR.g,
+                b = DEFAULT_TIMER_COLOR.b,
+                a = DEFAULT_TIMER_COLOR.a
+            }
+        else
+            slot.display.timerColor.r = slot.display.timerColor.r or slot.display.timerColor[1] or DEFAULT_TIMER_COLOR.r
+            slot.display.timerColor.g = slot.display.timerColor.g or slot.display.timerColor[2] or DEFAULT_TIMER_COLOR.g
+            slot.display.timerColor.b = slot.display.timerColor.b or slot.display.timerColor[3] or DEFAULT_TIMER_COLOR.b
+            slot.display.timerColor.a = slot.display.timerColor.a or slot.display.timerColor[4] or DEFAULT_TIMER_COLOR.a
+        end
     end
 end
 
@@ -1692,6 +2010,8 @@ function Notes:OnEnable()
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterChanged")
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStateChanged")
+    self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatStateChanged")
 
     self:RegisterMessage("ART_NICKNAME_CHANGED", "OnNicknameChanged")
     self:RegisterMessage("ART_ROSTER_INVALIDATED", "OnRosterChanged")
@@ -1724,6 +2044,7 @@ end
 function Notes:OnDisable()
     self:UnregisterAllEvents()
     self:StopEncounterTicker()
+    wipe(self.editVisibleSlots)
     self.encounterStartTime = nil
     self:HideAllFrames()
     self:Unpublish()
@@ -1734,6 +2055,7 @@ end
 function Notes:OnProfileChanged()
     wipe(self.processedCache)
     wipe(self.undoStacks)
+    wipe(self.editVisibleSlots)
     self:StopEncounterTicker()
     self.encounterStartTime = nil
 

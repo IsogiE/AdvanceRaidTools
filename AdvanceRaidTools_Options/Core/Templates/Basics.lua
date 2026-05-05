@@ -571,12 +571,12 @@ function T:Checkbox(parent, opts)
     }
 
     local function updateHitRect()
-        if labelTop then
-            f:SetHitRectInsets(0, 0, LABEL_TOP_H, 0)
-            return
-        end
         local total = f:GetWidth() or 0
         if total <= 0 then
+            return
+        end
+        if labelTop then
+            f:SetHitRectInsets(0, math.max(0, total - BOX - PAD_R), LABEL_TOP_H, 0)
             return
         end
         local textW = label:GetStringWidth() or 0
@@ -595,24 +595,36 @@ function T:Checkbox(parent, opts)
     end
     renderCheck()
 
-    f:SetScript("OnEnter", function()
-        state.hovered = true
+    local function setHover(hovered)
+        state.hovered = hovered and true or false
         if not state.disabled then
-            box:SetBackdropBorderColor(unpack(c_accent()))
+            if hovered then
+                box:SetBackdropBorderColor(unpack(c_accent()))
+            else
+                box:SetBackdropBorderColor(unpack(c_border()))
+            end
         end
+    end
+
+    f:SetScript("OnEnter", function()
+        setHover(true)
     end)
     f:SetScript("OnLeave", function()
-        state.hovered = false
-        if not state.disabled then
-            box:SetBackdropBorderColor(unpack(c_border()))
-        end
+        setHover(false)
     end)
 
     if opts.tooltip then
-        attachTooltip(f, opts.tooltip, opts.tooltipAnchor or "ANCHOR_CURSOR")
+        box:EnableMouse(true)
+        box:SetScript("OnEnter", function()
+            setHover(true)
+        end)
+        box:SetScript("OnLeave", function()
+            setHover(false)
+        end)
+        attachTooltip(box, opts.tooltip, opts.tooltipAnchor or "ANCHOR_CURSOR")
     end
 
-    f:SetScript("OnClick", function(self)
+    local function onClick(self)
         if state.disabled then
             return
         end
@@ -622,11 +634,23 @@ function T:Checkbox(parent, opts)
         state.checked = not state.checked
         renderCheck()
         safeCall("Checkbox.onChange", opts.onChange, self, state.checked)
-    end)
+    end
+
+    f:SetScript("OnClick", onClick)
+    if opts.tooltip then
+        box:SetScript("OnMouseUp", function(_, button)
+            if button == "LeftButton" then
+                onClick(f)
+            end
+        end)
+    end
 
     local function SetDisabled(d)
         state.disabled = d and true or false
         f:EnableMouse(not state.disabled)
+        if opts.tooltip then
+            box:EnableMouse(not state.disabled)
+        end
         if state.disabled then
             label:SetTextColor(unpack(c_textDim()))
             mark:SetVertexColor(unpack(c_textDim()))

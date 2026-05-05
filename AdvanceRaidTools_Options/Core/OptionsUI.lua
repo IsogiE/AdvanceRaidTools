@@ -608,7 +608,7 @@ local function buildColor(parent, option, info)
         end,
         onChange = function(r, g, b, a)
             callSet(option, info, r, g, b, a)
-            -- debounce panel-level refresh so dragging the hue slider is smooth
+            -- debounce panel-level refresh so color commits do not rebuild immediately
             tpl._colorSeq = (tpl._colorSeq or 0) + 1
             local seq = tpl._colorSeq
             C_Timer.After(0.1, function()

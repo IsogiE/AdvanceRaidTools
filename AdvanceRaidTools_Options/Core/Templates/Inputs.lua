@@ -844,7 +844,7 @@ end
 --     r, g, b   = 1, 1, 1,
 --     a         = 1,
 --     hasAlpha  = false,
---     onChange  = function(r,g,b,a) end,     -- called while picking and on confirm
+--     onChange  = function(r,g,b,a) end,     -- called when the picker is confirmed
 --     onCancel  = function(r,g,b,a) end,     -- called if user cancels (prev values)
 --     disabled  = bool | function,
 --     tooltip   = ...,
@@ -857,67 +857,123 @@ end
 --     SetLabel(t), SetDisabled(d), Refresh(),
 -- }
 -- =============================================================================
-local function openColorPicker(r, g, b, a, hasAlpha, onChange, onCancel)
+local colorPickerCommitHooked = false
+
+local function ensureColorPickerCommitHook()
+    if colorPickerCommitHooked then
+        return
+    end
+    ColorPickerFrame:HookScript("OnHide", function(self)
+        local request = self._artColorPickerRequest
+        if not request or request.finished then
+            return
+        end
+        request.finished = true
+        self._artColorPickerRequest = nil
+        if request.cancelled then
+            return
+        end
+        request.commit()
+    end)
+    colorPickerCommitHooked = true
+end
+
+local function readPickerColor(hasAlpha)
+    local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+    local na = 1
+    if hasAlpha then
+        if ColorPickerFrame.GetColorAlpha then
+            na = ColorPickerFrame:GetColorAlpha()
+        elseif OpacitySliderFrame then
+            na = 1 - (OpacitySliderFrame:GetValue() or 0)
+        end
+    end
+    return nr, ng, nb, na
+end
+
+local function previousPickerColor(prev, fallback)
+    if type(prev) == "table" then
+        return prev.r or prev[1] or fallback.r, prev.g or prev[2] or fallback.g, prev.b or prev[3] or fallback.b,
+            prev.opacity or prev.a or prev[4] or fallback.a
+    end
+    return fallback.r, fallback.g, fallback.b, fallback.a
+end
+
+local function openColorPicker(r, g, b, a, hasAlpha, onCommit, onCancel)
+    ensureColorPickerCommitHook()
+
+    local prior = ColorPickerFrame._artColorPickerRequest
+    if prior and not prior.finished then
+        prior.finished = true
+        prior.cancelled = true
+        ColorPickerFrame._artColorPickerRequest = nil
+    end
+
+    local initial = {
+        r = r or 1,
+        g = g or 1,
+        b = b or 1,
+        a = a or 1
+    }
+    local pending = {
+        r = initial.r,
+        g = initial.g,
+        b = initial.b,
+        a = initial.a
+    }
+    local request
+
+    local function updatePending()
+        pending.r, pending.g, pending.b, pending.a = readPickerColor(hasAlpha)
+    end
+
+    local function cancel(prev)
+        pending.r, pending.g, pending.b, pending.a = previousPickerColor(prev, initial)
+        if request then
+            request.cancelled = true
+        end
+        if onCancel then
+            onCancel(pending.r, pending.g, pending.b, pending.a)
+        end
+    end
+
+    request = {
+        cancelled = false,
+        finished = false,
+        commit = function()
+            if onCommit then
+                onCommit(pending.r, pending.g, pending.b, pending.a)
+            end
+        end
+    }
+
     if type(ColorPickerFrame.SetupColorPickerAndShow) == "function" then
         ColorPickerFrame:SetupColorPickerAndShow({
-            r = r,
-            g = g,
-            b = b,
-            opacity = a,
+            r = initial.r,
+            g = initial.g,
+            b = initial.b,
+            opacity = initial.a,
             hasOpacity = hasAlpha,
-            swatchFunc = function()
-                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                local na = hasAlpha and (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha() or
-                               (1 - (OpacitySliderFrame and OpacitySliderFrame:GetValue() or 0))) or 1
-                if onChange then
-                    onChange(nr, ng, nb, na)
-                end
-            end,
-            opacityFunc = function()
-                local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-                local na = hasAlpha and (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha() or
-                               (1 - (OpacitySliderFrame and OpacitySliderFrame:GetValue() or 0))) or 1
-                if onChange then
-                    onChange(nr, ng, nb, na)
-                end
-            end,
-            cancelFunc = function(prev)
-                if prev and onCancel then
-                    onCancel(prev.r, prev.g, prev.b, prev.opacity or 1)
-                end
-            end
+            swatchFunc = updatePending,
+            opacityFunc = updatePending,
+            cancelFunc = cancel
         })
+        ColorPickerFrame._artColorPickerRequest = request
     else
         ColorPickerFrame:Hide()
         ColorPickerFrame.hasOpacity = hasAlpha
-        ColorPickerFrame.opacity = hasAlpha and (1 - (a or 1)) or nil
+        ColorPickerFrame.opacity = hasAlpha and (1 - initial.a) or nil
         ColorPickerFrame.previousValues = {
-            r = r,
-            g = g,
-            b = b,
-            opacity = hasAlpha and (1 - (a or 1)) or nil
+            r = initial.r,
+            g = initial.g,
+            b = initial.b,
+            opacity = hasAlpha and initial.a or nil
         }
-        ColorPickerFrame.func = function()
-            local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-            if onChange then
-                onChange(nr, ng, nb, 1)
-            end
-        end
-        ColorPickerFrame.opacityFunc = function()
-            local nr, ng, nb = ColorPickerFrame:GetColorRGB()
-            local na = hasAlpha and (1 - (OpacitySliderFrame:GetValue() or 0)) or 1
-            if onChange then
-                onChange(nr, ng, nb, na)
-            end
-        end
-        ColorPickerFrame.cancelFunc = function()
-            local prev = ColorPickerFrame.previousValues
-            if prev and onCancel then
-                local pa = prev.opacity and (1 - prev.opacity) or 1
-                onCancel(prev.r, prev.g, prev.b, pa)
-            end
-        end
-        ColorPickerFrame:SetColorRGB(r, g, b)
+        ColorPickerFrame.func = updatePending
+        ColorPickerFrame.opacityFunc = updatePending
+        ColorPickerFrame.cancelFunc = cancel
+        ColorPickerFrame:SetColorRGB(initial.r, initial.g, initial.b)
+        ColorPickerFrame._artColorPickerRequest = request
         ColorPickerFrame:Show()
     end
 end

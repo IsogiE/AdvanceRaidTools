@@ -28,9 +28,16 @@ NoteEvents:RegisterMessage("ART_NOTES_LIST_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTE_SLOT_RENAMED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTE_SLOT_ACTIVE_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTES_LOCK_CHANGED", refreshPanel)
+NoteEvents:RegisterMessage("ART_NOTES_EDIT_MODE_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTE_RECEIVED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTE_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NICKNAME_CHANGED", refreshPanel)
+NoteEvents:RegisterMessage("ART_OPTIONS_HIDDEN", function()
+    local mod = E:GetModule("Notes", true)
+    if mod and mod.ClearEditModes then
+        mod:ClearEditModes()
+    end
+end)
 NoteEvents:RegisterMessage("ART_PROFILE_CHANGED", function()
     editingSlot = MAIN_SLOT
     displayingSlot = MAIN_SLOT
@@ -875,6 +882,38 @@ local FONT_OUTLINES = {
     THICKOUTLINE = L["ThickOutline"],
     MONOCHROME = L["Monochrome"]
 }
+local FONT_OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME"}
+
+local STRATA_VALUES = {
+    BACKGROUND = "Background",
+    LOW = "QoL_StrataLow",
+    MEDIUM = "QoL_StrataMedium",
+    HIGH = "QoL_StrataHigh",
+    DIALOG = "QoL_StrataDialog"
+}
+local STRATA_ORDER = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG"}
+
+local DEFAULT_TIMER_COLOR = {
+    r = 1,
+    g = 210 / 255,
+    b = 0,
+    a = 1
+}
+
+local function localizedValues(source)
+    local out = {}
+    for key, labelKey in pairs(source) do
+        out[key] = L[labelKey] or labelKey or key
+    end
+    return out
+end
+
+local function colorChannels(color, fallback)
+    color = type(color) == "table" and color or {}
+    fallback = fallback or {}
+    return color.r or color[1] or fallback.r or 1, color.g or color[2] or fallback.g or 1,
+        color.b or color[3] or fallback.b or 1, color.a or color[4] or fallback.a or 1
+end
 
 local function slotValues(mod)
     local t = {}
@@ -902,6 +941,13 @@ end
 
 local function buildDisplayArgs(mod, isModuleDisabled)
     local args = {}
+
+    local function refreshDisplay(idx)
+        mod:RefreshFrame(idx)
+        if mod.RefreshTimeTicker then
+            mod:RefreshTimeTicker()
+        end
+    end
 
     args.header = {
         order = 1,
@@ -933,8 +979,307 @@ local function buildDisplayArgs(mod, isModuleDisabled)
         end
     }
 
-    args.fontSize = {
+    args.unlockFrame = {
+        order = 3,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["BossMods_UnlockFrame"],
+                labelTop = true,
+                get = function()
+                    return mod:IsSlotEditMode(clampDisplayingSlot(mod))
+                end,
+                onChange = function(_, v)
+                    mod:SetSlotEditMode(clampDisplayingSlot(mod), v)
+                    refreshPanel()
+                end,
+                tooltip = {
+                    title = L["BossMods_UnlockFrame"],
+                    desc = L["DragToMove"] or ""
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.enableBorder = {
+        order = 4,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Enable"] .. " " .. L["Border"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return not (d and d.borderEnabled == false)
+                end,
+                onChange = function(_, v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.borderEnabled = v and true or false
+                        refreshDisplay(idx)
+                        refreshPanel()
+                    end
+                end,
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.enableBackground = {
+        order = 5,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Enable"] .. " " .. L["Background"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return not (d and d.backgroundEnabled == false)
+                end,
+                onChange = function(_, v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.backgroundEnabled = v and true or false
+                        refreshDisplay(idx)
+                        refreshPanel()
+                    end
+                end,
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.applyToOtherDisplays = {
+        order = 6,
+        width = "1/2",
+        build = function(parent)
+            return T:LabelAlignedButton(parent, {
+                text = L["Notes_ApplyToOtherDisplays"],
+                confirm = true,
+                confirmTitle = L["Notes_ApplyToOtherDisplays"],
+                confirmText = function()
+                    return L["Notes_ApplyToOtherDisplaysConfirm"]
+                end,
+                onClick = function()
+                    if mod:ApplyDisplayToOtherSlots(clampDisplayingSlot(mod)) then
+                        refreshPanel()
+                    end
+                end,
+                tooltip = {
+                    title = L["Notes_ApplyToOtherDisplays"],
+                    desc = L["Notes_ApplyToOtherDisplaysDesc"]
+                },
+                disabled = function()
+                    return isModuleDisabled() or mod:GetSlotCount() <= 1
+                end
+            })
+        end
+    }
+
+    args.visibilityHeader = {
         order = 10,
+        build = function(parent)
+            return T:Header(parent, {
+                text = L["Visibility"]
+            })
+        end
+    }
+
+    args.hideOutsideRaid = {
+        order = 11,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Notes_HideOutsideRaid"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return d and d.hideOutsideRaid or false
+                end,
+                onChange = function(_, v)
+                    local _, d = currentSlotDisplay(mod)
+                    if d then
+                        d.hideOutsideRaid = v and true or false
+                        mod:RefreshAllFrames()
+                        if mod.RefreshTimeTicker then
+                            mod:RefreshTimeTicker()
+                        end
+                    end
+                end,
+                tooltip = {
+                    title = L["Notes_HideOutsideRaid"],
+                    desc = L["Notes_HideOutsideRaidDesc"]
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.hideInCombat = {
+        order = 12,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Notes_HideInCombat"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return d and d.hideInCombat or false
+                end,
+                onChange = function(_, v)
+                    local _, d = currentSlotDisplay(mod)
+                    if d then
+                        d.hideInCombat = v and true or false
+                        mod:RefreshAllFrames()
+                        if mod.RefreshTimeTicker then
+                            mod:RefreshTimeTicker()
+                        end
+                    end
+                end,
+                tooltip = {
+                    title = L["Notes_HideInCombat"],
+                    desc = L["Notes_HideInCombatDesc"]
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.timerHeader = {
+        order = 20,
+        build = function(parent)
+            return T:Header(parent, {
+                text = L["Timer"]
+            })
+        end
+    }
+
+    args.hidePassedTimers = {
+        order = 21,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Notes_HidePassedTimers"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return d and d.hidePassedTimers or false
+                end,
+                onChange = function(_, v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.hidePassedTimers = v and true or false
+                        refreshDisplay(idx)
+                    end
+                end,
+                tooltip = {
+                    title = L["Notes_HidePassedTimers"],
+                    desc = L["Notes_HidePassedTimersDesc"]
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.hideTimerLinesWithoutMe = {
+        order = 22,
+        width = "1/2",
+        build = function(parent)
+            return T:Checkbox(parent, {
+                text = L["Notes_HideTimerLinesWithoutMe"],
+                labelTop = true,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return d and d.hideTimerLinesWithoutMe or false
+                end,
+                onChange = function(_, v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.hideTimerLinesWithoutMe = v and true or false
+                        refreshDisplay(idx)
+                    end
+                end,
+                tooltip = {
+                    title = L["Notes_HideTimerLinesWithoutMe"],
+                    desc = L["Notes_HideTimerLinesWithoutMeDesc"]
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.timerColor = {
+        order = 23,
+        width = "1/2",
+        build = function(parent)
+            local _, d = currentSlotDisplay(mod)
+            local r, g, b, a = colorChannels(d and d.timerColor, DEFAULT_TIMER_COLOR)
+            return T:ColorSwatch(parent, {
+                label = L["Notes_CountdownTextColor"],
+                labelTop = true,
+                r = r,
+                g = g,
+                b = b,
+                a = a,
+                hasAlpha = false,
+                get = function()
+                    local _, dd = currentSlotDisplay(mod)
+                    return colorChannels(dd and dd.timerColor, DEFAULT_TIMER_COLOR)
+                end,
+                onChange = function(r, g, b, a)
+                    local idx, dd = currentSlotDisplay(mod)
+                    if dd then
+                        dd.timerColor = {
+                            r = r,
+                            g = g,
+                            b = b,
+                            a = a or 1
+                        }
+                        refreshDisplay(idx)
+                    end
+                end,
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.appearanceHeader = {
+        order = 30,
+        build = function(parent)
+            return T:Header(parent, {
+                text = L["Appearance"]
+            })
+        end
+    }
+
+    args.fontName = {
+        order = 31,
+        width = "1/2",
+        build = function(parent)
+            return T:Dropdown(parent, {
+                label = L["Font"],
+                values = function()
+                    return E:MediaList("font")
+                end,
+                get = function()
+                    local _, d = currentSlotDisplay(mod)
+                    return (d and d.fontName) or "PT Sans Narrow"
+                end,
+                onChange = function(v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.fontName = v
+                        refreshDisplay(idx)
+                    end
+                end,
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.fontSize = {
+        order = 32,
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
@@ -950,7 +1295,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                     local idx, d = currentSlotDisplay(mod)
                     if d then
                         d.fontSize = math.floor(v + 0.5)
-                        mod:RefreshFrame(idx)
+                        refreshDisplay(idx)
                     end
                 end,
                 disabled = isModuleDisabled
@@ -958,30 +1303,34 @@ local function buildDisplayArgs(mod, isModuleDisabled)
         end
     }
 
-    args.locked = {
-        order = 11,
+    args.fontOutline = {
+        order = 33,
         width = "1/2",
         build = function(parent)
-            return T:Checkbox(parent, {
-                text = L["Notes_Locked"],
-                labelTop = true,
+            return T:Dropdown(parent, {
+                label = (L["Font"] .. " " .. L["Outline"]),
+                values = function()
+                    return FONT_OUTLINES
+                end,
+                sorting = FONT_OUTLINE_ORDER,
                 get = function()
-                    return mod:IsSlotLocked(clampDisplayingSlot(mod))
+                    local _, d = currentSlotDisplay(mod)
+                    return (d and d.fontOutline) or "OUTLINE"
                 end,
-                onChange = function(_, v)
-                    mod:SetSlotLocked(clampDisplayingSlot(mod), v)
+                onChange = function(v)
+                    local idx, d = currentSlotDisplay(mod)
+                    if d then
+                        d.fontOutline = v
+                        refreshDisplay(idx)
+                    end
                 end,
-                tooltip = {
-                    title = L["Notes_Locked"],
-                    desc = L["Notes_LockedDesc"]
-                },
                 disabled = isModuleDisabled
             })
         end
     }
 
     args.spacing = {
-        order = 12,
+        order = 34,
         width = "1/2",
         build = function(parent)
             return T:Slider(parent, {
@@ -997,7 +1346,7 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                     local idx, d = currentSlotDisplay(mod)
                     if d then
                         d.spacing = math.floor(v + 0.5)
-                        mod:RefreshFrame(idx)
+                        refreshDisplay(idx)
                     end
                 end,
                 disabled = isModuleDisabled
@@ -1005,51 +1354,73 @@ local function buildDisplayArgs(mod, isModuleDisabled)
         end
     }
 
-    args.fontOutline = {
-        order = 13,
+    args.strata = {
+        order = 35,
         width = "1/2",
         build = function(parent)
             return T:Dropdown(parent, {
-                label = (L["Font"] .. " " .. L["Outline"]),
+                label = L["QoL_Strata"],
                 values = function()
-                    return FONT_OUTLINES
+                    return localizedValues(STRATA_VALUES)
                 end,
+                sorting = STRATA_ORDER,
                 get = function()
-                    local _, d = currentSlotDisplay(mod)
-                    return (d and d.fontOutline) or "OUTLINE"
+                    return mod.db.display.strata or "MEDIUM"
                 end,
                 onChange = function(v)
-                    local idx, d = currentSlotDisplay(mod)
-                    if d then
-                        d.fontOutline = v
-                        mod:RefreshFrame(idx)
-                    end
+                    mod:SetDisplayStrata(v)
+                end,
+                tooltip = {
+                    title = L["QoL_Strata"],
+                    desc = L["QoL_StrataDesc"]
+                },
+                disabled = isModuleDisabled
+            })
+        end
+    }
+
+    args.resetPosition = {
+        order = 36,
+        width = "1/2",
+        build = function(parent)
+            return T:LabelAlignedButton(parent, {
+                text = L["Reset"] .. " " .. L["Position"],
+                onClick = function()
+                    mod:ResetSlotPosition(clampDisplayingSlot(mod))
                 end,
                 disabled = isModuleDisabled
             })
         end
     }
 
-    -- backdrop shares the row with fontOutline
     args.backdrop = {
-        order = 14,
+        order = 37,
         width = "1/2",
         build = function(parent)
             local _, d = currentSlotDisplay(mod)
-            local init = (d and d.backdrop) or {
+            local r, g, b, a = colorChannels(d and d.backdrop, {
                 r = 0,
                 g = 0,
                 b = 0,
                 a = 0.6
-            }
+            })
             return T:ColorSwatch(parent, {
                 label = (L["Frame"] .. " " .. L["Background"]),
                 labelTop = true,
-                r = init.r,
-                g = init.g,
-                b = init.b,
-                a = init.a,
+                r = r,
+                g = g,
+                b = b,
+                a = a,
                 hasAlpha = true,
+                get = function()
+                    local _, dd = currentSlotDisplay(mod)
+                    return colorChannels(dd and dd.backdrop, {
+                        r = 0,
+                        g = 0,
+                        b = 0,
+                        a = 0.6
+                    })
+                end,
                 onChange = function(r, g, b, a)
                     local idx, dd = currentSlotDisplay(mod)
                     if dd then
@@ -1059,33 +1430,45 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                             b = b,
                             a = a
                         }
-                        mod:RefreshFrame(idx)
+                        refreshDisplay(idx)
                     end
                 end,
-                disabled = isModuleDisabled
+                disabled = function()
+                    local _, dd = currentSlotDisplay(mod)
+                    return isModuleDisabled() or (dd and dd.backgroundEnabled == false)
+                end
             })
         end
     }
 
     args.border = {
-        order = 15,
+        order = 38,
         width = "1/2",
         build = function(parent)
             local _, d = currentSlotDisplay(mod)
-            local init = (d and d.border) or {
+            local r, g, b, a = colorChannels(d and d.border, {
                 r = 0,
                 g = 0,
                 b = 0,
                 a = 1
-            }
+            })
             return T:ColorSwatch(parent, {
                 label = (L["Frame"] .. " " .. L["Border"]),
                 labelTop = true,
-                r = init.r,
-                g = init.g,
-                b = init.b,
-                a = init.a,
+                r = r,
+                g = g,
+                b = b,
+                a = a,
                 hasAlpha = true,
+                get = function()
+                    local _, dd = currentSlotDisplay(mod)
+                    return colorChannels(dd and dd.border, {
+                        r = 0,
+                        g = 0,
+                        b = 0,
+                        a = 1
+                    })
+                end,
                 onChange = function(r, g, b, a)
                     local idx, dd = currentSlotDisplay(mod)
                     if dd then
@@ -1095,10 +1478,13 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                             b = b,
                             a = a
                         }
-                        mod:RefreshFrame(idx)
+                        refreshDisplay(idx)
                     end
                 end,
-                disabled = isModuleDisabled
+                disabled = function()
+                    local _, dd = currentSlotDisplay(mod)
+                    return isModuleDisabled() or (dd and dd.borderEnabled == false)
+                end
             })
         end
     }
