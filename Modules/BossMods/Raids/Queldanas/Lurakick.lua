@@ -417,7 +417,8 @@ function Lurakick:UpdateDisplay()
         return
     end
 
-    if not self.active or not UnitExists("boss" .. self.myTrackedID) then
+    local trackedUnit = "boss" .. self.myTrackedID
+    if not self.active or not UnitExists(trackedUnit) or not UnitIsEnemy(trackedUnit, "player") then
         if not self.editMode then
             self.list:Hide()
         end
