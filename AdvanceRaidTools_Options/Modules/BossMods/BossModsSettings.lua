@@ -196,6 +196,7 @@ local function buildTabBody(parent, tabKey)
         if contentW <= 0 then
             body.content:SetHeight(1)
             body.scroll:UpdateScrollChildRect()
+            body.ScrollToTop()
             return
         end
         local msg = T:Description(body.content, {
@@ -207,9 +208,10 @@ local function buildTabBody(parent, tabKey)
         state.placeholder = msg.frame
         body.content:SetHeight(msg.frame:GetHeight() or 30)
         body.scroll:UpdateScrollChildRect()
+        body.ScrollToTop()
     end
 
-    local function showFeatureBody(key)
+    local function showFeatureBody(key, resetScroll)
         destroyPlaceholder()
 
         for k, fb in pairs(state.featureBodies) do
@@ -233,6 +235,7 @@ local function buildTabBody(parent, tabKey)
             else
                 body.content:SetHeight(1)
                 body.scroll:UpdateScrollChildRect()
+                body.ScrollToTop()
             end
             return
         end
@@ -241,11 +244,15 @@ local function buildTabBody(parent, tabKey)
         local h = fb.handle.height or fb.wrapper:GetHeight() or 30
         body.content:SetHeight(math.max(1, h))
         body.scroll:UpdateScrollChildRect()
+        if resetScroll then
+            body.ScrollToTop()
+        end
     end
 
     local function selectFeature(key)
+        local changed = key ~= state.activeFeature
         state.activeFeature = key
-        showFeatureBody(key)
+        showFeatureBody(key, changed)
         paintAllRows()
         local fb = state.featureBodies[key]
         if fb and fb.handle and fb.handle.Refresh then
