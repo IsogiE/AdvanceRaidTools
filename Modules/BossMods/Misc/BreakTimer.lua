@@ -127,9 +127,6 @@ function Mod:OnStartBar(key, text, time)
     if InCombatLockdown() then
         return
     end
-    if self.editMode then
-        return
-    end
     if not isBreakText(text) then
         return
     end
@@ -292,7 +289,8 @@ function Mod:SetEditMode(v)
 
     if self.editMode then
         if self:IsRunning() then
-            self:Stop()
+            self.frame:Show()
+            return
         end
         if self:Show() then
             self.frame._tickAcc = 0
