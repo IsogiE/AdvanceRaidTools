@@ -650,7 +650,7 @@ function T:LabelAlignedButton(parent, opts)
     local buttonOpts = shallowCopy(opts)
     buttonOpts.text = initialText
     buttonOpts.height = btnH
-    buttonOpts.width = opts.buttonWidth or buttonOpts.width
+    buttonOpts.width = opts.buttonWidth or buttonOpts.width or 1
     buttonOpts.totalHeight = nil
     buttonOpts.labelHeight = nil
     buttonOpts.buttonHeight = nil

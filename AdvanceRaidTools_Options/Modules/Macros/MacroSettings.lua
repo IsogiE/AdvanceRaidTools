@@ -95,12 +95,20 @@ local function noSlot()
     return disabled() or selected() == nil
 end
 
+local function selectedIsDefault()
+    local m, slot = mod(), selected()
+    return m and slot and m:IsDefaultSlot(slot)
+end
+
 local function selectedMacroExists()
     local m, slot = mod(), selected()
     return m and slot and m:MacroExists(slot)
 end
 
 local function deleteActionText()
+    if selectedIsDefault() then
+        return L["Macros_DefaultMacro"]
+    end
     return selectedMacroExists() and L["Macros_DeleteMacro"] or L["Macros_RemoveSetup"]
 end
 
@@ -274,6 +282,8 @@ function report(ok, err, extra, successText)
         E:Printf(L["Macros_ErrorWriteFailed"]:format(tostring(extra or "")))
     elseif err == "BIND_FAILED" then
         E:Printf(L["Macros_ErrorBindFailed"])
+    elseif err == "DEFAULT_LOCKED" then
+        E:Printf(L["Macros_ErrorDefaultLocked"])
     else
         E:Printf(L["Macros_ErrorGeneric"]:format(tostring(err or "?")))
     end
@@ -624,7 +634,9 @@ local function buildPanel()
                                 report(ok, err, extra, successText)
                             end
                         end,
-                        disabled = noSlot
+                        disabled = function()
+                            return noSlot() or selectedIsDefault()
+                        end
                     })
                 end
             },
@@ -699,6 +711,9 @@ local function buildPanel()
                     if not slot then
                         return
                     end
+                    if m:IsDefaultSlot(slot) then
+                        return
+                    end
                     local previousName = slot.macroName
                     slot.macroName = m:MakeUniqueMacroName(value, slot.id)
                     slot.name = slot.macroName
@@ -713,7 +728,9 @@ local function buildPanel()
                     end
                     return true
                 end,
-                disabled = noSlot
+                disabled = function()
+                    return noSlot() or selectedIsDefault()
+                end
             },
             type = {
                 order = 33,

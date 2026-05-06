@@ -431,8 +431,14 @@ local function buildExecute(parent, option, info)
         end
     end
 
+    local buttonWidth
+    if option.width ~= "compact" then
+        buttonWidth = 1
+    end
+
     local tpl = T:Button(parent, {
         text = evalName(option, info),
+        width = buttonWidth,
         height = 24,
         tooltip = function()
             local desc = evalDesc(option, info)

@@ -81,6 +81,11 @@ local DEFAULT_SLOTS = {{
     customLines = {}
 }}
 
+local DEFAULT_SLOT_BY_ID = {}
+for _, slot in ipairs(DEFAULT_SLOTS) do
+    DEFAULT_SLOT_BY_ID[slot.id] = slot
+end
+
 E:RegisterModuleDefaults("Macros", {
     enabled = true,
     selectedID = 1,
@@ -171,6 +176,10 @@ local function macroLookupName(text)
         text = trim(text:sub(1, NAME_LIMIT))
     end
     return text
+end
+
+local function defaultSlotForID(id)
+    return DEFAULT_SLOT_BY_ID[tonumber(id)]
 end
 
 local function normalizeType(value)
@@ -433,11 +442,17 @@ end
 
 function Macros:NormalizeSlot(slot, index)
     slot.id = tonumber(slot.id) or index or 1
-    slot.name = trim(slot.name or slot.label)
-    if slot.name == "" then
-        slot.name = L["Macros_DefaultName"] or "Macro"
+    local defaultSlot = defaultSlotForID(slot.id)
+    if defaultSlot then
+        slot.name = defaultSlot.name
+        slot.macroName = defaultSlot.macroName
+    else
+        slot.name = trim(slot.name or slot.label)
+        if slot.name == "" then
+            slot.name = L["Macros_DefaultName"] or "Macro"
+        end
+        slot.macroName = macroName(slot.macroName, "ART " .. slot.name)
     end
-    slot.macroName = macroName(slot.macroName, "ART " .. slot.name)
     slot.type = normalizeType(slot.type or slot.kind)
     slot.spell = trim(slot.spell or slot.spellName)
     if slot.type == TYPE_SPELL and slot.spell == "" then
@@ -470,11 +485,37 @@ function Macros:NormalizeSlot(slot, index)
     return slot
 end
 
+local function ensureDefaultSlots(slots)
+    local byID = {}
+    for _, slot in ipairs(slots) do
+        local id = tonumber(slot.id)
+        if id then
+            byID[id] = slot
+        end
+    end
+
+    local ordered = {}
+    for _, defaultSlot in ipairs(DEFAULT_SLOTS) do
+        ordered[#ordered + 1] = byID[defaultSlot.id] or CopyTable(defaultSlot)
+    end
+    for _, slot in ipairs(slots) do
+        if not defaultSlotForID(slot.id) then
+            ordered[#ordered + 1] = slot
+        end
+    end
+
+    wipe(slots)
+    for i, slot in ipairs(ordered) do
+        slots[i] = slot
+    end
+end
+
 function Macros:NormalizeDB()
     self.db.slots = type(self.db.slots) == "table" and self.db.slots or CopyTable(DEFAULT_SLOTS)
     if #self.db.slots == 0 then
         self.db.slots = CopyTable(DEFAULT_SLOTS)
     end
+    ensureDefaultSlots(self.db.slots)
 
     local usedIDs, maxID = {}, 0
     for i, slot in ipairs(self.db.slots) do
@@ -534,6 +575,11 @@ function Macros:GetSlot(id)
             return slot
         end
     end
+end
+
+function Macros:IsDefaultSlot(slotOrID)
+    local id = type(slotOrID) == "table" and slotOrID.id or slotOrID
+    return defaultSlotForID(id) ~= nil
 end
 
 function Macros:GetSelectedSlot()
@@ -665,6 +711,9 @@ end
 
 function Macros:DeleteSlot(id)
     id = tonumber(id)
+    if self:IsDefaultSlot(id) then
+        return false, "DEFAULT_LOCKED"
+    end
     for _, slot in ipairs(self.db.slots or {}) do
         if slot.id == id then
             local function deleteNow()
