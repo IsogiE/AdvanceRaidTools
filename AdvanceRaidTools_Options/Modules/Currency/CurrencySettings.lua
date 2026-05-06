@@ -8,7 +8,7 @@ end
 
 local SORT_MODES = {
     amount = L["SortByAmount"],
-    name = L["SortByName"]
+    name = L["Name"]
 }
 local SORT_ORDER = {"amount", "name"}
 
