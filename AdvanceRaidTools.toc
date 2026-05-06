@@ -45,6 +45,8 @@ Modules\AddonChecker\AddonChecker.lua
 
 Modules\Notes\Notes.lua
 
+Modules\Macros\Macros.lua
+
 Modules\Updater\Updater.lua
 
 Modules\QualityOfLife\QualityOfLife.lua

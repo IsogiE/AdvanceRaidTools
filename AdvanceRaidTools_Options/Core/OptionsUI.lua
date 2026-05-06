@@ -76,13 +76,53 @@ local function runFlusherList(list)
     end
 end
 
-local function runRefreshList(list)
-    for _, fn in ipairs(list) do
-        local ok, err = pcall(fn)
-        if not ok then
-            geterrorhandler()(err)
+local function addRefresh(list, fn, kind)
+    if kind then
+        list[#list + 1] = {
+            fn = fn,
+            kind = kind
+        }
+    else
+        list[#list + 1] = fn
+    end
+end
+
+local function refreshEntry(entry)
+    if type(entry) == "table" then
+        return entry.fn, entry.kind
+    end
+    return entry, nil
+end
+
+local function runRefreshList(list, forceLayout)
+    local needsLayout = forceLayout and true or false
+
+    for _, entry in ipairs(list) do
+        local fn, kind = refreshEntry(entry)
+        if kind ~= "layout" then
+            local ok, layoutChangedOrErr = pcall(fn)
+            if ok then
+                needsLayout = needsLayout or layoutChangedOrErr == true
+            else
+                geterrorhandler()(layoutChangedOrErr)
+            end
         end
     end
+
+    if not needsLayout then
+        return false
+    end
+
+    for _, entry in ipairs(list) do
+        local fn, kind = refreshEntry(entry)
+        if kind == "layout" then
+            local ok, err = pcall(fn)
+            if not ok then
+                geterrorhandler()(err)
+            end
+        end
+    end
+    return true
 end
 
 function ART_UI:_runResizeFlushers()
@@ -345,6 +385,7 @@ local function buildToggle(parent, option, info)
     local tpl = T:Checkbox(parent, {
         text = evalName(option, info),
         checked = callGet(option, info) and true or false,
+        labelTop = option.labelTop,
         tooltip = function()
             local title = evalName(option, info)
             local desc = evalDesc(option, info)
@@ -360,8 +401,10 @@ local function buildToggle(parent, option, info)
         end,
         onChange = function(_, newVal)
             callSet(option, info, newVal)
-            -- a toggle can change other widgets; refresh the panel
-            ART_UI:QueueRefresh("current")
+            -- a toggle can change other widgets; refresh the panel unless the option opts out.
+            if option.refresh ~= false then
+                ART_UI:QueueRefresh("current")
+            end
         end
     })
     ART_UI:AddResizeFlusher(tpl.Refresh)
@@ -383,7 +426,9 @@ end
 local function buildExecute(parent, option, info)
     local function doFire()
         callFunc(option, info)
-        ART_UI:QueueRefresh("current")
+        if option.refresh ~= false then
+            ART_UI:QueueRefresh("current")
+        end
     end
 
     local tpl = T:Button(parent, {
@@ -485,7 +530,9 @@ local function buildDropdown(parent, option, info)
             else
                 callSet(option, info, key)
             end
-            ART_UI:QueueRefresh("current")
+            if option.refresh ~= false then
+                ART_UI:QueueRefresh("current")
+            end
         end,
         disabled = function()
             return evalDisabled(option, info)
@@ -521,7 +568,9 @@ local function buildEditBox(parent, option, info)
         end,
         onCommit = function(text)
             callSet(option, info, text)
-            ART_UI:QueueRefresh("current")
+            if option.refresh ~= false then
+                ART_UI:QueueRefresh("current")
+            end
         end,
         disabled = function()
             return evalDisabled(option, info)
@@ -924,8 +973,8 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
             layoutSegment(items, baseState, myState)
         end
         ART_UI:AddResizeFlusher(runLayout)
-        refreshList[#refreshList + 1] = runLayout
-        rootRefreshList[#rootRefreshList + 1] = runLayout
+        addRefresh(refreshList, runLayout, "layout")
+        addRefresh(rootRefreshList, runLayout, "layout")
         runLayout()
         prevState = myState
     end
@@ -963,8 +1012,8 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
         end
 
         ART_UI:AddResizeFlusher(place)
-        refreshList[#refreshList + 1] = place
-        rootRefreshList[#rootRefreshList + 1] = place
+        addRefresh(refreshList, place, "layout")
+        addRefresh(rootRefreshList, place, "layout")
         place()
         prevState = myState
     end
@@ -987,8 +1036,8 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
                         name = nm
                     }, info)
                     commitFullWidth(hdr)
-                    refreshList[#refreshList + 1] = hdr.Refresh
-                    rootRefreshList[#rootRefreshList + 1] = hdr.Refresh
+                    addRefresh(refreshList, hdr.Refresh)
+                    addRefresh(rootRefreshList, hdr.Refresh)
                 end
 
                 local innerGap = option.colGap or colGap
@@ -1005,8 +1054,12 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
 
                 local refresh = widget.Refresh
                 local frame = widget.frame
+                local lastHidden
+                local lastHeight = frame:GetHeight()
                 local wrap = function()
                     local hid = evalHidden(option, info)
+                    local layoutChanged = lastHidden ~= nil and hid ~= lastHidden
+                    lastHidden = hid
                     if hid then
                         frame:Hide()
                     else
@@ -1015,9 +1068,15 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
                     if not hid and refresh then
                         refresh()
                     end
+                    local height = frame:GetHeight()
+                    if not hid and lastHeight and height and math.abs(height - lastHeight) > 0.5 then
+                        layoutChanged = true
+                    end
+                    lastHeight = height
+                    return layoutChanged
                 end
-                refreshList[#refreshList + 1] = wrap
-                rootRefreshList[#rootRefreshList + 1] = wrap
+                addRefresh(refreshList, wrap)
+                addRefresh(rootRefreshList, wrap)
                 wrap()
 
                 if widget.fullWidth then
@@ -1226,8 +1285,8 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
     end
 
     panel.ReapplyTabHighlight = tabBar.ReapplyHighlight
-    rootRefreshers[#rootRefreshers + 1] = tabBar.ReapplyHighlight
-    panelRefreshers[#panelRefreshers + 1] = tabBar.ReapplyHighlight
+    addRefresh(rootRefreshers, tabBar.ReapplyHighlight)
+    addRefresh(panelRefreshers, tabBar.ReapplyHighlight)
 
     panel._refreshTabLabels = function()
         for _, t in ipairs(panel._tabs) do
@@ -1505,7 +1564,7 @@ function ART_UI:RefreshPanel(panel, force)
     local refreshed = false
     local headerList = ART_UI.panelRefreshers[panel]
     if headerList and (force or self.refreshDirty[panel]) then
-        runRefreshList(headerList)
+        runRefreshList(headerList, force)
         self.refreshDirty[panel] = nil
         refreshed = true
     end
@@ -1515,7 +1574,7 @@ function ART_UI:RefreshPanel(panel, force)
         if content then
             local list = ART_UI.panelRefreshers[content]
             if list and (force or self.refreshDirty[content]) then
-                runRefreshList(list)
+                runRefreshList(list, force)
                 self.refreshDirty[content] = nil
                 refreshed = true
             end

@@ -34,6 +34,8 @@ Modules\AddonChecker\AddonCheckerSettings.lua
 
 Modules\Notes\NoteSettings.lua
 
+Modules\Macros\MacroSettings.lua
+
 Modules\QualityOfLife\QualityOfLifeSettings.lua
 Modules\QualityOfLife\Circle\CircleSettings.lua
 Modules\QualityOfLife\Resources\ResourcesSettings.lua
