@@ -984,6 +984,16 @@ local function buildEditBox(parent, option, info)
         validate = function(text)
             return callValidate(option, info, text)
         end,
+        tooltip = function()
+            local desc = evalDesc(option, info)
+            if desc then
+                return {
+                    title = evalName(option, info),
+                    desc = desc
+                }
+            end
+        end,
+        tooltipAnchor = "ANCHOR_CURSOR",
         onCommit = function(text)
             callSet(option, info, text)
             if option.refresh ~= false then
@@ -1014,6 +1024,16 @@ local function buildMultilineEditBox(parent, option, info)
         default = tostring(callGet(option, info) or ""),
         lines = lines,
         template = "Default",
+        tooltip = function()
+            local desc = evalDesc(option, info)
+            if desc then
+                return {
+                    title = evalName(option, info),
+                    desc = desc
+                }
+            end
+        end,
+        tooltipAnchor = "ANCHOR_CURSOR",
         onTextChanged = function(text, userInput)
             if not userInput then
                 return

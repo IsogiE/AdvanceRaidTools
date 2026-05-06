@@ -288,6 +288,10 @@ function report(ok, err, extra, successText)
         E:Printf(L["Macros_ErrorBindFailed"])
     elseif err == "DEFAULT_LOCKED" then
         E:Printf(L["Macros_ErrorDefaultLocked"])
+    elseif err == "NO_TARGET" then
+        E:Printf(L["Macros_ErrorNoTarget"])
+    elseif err == "TARGET_NOT_PLAYER" then
+        E:Printf(L["Macros_ErrorTargetNotPlayer"])
     else
         E:Printf(L["Macros_ErrorGeneric"]:format(tostring(err or "?")))
     end
@@ -545,6 +549,31 @@ local function startBindingCapture()
     })
 end
 
+local function writeSelectedMacro()
+    local m, slot = mod(), selected()
+    if not (m and slot) then
+        return
+    end
+    local ok, err, extra = m:Write(slot)
+    report(ok, err, extra, L["Macros_CreateMacroDone"])
+end
+
+local function fillTargetNameFromCurrentTarget()
+    local m, slot = mod(), selected()
+    if not (m and slot) then
+        return
+    end
+    local name, err = m:GetCurrentTargetName("target")
+    if not name then
+        report(false, err)
+        return
+    end
+    slot.targetName = name
+    changed({
+        sync = true
+    })
+end
+
 statusText = function()
     local m, slot = mod(), selected()
     if not (m and slot) then
@@ -708,11 +737,43 @@ local function buildPanel()
                     return widget
                 end
             },
-            name = {
+            draftName = {
                 order = 32,
                 type = "input",
-                width = "1/2",
-                name = L["Name"],
+                width = "1/3",
+                name = L["Macros_DraftName"],
+                desc = L["Macros_DraftNameDesc"],
+                get = function()
+                    local slot = selected()
+                    return slot and slot.name or ""
+                end,
+                set = function(_, value)
+                    local slot = selected()
+                    if not slot then
+                        return
+                    end
+                    if m:IsDefaultSlot(slot) then
+                        return
+                    end
+                    slot.name = m:MakeUniqueDraftName(value, slot.id)
+                    changed()
+                end,
+                validate = function(_, value)
+                    if #trim(value) > m:GetDraftNameLimit() then
+                        return false, L["Macros_ErrorDraftNameTooLong"]:format(m:GetDraftNameLimit())
+                    end
+                    return true
+                end,
+                disabled = function()
+                    return noSlot() or selectedIsDefault()
+                end
+            },
+            name = {
+                order = 33,
+                type = "input",
+                width = "1/3",
+                name = L["Macros_MacroName"],
+                desc = L["Macros_MacroNameDesc"],
                 get = function()
                     local slot = selected()
                     return slot and slot.macroName or ""
@@ -726,8 +787,11 @@ local function buildPanel()
                         return
                     end
                     local previousName = slot.macroName
+                    local previousDraftName = trim(slot.name)
                     slot.macroName = m:MakeUniqueMacroName(value, slot.id)
-                    slot.name = slot.macroName
+                    if previousDraftName == "" or previousDraftName == previousName then
+                        slot.name = slot.macroName
+                    end
                     changed({
                         sync = true,
                         previousName = previousName
@@ -744,9 +808,9 @@ local function buildPanel()
                 end
             },
             type = {
-                order = 33,
+                order = 34,
                 type = "select",
-                width = "1/2",
+                width = "1/3",
                 name = L["Type"],
                 buttonHeight = CONTROL_H,
                 dropdownHeight = LABELLED_CONTROL_H,
@@ -765,7 +829,7 @@ local function buildPanel()
             spell = {
                 order = 40,
                 type = "input",
-                width = "1/2",
+                width = "1/3",
                 name = L["Spell"],
                 hidden = function()
                     local slot = selected()
@@ -784,7 +848,7 @@ local function buildPanel()
             targetName = {
                 order = 42,
                 type = "input",
-                width = "1/2",
+                width = "1/3",
                 name = L["Macros_TargetName"],
                 desc = L["Macros_TargetNameDesc"],
                 hidden = function()
@@ -798,10 +862,31 @@ local function buildPanel()
                     return slot and slot.targetName or ""
                 end,
                 set = function(_, value)
-                    setFieldStatusOnly("targetName", trim(value))
+                    setFieldStatusOnly("targetName", m:NormalizeTargetName(value))
                 end,
                 refresh = false,
                 disabled = noSlot
+            },
+            targetFromCurrent = {
+                order = 43,
+                width = "1/3",
+                build = function(parent)
+                    return T:LabelAlignedButton(parent, {
+                        text = L["Macros_UseCurrentTarget"],
+                        buttonHeight = CONTROL_H,
+                        totalHeight = LABELLED_CONTROL_H,
+                        tooltip = {
+                            title = L["Macros_UseCurrentTarget"],
+                            desc = L["Macros_UseCurrentTargetDesc"]
+                        },
+                        onClick = fillTargetNameFromCurrentTarget,
+                        disabled = noSlot
+                    })
+                end,
+                hidden = function()
+                    local slot = selected()
+                    return not (slot and slot.type == TYPE_SPELL)
+                end
             },
             targetMode = {
                 order = 41,
@@ -836,7 +921,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             marker = {
-                order = 43,
+                order = 44,
                 type = "select",
                 width = "1/2",
                 name = L["Macros_Marker"],
@@ -861,7 +946,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             mouseover = {
-                order = 44,
+                order = 45,
                 type = "toggle",
                 width = "1/4",
                 name = L["Mouseover"],
@@ -881,7 +966,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             trinket1 = {
-                order = 45,
+                order = 46,
                 type = "toggle",
                 width = "1/4",
                 name = L["Macros_Trinket1"],
@@ -901,7 +986,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             trinket2 = {
-                order = 46,
+                order = 47,
                 type = "toggle",
                 width = "1/4",
                 name = L["Macros_Trinket2"],
@@ -921,7 +1006,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             cursor = {
-                order = 47,
+                order = 48,
                 type = "toggle",
                 width = "1/4",
                 name = L["Macros_UseCursor"],
@@ -941,7 +1026,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             clearFirst = {
-                order = 48,
+                order = 49,
                 type = "toggle",
                 width = "1/4",
                 name = L["Macros_ClearFirst"],
@@ -961,7 +1046,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             customLines = {
-                order = 49,
+                order = 50,
                 build = buildCustomLines,
                 hidden = function()
                     local slot = selected()
@@ -970,7 +1055,7 @@ local function buildPanel()
                 disabled = noSlot
             },
             body = {
-                order = 50,
+                order = 51,
                 type = "execute",
                 width = "1/2",
                 name = L["Macros_EditBody"],
@@ -985,8 +1070,20 @@ local function buildPanel()
                 disabled = noSlot
             },
 
-            bind = {
+            writeMacro = {
                 order = 61,
+                type = "execute",
+                width = "1/2",
+                refresh = false,
+                name = L["Macros_CreateMacro"],
+                desc = L["Macros_WriteMacroDesc"],
+                func = writeSelectedMacro,
+                disabled = function()
+                    return noSlot() or selectedMacroExists()
+                end
+            },
+            bind = {
+                order = 62,
                 type = "execute",
                 width = "1/2",
                 refresh = false,

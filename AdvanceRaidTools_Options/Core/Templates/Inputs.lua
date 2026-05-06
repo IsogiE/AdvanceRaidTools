@@ -262,6 +262,10 @@ function T:EditBox(parent, opts)
 
     if opts.tooltip then
         attachTooltip(box, opts.tooltip, opts.tooltipAnchor)
+        attachTooltip(eb, opts.tooltip, opts.tooltipAnchor)
+        if okBtn then
+            attachTooltip(okBtn, opts.tooltip, opts.tooltipAnchor)
+        end
     end
 
     local function SetText(t)
@@ -544,6 +548,7 @@ function T:MultilineEditBox(parent, opts)
 
     if opts.tooltip then
         attachTooltip(box, opts.tooltip, opts.tooltipAnchor)
+        attachTooltip(eb, opts.tooltip, opts.tooltipAnchor)
     end
 
     local function SetText(t)

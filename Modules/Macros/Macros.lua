@@ -2,6 +2,7 @@ local E, L = unpack(ART)
 
 local TEXT_LIMIT = 255
 local NAME_LIMIT = 16
+local DRAFT_NAME_LIMIT = 64
 local GENERAL_MACRO_MAX = 120
 local CHARACTER_MACRO_MAX = 30
 local DEFAULT_MACRO_ICON = "INV_Misc_QuestionMark"
@@ -174,6 +175,35 @@ local function macroLookupName(text)
     text = text:gsub("[%c]", ""):gsub("%s+", " ")
     if #text > NAME_LIMIT then
         text = trim(text:sub(1, NAME_LIMIT))
+    end
+    return text
+end
+
+local function draftName(text, fallback)
+    text = trim(text)
+    if text == "" then
+        text = fallback or L["Macros_DefaultName"] or "Macro"
+    end
+    text = text:gsub("[%c]", ""):gsub("%s+", " ")
+    if #text > DRAFT_NAME_LIMIT then
+        text = trim(text:sub(1, DRAFT_NAME_LIMIT))
+    end
+    if text == "" then
+        text = fallback or L["Macros_DefaultName"] or "Macro"
+    end
+    return text
+end
+
+local function targetPlayerName(text)
+    text = trim(text)
+    if text == "" then
+        return ""
+    end
+    text = text:gsub("[%c]", ""):gsub("%s+", "")
+    local name, realm = text:match("^([^%-]+)%-(.+)$")
+    if name then
+        realm = trim(realm):gsub("%s+", "")
+        return realm ~= "" and (name .. "-" .. realm) or name
     end
     return text
 end
@@ -447,10 +477,7 @@ function Macros:NormalizeSlot(slot, index)
         slot.name = defaultSlot.name
         slot.macroName = defaultSlot.macroName
     else
-        slot.name = trim(slot.name or slot.label)
-        if slot.name == "" then
-            slot.name = L["Macros_DefaultName"] or "Macro"
-        end
+        slot.name = draftName(slot.name or slot.label)
         slot.macroName = macroName(slot.macroName, "ART " .. slot.name)
     end
     slot.type = normalizeType(slot.type or slot.kind)
@@ -458,9 +485,18 @@ function Macros:NormalizeSlot(slot, index)
     if slot.type == TYPE_SPELL and slot.spell == "" then
         slot.spell = "Power Infusion"
     end
-    slot.targetName = trim(slot.targetName)
+    slot.targetName = targetPlayerName(slot.targetName)
     slot.marker = clampMarker(slot.marker)
-    local priorMouseover = slot.useMouseover or slot.targetMode == TARGET_MODE_MOUSEOVER or false
+    local priorMouseover
+    if slot.type == TYPE_SPELL then
+        priorMouseover = slot.useMouseover
+        if priorMouseover == nil then
+            priorMouseover = slot.targetMode == TARGET_MODE_MOUSEOVER
+        end
+        priorMouseover = priorMouseover and true or false
+    else
+        priorMouseover = slot.useMouseover or slot.targetMode == TARGET_MODE_MOUSEOVER or false
+    end
     slot.targetMode = normalizeTargetMode(slot.targetMode, priorMouseover)
     if slot.type == TYPE_SPELL then
         slot.useMouseover = priorMouseover
@@ -604,12 +640,34 @@ function Macros:IsMacroNameUsed(name, ignoreID)
     return false
 end
 
+function Macros:IsDraftNameUsed(name, ignoreID)
+    name = draftName(name, "")
+    ignoreID = tonumber(ignoreID)
+    for _, slot in ipairs(self.db.slots or {}) do
+        if slot.id ~= ignoreID and draftName(slot.name, "") == name then
+            return true
+        end
+    end
+    return false
+end
+
 function Macros:MakeUniqueMacroName(base, ignoreID)
     base = macroName(base, "ART Macro")
     local candidate, n = base, 2
     while self:IsMacroNameUsed(candidate, ignoreID) do
         local suffix = " " .. n
         candidate = macroName(base:sub(1, NAME_LIMIT - #suffix) .. suffix, "ART Macro")
+        n = n + 1
+    end
+    return candidate
+end
+
+function Macros:MakeUniqueDraftName(base, ignoreID)
+    base = draftName(base, L["Macros_DefaultName"] or "Macro")
+    local candidate, n = base, 2
+    while self:IsDraftNameUsed(candidate, ignoreID) do
+        local suffix = " " .. n
+        candidate = draftName(base:sub(1, DRAFT_NAME_LIMIT - #suffix) .. suffix, L["Macros_DefaultName"] or "Macro")
         n = n + 1
     end
     return candidate
@@ -622,7 +680,7 @@ function Macros:AddSlot(slotType)
 
     local slot = {
         id = id,
-        name = L["Macros_DefaultName"] or "Macro",
+        name = self:MakeUniqueDraftName(L["Macros_DefaultName"] or "Macro", id),
         macroName = self:MakeUniqueMacroName("ART Macro", id),
         type = normalizeType(slotType),
         spell = "Power Infusion",
@@ -642,6 +700,7 @@ function Macros:AddSlot(slotType)
 end
 
 function Macros:DuplicateSlot(id)
+    self:NormalizeDB()
     local source = self:GetSlot(id)
     if not source then
         return
@@ -649,7 +708,7 @@ function Macros:DuplicateSlot(id)
     local slot = CopyTable(source)
     slot.id = self.db.nextID
     self.db.nextID = self.db.nextID + 1
-    slot.name = (slot.name or "Macro") .. " Copy"
+    slot.name = self:MakeUniqueDraftName((slot.name or slot.macroName or "Macro") .. " Copy", slot.id)
     slot.macroName = self:MakeUniqueMacroName(slot.macroName, slot.id)
     table.insert(self.db.slots, slot)
     self.db.selectedID = slot.id
@@ -833,6 +892,40 @@ end
 
 function Macros:GetNameLimit()
     return NAME_LIMIT
+end
+
+function Macros:GetDraftNameLimit()
+    return DRAFT_NAME_LIMIT
+end
+
+function Macros:NormalizeTargetName(name)
+    return targetPlayerName(name)
+end
+
+function Macros:GetCurrentTargetName(unit)
+    unit = unit or "target"
+    if UnitExists and not UnitExists(unit) then
+        return nil, "NO_TARGET"
+    end
+    if UnitIsPlayer and not UnitIsPlayer(unit) then
+        return nil, "TARGET_NOT_PLAYER"
+    end
+
+    local fullName = targetPlayerName(E:GetUnitFullName(unit, true))
+    if fullName == "" then
+        return nil, "NO_TARGET"
+    end
+
+    local name, realm = fullName:match("^([^%-]+)%-(.+)$")
+    if not name then
+        return fullName
+    end
+
+    local playerRealm = targetPlayerName(E:GetUnitFullName("player", true)):match("^[^%-]+%-(.+)$")
+    if realm == "" or realm == playerRealm then
+        return name
+    end
+    return name .. "-" .. realm
 end
 
 function Macros:FindMacro(name, scope)
