@@ -51,6 +51,13 @@ E.pixelBorderedFrames = setmetatable({}, {
     __mode = "k"
 })
 
+local function snapToPixel(value, pixel)
+    if not value or not pixel or pixel <= 0 then
+        return value or 0
+    end
+    return math.floor(value / pixel + 0.5) * pixel
+end
+
 local function ensureBackdrop(frame)
     if not frame.SetBackdrop then
         Mixin(frame, BackdropTemplateMixin)
@@ -131,14 +138,32 @@ local function layoutPixelBorder(frame, inset, thickness)
     end
     b._inset, b._thickness = i, t
 
+    local leftOffset, rightOffset, topOffset, bottomOffset = i, -i, -i, i
+    local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
+    local pixel = E:PixelSize(frame)
+    if pixel > 0 then
+        if left then
+            leftOffset = i + (snapToPixel(left + i, pixel) - (left + i))
+        end
+        if right then
+            rightOffset = -i + (snapToPixel(right - i, pixel) - (right - i))
+        end
+        if top then
+            topOffset = -i + (snapToPixel(top - i, pixel) - (top - i))
+        end
+        if bottom then
+            bottomOffset = i + (snapToPixel(bottom + i, pixel) - (bottom + i))
+        end
+    end
+
     b.left:ClearAllPoints()
-    b.left:SetPoint("TOPLEFT", frame, "TOPLEFT", i, -i)
-    b.left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", i, i)
+    b.left:SetPoint("TOPLEFT", frame, "TOPLEFT", leftOffset, topOffset)
+    b.left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", leftOffset, bottomOffset)
     b.left:SetWidth(t)
 
     b.right:ClearAllPoints()
-    b.right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -i, -i)
-    b.right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -i, i)
+    b.right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", rightOffset, topOffset)
+    b.right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", rightOffset, bottomOffset)
     b.right:SetWidth(t)
 
     b.top:ClearAllPoints()
@@ -542,6 +567,18 @@ function E:InitializePixelPerfect()
     if self.RegisterEvent then
         self:RegisterEvent("UI_SCALE_CHANGED", "RefreshPixelScale")
         self:RegisterEvent("DISPLAY_SIZE_CHANGED", "RefreshPixelScale")
+        self:RegisterEvent("PLAYER_ENTERING_WORLD", "RefreshPixelScale")
+    end
+    if UIParent and UIParent.SetScale and hooksecurefunc and not E._uiParentScaleHooked then
+        E._uiParentScaleHooked = true
+        local ok = pcall(hooksecurefunc, UIParent, "SetScale", function()
+            if E.RefreshPixelScale then
+                E:RefreshPixelScale()
+            end
+        end)
+        if not ok then
+            E._uiParentScaleHooked = nil
+        end
     end
 end
 
