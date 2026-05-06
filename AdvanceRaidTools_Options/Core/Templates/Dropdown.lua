@@ -21,7 +21,7 @@ local attachTooltip = P.attachTooltip
 -- opts = {
 --     label       = "Label" | nil,
 --     values      = { key = displayLabel, ... } | function,
---     sorting     = { "keyA", "keyB", ... } | nil,       -- explicit order
+--     sorting     = { "keyA", "keyB", ... } | function | nil, -- explicit order
 --     multi       = false,                               -- multi-select mode
 --     get         = function(keyIfMulti) return value end,
 --                   -- single: returns the currently selected key (or nil)
@@ -269,7 +269,7 @@ function T:Dropdown(parent, opts)
         end
 
         local vals = resolveValues()
-        local keys = orderDropdownKeys(vals, opts.sorting)
+        local keys = orderDropdownKeys(vals, evalMaybeFn(opts.sorting, vals))
 
         for _, r in ipairs(p._rowPool) do
             r:Hide()

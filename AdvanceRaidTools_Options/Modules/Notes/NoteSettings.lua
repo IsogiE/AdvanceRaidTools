@@ -91,6 +91,7 @@ local EDITOR_LINES = 26
 local TOOLBAR_H = 40
 local TOKEN_STRIP_H = 22
 local ACTION_ROW_H = 24
+local ACTIVE_ROW_H = 20
 local GAP = 4
 local COL_GAP = 8
 local SLOT_LIST_W = 170
@@ -102,7 +103,7 @@ local DROPDOWN_BTN_H = 26
 local DROPDOWN_LABEL_H = 16
 local DROPDOWN_CONTAINER_H = DROPDOWN_LABEL_H + DROPDOWN_BTN_H + GAP
 local ROSTER_HEADER_H = 16
-local PRE_EDITOR_H = TOOLBAR_H + GAP + TOKEN_STRIP_H + GAP + ACTION_ROW_H + GAP
+local PRE_EDITOR_H = TOOLBAR_H + GAP + TOKEN_STRIP_H + GAP + ACTION_ROW_H + GAP + ACTIVE_ROW_H + GAP
 local PRE_ROSTER_H = MRT_BTN_H + GAP + DROPDOWN_CONTAINER_H + GAP + ROSTER_HEADER_H + GAP
 local EDITOR_INNER_H = EDITOR_LINES * 16 + 10
 local EDITOR_HEIGHT = math.max(PRE_EDITOR_H, PRE_ROSTER_H) + EDITOR_INNER_H
@@ -458,6 +459,11 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     actionRow:SetPoint("TOPRIGHT", tokenStrip, "BOTTOMRIGHT", 0, -GAP)
     actionRow:SetHeight(ACTION_ROW_H)
 
+    local activeRow = CreateFrame("Frame", nil, editorCol)
+    activeRow:SetPoint("TOPLEFT", actionRow, "BOTTOMLEFT", 0, -GAP)
+    activeRow:SetPoint("TOPRIGHT", actionRow, "BOTTOMRIGHT", 0, -GAP)
+    activeRow:SetHeight(ACTIVE_ROW_H)
+
     local editor = T:MultilineEditBox(editorCol, {
         lines = EDITOR_LINES,
         get = function()
@@ -481,8 +487,8 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         disabled = isModuleDisabled
     })
     editor.frame:ClearAllPoints()
-    editor.frame:SetPoint("TOPLEFT", actionRow, "BOTTOMLEFT", 0, -GAP)
-    editor.frame:SetPoint("TOPRIGHT", actionRow, "BOTTOMRIGHT", 0, -GAP)
+    editor.frame:SetPoint("TOPLEFT", activeRow, "BOTTOMLEFT", 0, -GAP)
+    editor.frame:SetPoint("TOPRIGHT", activeRow, "BOTTOMRIGHT", 0, -GAP)
     editorRef = editor
 
     if editor.editBox and editor.scrollFrame then
@@ -614,7 +620,42 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     sendBtn.frame:ClearAllPoints()
     sendBtn.frame:SetPoint("LEFT", undoBtn.frame, "RIGHT", GAP, 0)
 
-    local activeChk = T:Checkbox(actionRow, {
+    local sendToPersonalBtn = T:Button(actionRow, {
+        text = L["Notes_SendToPersonal"],
+        width = 120,
+        onClick = function()
+            local idx = clampEditingSlot(mod)
+            if mod:SendToPersonal(idx) then
+                refreshPanel()
+            end
+        end,
+        disabled = function()
+            if isModuleDisabled() then
+                return true
+            end
+            return not mod:CanSendToPersonal(clampEditingSlot(mod))
+        end,
+        tooltip = {
+            title = L["Notes_SendToPersonal"],
+            desc = L["Notes_SendToPersonalDesc"]
+        }
+    })
+    sendToPersonalBtn.frame:ClearAllPoints()
+    sendToPersonalBtn.frame:SetPoint("LEFT", sendBtn.frame, "RIGHT", GAP, 0)
+
+    local function refreshSendToPersonalBtn()
+        local show = clampEditingSlot(mod) > PINNED_PERSONAL_SLOT
+        if show then
+            sendToPersonalBtn.frame:Show()
+        else
+            sendToPersonalBtn.frame:Hide()
+        end
+        if sendToPersonalBtn.Refresh then
+            sendToPersonalBtn.Refresh()
+        end
+    end
+
+    local activeChk = T:Checkbox(activeRow, {
         text = L["Notes_Active"],
         get = function()
             return mod:IsSlotActive(clampEditingSlot(mod))
@@ -629,7 +670,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         disabled = isModuleDisabled
     })
     activeChk.frame:ClearAllPoints()
-    activeChk.frame:SetPoint("RIGHT", actionRow, "RIGHT", 0, 0)
+    activeChk.frame:SetPoint("LEFT", activeRow, "LEFT", 0, 0)
 
     local mrtBtn = T:Button(actionCol, {
         text = L["Notes_ImportFromMRT"],
@@ -875,10 +916,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         if sendBtn.Refresh then
             sendBtn.Refresh()
         end
+        refreshSendToPersonalBtn()
         if rosterScroll.scrollbar and rosterScroll.scrollbar.Refresh then
             rosterScroll.scrollbar.Refresh()
         end
     end
+
+    refreshSendToPersonalBtn()
 
     return {
         frame = container,
@@ -947,6 +991,14 @@ local function slotValues(mod)
     return t
 end
 
+local function slotSorting(mod)
+    local t = {}
+    for i = 1, mod:GetSlotCount() do
+        t[i] = i
+    end
+    return t
+end
+
 local function currentSlotDisplay(mod)
     local idx = clampDisplayingSlot(mod)
     local slot = mod:GetSlot(idx)
@@ -980,6 +1032,9 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                 label = L["Notes_DisplayForSlot"],
                 values = function()
                     return slotValues(mod)
+                end,
+                sorting = function()
+                    return slotSorting(mod)
                 end,
                 get = function()
                     return clampDisplayingSlot(mod)

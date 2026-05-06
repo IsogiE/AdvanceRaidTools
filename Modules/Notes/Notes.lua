@@ -829,6 +829,10 @@ function Notes:GetMainSlotIndex()
     return MAIN_SLOT
 end
 
+function Notes:GetPinnedPersonalSlotIndex()
+    return PINNED_PERSONAL_SLOT
+end
+
 function Notes:AddSlot(name, text)
     if self:GetSlotCount() >= MAX_SLOTS then
         E:Printf(L["Notes_MaxSlotsReached"], MAX_SLOTS)
@@ -1018,6 +1022,37 @@ end
 -- Send / receive
 
 local NOTE_COMM_PREFIX = "ART_NOTE"
+
+function Notes:CanSendToPersonal(index)
+    index = clampIndex(self, index)
+    if not index then
+        return false, "NO_SLOT"
+    end
+    if index <= PINNED_PERSONAL_SLOT then
+        return false, "NOT_CUSTOM"
+    end
+    if not self:GetSlot(PINNED_PERSONAL_SLOT) then
+        return false, "NO_PERSONAL_SLOT"
+    end
+    return true
+end
+
+function Notes:SendToPersonal(index)
+    local ok = self:CanSendToPersonal(index)
+    if not ok then
+        return false
+    end
+    local source = self:GetSlot(index)
+    local target = self:GetSlot(PINNED_PERSONAL_SLOT)
+    if not source or not target then
+        return false
+    end
+    local text = source.text or ""
+    if target.text ~= text then
+        self:PushUndo(PINNED_PERSONAL_SLOT, target.text or "")
+    end
+    return self:SetSlotText(PINNED_PERSONAL_SLOT, text)
+end
 
 function Notes:CanSend(index)
     index = clampIndex(self, index or MAIN_SLOT)
@@ -1814,6 +1849,9 @@ E:MountMethods(_G.ART, {
     GetMainNoteSlot = function()
         return MAIN_SLOT
     end,
+    GetPinnedPersonalNoteSlot = function()
+        return PINNED_PERSONAL_SLOT
+    end,
     GetPersonalNote = function(_, personalIndex)
         if not notesLive() then
             return ""
@@ -1857,6 +1895,9 @@ function Notes:Publish()
         end,
         GetMainNoteSlot = function()
             return MAIN_SLOT
+        end,
+        GetPinnedPersonalNoteSlot = function()
+            return PINNED_PERSONAL_SLOT
         end,
         GetPersonalNoteCount = function()
             return math.max(0, Notes:GetSlotCount() - 1)
