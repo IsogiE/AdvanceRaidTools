@@ -2,7 +2,6 @@ local E, L = unpack(ART)
 
 E:RegisterModuleDefaults("BossMods_BreakTimer", {
     enabled = false,
-    defaultDuration = 60,
     fontSize = 48,
     strata = "DIALOG",
     scale = 1.0,
@@ -19,6 +18,7 @@ local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
 local IMAGE_POOL = "Dreams"
 local TIMER_GAP = 8
 local TICK_INTERVAL = 0.1
+local PREVIEW_DURATION = 300
 local LISTENER_TOKEN = "AdvanceRaidTools_BossMods_BreakTimer"
 local POSITION_COORD_SPACE = "UIParent"
 
@@ -56,6 +56,7 @@ local function isBreakText(text)
 end
 
 function Mod:OnInitialize()
+    self.editMode = false
     self:EnsureFrame()
 end
 
@@ -67,16 +68,8 @@ function Mod:EnsureFrame()
     local f = CreateFrame("Frame", "ART_BreakTimerFrame", UIParent)
     f:SetFrameStrata(self.db.strata or "DIALOG")
     f:SetClampedToScreen(true)
-    f:SetMovable(true)
-    f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-    f:SetScript("OnDragStart", function(self)
-        self:StartMoving()
-    end)
-    f:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        Mod:SavePosition()
-    end)
+    f:SetMovable(false)
+    f:EnableMouse(false)
     f:Hide()
 
     f.label = f:CreateFontString(nil, "OVERLAY")
@@ -122,6 +115,7 @@ function Mod:OnEnable()
 end
 
 function Mod:OnDisable()
+    self.editMode = false
     if BigWigsLoader and BigWigsLoader.UnregisterMessage then
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartBar")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopBar")
@@ -131,6 +125,9 @@ end
 
 function Mod:OnStartBar(key, text, time)
     if InCombatLockdown() then
+        return
+    end
+    if self.editMode then
         return
     end
     if not isBreakText(text) then
@@ -143,9 +140,6 @@ function Mod:OnStopBar(text)
     if not self.endTime then
         return
     end
-    if self:IsTest() then
-        return
-    end
     if InCombatLockdown() then
         return
     end
@@ -154,7 +148,7 @@ function Mod:OnStopBar(text)
     end
 end
 
-function Mod:Start(key, duration)
+function Mod:Start(_, duration)
     duration = tonumber(duration)
     if not duration or duration <= 0 then
         return
@@ -162,7 +156,6 @@ function Mod:Start(key, duration)
     if not self:Show() then
         return
     end
-    self.breakKey = key
     self.endTime = GetTime() + duration
     self.frame._tickAcc = 0
     self.frame.timer:SetText(formatTime(duration))
@@ -172,7 +165,6 @@ end
 function Mod:Stop()
     local wasRunning = self.endTime ~= nil
     self.endTime = nil
-    self.breakKey = nil
     self.frame:Hide()
     if wasRunning then
         E:SendMessage("ART_BREAKTIMER_STATE", false)
@@ -292,19 +284,24 @@ function Mod:IsRunning()
     return self.endTime ~= nil
 end
 
-function Mod:IsTest()
-    return self.breakKey == "ART_TEST_BREAK"
-end
+function Mod:SetEditMode(v)
+    if not self:IsEnabled() then
+        return
+    end
+    self.editMode = v and true or false
 
-function Mod:Test(seconds)
-    self:Start("ART_TEST_BREAK", tonumber(seconds) or self.db.defaultDuration or 60)
-end
-
-function Mod:Toggle(seconds)
-    if self:IsRunning() then
-        self:Stop()
+    if self.editMode then
+        if self:IsRunning() then
+            self:Stop()
+        end
+        if self:Show() then
+            self.frame._tickAcc = 0
+            self.frame.timer:SetText(formatTime(PREVIEW_DURATION))
+        end
     else
-        self:Test(seconds)
+        if not self:IsRunning() then
+            self.frame:Hide()
+        end
     end
 end
 

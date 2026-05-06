@@ -17,6 +17,9 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
     if widthPx <= 0 then
         return {}
     end
+    if mod.EnsureFrame then
+        mod:EnsureFrame()
+    end
 
     local tracker = T:MakeTracker()
     local track = tracker.track
@@ -38,45 +41,14 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
-    local durationSlider = track(T:Slider(rightPanel, {
-        label = L["BossMods_BreakTimer_Duration"],
-        min = 10,
-        max = 600,
-        step = 5,
-        value = mod.db.defaultDuration or 60,
-        get = function()
-            return mod.db.defaultDuration or 60
-        end,
-        onChange = function(v)
-            mod.db.defaultDuration = math.floor(v)
-        end,
-        disabled = function()
-            return isDisabled()
+    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+        tracker = tracker,
+        isDisabled = isDisabled,
+        onEditModeChanged = function(v)
+            mod:SetEditMode(v)
         end
-    }))
-    y = row(y, {durationSlider})
-
-    local testBtn = track(T:Button(rightPanel, {
-        text = L["BossMods_BreakTimer_Test"],
-        onClick = function()
-            mod:Test(mod.db.defaultDuration or 60)
-            tracker.refresh()
-        end,
-        disabled = function()
-            return isDisabled()
-        end
-    }))
-    local stopBtn = track(T:Button(rightPanel, {
-        text = L["BossMods_BreakTimer_Stop"],
-        onClick = function()
-            mod:Stop()
-            tracker.refresh()
-        end,
-        disabled = function()
-            return isDisabled() or not mod:IsRunning()
-        end
-    }))
-    y = row(y, {testBtn, stopBtn})
+    })
+    y = unlockY
 
     local strataValues = {}
     for key, labelKey in pairs(STRATA_VALUES) do
@@ -122,6 +94,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
     y = row(y, {strataDropdown, scaleSlider})
 
     local posNewY, posHandle = T:PositionSection(rightPanel, y, widthPx, {
+        anchor = mod.frame,
         label = L["BossMods_BreakTimer"],
         tracker = tracker,
         getPosition = function()
@@ -142,25 +115,10 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         },
         onChanged = tracker.refresh,
         isDisabled = isDisabled,
-        showOffsets = true,
-        hideUnlock = true
+        unlockController = unlockCtrl,
+        showOffsets = true
     })
     y = posNewY
-
-    local stateHandle = E:NewCallbackHandle()
-    stateHandle:RegisterMessage("ART_BREAKTIMER_STATE", function()
-        tracker.refresh()
-    end)
-    stateHandle:RegisterMessage("ART_MODULE_TOGGLED", function(_, name)
-        if name == "BossMods_BreakTimer" or name == "BossMods" then
-            tracker.refresh()
-        end
-    end)
-    stateHandle:RegisterMessage("ART_OPTIONS_HIDDEN", function()
-        if mod:IsTest() then
-            mod:Stop()
-        end
-    end)
 
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)
@@ -170,7 +128,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         Refresh = tracker.refresh,
         Release = function()
             posHandle.Release()
-            stateHandle:UnregisterAllMessages()
+            unlockCtrl:Release()
             tracker.release()
         end
     }
