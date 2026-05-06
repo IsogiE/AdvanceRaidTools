@@ -40,5 +40,6 @@ Modules\QualityOfLife\QualityOfLifeSettings.lua
 Modules\QualityOfLife\Circle\CircleSettings.lua
 Modules\QualityOfLife\Resources\ResourcesSettings.lua
 Modules\QualityOfLife\CDMTweaks\CDMTweaksSettings.lua
+Modules\QualityOfLife\WhisperSound\WhisperSoundSettings.lua
 
 Modules\BossMods\BossMods.xml

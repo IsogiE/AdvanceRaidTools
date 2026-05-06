@@ -404,6 +404,12 @@ L["QoL_CDMViewerEssential"] = "Essential"
 L["QoL_CDMViewerUtility"] = "Utility"
 L["QoL_CDMStackFontDesc"] = "Customize the stack/charge text for CDM frames"
 
+-- QoL: Whisper Sound
+L["QoL_WhisperSound"] = "Whisper Notification Sounds"
+L["QoL_WhisperSoundDesc"] = "Play a sound when you receive a whisper in-game or through bnet"
+L["QoL_WhisperSoundThrottle"] = "Throttle"
+L["QoL_WhisperSoundThrottleDesc"] = "Minimum time between whisper sounds. Set to 0 to play every whisper (not sure why you'd want it, but you can!)"
+
 -- Notes
 L["Notes"] = "Notes"
 L["Notes_Intro"] = "Pick a slot on the left, edit on the right. Notes can be used for assignments and automations"
