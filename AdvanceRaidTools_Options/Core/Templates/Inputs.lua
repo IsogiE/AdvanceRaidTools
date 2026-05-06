@@ -21,6 +21,10 @@ local setTemplate = P.setTemplate
 local applyOpaqueTemplate = P.applyOpaqueTemplate
 local attachTooltip = P.attachTooltip
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 -- =============================================================================
 -- Template: EditBox  (single-line)
 -- -----------------------------------------------------------------------------
@@ -439,12 +443,13 @@ function T:MultilineEditBox(parent, opts)
             applyTextHeight()
         end
     end
-    scroll:HookScript("OnSizeChanged", syncWidth)
+    scroll:HookScript("OnSizeChanged", function()
+        if not optionsResizeActive() then
+            syncWidth()
+        end
+    end)
     if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
-        E.OptionsUI:AddResizeFlusher(function()
-            applyTextHeight()
-            scroll:UpdateScrollChildRect()
-        end)
+        E.OptionsUI:AddResizeFlusher(syncWidth)
     end
     syncWidth()
 

@@ -27,6 +27,10 @@ local paintOpaque = P.paintOpaque
 local applyOpaqueTemplate = P.applyOpaqueTemplate
 local attachTooltip = P.attachTooltip
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 -- =============================================================================
 -- Template: Header
 -- -----------------------------------------------------------------------------
@@ -584,7 +588,11 @@ function T:Checkbox(parent, opts)
         f:SetHitRectInsets(0, math.max(0, total - used), 0, 0)
     end
 
-    f:HookScript("OnSizeChanged", updateHitRect)
+    f:HookScript("OnSizeChanged", function()
+        if not optionsResizeActive() then
+            updateHitRect()
+        end
+    end)
 
     local function renderCheck()
         if state.checked then

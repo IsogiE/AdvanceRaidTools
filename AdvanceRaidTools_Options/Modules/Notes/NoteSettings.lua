@@ -16,6 +16,10 @@ local lastCommittedText = {}
 -- Cached reference
 local editorRef
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 local function refreshPanel()
     if not (E.OptionsUI and E.OptionsUI:IsShown()) then
         return
@@ -391,8 +395,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     end
 
     slotScroll.frame:HookScript("OnSizeChanged", function()
-        rebuildRows()
+        if not optionsResizeActive() then
+            rebuildRows()
+        end
     end)
+    if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
+        E.OptionsUI:AddResizeFlusher(rebuildRows, slotScroll.frame)
+    end
 
     local toolbar = CreateFrame("Frame", nil, editorCol)
     toolbar:SetPoint("TOPLEFT", 0, 0)
@@ -828,8 +837,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     end
 
     rosterScroll.frame:HookScript("OnSizeChanged", function()
-        rebuildRoster()
+        if not optionsResizeActive() then
+            rebuildRoster()
+        end
     end)
+    if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
+        E.OptionsUI:AddResizeFlusher(rebuildRoster, rosterScroll.frame)
+    end
     rosterScroll.frame:HookScript("OnShow", function()
         rebuildRoster()
     end)

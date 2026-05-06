@@ -39,6 +39,10 @@ local P = {
         },
         locale = nil,
         scale = 1.0,
+        optionsWindow = {
+            width = 1040,
+            height = 680
+        },
         debug = {
             enabled = false, -- Warn/Debug chat output
             channels = {} -- [channelName] = true; honored even when master is off

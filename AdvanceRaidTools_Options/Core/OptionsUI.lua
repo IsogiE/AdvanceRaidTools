@@ -7,6 +7,7 @@ E.OptionsUI = ART_UI
 
 -- Defaults
 local WIN_W, WIN_H = 1040, 680
+local MIN_WIN_W, MIN_WIN_H = 760, 480
 local SIDEBAR_W = 180
 local TITLE_H = 28
 local TAB_H = 24
@@ -24,11 +25,13 @@ local H_TOGGLE = 18
 local H_SLIDER = 20 -- match the dropdown button height so mixed rows align
 local H_COLOR = 18
 local BASE_WIDTH = 180
+local RESIZE_GRIP_SIZE = 18
+local RESIZE_SCREEN_MARGIN = 50
 
 -- Modules can config their own min size if needed
 --[[
 E:RegisterOptions("XYZ", XX, XYZ, {
-    minWidth = 980,
+    minWidth = 980, -- only use this when a panel truly cannot fit smaller
     minHeight = 620
 })
 --]]
@@ -45,6 +48,9 @@ local GLOBAL = {}
 
 ART_UI._resizeHooks = {}
 ART_UI._flusherStack = {}
+ART_UI._liteChromeFrames = setmetatable({}, {
+    __mode = "k"
+})
 
 function ART_UI:PushFlusherOwner(owner)
     self._flusherStack[#self._flusherStack + 1] = owner
@@ -145,6 +151,10 @@ function ART_UI:CatchUp()
     end
 end
 
+function ART_UI:IsResizing()
+    return self.mainFrame and self.mainFrame._artResizing and true or false
+end
+
 local function activeTabContent(panel)
     if not (panel and panel._tabs) then
         return nil
@@ -194,8 +204,6 @@ end
 -- colour
 local c_border = OH.c_border
 local c_accent = OH.c_accent
-local c_bg = OH.c_backdrop
-local c_bgFade = OH.c_bgFade
 local c_text = OH.c_text
 
 -- Sidebar uses a darker dim than widget chrome
@@ -207,6 +215,408 @@ end
 local fontPath = OH.fontPath
 local fontSize = OH.fontSize
 local fontOutline = OH.fontOutline
+
+local function clamp(value, minValue, maxValue)
+    value = tonumber(value) or minValue
+    if value < minValue then
+        return minValue
+    end
+    if maxValue and value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
+local function roundWindowValue(value)
+    return math.floor((tonumber(value) or 0) + 0.5)
+end
+
+local function optionsWindowDB()
+    local g = E.db and E.db.profile and E.db.profile.general
+    if not g then
+        return nil
+    end
+    if type(g.optionsWindow) ~= "table" then
+        g.optionsWindow = {}
+    end
+    return g.optionsWindow
+end
+
+local function getSavedWindowSize()
+    local db = optionsWindowDB()
+    if not db then
+        return nil, nil
+    end
+    return tonumber(db.width), tonumber(db.height)
+end
+
+local function saveWindowSize(frame)
+    local db = optionsWindowDB()
+    if not (db and frame) then
+        return
+    end
+    db.width = roundWindowValue(frame:GetWidth() or WIN_W)
+    db.height = roundWindowValue(frame:GetHeight() or WIN_H)
+end
+
+local function getPanelMinSize(key)
+    local contrib = key and E.optionsContributions and E.optionsContributions[key]
+    return math.max(MIN_WIN_W, (contrib and contrib.minWidth) or MIN_WIN_W),
+        math.max(MIN_WIN_H, (contrib and contrib.minHeight) or MIN_WIN_H)
+end
+
+local function getWindowMaxSize(minW, minH)
+    local maxW, maxH = WIN_W, WIN_H
+    if UIParent and UIParent.GetSize then
+        maxW, maxH = UIParent:GetSize()
+    end
+    maxW = math.max(minW, (tonumber(maxW) or minW) - RESIZE_SCREEN_MARGIN)
+    maxH = math.max(minH, (tonumber(maxH) or minH) - RESIZE_SCREEN_MARGIN)
+    return maxW, maxH
+end
+
+local function setResizeBounds(frame, minW, minH, maxW, maxH)
+    if not frame then
+        return
+    end
+    if frame.SetResizeBounds then
+        frame:SetResizeBounds(minW, minH, maxW, maxH)
+    else
+        if frame.SetMinResize then
+            frame:SetMinResize(minW, minH)
+        end
+        if frame.SetMaxResize then
+            frame:SetMaxResize(maxW, maxH)
+        end
+    end
+end
+
+local function getScaledCursorPosition()
+    local x, y = GetCursorPosition()
+    if not (x and y) then
+        return nil, nil
+    end
+    local scale = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+    if scale <= 0 then
+        scale = 1
+    end
+    return x / scale, y / scale
+end
+
+local function anchorFrameTopLeft(frame)
+    local left, top = frame:GetLeft(), frame:GetTop()
+    if not (left and top) then
+        return nil, nil
+    end
+    frame:ClearAllPoints()
+    frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    return left, top
+end
+
+local function getPositionAwareResizeBounds(frame, minW, minH, maxW, maxH, left, top)
+    local uiW, uiH = WIN_W, WIN_H
+    if UIParent and UIParent.GetSize then
+        uiW, uiH = UIParent:GetSize()
+    end
+    left = tonumber(left) or (frame and frame:GetLeft()) or 0
+    top = tonumber(top) or (frame and frame:GetTop()) or uiH
+
+    local posMaxW = math.max(minW, (tonumber(uiW) or maxW) - left - RESIZE_SCREEN_MARGIN)
+    local posMaxH = math.max(minH, top - RESIZE_SCREEN_MARGIN)
+    return minW, minH, math.min(maxW, posMaxW), math.min(maxH, posMaxH)
+end
+
+function ART_UI:_getWindowBounds(key)
+    local minW, minH = getPanelMinSize(key or self.currentKey)
+    local maxW, maxH = getWindowMaxSize(minW, minH)
+    return minW, minH, maxW, maxH
+end
+
+function ART_UI:_updateResizeBounds(key)
+    if not self.mainFrame then
+        return
+    end
+    local minW, minH, maxW, maxH = self:_getWindowBounds(key)
+    setResizeBounds(self.mainFrame, minW, minH, maxW, maxH)
+    return minW, minH, maxW, maxH
+end
+
+local function resetWindowSize(frame)
+    if not frame then
+        return
+    end
+    local minW, minH, maxW, maxH = ART_UI:_getWindowBounds(ART_UI.currentKey)
+    setResizeBounds(frame, minW, minH, maxW, maxH)
+    frame:SetSize(clamp(WIN_W, minW, maxW), clamp(WIN_H, minH, maxH))
+    saveWindowSize(frame)
+    ART_UI:_runResizeFlushers()
+end
+
+local function ensureLiteChrome(frame)
+    if not frame or frame._artLiteChrome then
+        return frame and frame._artLiteChrome
+    end
+
+    local c = {}
+    local fill = frame:CreateTexture(nil, "BACKGROUND", nil, -7)
+    fill:SetAllPoints(frame)
+    c.fill = fill
+
+    local function edge()
+        local tex = frame:CreateTexture(nil, "BORDER", nil, 7)
+        tex:SetColorTexture(1, 1, 1, 1)
+        return tex
+    end
+
+    c.left = edge()
+    c.left:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    c.left:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
+
+    c.right = edge()
+    c.right:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+    c.right:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+
+    c.top = edge()
+    c.top:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    c.top:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+
+    c.bottom = edge()
+    c.bottom:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
+    c.bottom:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+
+    frame._artLiteChrome = c
+    return c
+end
+
+local function setLiteChromeShown(frame, shown)
+    local c = frame and ensureLiteChrome(frame)
+    if not c then
+        return
+    end
+
+    if shown then
+        local bg = (frame.artTemplate == "Transparent") and E.media.backdropFadeColor or E.media.backdropColor
+        local br = E.media.borderColor
+        local px = E:PixelSize(frame)
+        c.fill:SetColorTexture(bg[1] or 0, bg[2] or 0, bg[3] or 0, bg[4] or 1)
+        c.left:SetWidth(px)
+        c.right:SetWidth(px)
+        c.top:SetHeight(px)
+        c.bottom:SetHeight(px)
+        c.left:SetVertexColor(br[1] or 0, br[2] or 0, br[3] or 0, br[4] or 1)
+        c.right:SetVertexColor(br[1] or 0, br[2] or 0, br[3] or 0, br[4] or 1)
+        c.top:SetVertexColor(br[1] or 0, br[2] or 0, br[3] or 0, br[4] or 1)
+        c.bottom:SetVertexColor(br[1] or 0, br[2] or 0, br[3] or 0, br[4] or 1)
+        c.fill:Show()
+        c.left:Show()
+        c.right:Show()
+        c.top:Show()
+        c.bottom:Show()
+    else
+        c.fill:Hide()
+        c.left:Hide()
+        c.right:Hide()
+        c.top:Hide()
+        c.bottom:Hide()
+    end
+end
+
+local function applyLiteTemplate(frame, template)
+    if not frame then
+        return
+    end
+    frame.artTemplate = template or "Default"
+    ART_UI._liteChromeFrames[frame] = true
+    setLiteChromeShown(frame, true)
+end
+
+ART_UI._liteChromeEvents = ART_UI._liteChromeEvents or E:NewCallbackHandle()
+if not ART_UI._liteChromeEventsRegistered then
+    ART_UI._liteChromeEvents:RegisterMessage("ART_MEDIA_UPDATED", function()
+        for frame in pairs(ART_UI._liteChromeFrames) do
+            if frame and frame._artLiteChrome then
+                setLiteChromeShown(frame, true)
+            end
+        end
+    end)
+    ART_UI._liteChromeEventsRegistered = true
+end
+
+local function resizeChromeFrames(frame)
+    return frame, frame and frame._title, frame and frame._sidebar, frame and frame._content
+end
+
+local function forEachResizeChrome(frame, fn)
+    local main, title, sidebar, content = resizeChromeFrames(frame)
+    if main then
+        fn(main)
+    end
+    if title then
+        fn(title)
+    end
+    if sidebar then
+        fn(sidebar)
+    end
+    if content then
+        fn(content)
+    end
+end
+
+local function suspendResizeBackdrops(frame)
+    if not frame or frame._resizeBackdropsSuspended then
+        return
+    end
+
+    local suspended
+    forEachResizeChrome(frame, function(chrome)
+        if chrome and chrome.SetBackdrop then
+            setLiteChromeShown(chrome, true)
+            chrome:SetBackdrop(nil)
+            suspended = true
+        end
+    end)
+    frame._resizeBackdropsSuspended = suspended and true or nil
+end
+
+local function restoreResizeBackdrops(frame)
+    if not (frame and frame._resizeBackdropsSuspended) then
+        return
+    end
+    frame._resizeBackdropsSuspended = nil
+
+    forEachResizeChrome(frame, function(chrome)
+        setLiteChromeShown(chrome, false)
+        OH.setTemplate(chrome, chrome.artTemplate or "Default")
+    end)
+end
+
+local function updateOptionsResize(frame)
+    local state = frame and frame._artResizeState
+    if not state then
+        return
+    end
+
+    local cursorX, cursorY = getScaledCursorPosition()
+    if not cursorX then
+        return
+    end
+
+    local width = roundWindowValue(clamp(state.startW + cursorX - state.startX, state.minW, state.maxW))
+    local height = roundWindowValue(clamp(state.startH - (cursorY - state.startY), state.minH, state.maxH))
+    if math.abs(width - state.lastW) > 0.5 or math.abs(height - state.lastH) > 0.5 then
+        frame:SetSize(width, height)
+        state.lastW = width
+        state.lastH = height
+    end
+end
+
+local function resizeGripOnUpdate(grip)
+    updateOptionsResize(grip:GetParent())
+end
+
+local function startOptionsResize(grip, button)
+    if button and button ~= "LeftButton" then
+        return
+    end
+    local frame = grip:GetParent()
+    if not frame or frame._artResizing then
+        return
+    end
+
+    local cursorX, cursorY = getScaledCursorPosition()
+    local left, top = anchorFrameTopLeft(frame)
+    if not (cursorX and left and top) then
+        return
+    end
+
+    local minW, minH, maxW, maxH = ART_UI:_getWindowBounds(ART_UI.currentKey)
+    minW, minH, maxW, maxH = getPositionAwareResizeBounds(frame, minW, minH, maxW, maxH, left, top)
+    setResizeBounds(frame, minW, minH, maxW, maxH)
+
+    local clamped
+    if frame.IsClampedToScreen then
+        clamped = frame:IsClampedToScreen()
+    end
+    if frame.SetClampedToScreen then
+        frame:SetClampedToScreen(false)
+    end
+
+    frame._artResizing = true
+    frame._artResizeState = {
+        startX = cursorX,
+        startY = cursorY,
+        startW = frame:GetWidth() or WIN_W,
+        startH = frame:GetHeight() or WIN_H,
+        lastW = frame:GetWidth() or WIN_W,
+        lastH = frame:GetHeight() or WIN_H,
+        minW = minW,
+        minH = minH,
+        maxW = maxW,
+        maxH = maxH,
+        clamped = clamped
+    }
+    suspendResizeBackdrops(frame)
+    grip:SetScript("OnUpdate", resizeGripOnUpdate)
+end
+
+local function stopOptionsResize(grip)
+    local frame = grip:GetParent()
+    if not frame then
+        return
+    end
+
+    grip:SetScript("OnUpdate", nil)
+    updateOptionsResize(frame)
+    frame:StopMovingOrSizing()
+    if not frame._artResizing then
+        return
+    end
+
+    local state = frame._artResizeState
+    frame._artResizing = nil
+    frame._artResizeState = nil
+    if frame.SetClampedToScreen and state and state.clamped ~= nil then
+        frame:SetClampedToScreen(state.clamped)
+    end
+    ART_UI:_updateResizeBounds(ART_UI.currentKey)
+    saveWindowSize(frame)
+    ART_UI:_runResizeFlushers()
+    restoreResizeBackdrops(frame)
+    if ART_UI._queuedScope and not ART_UI._refreshPending then
+        ART_UI:QueueRefresh(ART_UI._queuedScope)
+    end
+end
+
+local function addOptionsResizeGrip(frame)
+    frame:SetResizable(true)
+    ART_UI:_updateResizeBounds(ART_UI.currentKey)
+
+    local grip = CreateFrame("Button", nil, frame)
+    grip:SetSize(RESIZE_GRIP_SIZE, RESIZE_GRIP_SIZE)
+    grip:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
+    grip:EnableMouse(true)
+    grip:RegisterForDrag("LeftButton")
+    grip:SetScript("OnMouseDown", startOptionsResize)
+    grip:SetScript("OnMouseUp", stopOptionsResize)
+    grip:SetScript("OnDragStart", startOptionsResize)
+    grip:SetScript("OnDragStop", stopOptionsResize)
+    grip:SetScript("OnHide", stopOptionsResize)
+
+    local texture = grip:CreateTexture(nil, "OVERLAY")
+    texture:SetTexture([[Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up]])
+    texture:SetAllPoints()
+    texture:SetAlpha(0.45)
+    E:RegisterAccentTexture(texture)
+    grip:SetScript("OnEnter", function()
+        texture:SetAlpha(0.85)
+    end)
+    grip:SetScript("OnLeave", function()
+        texture:SetAlpha(0.45)
+    end)
+
+    frame._resizeGrip = grip
+    frame._resizeGripTexture = texture
+end
 
 local function callFn(v, ...)
     if type(v) == "function" then
@@ -1113,14 +1523,15 @@ end
 local SCROLLBAR_WIDTH = 12
 local SCROLLBAR_GAP = 6
 local SCROLLBAR_GUTTER = SCROLLBAR_WIDTH + SCROLLBAR_GAP
-local CONTENT_INNER_W = WIN_W - PAD * 4 - SIDEBAR_W - INNER_PAD - SCROLLBAR_GUTTER
+local DEFAULT_CONTENT_INNER_W = WIN_W - PAD * 4 - SIDEBAR_W - INNER_PAD - SCROLLBAR_GUTTER
+local MIN_CONTENT_INNER_W = MIN_WIN_W - PAD * 4 - SIDEBAR_W - INNER_PAD - SCROLLBAR_GUTTER
 
-local function createScrollHost(parentFrame, minWidth)
+local function createScrollHost(parentFrame)
     local sh = T:ScrollFrame(parentFrame, {
         chrome = false,
         mouseWheelStep = 40,
         autoWidth = true,
-        minContentWidth = minWidth,
+        minContentWidth = MIN_CONTENT_INNER_W,
         scrollbarWidth = SCROLLBAR_WIDTH,
         scrollbarGap = SCROLLBAR_GAP
     })
@@ -1129,7 +1540,7 @@ local function createScrollHost(parentFrame, minWidth)
     sh.scroll:HookScript("OnSizeChanged", sh.ApplyAutoWidth)
     ART_UI:AddResizeFlusher(sh.ApplyAutoWidth, sh.content)
 
-    return sh.content, minWidth, sh.scroll
+    return sh.content, DEFAULT_CONTENT_INNER_W, sh.scroll
 end
 
 -- Panels
@@ -1147,7 +1558,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         contentHolder:SetPoint("TOPLEFT", PAD, -PAD)
         contentHolder:SetPoint("BOTTOMRIGHT", -PAD, PAD)
 
-        local inner, innerW = createScrollHost(contentHolder, CONTENT_INNER_W)
+        local inner, innerW = createScrollHost(contentHolder)
         local panelRefreshers = {}
         ART_UI.panelRefreshers[panel] = panelRefreshers
         ART_UI:PushFlusherOwner(inner)
@@ -1183,7 +1594,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         headerHost:SetPoint("TOPLEFT", PAD, -PAD)
         headerHost:SetPoint("TOPRIGHT", -PAD, -PAD)
 
-        local innerW = CONTENT_INNER_W
+        local innerW = DEFAULT_CONTENT_INNER_W
         ART_UI:PushFlusherOwner(headerHost)
         local headerUsedY, headerFinalState = buildArgsInto(headerHost, headerArgs, {key}, group.handler, 0, innerW,
             panelRefreshers, rootRefreshers, group.colGap)
@@ -1208,7 +1619,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             tabContent:Hide()
             ART_UI.refreshDirty[tabContent] = true
 
-            local inner, innerW = createScrollHost(tabContent, CONTENT_INNER_W)
+            local inner, innerW = createScrollHost(tabContent)
 
             local tabRefreshers = {}
             ART_UI.panelRefreshers[tabContent] = tabRefreshers
@@ -1309,12 +1720,13 @@ function ART_UI:_applyPanelMinSize(key)
     if not self.mainFrame or not key then
         return
     end
-    local contrib = E.optionsContributions and E.optionsContributions[key]
-    local targetW = (contrib and contrib.minWidth) or WIN_W
-    local targetH = (contrib and contrib.minHeight) or WIN_H
+    local targetW, targetH = self:_updateResizeBounds(key)
     local curW, curH = self.mainFrame:GetWidth(), self.mainFrame:GetHeight()
-    if math.abs(curW - targetW) > 0.5 or math.abs(curH - targetH) > 0.5 then
-        self.mainFrame:SetSize(targetW, targetH)
+    local newW = math.max(curW or 0, targetW or WIN_W)
+    local newH = math.max(curH or 0, targetH or WIN_H)
+    if math.abs((curW or 0) - newW) > 0.5 or math.abs((curH or 0) - newH) > 0.5 then
+        self.mainFrame:SetSize(newW, newH)
+        saveWindowSize(self.mainFrame)
         self:_runResizeFlushers()
     end
 end
@@ -1322,9 +1734,11 @@ end
 -- addon frame
 
 local function buildMainFrame()
-    local f = CreateFrame("Frame", "ARTOptionsFrame", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "ARTOptionsFrame", UIParent)
     f:Hide()
-    f:SetSize(WIN_W, WIN_H)
+    local minW, minH, maxW, maxH = ART_UI:_getWindowBounds()
+    local savedW, savedH = getSavedWindowSize()
+    f:SetSize(clamp(savedW or WIN_W, minW, maxW), clamp(savedH or WIN_H, minH, maxH))
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
@@ -1333,11 +1747,21 @@ local function buildMainFrame()
     f:SetMovable(true)
     tinsert(UISpecialFrames, "ARTOptionsFrame")
 
-    setTemplate(f, "Default")
+    applyLiteTemplate(f, "Default")
     f:HookScript("OnHide", function()
         T:HideDropdownPullout()
         GameTooltip:Hide()
         f:StopMovingOrSizing()
+        if f._resizeGrip then
+            f._resizeGrip:SetScript("OnUpdate", nil)
+        end
+        local resizeState = f._artResizeState
+        f._artResizing = nil
+        f._artResizeState = nil
+        if f.SetClampedToScreen and resizeState and resizeState.clamped ~= nil then
+            f:SetClampedToScreen(resizeState.clamped)
+        end
+        restoreResizeBackdrops(f)
         E:SendMessage("ART_OPTIONS_HIDDEN")
     end)
 
@@ -1351,15 +1775,15 @@ local function buildMainFrame()
     logo:SetPoint("TOP", f, "TOPLEFT", PAD + SIDEBAR_W / 2, -PAD)
 
     -- title panel
-    local title = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    setTemplate(title, "Transparent")
+    local title = CreateFrame("Frame", nil, f)
+    applyLiteTemplate(title, "Transparent")
     title:SetHeight(TITLE_H)
     title:SetPoint("TOPLEFT", f, "TOPLEFT", PAD + SIDEBAR_W + INNER_PAD, -PAD)
     title:SetPoint("TOPRIGHT", f, "TOPRIGHT", -PAD, -PAD)
 
     -- Sidebar panel
-    local sidebar = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    setTemplate(sidebar, "Transparent")
+    local sidebar = CreateFrame("Frame", nil, f)
+    applyLiteTemplate(sidebar, "Transparent")
     sidebar:SetPoint("TOPLEFT", f, "TOPLEFT", PAD, -(PAD + LOGO_SIZE + INNER_PAD))
     sidebar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", PAD, PAD)
     sidebar:SetWidth(SIDEBAR_W)
@@ -1381,27 +1805,39 @@ local function buildMainFrame()
     refreshVersionText()
     f._refreshVersionText = refreshVersionText
 
-    -- x button
-    local close = CreateFrame("Button", nil, title, "BackdropTemplate")
-    setTemplate(close, "Default")
-    close:SetSize(20, 20)
+    local function titleButton(label)
+        local btn = CreateFrame("Button", nil, title, "BackdropTemplate")
+        setTemplate(btn, "Default")
+        btn:SetSize(20, 20)
+        local text = newFont(btn, "OVERLAY", 2)
+        text:SetText(label)
+        text:SetPoint("CENTER", 1, 0)
+        text:SetTextColor(unpack(c_text()))
+        btn:SetScript("OnEnter", function(self)
+            self:SetBackdropBorderColor(unpack(c_accent()))
+        end)
+        btn:SetScript("OnLeave", function(self)
+            self:SetBackdropBorderColor(unpack(c_border()))
+        end)
+        return btn, text
+    end
+
+    -- top buttons
+    local close = titleButton("X")
     close:SetPoint("RIGHT", -4, 0)
-    local xText = newFont(close, "OVERLAY", 2)
-    xText:SetText("X")
-    xText:SetPoint("CENTER", 1, 0)
-    xText:SetTextColor(unpack(c_text()))
-    close:SetScript("OnEnter", function(self)
-        self:SetBackdropBorderColor(unpack(c_accent()))
-    end)
-    close:SetScript("OnLeave", function(self)
-        self:SetBackdropBorderColor(unpack(c_border()))
-    end)
     close:SetScript("OnClick", function()
         f:Hide()
     end)
 
-    local content = CreateFrame("Frame", nil, f, "BackdropTemplate")
-    setTemplate(content, "Transparent")
+    local reset = titleButton("R")
+    reset:SetPoint("RIGHT", close, "LEFT", -4, 0)
+    reset:SetScript("OnClick", function()
+        resetWindowSize(f)
+    end)
+    titleText:SetPoint("RIGHT", reset, "LEFT", -8, 0)
+
+    local content = CreateFrame("Frame", nil, f)
+    applyLiteTemplate(content, "Transparent")
     content:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -INNER_PAD)
     content:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -INNER_PAD)
     content:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -PAD, PAD)
@@ -1411,6 +1847,7 @@ local function buildMainFrame()
     f._navHost = navHost
     f._content = content
     f._sidebar = sidebar
+    f._resetSize = reset
     return f
 end
 
@@ -1423,6 +1860,7 @@ function ART_UI:Build(rootOptions)
     E._rootOptions = rootOptions
     local f = buildMainFrame()
     self.mainFrame = f
+    addOptionsResizeGrip(f)
 
     -- Collect top-level categories in order
     local cats = sortedArgs(rootOptions.args)
@@ -1631,6 +2069,10 @@ function ART_UI:QueueRefresh(scope)
         self._queuedScope = "current"
     end
 
+    if self:IsResizing() then
+        return
+    end
+
     if self._refreshPending then
         return
     end
@@ -1638,6 +2080,9 @@ function ART_UI:QueueRefresh(scope)
     C_Timer.After(0, function()
         self._refreshPending = false
         local s = self._queuedScope
+        if self:IsResizing() then
+            return
+        end
         self._queuedScope = nil
         if not self.mainFrame or not self.mainFrame:IsShown() then
             return

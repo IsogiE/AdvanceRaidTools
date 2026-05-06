@@ -10,6 +10,10 @@ local evalMaybeFn = P.evalMaybeFn
 local setTemplate = P.setTemplate
 local applyOpaqueTemplate = P.applyOpaqueTemplate
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 -- =============================================================================
 -- Template: ScrollBar
 -- -----------------------------------------------------------------------------
@@ -221,6 +225,9 @@ function T:ScrollBar(parent, scrollFrame, opts)
 
     local refreshPending = false
     local function scheduleRefresh()
+        if optionsResizeActive() then
+            return
+        end
         if refreshPending then
             return
         end
@@ -414,6 +421,9 @@ function T:ScrollFrame(parent, opts)
     local minW = opts.minContentWidth
     local function ApplyAutoWidth()
         if not opts.autoWidth then
+            return
+        end
+        if optionsResizeActive() then
             return
         end
         local w = scroll:GetWidth()
@@ -752,7 +762,11 @@ function T:ScrollingText(parent, opts)
 
     local lastText = computeText()
     fs:SetText(lastText)
-    sf.scroll:HookScript("OnSizeChanged", relayout)
+    sf.scroll:HookScript("OnSizeChanged", function()
+        if not optionsResizeActive() then
+            relayout()
+        end
+    end)
     if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
         E.OptionsUI:AddResizeFlusher(relayout)
     end
@@ -894,7 +908,11 @@ function T:ScrollingPanel(parent, opts)
         end
         populate()
     end
-    sf.scroll:HookScript("OnSizeChanged", relayout)
+    sf.scroll:HookScript("OnSizeChanged", function()
+        if not optionsResizeActive() then
+            relayout()
+        end
+    end)
     if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
         E.OptionsUI:AddResizeFlusher(relayout)
     end

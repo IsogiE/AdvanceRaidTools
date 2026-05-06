@@ -25,6 +25,10 @@ local CONTROL_H = E.TemplatePrivate and E.TemplatePrivate.H_EDITBOX or 22
 local LABELLED_CONTROL_H = 40
 local ROW_GAP = 6
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 local ui = {
     newType = TYPE_SPELL
 }
@@ -462,8 +466,15 @@ local function buildCustomLines(parent)
     end
 
     container:HookScript("OnSizeChanged", function()
-        rebuild(true)
+        if not optionsResizeActive() then
+            rebuild(true)
+        end
     end)
+    if E.OptionsUI and E.OptionsUI.AddResizeFlusher then
+        E.OptionsUI:AddResizeFlusher(function()
+            rebuild(true)
+        end, container)
+    end
     rebuild(true)
 
     return {

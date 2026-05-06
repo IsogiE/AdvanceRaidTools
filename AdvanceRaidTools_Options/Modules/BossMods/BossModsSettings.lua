@@ -13,8 +13,19 @@ local VIEWPORT_SLACK = 8
 
 local BODY_SCROLLBAR_GUTTER = 18
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
+end
+
 local function paintNavRow(row, isSelected, featureEnabled)
-    if isSelected then
+    if row._bg then
+        local ac = E.media.valueColor
+        if isSelected then
+            row._bg:SetColorTexture(ac[1], ac[2], ac[3], 0.35)
+        else
+            row._bg:SetColorTexture(0, 0, 0, 0)
+        end
+    elseif isSelected then
         local ac = E.media.valueColor
         row:SetBackdropColor(ac[1], ac[2], ac[3], 0.35)
     else
@@ -180,16 +191,6 @@ local function buildTabBody(parent, tabKey)
         return buildFeatureBody(key)
     end
 
-    local function preBuildAllBodies()
-        if (body.content:GetWidth() or 0) <= 0 then
-            return
-        end
-        local features = BossMods:GetFeaturesForTab(tabKey)
-        for _, feat in ipairs(features) do
-            ensureFeatureBody(feat.key)
-        end
-    end
-
     local function showPlaceholder(text)
         destroyPlaceholder()
         local contentW = body.content:GetWidth() or 0
@@ -213,6 +214,9 @@ local function buildTabBody(parent, tabKey)
 
     local function showFeatureBody(key, resetScroll)
         destroyPlaceholder()
+        if not optionsResizeActive() then
+            body.ApplyAutoWidth()
+        end
 
         for k, fb in pairs(state.featureBodies) do
             if fb and fb.wrapper and k ~= key then
@@ -290,11 +294,14 @@ local function buildTabBody(parent, tabKey)
         for i, feat in ipairs(features) do
             local y = (i - 1) * (NAV_ROW_H + NAV_ROW_GAP)
 
-            local row = CreateFrame("Button", nil, navScroll.content, "BackdropTemplate")
-            E:SetTemplate(row, "Default")
+            local row = CreateFrame("Button", nil, navScroll.content)
             row:SetHeight(NAV_ROW_H)
             row:SetPoint("TOPLEFT", 0, -y)
             row:SetPoint("TOPRIGHT", 0, -y)
+
+            local bg = row:CreateTexture(nil, "BACKGROUND")
+            bg:SetAllPoints()
+            row._bg = bg
 
             local label = row:CreateFontString(nil, "OVERLAY")
             E:RegisterFontString(label, 0)
@@ -342,12 +349,12 @@ local function buildTabBody(parent, tabKey)
 
     container:SetScript("OnShow", function()
         if state.activeFeature then
+            body.ApplyAutoWidth()
             showFeatureBody(state.activeFeature)
         end
     end)
 
     rebuildNav()
-    preBuildAllBodies()
 
     local function viewportHeight()
         local scroll = parent and parent.GetParent and parent:GetParent()
@@ -365,6 +372,9 @@ local function buildTabBody(parent, tabKey)
         height = NAV_BOX_HEIGHT,
         fullWidth = true,
         _relayout = function()
+            if optionsResizeActive() then
+                return
+            end
             container:SetHeight(math.max(NAV_BOX_HEIGHT, viewportHeight() - VIEWPORT_SLACK))
             navScroll.ApplyAutoWidth()
             body.ApplyAutoWidth()
@@ -373,9 +383,12 @@ local function buildTabBody(parent, tabKey)
                 return
             end
 
-            preBuildAllBodies()
-
-            if state.activeFeature then
+            local fb = state.activeFeature and state.featureBodies[state.activeFeature]
+            if fb and fb.wrapper then
+                fb.wrapper:Show()
+                body.content:SetHeight(math.max(1, fb.handle.height or fb.wrapper:GetHeight() or 30))
+                body.scroll:UpdateScrollChildRect()
+            elseif state.activeFeature then
                 showFeatureBody(state.activeFeature)
             end
         end,
