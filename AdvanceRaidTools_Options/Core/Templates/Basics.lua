@@ -13,6 +13,7 @@ local c_textDim = P.c_textDim
 local c_text = P.c_text
 local c_border = P.c_border
 local c_accent = P.c_accent
+local c_backdrop = P.c_backdrop
 local fontSize = P.fontSize
 local newFont = P.newFont
 local measureStringWidth = P.measureStringWidth
@@ -270,11 +271,43 @@ function T:Button(parent, opts)
     local state = {
         disabled = false,
         hovered = false,
+        pressed = false,
         click = opts.onClick,
         tooltip = opts.tooltip
     }
 
-    local function paintBorder()
+    local function blendColor(base, overlay, amount)
+        if not base or not overlay then
+            return base or overlay
+        end
+        return {
+            (base[1] or 0) * (1 - amount) + (overlay[1] or 0) * amount,
+            (base[2] or 0) * (1 - amount) + (overlay[2] or 0) * amount,
+            (base[3] or 0) * (1 - amount) + (overlay[3] or 0) * amount,
+            base[4] or 1
+        }
+    end
+
+    local function buttonBackdropColor()
+        if opts.template == "Transparent" and E.media and E.media.backdropFadeColor then
+            return E.media.backdropFadeColor
+        end
+        return c_backdrop()
+    end
+
+    local function paintButton()
+        local bg = buttonBackdropColor()
+        local accent = c_accent()
+        if state.disabled then
+            f:SetBackdropColor(unpack(bg))
+        elseif state.pressed then
+            f:SetBackdropColor(unpack(blendColor(bg, accent, 0.35)))
+        elseif state.hovered then
+            f:SetBackdropColor(unpack(blendColor(bg, accent, 0.15)))
+        else
+            f:SetBackdropColor(unpack(bg))
+        end
+
         if opts.emphasize or (state.hovered and not state.disabled) then
             f:SetBackdropBorderColor(unpack(c_accent()))
         elseif state.disabled then
@@ -287,12 +320,27 @@ function T:Button(parent, opts)
     f:SetScript("OnEnter", function(self)
         state.hovered = true
         self._artHovered = true -- opaque painter reads this on media updates
-        paintBorder()
+        paintButton()
     end)
     f:SetScript("OnLeave", function(self)
         state.hovered = false
+        state.pressed = false
         self._artHovered = false
-        paintBorder()
+        paintButton()
+    end)
+    f:SetScript("OnMouseDown", function(_, button)
+        if state.disabled or button ~= "LeftButton" then
+            return
+        end
+        state.pressed = true
+        paintButton()
+    end)
+    f:SetScript("OnMouseUp", function()
+        if not state.pressed then
+            return
+        end
+        state.pressed = false
+        paintButton()
     end)
 
     if opts.tooltip then
@@ -344,6 +392,9 @@ function T:Button(parent, opts)
 
     local function SetDisabled(d)
         state.disabled = d and true or false
+        if state.disabled then
+            state.pressed = false
+        end
         f:EnableMouse(not state.disabled)
         if state.disabled then
             label:SetTextColor(unpack(c_textDim()))
@@ -356,7 +407,7 @@ function T:Button(parent, opts)
                 iconTex:SetDesaturated(false)
             end
         end
-        paintBorder()
+        paintButton()
     end
 
     local function SetLabel(text)
@@ -380,9 +431,11 @@ function T:Button(parent, opts)
 
     local function Refresh()
         SetDisabled(evalMaybeFn(opts.disabled, f))
+        paintButton()
     end
 
     SetDisabled(evalMaybeFn(opts.disabled, f))
+    f.artOnMediaUpdate = paintButton
 
     return {
         frame = f,
