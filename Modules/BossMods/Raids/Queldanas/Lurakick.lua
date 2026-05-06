@@ -152,8 +152,7 @@ end
 function Lurakick:ApplyPosition()
     local pos = self.db.position
     local f = self.list.frame
-    f:ClearAllPoints()
-    f:SetPoint(pos.point or "CENTER", UIParent, pos.point or "CENTER", pos.x or 0, pos.y or 0)
+    E:ApplyFramePosition(f, pos)
 end
 
 function Lurakick:SavePosition(pos)

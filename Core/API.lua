@@ -171,6 +171,75 @@ function E:MountMethods(target, methods, opts)
     }
 end
 
+local function getEffectiveScale(frame)
+    if frame and frame.GetEffectiveScale then
+        local scale = frame:GetEffectiveScale()
+        if scale and scale ~= 0 then
+            return scale
+        end
+    end
+    return 1
+end
+
+function E:GetFramePosition(frame, relativeTo)
+    if not frame then
+        return {
+            point = "CENTER",
+            x = 0,
+            y = 0
+        }
+    end
+
+    relativeTo = relativeTo or UIParent
+
+    local fcx, fcy
+    if frame.GetCenter then
+        fcx, fcy = frame:GetCenter()
+    end
+
+    local rcx, rcy
+    if relativeTo and relativeTo.GetCenter then
+        rcx, rcy = relativeTo:GetCenter()
+    end
+
+    if fcx and fcy and rcx and rcy then
+        local frameScale = getEffectiveScale(frame)
+        local relativeScale = getEffectiveScale(relativeTo)
+        return {
+            point = "CENTER",
+            x = (fcx * frameScale - rcx * relativeScale) / relativeScale,
+            y = (fcy * frameScale - rcy * relativeScale) / relativeScale
+        }
+    end
+
+    local point, _, _, x, y = frame:GetPoint(1)
+    return {
+        point = point or "CENTER",
+        x = x or 0,
+        y = y or 0
+    }
+end
+
+-- Position DB values are stored in the relative frame's coordinate space.
+-- SetPoint offsets are applied in the moved frame's scale, so compensate here.
+function E:ApplyFramePosition(frame, pos, relativeTo)
+    if not (frame and frame.ClearAllPoints and frame.SetPoint) then
+        return
+    end
+
+    pos = pos or {}
+    relativeTo = relativeTo or UIParent
+
+    local point = pos.point or "CENTER"
+    local relPoint = pos.relPoint or point
+    local x = pos.x or 0
+    local y = pos.y or 0
+    local ratio = getEffectiveScale(relativeTo) / getEffectiveScale(frame)
+
+    frame:ClearAllPoints()
+    frame:SetPoint(point, relativeTo, relPoint, x * ratio, y * ratio)
+end
+
 -- :)
 local issecretvalue = _G.issecretvalue
 function E:SafeString(s)

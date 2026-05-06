@@ -91,9 +91,7 @@ function Feather:Apply()
     local db = self.db
     local f = self.frame
     f:SetSize(db.iconSize, db.iconSize)
-    f:ClearAllPoints()
-    f:SetPoint(db.position.point or "CENTER", UIParent, db.position.point or "CENTER", db.position.x or 0,
-        db.position.y or 0)
+    E:ApplyFramePosition(f, db.position)
     self:ApplyBackdrop()
 end
 

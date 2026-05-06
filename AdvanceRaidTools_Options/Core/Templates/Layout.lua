@@ -305,6 +305,7 @@ end
 --   defaultPosition     { point, x, y } for the Reset button
 --   onChanged           fires after setPosition; typically re-applies the
 --                       anchor's SetPoint from db
+--   relativeTo          frame the saved offsets are relative to (default UIParent)
 --   onEditModeChanged   fires when the unlock toggles (bool)
 --   isDisabled          function() -> bool
 --   showOffsets         render compact X/Y sliders above the reset button
@@ -477,6 +478,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             label = opts.label or "",
             getPosition = opts.getPosition,
             setPosition = opts.setPosition,
+            relativeTo = opts.relativeTo,
             onChanged = opts.onChanged
         })
     end
@@ -625,6 +627,7 @@ end
 -- opts:
 --   getPosition  function() -> { point, x, y }
 --   setPosition  function({ point, x, y })
+--   relativeTo    frame the saved offsets are relative to (default UIParent)
 --   onChanged    function()  -- fires after save so owner can reapply position
 --
 -- Returns {
@@ -655,26 +658,7 @@ function T:MovableFrame(anchor, opts)
 
     local function onDragStop(self_)
         self_:StopMovingOrSizing()
-        local parent = self_:GetParent() or UIParent
-        local fcx, fcy = self_:GetCenter()
-        local pcx, pcy = parent:GetCenter()
-        local point, x, y = "CENTER", 0, 0
-        if fcx and pcx then
-            local fScale = self_:GetEffectiveScale()
-            local pScale = parent:GetEffectiveScale()
-            x = (fcx * fScale - pcx * pScale) / pScale
-            y = (fcy * fScale - pcy * pScale) / pScale
-        else
-            local p, _, _, ox, oy = self_:GetPoint(1)
-            point = p or "CENTER"
-            x = ox or 0
-            y = oy or 0
-        end
-        opts.setPosition({
-            point = point,
-            x = x,
-            y = y
-        })
+        opts.setPosition(E:GetFramePosition(self_, opts.relativeTo or UIParent))
         if opts.onChanged then
             safeCall("MovableFrame.onChanged", opts.onChanged)
         end

@@ -662,8 +662,7 @@ function LuraMap:ApplyPositions()
     for key, anchor in pairs(self.map.anchors) do
         local pos = self.db.anchors[key] and self.db.anchors[key].position
         if pos then
-            anchor:ClearAllPoints()
-            anchor:SetPoint(pos.point or "CENTER", UIParent, pos.point or "CENTER", pos.x or 0, pos.y or 0)
+            E:ApplyFramePosition(anchor, pos)
         end
     end
 end

@@ -340,8 +340,7 @@ function Dirge:ApplySettings()
         f.barAnchor:SetAlpha(db.buttons.opacity or 1)
 
         local pb = db.buttons.position
-        f.barAnchor:ClearAllPoints()
-        f.barAnchor:SetPoint(pb.point or "CENTER", UIParent, pb.point or "CENTER", pb.x or 0, pb.y or 0)
+        E:ApplyFramePosition(f.barAnchor, pb)
 
         for j = 1, 6 do
             f.secureButtons[j]:ClearAllPoints()
@@ -353,14 +352,12 @@ function Dirge:ApplySettings()
 
     f.squadAnchor:SetScale(db.squad.scale or 1)
     local ps = db.squad.position
-    f.squadAnchor:ClearAllPoints()
-    f.squadAnchor:SetPoint(ps.point or "CENTER", UIParent, ps.point or "CENTER", ps.x or 0, ps.y or 0)
+    E:ApplyFramePosition(f.squadAnchor, ps)
     applyBackdrop(f.squadFrame, db.squad.background.opacity, db.squad.border)
 
     f.seqBarAnchor:SetScale(db.bar.scale or 1)
     local pBar = db.bar.position
-    f.seqBarAnchor:ClearAllPoints()
-    f.seqBarAnchor:SetPoint(pBar.point or "CENTER", UIParent, pBar.point or "CENTER", pBar.x or 0, pBar.y or 0)
+    E:ApplyFramePosition(f.seqBarAnchor, pBar)
     applyBackdrop(f.barFrame, db.bar.background.opacity, db.bar.border)
 end
 
