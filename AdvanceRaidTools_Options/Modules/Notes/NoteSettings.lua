@@ -87,7 +87,7 @@ local function reloadEditor(mod)
     end
 end
 
-local EDITOR_LINES = 26
+local EDITOR_LINES = 25
 local TOOLBAR_H = 40
 local TOKEN_STRIP_H = 22
 local ACTION_ROW_H = 24
@@ -466,6 +466,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
 
     local editor = T:MultilineEditBox(editorCol, {
         lines = EDITOR_LINES,
+        forwardWheelToOuter = true,
         get = function()
             return mod:GetSlotText(clampEditingSlot(mod))
         end,
@@ -490,18 +491,6 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     editor.frame:SetPoint("TOPLEFT", activeRow, "BOTTOMLEFT", 0, -GAP)
     editor.frame:SetPoint("TOPRIGHT", activeRow, "BOTTOMRIGHT", 0, -GAP)
     editorRef = editor
-
-    if editor.editBox and editor.scrollFrame then
-        local eb = editor.editBox
-        local sc = editor.scrollFrame
-        eb:EnableMouseWheel(true)
-        eb:SetScript("OnMouseWheel", function(_, delta)
-            local handler = sc:GetScript("OnMouseWheel")
-            if handler then
-                handler(sc, delta)
-            end
-        end)
-    end
 
     local function insertAtCursor(text, options)
         if isModuleDisabled() then

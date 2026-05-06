@@ -350,6 +350,7 @@ end
 --     template      = "Default"|"Transparent"|"Opaque",
 --     onTextChanged = function(text, userInput) end,
 --     onEscape      = function() end,
+--     forwardWheelToOuter = false,    -- bubble wheel to an ancestor ScrollFrame at bounds
 --     tooltip       = ..., disabled = ...,
 -- }
 --
@@ -385,7 +386,8 @@ function T:MultilineEditBox(parent, opts)
 
     local sfInstance = T:ScrollFrame(container, {
         template = opts.template or "Default",
-        insets = {4, 4, 6, 4}
+        insets = {4, 4, 6, 4},
+        forwardWheelToOuter = opts.forwardWheelToOuter
     })
     local box = sfInstance.frame
     if labelFS then
@@ -415,6 +417,16 @@ function T:MultilineEditBox(parent, opts)
     }
     eb:SetText(state.text)
     scroll:SetScrollChild(eb)
+
+    if opts.forwardWheelToOuter then
+        eb:EnableMouseWheel(true)
+        eb:SetScript("OnMouseWheel", function(_, delta)
+            local handler = scroll:GetScript("OnMouseWheel")
+            if handler then
+                handler(scroll, delta)
+            end
+        end)
+    end
 
     local measurer = container:CreateFontString(nil, "BACKGROUND")
     measurer:Hide()
