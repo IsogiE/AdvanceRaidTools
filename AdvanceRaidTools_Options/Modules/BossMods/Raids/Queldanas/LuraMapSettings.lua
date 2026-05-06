@@ -192,34 +192,6 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {intScale, intOpacity})
 
-    local intPosY, intHandle = T:PositionSection(rightPanel, y, widthPx, {
-        anchor = mod.map and mod.map.anchors and mod.map.anchors.intermission,
-        label = L["BossMods_LMIntermission"],
-        headerText = L["BossMods_LMIntermissionPosition"],
-        tracker = tracker,
-        getPosition = function()
-            local p = mod.db.anchors.intermission.position
-            return {
-                point = p.point,
-                x = p.x,
-                y = p.y
-            }
-        end,
-        setPosition = function(pos)
-            mod:SavePosition("intermission", pos)
-        end,
-        defaultPosition = {
-            point = "CENTER",
-            x = -200,
-            y = 0
-        },
-        onChanged = refreshLive,
-        isDisabled = isDisabled,
-        unlockController = unlockCtrl
-    })
-    y = intPosY
-    posHandles[#posHandles + 1] = intHandle
-
     -- Main
     y = section(y, "BossMods_LMMain")
 
@@ -305,6 +277,35 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {borderCol, borderOpacity})
 
+    local intPosY, intHandle = T:PositionSection(rightPanel, y, widthPx, {
+        anchor = mod.map and mod.map.anchors and mod.map.anchors.intermission,
+        label = L["BossMods_LMIntermission"],
+        headerText = L["BossMods_LMIntermissionPosition"],
+        tracker = tracker,
+        getPosition = function()
+            local p = mod.db.anchors.intermission.position
+            return {
+                point = p.point,
+                x = p.x,
+                y = p.y
+            }
+        end,
+        setPosition = function(pos)
+            mod:SavePosition("intermission", pos)
+        end,
+        defaultPosition = {
+            point = "CENTER",
+            x = -200,
+            y = 0
+        },
+        onChanged = refreshLive,
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl,
+        showOffsets = true
+    })
+    y = intPosY
+    posHandles[#posHandles + 1] = intHandle
+
     local mainPosY, mainHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = mod.map and mod.map.anchors and mod.map.anchors.main,
         label = L["BossMods_LMMain"],
@@ -328,7 +329,8 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         },
         onChanged = refreshLive,
         isDisabled = isDisabled,
-        unlockController = unlockCtrl
+        unlockController = unlockCtrl,
+        showOffsets = true
     })
     y = mainPosY
     posHandles[#posHandles + 1] = mainHandle

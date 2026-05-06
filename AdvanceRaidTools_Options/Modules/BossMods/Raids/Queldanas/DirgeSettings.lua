@@ -172,34 +172,6 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {clickthrough, kbPos})
 
-    local btnPosY, btnHandle = T:PositionSection(rightPanel, y, widthPx, {
-        anchor = frames and frames.barAnchor,
-        label = L["BossMods_DirgeButtons"],
-        headerText = (L["BossMods_DirgeButtons"] .. " " .. L["Position"]),
-        tracker = tracker,
-        getPosition = function()
-            local p = mod.db.buttons.position
-            return {
-                point = p.point,
-                x = p.x,
-                y = p.y
-            }
-        end,
-        setPosition = function(pos)
-            mod:SavePosition("buttons", pos)
-        end,
-        defaultPosition = {
-            point = "CENTER",
-            x = 0,
-            y = -150
-        },
-        onChanged = refreshLive,
-        isDisabled = isDisabled,
-        unlockController = unlockCtrl
-    })
-    y = btnPosY
-    posHandles[#posHandles + 1] = btnHandle
-
     -- Squad
     y = section(y, "BossMods_DirgeSquadSection")
 
@@ -273,34 +245,6 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(y, {squadBorderSize, squadBorderColor})
-
-    local squadPosY, squadHandle = T:PositionSection(rightPanel, y, widthPx, {
-        anchor = frames and frames.squadAnchor,
-        label = L["BossMods_DirgeSquad"],
-        headerText = (L["BossMods_DirgeSquad"] .. " " .. L["Position"]),
-        tracker = tracker,
-        getPosition = function()
-            local p = mod.db.squad.position
-            return {
-                point = p.point,
-                x = p.x,
-                y = p.y
-            }
-        end,
-        setPosition = function(pos)
-            mod:SavePosition("squad", pos)
-        end,
-        defaultPosition = {
-            point = "CENTER",
-            x = -200,
-            y = 50
-        },
-        onChanged = refreshLive,
-        isDisabled = isDisabled,
-        unlockController = unlockCtrl
-    })
-    y = squadPosY
-    posHandles[#posHandles + 1] = squadHandle
 
     -- Bar
     y = section(y, "BossMods_DirgeBar")
@@ -376,34 +320,6 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {barBorderSize, barBorderColor})
 
-    local barPosY, barHandle = T:PositionSection(rightPanel, y, widthPx, {
-        anchor = frames and frames.seqBarAnchor,
-        label = L["BossMods_DirgeBar"],
-        headerText = (L["BossMods_DirgeBar"] .. " " .. L["Position"]),
-        tracker = tracker,
-        getPosition = function()
-            local p = mod.db.bar.position
-            return {
-                point = p.point,
-                x = p.x,
-                y = p.y
-            }
-        end,
-        setPosition = function(pos)
-            mod:SavePosition("bar", pos)
-        end,
-        defaultPosition = {
-            point = "CENTER",
-            x = 0,
-            y = 50
-        },
-        onChanged = refreshLive,
-        isDisabled = isDisabled,
-        unlockController = unlockCtrl
-    })
-    y = barPosY
-    posHandles[#posHandles + 1] = barHandle
-
     -- TTS
     y = section(y, "TextToSpeech")
 
@@ -437,6 +353,94 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(y, {ttsEnable, ttsVoice})
+
+    -- Position
+    local btnPosY, btnHandle = T:PositionSection(rightPanel, y, widthPx, {
+        anchor = frames and frames.barAnchor,
+        label = L["BossMods_DirgeButtons"],
+        headerText = (L["BossMods_DirgeButtons"] .. " " .. L["Position"]),
+        tracker = tracker,
+        getPosition = function()
+            local p = mod.db.buttons.position
+            return {
+                point = p.point,
+                x = p.x,
+                y = p.y
+            }
+        end,
+        setPosition = function(pos)
+            mod:SavePosition("buttons", pos)
+        end,
+        defaultPosition = {
+            point = "CENTER",
+            x = 0,
+            y = -150
+        },
+        onChanged = refreshLive,
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl,
+        showOffsets = true
+    })
+    y = btnPosY
+    posHandles[#posHandles + 1] = btnHandle
+
+    local squadPosY, squadHandle = T:PositionSection(rightPanel, y, widthPx, {
+        anchor = frames and frames.squadAnchor,
+        label = L["BossMods_DirgeSquad"],
+        headerText = (L["BossMods_DirgeSquad"] .. " " .. L["Position"]),
+        tracker = tracker,
+        getPosition = function()
+            local p = mod.db.squad.position
+            return {
+                point = p.point,
+                x = p.x,
+                y = p.y
+            }
+        end,
+        setPosition = function(pos)
+            mod:SavePosition("squad", pos)
+        end,
+        defaultPosition = {
+            point = "CENTER",
+            x = -200,
+            y = 50
+        },
+        onChanged = refreshLive,
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl,
+        showOffsets = true
+    })
+    y = squadPosY
+    posHandles[#posHandles + 1] = squadHandle
+
+    local barPosY, barHandle = T:PositionSection(rightPanel, y, widthPx, {
+        anchor = frames and frames.seqBarAnchor,
+        label = L["BossMods_DirgeBar"],
+        headerText = (L["BossMods_DirgeBar"] .. " " .. L["Position"]),
+        tracker = tracker,
+        getPosition = function()
+            local p = mod.db.bar.position
+            return {
+                point = p.point,
+                x = p.x,
+                y = p.y
+            }
+        end,
+        setPosition = function(pos)
+            mod:SavePosition("bar", pos)
+        end,
+        defaultPosition = {
+            point = "CENTER",
+            x = 0,
+            y = 50
+        },
+        onChanged = refreshLive,
+        isDisabled = isDisabled,
+        unlockController = unlockCtrl,
+        showOffsets = true
+    })
+    y = barPosY
+    posHandles[#posHandles + 1] = barHandle
 
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)

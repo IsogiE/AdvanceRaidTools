@@ -119,17 +119,33 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
             return isDisabled()
         end
     }))
-    local resetBtn = track(T:LabelAlignedButton(rightPanel, {
-        text = (L["Reset"] .. " " .. L["Position"]) or "Reset Position",
-        onClick = function()
-            mod:ResetPosition()
-            tracker.refresh()
+    y = row(y, {strataDropdown, scaleSlider})
+
+    local posNewY, posHandle = T:PositionSection(rightPanel, y, widthPx, {
+        label = L["BossMods_BreakTimer"],
+        tracker = tracker,
+        getPosition = function()
+            local p = mod.db.position or {}
+            return {
+                point = p.point,
+                x = p.x,
+                y = p.y
+            }
         end,
-        disabled = function()
-            return isDisabled()
-        end
-    }))
-    y = row(y, {strataDropdown, scaleSlider, resetBtn})
+        setPosition = function(pos)
+            mod:SavePosition(pos)
+        end,
+        defaultPosition = {
+            point = "CENTER",
+            x = 0,
+            y = 0
+        },
+        onChanged = tracker.refresh,
+        isDisabled = isDisabled,
+        showOffsets = true,
+        hideUnlock = true
+    })
+    y = posNewY
 
     local stateHandle = E:NewCallbackHandle()
     stateHandle:RegisterMessage("ART_BREAKTIMER_STATE", function()
@@ -153,6 +169,7 @@ local function buildBreakTimerBody(rightPanel, mod, isDisabled)
         height = totalHeight,
         Refresh = tracker.refresh,
         Release = function()
+            posHandle.Release()
             stateHandle:UnregisterAllMessages()
             tracker.release()
         end

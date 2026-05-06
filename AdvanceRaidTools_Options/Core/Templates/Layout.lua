@@ -309,6 +309,7 @@ end
 --   onEditModeChanged   fires when the unlock toggles (bool)
 --   isDisabled          function() -> bool
 --   showOffsets         render compact X/Y sliders above the reset button
+--   hideUnlock          render offsets/reset without an unlock checkbox
 --   offsetMin/offsetMax slider bounds (default ±2000)
 --
 -- Returns (newY, handle). handle.Release() releases the MovableFrame, fires
@@ -514,7 +515,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         end
 
         local posHeader = trackOwn(T:Header(parent, {
-            text = L["Position"]
+            text = opts.headerText or L["Position"]
         }))
         newY = newY + T:PlaceFull(parent, posHeader, newY, widthPx) + POSITION_SECTION_HEADER_GAP
 
@@ -553,7 +554,9 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         disabled = isDisabled
     }))
 
-    if opts.unlockController then
+    if opts.hideUnlock then
+        newY = newY + T:PlaceRow(parent, {resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
+    elseif opts.unlockController then
         if movable then
             opts.unlockController:Attach(movable)
         end
@@ -606,7 +609,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
                 movable:Release()
                 movable = nil
             end
-            if opts.onEditModeChanged and not opts.unlockController then
+            if opts.onEditModeChanged and not opts.unlockController and not opts.hideUnlock then
                 opts.onEditModeChanged(false)
             end
             for _, w in ipairs(own) do

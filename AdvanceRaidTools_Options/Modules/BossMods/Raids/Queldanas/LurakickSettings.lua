@@ -287,7 +287,8 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         },
         onChanged = refreshLive,
         isDisabled = isDisabled,
-        unlockController = unlockCtrl
+        unlockController = unlockCtrl,
+        showOffsets = true
     })
     y = posNewY
 

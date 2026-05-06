@@ -9,7 +9,8 @@ E:RegisterModuleDefaults("BossMods_BreakTimer", {
     position = {
         point = "CENTER",
         x = 0,
-        y = 0
+        y = 0,
+        coordSpace = "UIParent"
     }
 })
 
@@ -19,6 +20,7 @@ local IMAGE_POOL = "Dreams"
 local TIMER_GAP = 8
 local TICK_INTERVAL = 0.1
 local LISTENER_TOKEN = "AdvanceRaidTools_BossMods_BreakTimer"
+local POSITION_COORD_SPACE = "UIParent"
 
 local function formatTime(seconds)
     if seconds < 0 then
@@ -218,12 +220,20 @@ function Mod:Show()
 end
 
 function Mod:ApplyPosition()
-    local pos = self.db.position or {}
-    local point = pos.point or "CENTER"
-    local x = pos.x or 0
-    local y = pos.y or 0
-    self.frame:ClearAllPoints()
-    self.frame:SetPoint(point, UIParent, point, x, y)
+    self.db.position = self.db.position or {
+        point = "CENTER",
+        x = 0,
+        y = 0,
+        coordSpace = POSITION_COORD_SPACE
+    }
+    local pos = self.db.position
+    if pos.coordSpace ~= POSITION_COORD_SPACE then
+        local ratio = (self.frame:GetEffectiveScale() or 1) / (UIParent:GetEffectiveScale() or 1)
+        pos.x = (pos.x or 0) * ratio
+        pos.y = (pos.y or 0) * ratio
+        pos.coordSpace = POSITION_COORD_SPACE
+    end
+    E:ApplyFramePosition(self.frame, pos)
 end
 
 function Mod:ApplyStrata()
@@ -241,27 +251,41 @@ function Mod:ApplyScale()
     if scale < 0.1 then
         scale = 0.1
     end
+    if self.db.position and self.db.position.coordSpace ~= POSITION_COORD_SPACE then
+        self:ApplyPosition()
+    end
     self.frame:SetScale(scale)
+    self:ApplyPosition()
 end
 
 function Mod:ResetPosition()
     self.db.position = {
         point = "CENTER",
         x = 0,
-        y = 0
+        y = 0,
+        coordSpace = POSITION_COORD_SPACE
     }
     if self.frame then
         self:ApplyPosition()
     end
 end
 
-function Mod:SavePosition()
-    local point, _, _, x, y = self.frame:GetPoint(1)
-    self.db.position = {
-        point = point or "CENTER",
-        x = x or 0,
-        y = y or 0
-    }
+function Mod:SavePosition(pos)
+    if pos then
+        self.db.position = {
+            point = pos.point or "CENTER",
+            x = pos.x or 0,
+            y = pos.y or 0,
+            coordSpace = POSITION_COORD_SPACE
+        }
+        if self.frame then
+            self:ApplyPosition()
+        end
+        return
+    end
+
+    self.db.position = E:GetFramePosition(self.frame)
+    self.db.position.coordSpace = POSITION_COORD_SPACE
 end
 
 function Mod:IsRunning()
