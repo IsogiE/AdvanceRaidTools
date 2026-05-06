@@ -625,6 +625,7 @@ end
 --     totalHeight  = 40,   -- overall container height
 --     labelHeight  = 16,   -- reserved gap above the button
 --     buttonHeight = 20,   -- (auto-derived from total - label if omitted)
+--     buttonWidth  = nil,  -- fixed visible button width inside the row cell
 --
 -- Returns {
 --     frame, height, button, fullWidth?,
@@ -649,15 +650,21 @@ function T:LabelAlignedButton(parent, opts)
     local buttonOpts = shallowCopy(opts)
     buttonOpts.text = initialText
     buttonOpts.height = btnH
+    buttonOpts.width = opts.buttonWidth or buttonOpts.width
     buttonOpts.totalHeight = nil
     buttonOpts.labelHeight = nil
     buttonOpts.buttonHeight = nil
+    buttonOpts.buttonWidth = nil
 
     local btn = T:Button(parent, buttonOpts)
     btn.frame:SetParent(container)
     btn.frame:ClearAllPoints()
     btn.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -labelH)
-    btn.frame:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, -labelH)
+    if opts.buttonWidth then
+        btn.frame:SetWidth(opts.buttonWidth)
+    else
+        btn.frame:SetPoint("TOPRIGHT", container, "TOPRIGHT", 0, -labelH)
+    end
 
     local function Refresh()
         if isDynamicText and btn.SetLabel then

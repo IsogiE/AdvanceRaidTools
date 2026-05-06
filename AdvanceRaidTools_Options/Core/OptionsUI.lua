@@ -517,6 +517,8 @@ local function buildDropdown(parent, option, info)
             return evalValues(option, info)
         end,
         sorting = option.sorting,
+        buttonHeight = option.buttonHeight,
+        height = option.dropdownHeight,
         multi = multi,
         get = function(key)
             if multi then

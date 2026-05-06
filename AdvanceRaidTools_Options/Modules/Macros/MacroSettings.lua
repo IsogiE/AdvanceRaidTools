@@ -21,6 +21,8 @@ local LINE_ORDER = {LINE_PREFIX, LINE_SUFFIX}
 local TARGET_MODE_ORDER = {TARGET_MODE_TARGET, TARGET_MODE_MOUSEOVER, TARGET_MODE_NAME, "focus", "player", "pet", "boss1",
                            "boss2", "boss3", "boss4", "boss5", "arena1", "arena2", "arena3", "arena4", "arena5",
                            "party1", "party2", "party3", "party4"}
+local CONTROL_H = E.TemplatePrivate and E.TemplatePrivate.H_EDITBOX or 22
+local LABELLED_CONTROL_H = 40
 local ROW_GAP = 6
 
 local ui = {
@@ -392,6 +394,8 @@ local function buildCustomLines(parent)
 
             local position = track(T:Dropdown(container, {
                 label = L["Macros_CustomLinePosition"],
+                buttonHeight = CONTROL_H,
+                height = LABELLED_CONTROL_H,
                 values = linePositionValues,
                 sorting = LINE_ORDER,
                 get = function()
@@ -410,6 +414,9 @@ local function buildCustomLines(parent)
 
             local remove = track(T:LabelAlignedButton(container, {
                 text = "X",
+                buttonHeight = CONTROL_H,
+                totalHeight = LABELLED_CONTROL_H,
+                buttonWidth = CONTROL_H,
                 tooltip = {
                     title = L["Macros_RemoveCustomLine"],
                     desc = L["Macros_RemoveCustomLine"]
@@ -570,6 +577,8 @@ local function buildPanel()
                 type = "select",
                 width = "1/2",
                 name = L["Macros_Selected"],
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
                 values = slotChoices,
                 sorting = slotOrder,
                 get = selectedID,
@@ -586,6 +595,8 @@ local function buildPanel()
                 build = function(parent)
                     return T:LabelAlignedButton(parent, {
                         text = L["Macros_Duplicate"],
+                        buttonHeight = CONTROL_H,
+                        totalHeight = LABELLED_CONTROL_H,
                         onClick = function()
                             local slot = selected()
                             if slot then
@@ -602,6 +613,8 @@ local function buildPanel()
                 build = function(parent)
                     return T:LabelAlignedButton(parent, {
                         text = deleteActionText,
+                        buttonHeight = CONTROL_H,
+                        totalHeight = LABELLED_CONTROL_H,
                         confirm = deleteConfirmText,
                         onClick = function()
                             local slot = selected()
@@ -626,6 +639,8 @@ local function buildPanel()
                 type = "select",
                 width = "1/2",
                 name = L["Type"],
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
                 values = typeValues,
                 sorting = TYPE_ORDER,
                 get = function()
@@ -643,6 +658,8 @@ local function buildPanel()
                 build = function(parent)
                     return T:LabelAlignedButton(parent, {
                         text = createButtonText,
+                        buttonHeight = CONTROL_H,
+                        totalHeight = LABELLED_CONTROL_H,
                         emphasize = true,
                         onClick = function()
                             m:AddSlot(ui.newType)
@@ -703,6 +720,8 @@ local function buildPanel()
                 type = "select",
                 width = "1/2",
                 name = L["Type"],
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
                 values = typeValues,
                 sorting = TYPE_ORDER,
                 get = function()
@@ -761,6 +780,8 @@ local function buildPanel()
                 type = "select",
                 width = "1/2",
                 name = L["Target"],
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
                 values = targetModeValues,
                 sorting = TARGET_MODE_ORDER,
                 hidden = function()
@@ -791,6 +812,8 @@ local function buildPanel()
                 type = "select",
                 width = "1/2",
                 name = L["Macros_Marker"],
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
                 values = markerChoices,
                 sorting = MARKER_ORDER,
                 hidden = function()
