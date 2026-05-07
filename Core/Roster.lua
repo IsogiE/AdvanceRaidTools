@@ -18,6 +18,7 @@ local GetGuildRosterInfo = GetGuildRosterInfo
 local GetNumGroupMembers = GetNumGroupMembers
 local GetNumGuildMembers = GetNumGuildMembers
 local GetNormalizedRealmName = GetNormalizedRealmName
+local UnitName = UnitName
 
 local GUILD_CACHE_TTL = 300
 local GUILD_REBUILD_THROTTLE = 5
@@ -25,6 +26,7 @@ local GUILD_REBUILD_THROTTLE = 5
 local _guildCache
 local _guildCacheAt = 0
 local _classByName
+local _groupSignature
 
 local function normalizeName(name)
     if not name or name == "" then
@@ -66,7 +68,37 @@ local function buildClassMap()
     return map
 end
 
+local function addRosterSignatureName(names, name, realm)
+    if not name or name == "" then
+        return
+    end
+    if realm and realm ~= "" then
+        name = name .. "-" .. realm
+    end
+    names[#names + 1] = normalizeName(name)
+end
+
+local function buildGroupSignature()
+    local names = {}
+
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local name, _, _, _, _, _, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
+            addRosterSignatureName(names, name, server)
+        end
+    elseif IsInGroup() then
+        addRosterSignatureName(names, UnitName("player"))
+        for i = 1, 4 do
+            addRosterSignatureName(names, UnitName("party" .. i))
+        end
+    end
+
+    table.sort(names)
+    return table.concat(names, "\001")
+end
+
 function Roster:OnEnable()
+    _groupSignature = buildGroupSignature()
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
     self:RegisterEvent("GUILD_ROSTER_UPDATE", "OnGuildRosterUpdate")
@@ -80,6 +112,8 @@ function Roster:OnDisable()
     _guildCache = nil
     _guildCacheAt = 0
     _classByName = nil
+    _groupSignature = nil
+    E:CancelRunWhenOutOfCombat("Roster:Update")
     E:CancelRunWhenOutOfCombat("Roster:Publish")
 end
 
@@ -170,6 +204,7 @@ end
 
 function Roster:OnPlayerEnteringWorld()
     _classByName = nil
+    _groupSignature = buildGroupSignature()
     if IsInGuild() and C_GuildInfo and C_GuildInfo.RequestGuildRoster then
         C_GuildInfo.RequestGuildRoster()
     end
@@ -197,9 +232,27 @@ function Roster:OnPlayerGuildUpdate()
     self:Publish()
 end
 
-function Roster:OnRosterUpdate()
+function Roster:ProcessRosterUpdate()
+    local signature = buildGroupSignature()
+    if signature == _groupSignature then
+        return
+    end
+    _groupSignature = signature
     _classByName = nil
     self:Publish()
+end
+
+function Roster:OnRosterUpdate()
+    _classByName = nil
+    if InCombatLockdown() then
+        E:RunWhenOutOfCombat("Roster:Update", function()
+            if self:IsEnabled() then
+                self:ProcessRosterUpdate()
+            end
+        end)
+        return
+    end
+    self:ProcessRosterUpdate()
 end
 
 function E:GetClassByName(name)

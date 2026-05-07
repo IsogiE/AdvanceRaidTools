@@ -1216,8 +1216,18 @@ function Notes:OnZoneChanged()
 end
 
 function Notes:OnRosterChanged()
-    self:RefreshAllFrames()
-    self:RefreshTimeTicker()
+    if self.rosterRefreshTimer then
+        return
+    end
+
+    self.rosterRefreshTimer = C_Timer.NewTimer(0.05, function()
+        self.rosterRefreshTimer = nil
+        if not Notes:IsEnabled() then
+            return
+        end
+        Notes:RefreshFrameVisibility()
+        Notes:RefreshTimeTicker()
+    end)
 end
 
 function Notes:OnCombatStateChanged()
@@ -1805,6 +1815,29 @@ function Notes:RefreshAllFrames()
     end
 end
 
+function Notes:RefreshFrameVisibility()
+    if not self.db or not self.db.slots then
+        return
+    end
+    for i = 1, self:GetSlotCount() do
+        if self:ShouldSlotBeVisible(i) then
+            local frame = self.frames[i]
+            if frame then
+                frame:Show()
+            else
+                frame = self:BuildFrame(i)
+                frame:Show()
+                self:RefreshFrame(i)
+            end
+        else
+            local frame = self.frames[i]
+            if frame then
+                frame:Hide()
+            end
+        end
+    end
+end
+
 function Notes:HideAllFrames()
     for _, frame in pairs(self.frames) do
         if frame and frame.Hide then
@@ -2048,7 +2081,6 @@ function Notes:OnEnable()
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
-    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterChanged")
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStateChanged")
@@ -2084,6 +2116,10 @@ end
 
 function Notes:OnDisable()
     self:UnregisterAllEvents()
+    if self.rosterRefreshTimer then
+        self.rosterRefreshTimer:Cancel()
+        self.rosterRefreshTimer = nil
+    end
     self:StopEncounterTicker()
     wipe(self.editVisibleSlots)
     self.encounterStartTime = nil
@@ -2097,6 +2133,10 @@ function Notes:OnProfileChanged()
     wipe(self.processedCache)
     wipe(self.undoStacks)
     wipe(self.editVisibleSlots)
+    if self.rosterRefreshTimer then
+        self.rosterRefreshTimer:Cancel()
+        self.rosterRefreshTimer = nil
+    end
     self:StopEncounterTicker()
     self.encounterStartTime = nil
 
