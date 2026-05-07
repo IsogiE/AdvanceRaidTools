@@ -4,8 +4,29 @@ local function printHelp()
     E:Printf(L["SlashHelpHeader"])
     E:Printf("  /art            %s", L["SlashHelpOpen"])
     E:Printf("  /art map        %s", L["SlashHelpMap"])
+    E:Printf("  /art pi         %s", L["SlashHelpPI"])
+    E:Printf("  /art innervate  %s", L["SlashHelpInnervate"])
     E:Printf("  /art help       %s", L["SlashHelpHelp"])
 end
+
+local DEFAULT_SPELL_TARGET_COMMANDS = {
+    inn = {
+        slotID = 2,
+        spell = "Innervate"
+    },
+    innervate = {
+        slotID = 2,
+        spell = "Innervate"
+    },
+    pi = {
+        slotID = 1,
+        spell = "Power Infusion"
+    },
+    powerinfusion = {
+        slotID = 1,
+        spell = "Power Infusion"
+    }
+}
 
 local function onOffToBool(token)
     if token == "on" or token == "enable" or token == "enabled" or token == "true" or token == "1" then
@@ -45,6 +66,48 @@ local function printDebugStatus()
     if not any then
         E:Printf(L["DebugStateNoChannels"])
     end
+end
+
+local function reportMacroResult(m, ok, err, extra, successText)
+    if ok then
+        E:Printf(err == "QUEUED" and L["Macros_UpdateQueued"] or successText or L["Macros_UpdateDone"])
+        return
+    end
+
+    if err == "TOO_LONG" then
+        E:Printf(L["Macros_ErrorTooLong"]:format(#tostring(extra or ""), m and m:GetTextLimit() or 255))
+    elseif err == "EMPTY" then
+        E:Printf(L["Macros_ErrorEmpty"])
+    elseif err == "NAME_IN_USE" then
+        E:Printf(L["Macros_ErrorNameInUse"])
+    elseif err == "GENERAL_FULL" then
+        E:Printf(L["Macros_ErrorGeneralFull"])
+    elseif err == "MEGAMACRO_BLOCKED" then
+        E:Printf(L["Macros_ErrorMegaMacro"])
+    elseif err == "WRITE_FAILED" then
+        E:Printf(L["Macros_ErrorWriteFailed"]:format(tostring(extra or "")))
+    elseif err == "NO_TARGET" then
+        E:Printf(L["Macros_ErrorNoTarget"])
+    elseif err == "TARGET_NOT_PLAYER" then
+        E:Printf(L["Macros_ErrorTargetNotPlayer"])
+    elseif err == "NO_SLOT" then
+        E:Printf(L["Macros_NoSlot"])
+    else
+        E:Printf(L["Macros_ErrorGeneric"]:format(tostring(err or "?")))
+    end
+end
+
+local function defaultSpellTargetHandler(command)
+    local m = E:GetModule("Macros", true)
+    if not (m and m:IsEnabled() and m.SetDefaultSpellTargetFromUnit) then
+        E:Printf(L["LoadModule"])
+        return
+    end
+
+    local ok, err, extra, targetName = m:SetDefaultSpellTargetFromUnit(command.slotID, "target")
+    local successText = targetName and L["Macros_DefaultSpellTargetUpdated"]:format(command.spell, targetName) or
+                            L["Macros_UpdateDone"]
+    reportMacroResult(m, ok, err, extra, successText)
 end
 
 local function printDebugList()
@@ -153,11 +216,14 @@ local function handler(input)
     verb = (verb or ""):lower()
     rest = rest or ""
 
+    local spellCommand = DEFAULT_SPELL_TARGET_COMMANDS[verb]
     if verb == "map" then
         local profile = E.db.profile.general
         profile.minimapIcon.hide = not profile.minimapIcon.hide
         -- /art map must never error if HomeSettings failed to register
         E:CallModule("HomeSettings", "UpdateMinimap")
+    elseif spellCommand then
+        defaultSpellTargetHandler(spellCommand)
     elseif verb == "help" then
         printHelp()
     elseif verb == "update" then

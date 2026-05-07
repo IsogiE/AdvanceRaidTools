@@ -20,6 +20,8 @@ local LINE_SUFFIX = "suffix"
 local TARGET_MODE_TARGET = "target"
 local TARGET_MODE_MOUSEOVER = "mouseover"
 local TARGET_MODE_NAME = "name"
+local DEFAULT_PI_SLOT_ID = 1
+local DEFAULT_INNERVATE_SLOT_ID = 2
 
 local WORLD_MARKER_TO_TARGET_ICON = {
     [1] = 6,
@@ -33,7 +35,7 @@ local WORLD_MARKER_TO_TARGET_ICON = {
 }
 
 local DEFAULT_SLOTS = {{
-    id = 1,
+    id = DEFAULT_PI_SLOT_ID,
     name = "Power Infusion",
     macroName = "ART PI",
     type = TYPE_SPELL,
@@ -44,7 +46,7 @@ local DEFAULT_SLOTS = {{
     useTrinket2 = false,
     customLines = {}
 }, {
-    id = 2,
+    id = DEFAULT_INNERVATE_SLOT_ID,
     name = "Innervate",
     macroName = "ART Innervate",
     type = TYPE_SPELL,
@@ -323,7 +325,7 @@ local function spellTarget(slot)
     end
     local targetName = trim(slot.targetName)
     if targetName ~= "" then
-        return ("[@%s,help,nodead]"):format(targetName)
+        return ("[@%s,help,nodead][]"):format(targetName)
     end
     return ""
 end
@@ -845,6 +847,7 @@ function Macros:BuildText(slot)
             end
             local target = spellTarget(slot)
             addLine(lines, (target ~= "" and "/cast " .. target .. " " or "/cast ") .. spell)
+            addLine(lines, "/cast [@player] " .. spell)
             addCustomLines(lines, slot, LINE_SUFFIX)
         elseif slot.type == TYPE_MARK then
             addCustomLines(lines, slot, LINE_PREFIX)
@@ -926,6 +929,26 @@ function Macros:GetCurrentTargetName(unit)
         return name
     end
     return name .. "-" .. realm
+end
+
+function Macros:SetDefaultSpellTargetFromUnit(slotID, unit)
+    local slot = self:GetSlot(slotID)
+    if not (slot and self:IsDefaultSlot(slot) and slot.type == TYPE_SPELL) then
+        return false, "NO_SLOT"
+    end
+
+    local name, err = self:GetCurrentTargetName(unit or "target")
+    if not name then
+        return false, err
+    end
+
+    slot.targetName = name
+    local ok, syncErr, extra = self:SyncSlot(slot, nil, true)
+    E:SendMessage("ART_MACROS_CHANGED")
+    if not ok then
+        return false, syncErr, extra, name
+    end
+    return true, syncErr, nil, name
 end
 
 function Macros:FindMacro(name, scope)
