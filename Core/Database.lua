@@ -17,6 +17,22 @@ local function normalizeDebugShape(profile)
     end
 end
 
+local function refreshDefaults(db)
+    if db and db.RegisterDefaults and db.defaults then
+        db:RegisterDefaults(db.defaults)
+    end
+end
+
+local function syncProfileMedia()
+    local home = E.GetModule and E:GetModule("HomeSettings", true)
+    if home and home.SyncMediaTable then
+        local ok, err = pcall(home.SyncMediaTable, home)
+        if not ok then
+            E:Warn("Profile media sync failed: %s", err)
+        end
+    end
+end
+
 function E:InitializeDatabase(defaultsProfile, defaultsGlobal)
     local defaults = {
         profile = defaultsProfile or {},
@@ -68,7 +84,9 @@ function E:RunMigrations(stored, current)
 end
 
 function E:OnProfileChanged()
+    refreshDefaults(self.db)
     normalizeDebugShape(self.db.profile)
+    syncProfileMedia()
 
     -- Two-pass: rebind every module's db first, then evaluate the parent gate
     -- for each (the gate reads sibling/parent DBs, so all dbs must be live).

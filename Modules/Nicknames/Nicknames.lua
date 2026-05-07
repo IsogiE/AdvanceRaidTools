@@ -139,6 +139,22 @@ local function safeCall(addonKey, handlers, method, ...)
     return ok
 end
 
+local function wipeMapExceptSelf(map, selfKey, fallbackNick)
+    if type(map) ~= "table" then
+        return
+    end
+
+    local selfNick = selfKey and map[selfKey]
+    if (not selfNick or selfNick == "") and type(fallbackNick) == "string" and fallbackNick ~= "" then
+        selfNick = fallbackNick
+    end
+
+    wipe(map)
+    if selfKey and selfNick and selfNick ~= "" then
+        map[selfKey] = selfNick
+    end
+end
+
 function Nicknames:OnInitialize(db)
     local selfKey = realmKey("player")
     if selfKey and db.myNickname and db.myNickname ~= "" then
@@ -711,10 +727,22 @@ function Nicknames:WipeMapExceptSelf()
         return
     end
     local selfKey = realmKey("player")
-    local selfNick = selfKey and self.db.map[selfKey]
-    wipe(self.db.map)
-    if selfKey and selfNick then
-        self.db.map[selfKey] = selfNick
+    wipeMapExceptSelf(self.db.map, selfKey, self.db.myNickname)
+    wipe(nicknameToUnitCache)
+end
+
+function Nicknames:WipeAllProfileMapsExceptSelf()
+    local selfKey = realmKey("player")
+    local profiles = E.db and E.db.profiles
+    if type(profiles) == "table" then
+        for _, profile in pairs(profiles) do
+            local nm = profile and profile.modules and profile.modules.Nicknames
+            if nm then
+                wipeMapExceptSelf(nm.map, selfKey, nm.myNickname)
+            end
+        end
+    else
+        self:WipeMapExceptSelf()
     end
     wipe(nicknameToUnitCache)
 end
@@ -741,7 +769,7 @@ function Nicknames:OnGroupFormed()
 end
 
 function Nicknames:OnGroupLeft()
-    self:WipeMapExceptSelf()
+    self:WipeAllProfileMapsExceptSelf()
     self:RefreshIntegrations()
 end
 

@@ -63,6 +63,16 @@ local function validateNicknames(data)
     if data.integrations ~= nil and type(data.integrations) ~= "table" then
         return false, "integrations must be a table"
     end
+    if data.map ~= nil then
+        if type(data.map) ~= "table" then
+            return false, "map must be a table"
+        end
+        for character, nickname in pairs(data.map) do
+            if type(character) ~= "string" or type(nickname) ~= "string" then
+                return false, "map entries must be [string] = string"
+            end
+        end
+    end
     return true
 end
 
@@ -157,6 +167,7 @@ E.sharingCategories = {{
         return {
             enabled = nm.enabled,
             myNickname = nm.myNickname,
+            map = nm.map and CopyTable(nm.map) or nil,
             integrations = nm.integrations and CopyTable(nm.integrations) or nil
         }
     end,
@@ -174,6 +185,9 @@ E.sharingCategories = {{
         end
         if data.integrations then
             nm.integrations = CopyTable(data.integrations)
+        end
+        if data.map ~= nil then
+            nm.map = CopyTable(data.map)
         end
     end
 }, {
