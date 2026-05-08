@@ -45,6 +45,27 @@ local function prd()
     return _G.PersonalResourceDisplayFrame
 end
 
+local function enablePRDForART(self_)
+    if GetCVar(PRD_CVAR) == "1" then
+        return
+    end
+    if self_._artOriginalPRDCVar == nil then
+        self_._artOriginalPRDCVar = GetCVar(PRD_CVAR)
+    end
+    SetCVar(PRD_CVAR, "1")
+end
+
+local function restorePRDCVar(self_)
+    local original = self_._artOriginalPRDCVar
+    if original == nil then
+        return
+    end
+    self_._artOriginalPRDCVar = nil
+    if GetCVar(PRD_CVAR) ~= original then
+        SetCVar(PRD_CVAR, original)
+    end
+end
+
 local function roleActive(db)
     local role = E:GetPlayerRole()
     if not role then
@@ -338,14 +359,13 @@ function Resources:Apply()
     end
 
     if not self:IsEnabled() then
+        restorePRDCVar(self)
         revert(self)
         return
     end
 
     if roleActive(self.db) then
-        if GetCVar(PRD_CVAR) == "0" then
-            SetCVar(PRD_CVAR, "1")
-        end
+        enablePRDForART(self)
 
         self:InstallHooks()
 
@@ -361,6 +381,7 @@ function Resources:Apply()
     end
 
     if not self.db.hideBlizzardPRD then
+        restorePRDCVar(self)
         revert(self)
         return
     end
@@ -453,11 +474,13 @@ function Resources:OnDisable()
     if InCombatLockdown() then
         E:RunWhenOutOfCombat("QoL_Resources:Revert", function()
             if not self:IsEnabled() then
+                restorePRDCVar(self)
                 revert(self)
             end
         end)
         return
     end
+    restorePRDCVar(self)
     revert(self)
 end
 
