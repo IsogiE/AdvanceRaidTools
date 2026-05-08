@@ -98,7 +98,7 @@ local function getResultText(m, sortMode)
 
     for _, item in ipairs(list) do
         local entry = item.entry
-        local nameColor = entry.isSelf and CP.self or E:ClassColorCode(entry.class)
+        local nameColor = E:ClassColorCode(entry.class)
         local valueColor, valueText
 
         if entry.status == m.STATUS_RESPONDED then

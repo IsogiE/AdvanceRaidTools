@@ -153,7 +153,7 @@ local function updateResultRow(m, row, item)
         row._icon:Hide()
     end
 
-    local nameColor = entry.isSelf and CP.self or E:ClassColorCode(entry.class)
+    local nameColor = E:ClassColorCode(entry.class)
     row._name:SetText(nameColor .. (entry.displayName or "?") .. "|r")
 
     local vtext

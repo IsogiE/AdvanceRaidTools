@@ -13,7 +13,6 @@ OH.CHECKER_PALETTE = {
     noAddon = "|cff808080", -- "doesn't have ART" / "not installed"
     outdated = "|cffffcc00", -- has it, just behind
     missing = "|cffff4040", -- has nothing
-    self = "|cff1784d1",
     muted = "|cff888888",
     dim = "|cff666666",
     noResponse = "|cff666666"
