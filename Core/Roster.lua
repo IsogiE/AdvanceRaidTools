@@ -204,11 +204,17 @@ end
 
 function Roster:OnPlayerEnteringWorld()
     _classByName = nil
-    _groupSignature = buildGroupSignature()
     if IsInGuild() and C_GuildInfo and C_GuildInfo.RequestGuildRoster then
         C_GuildInfo.RequestGuildRoster()
     end
-    self:Publish()
+    C_Timer.After(0, function()
+        if not self:IsEnabled() then
+            return
+        end
+        _groupSignature = buildGroupSignature()
+        _classByName = buildClassMap()
+        self:Publish()
+    end)
 end
 
 function Roster:OnGuildRosterUpdate()
