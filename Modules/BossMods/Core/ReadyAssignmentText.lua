@@ -87,10 +87,11 @@ local function noteBlockTemplate(tag, lines)
 end
 
 -- =============================================================================
--- Assignment Reminder Catalog
+-- Assignment Reminder Registry
 -- -----------------------------------------------------------------------------
--- Add/edit reminders here first. The registry, note dropdown templates, and
--- ready-check text/actions all derive from these rows.
+-- Raid files register their own reminders with Text:Register. The registry,
+-- note dropdown templates, and ready-check text/actions all derive from those
+-- rows.
 --
 -- reminders[] = {
 --     key        = "luraCrystals",
@@ -101,7 +102,7 @@ end
 --     order      = 25,
 --     source     = "hashtag"|"noteBlock", -- how ReadyAssignments finds the player
 --                  "hashtagWord"          -- #tag word action trigger
---     tag        = "pickup",              -- hashtag source, without '#'
+--     tag        = "lurapickup",          -- hashtag source, without '#'
 --     word       = "lura",                -- hashtagWord source
 --     noteBlock  = "kick",                -- noteBlock source, matches fooStart/fooEnd
 --     type       = "kick",                -- display family for sorting/compat
@@ -120,7 +121,7 @@ end
 --     localeValues = {direction = "Right"} -- localized placeholder values
 -- }
 -- =============================================================================
-local REMINDER_TEXT = {
+local REGISTRY = {
     fallbackKey = "hashtag",
     fallback = {
         key = "hashtag",
@@ -129,103 +130,8 @@ local REMINDER_TEXT = {
             tag = "tag"
         }
     },
-    aliases = {
-        pickup = "luraCrystals"
-    },
     sheets = {},
-    sheetMeta = {},
-    reminders = {{
-        key = "luraCrystals",
-        sheet = "LuraCrystals",
-        standalone = true,
-        labelKey = "BossMods_LuraCrystals",
-        tab = "Queldanas",
-        order = 25,
-        source = "hashtag",
-        tag = "pickup",
-        type = "hashtag",
-        textKey = "BossMods_AR_TextLuraCrystals",
-        priority = 60,
-        players = 6
-    }, {
-        key = "luraMapReady",
-        sheet = "LuraMap",
-        standalone = true,
-        labelKey = "BossMods_LuraMap",
-        tab = "Queldanas",
-        order = 40,
-        source = "hashtagWord",
-        tag = "showmap",
-        word = "lura",
-        type = "visual",
-        moduleName = "BossMods_LuraMap",
-        action = {
-            moduleName = "BossMods_LuraMap",
-            method = "ShowReadyAssignments",
-            hideMethod = "HideReadyAssignments",
-            args = {"duration", "visualAnchor"}
-        }
-    }, {
-        key = "kick",
-        sheet = "Lurakick",
-        labelKey = "BossMods_Lurakick",
-        tab = "Queldanas",
-        order = 30,
-        source = "noteBlock",
-        noteBlock = "kick",
-        type = "kick",
-        moduleName = "BossMods_Lurakick",
-        textKey = "BossMods_AR_TextKick",
-        priority = 90,
-        rows = {3, 3, 3},
-        values = {
-            prism = "lineIndex",
-            kickIndex = "tokenIndex"
-        },
-        defaultValues = {
-            prism = 0,
-            kickIndex = 0
-        }
-    }, {
-        key = "dirge",
-        sheet = "Dirge",
-        labelKey = "BossMods_Dirge",
-        tab = "Queldanas",
-        order = 50,
-        source = "noteBlock",
-        noteBlock = "dirge",
-        type = "dirge",
-        moduleName = "BossMods_Dirge",
-        textKey = "BossMods_AR_TextDirgeRunes",
-        priority = 80,
-        rows = 3
-    }, {
-        key = "requiemRight",
-        sheet = "Dirge",
-        source = "noteBlock",
-        noteBlock = "requimg1",
-        type = "requiem",
-        moduleName = "BossMods_Dirge",
-        textKey = "BossMods_AR_TextRequiem",
-        priority = 78,
-        rows = 3,
-        localeValues = {
-            direction = "Right"
-        }
-    }, {
-        key = "requiemLeft",
-        sheet = "Dirge",
-        source = "noteBlock",
-        noteBlock = "requimg2",
-        type = "requiem",
-        moduleName = "BossMods_Dirge",
-        textKey = "BossMods_AR_TextRequiem",
-        priority = 78,
-        rows = 3,
-        localeValues = {
-            direction = "Left"
-        }
-    }}
+    sheetMeta = {}
 }
 
 local function prepareReminder(def)
@@ -255,33 +161,33 @@ local function prepareReminder(def)
     if def.sheet then
         local sheets = type(def.sheet) == "table" and def.sheet or {def.sheet}
         for _, sheet in ipairs(sheets) do
-            REMINDER_TEXT.sheets[sheet] = REMINDER_TEXT.sheets[sheet] or {}
+            REGISTRY.sheets[sheet] = REGISTRY.sheets[sheet] or {}
             local found = false
-            for _, key in ipairs(REMINDER_TEXT.sheets[sheet]) do
+            for _, key in ipairs(REGISTRY.sheets[sheet]) do
                 if key == def.key then
                     found = true
                     break
                 end
             end
             if not found then
-                REMINDER_TEXT.sheets[sheet][#REMINDER_TEXT.sheets[sheet] + 1] = def.key
+                REGISTRY.sheets[sheet][#REGISTRY.sheets[sheet] + 1] = def.key
             end
 
-            local meta = REMINDER_TEXT.sheetMeta[sheet] or {}
+            local meta = REGISTRY.sheetMeta[sheet] or {}
             meta.key = sheet
             meta.labelKey = meta.labelKey or def.labelKey
             meta.tab = meta.tab or def.tab
             meta.order = meta.order or def.order
             meta.moduleName = meta.moduleName or def.moduleName
             meta.standalone = meta.standalone or def.standalone
-            REMINDER_TEXT.sheetMeta[sheet] = meta
+            REGISTRY.sheetMeta[sheet] = meta
         end
     end
 
     return def
 end
 
-Text.REMINDER_TEXT = REMINDER_TEXT
+Text.REMINDER_TEXT = REGISTRY
 Text.definitions = Text.definitions or {}
 Text.definitionOrder = Text.definitionOrder or {}
 
@@ -345,7 +251,7 @@ end
 
 function Text:ResolveKeys(keys)
     if type(keys) == "string" then
-        keys = REMINDER_TEXT.sheets[keys] or {keys}
+        keys = REGISTRY.sheets[keys] or {keys}
     end
 
     local out = {}
@@ -379,8 +285,8 @@ end
 function Text:GetSheets(standaloneOnly)
     local out = {}
 
-    for sheet, keys in pairs(REMINDER_TEXT.sheets or {}) do
-        local meta = REMINDER_TEXT.sheetMeta and REMINDER_TEXT.sheetMeta[sheet] or {}
+    for sheet, keys in pairs(REGISTRY.sheets or {}) do
+        local meta = REGISTRY.sheetMeta and REGISTRY.sheetMeta[sheet] or {}
         if type(keys) == "table" and #keys > 0 and (not standaloneOnly or meta.standalone) then
             out[#out + 1] = {
                 key = sheet,
@@ -421,7 +327,7 @@ function Text:GetDefinitionForReminder(reminder)
     end
 
     if reminder.type == "hashtag" then
-        return self:Get(reminder.tag) or self:Get(REMINDER_TEXT.fallbackKey)
+        return self:Get(reminder.tag) or self:Get(REGISTRY.fallbackKey)
     end
 
     return self:Get(reminder.type)
@@ -472,17 +378,7 @@ function Text:BuildValues(def, reminder)
     return values
 end
 
-Text:Register(REMINDER_TEXT.fallback.key or REMINDER_TEXT.fallbackKey, REMINDER_TEXT.fallback)
-
-for _, def in ipairs(REMINDER_TEXT.reminders) do
-    Text:Register(def.key, def)
-end
-
-for alias, key in pairs(REMINDER_TEXT.aliases or {}) do
-    Text:Register(alias, {
-        extends = key
-    })
-end
+Text:Register(REGISTRY.fallback.key or REGISTRY.fallbackKey, REGISTRY.fallback)
 
 function Text:Compile(reminder)
     if type(reminder) ~= "table" then

@@ -12,6 +12,7 @@
     <Script file="Core\NoteBlock.lua"/>
     <Script file="Core\ReadyAssignmentText.lua"/>
     <Script file="Core\ReadyAssignments.lua"/>
+    <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
