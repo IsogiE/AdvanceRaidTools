@@ -20,6 +20,8 @@ Core\Core.lua
 Core\API.lua
 Core\Callbacks.lua
 Core\Media.lua
+Core\Utils\SoundPreload.lua
+Core\Utils\QuestWatchCleanup.lua
 Core\Images.lua
 Core\Skin.lua
 Core\Database.lua
