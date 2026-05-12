@@ -113,6 +113,13 @@ end
 -- Wedge + markers (per anchor)
 
 local function createSliceAssets(parent, center)
+    local fullCircle = parent:CreateTexture(nil, "BACKGROUND", nil, -8)
+    fullCircle:SetTexture(WHITE)
+    local fullCircleMask = parent:CreateMaskTexture()
+    fullCircleMask:SetTexture(DEFAULT_MASK_TEX, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    fullCircle:AddMaskTexture(fullCircleMask)
+    fullCircle:Hide()
+
     local wedge = parent:CreateTexture(nil, "BACKGROUND", nil, -7)
     wedge:SetTexture(WHITE)
     local wedgeMask = parent:CreateMaskTexture()
@@ -132,6 +139,8 @@ local function createSliceAssets(parent, center)
     end
 
     return {
+        fullCircle = fullCircle,
+        fullCircleMask = fullCircleMask,
         wedge = wedge,
         wedgeMask = wedgeMask,
         lines = lines,
@@ -285,6 +294,15 @@ function Engines.RaidMap(spec)
         return raidToNode[raidIdx] or raidIdx
     end
 
+    local function raidLabelForNode(raidToNode, nodeIdx)
+        for raidIdx = 1, nodeCount do
+            if (raidToNode[raidIdx] or raidIdx) == nodeIdx then
+                return raidIdx
+            end
+        end
+        return nodeIdx
+    end
+
     local function paintNode(node, unit, isPlayer, classFile, displayName)
         if classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile] then
             node.icon:SetTexCoord(unpack(CLASS_ICON_TCOORDS[classFile]))
@@ -323,13 +341,49 @@ function Engines.RaidMap(spec)
         end
     end
 
-    local function renderSlice(anchorData, layout, playerNode)
+    local function renderSlice(anchorData, layout, playerNode, fullCircle)
         local assets = anchorData.sliceAssets
         local slices = layout.slices
+        assets.fullCircle:Hide()
         assets.wedge:Hide()
         assets.lines[1]:Hide()
         assets.lines[2]:Hide()
         hideAllMarkers(assets)
+
+        local anchorStyle = state.spec.anchors[layout.anchor].style or {}
+
+        if fullCircle then
+            local size = layout.fullCircleSize or anchorData.defaultSize
+            anchorData.frame:SetSize(size.w or anchorData.defaultSize.w, size.h or anchorData.defaultSize.h)
+            anchorData.center:ClearAllPoints()
+            anchorData.center:SetPoint("CENTER", anchorData.frame, "CENTER")
+
+            if anchorStyle.showBg ~= false then
+                local diameter = layout.fullCircleDiameter or math.min(size.w or 0, size.h or 0)
+                assets.fullCircle:ClearAllPoints()
+                assets.fullCircle:SetPoint("CENTER", anchorData.center, "CENTER")
+                assets.fullCircle:SetSize(diameter, diameter)
+                assets.fullCircleMask:ClearAllPoints()
+                assets.fullCircleMask:SetAllPoints(assets.fullCircle)
+
+                local r = (anchorStyle.bgColor and (anchorStyle.bgColor.r or anchorStyle.bgColor[1])) or 1
+                local g = (anchorStyle.bgColor and (anchorStyle.bgColor.g or anchorStyle.bgColor[2])) or 1
+                local b = (anchorStyle.bgColor and (anchorStyle.bgColor.b or anchorStyle.bgColor[3])) or 1
+                local a = anchorStyle.bgOpacity or 0.6
+                assets.fullCircle:SetVertexColor(r, g, b, a)
+                assets.fullCircle:Show()
+            end
+
+            if layout.markers then
+                for markerID, md in pairs(layout.markers) do
+                    local m = ensureMarker(assets, anchorData.frame, anchorData.center, md.iconID or markerID)
+                    m:ClearAllPoints()
+                    m:SetPoint("CENTER", anchorData.center, "CENTER", md.x or 0, md.y or 0)
+                    m:Show()
+                end
+            end
+            return
+        end
 
         if not slices then
             -- center is the frame's middle; reset to defaultSize
@@ -364,7 +418,6 @@ function Engines.RaidMap(spec)
         assets.wedge:SetVertexOffset(3, 0, 0)
         assets.wedge:SetVertexOffset(4, 0, 0)
 
-        local anchorStyle = state.spec.anchors[layout.anchor].style or {}
         if anchorStyle.showBg ~= false then
             local r = (anchorStyle.bgColor and (anchorStyle.bgColor.r or anchorStyle.bgColor[1])) or 1
             local g = (anchorStyle.bgColor and (anchorStyle.bgColor.g or anchorStyle.bgColor[2])) or 1
@@ -417,11 +470,15 @@ function Engines.RaidMap(spec)
         local positions = normalizePositions(layout)
         local raidToNode = buildRaidToNodeMap(layout, editMode)
         local playerNode = resolvePlayerNode(layout, raidToNode, opts.perspective or state.editPerspective)
+        local fullCircle = opts.fullCircle
+        if fullCircle == nil then
+            fullCircle = editMode and layout.editFullCircle
+        end
 
         -- Slice (also sets frame size + center-anchor position)
-        renderSlice(anchorData, layout, playerNode)
+        renderSlice(anchorData, layout, playerNode, fullCircle)
 
-        local visible = resolveVisibleSet(layout, playerNode, nodeCount)
+        local visible = fullCircle and allNodesSet(nodeCount) or resolveVisibleSet(layout, playerNode, nodeCount)
 
         for i = 1, nodeCount do
             local node = anchorData.nodes[i]
@@ -475,7 +532,7 @@ function Engines.RaidMap(spec)
                 if not filled[n] and positions[n] then
                     local node = anchorData.nodes[n]
                     local cls = DUMMY_CLASSES[(n % #DUMMY_CLASSES) + 1]
-                    local label = ("Raid %d"):format(n)
+                    local label = ("Raid %d"):format(raidLabelForNode(raidToNode, n))
                     paintNode(node, nil, n == playerNode, cls, label)
                     node:Show()
                 end

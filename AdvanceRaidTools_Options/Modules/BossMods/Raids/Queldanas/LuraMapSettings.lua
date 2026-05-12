@@ -30,6 +30,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
             min = opts.min,
             max = opts.max,
             step = opts.step or 1,
+            format = opts.format,
             value = opts.get(),
             get = opts.get,
             onChange = function(v)
@@ -43,6 +44,7 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         return track(T:Checkbox(rightPanel, {
             text = opts.text,
             labelTop = opts.labelTop,
+            tooltip = opts.tooltip,
             get = opts.get,
             onChange = function(_, v)
                 opts.onChange(v);
@@ -94,6 +96,25 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
     end
 
     local posHandles = {}
+    local previewUnlocked = false
+    local fullPreview
+    local p2Preview
+    local function previewDisabled()
+        local moduleDisabled = isDisabled
+        if type(isDisabled) == "function" then
+            moduleDisabled = isDisabled()
+        end
+        return moduleDisabled or not previewUnlocked
+    end
+    local function refreshPreviewControls()
+        local disabled = previewDisabled()
+        if fullPreview and fullPreview.SetDisabled then
+            fullPreview.SetDisabled(disabled)
+        end
+        if p2Preview and p2Preview.SetDisabled then
+            p2Preview.SetDisabled(disabled)
+        end
+    end
 
     local y = 0
     y = full(y, track(T:Header(rightPanel, {
@@ -108,10 +129,48 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         tracker = tracker,
         isDisabled = isDisabled,
         onEditModeChanged = function(v)
+            previewUnlocked = v and true or false
+            refreshPreviewControls()
             mod:SetEditMode(v)
         end
     })
     y = unlockY
+
+    fullPreview = checkbox({
+        text = L["BossMods_LMFullP2Preview"] or "Full P2 circle preview",
+        labelTop = true,
+        tooltip = {
+            title = L["BossMods_LMFullP2Preview"] or "Full P2 circle preview",
+            desc = L["BossMods_LMFullP2PreviewDesc"] or
+                "When frames are unlocked, the P2 maps show the complete circle instead of your current slice."
+        },
+        get = function()
+            return mod.db.anchors.main.fullPreview
+        end,
+        onChange = function(v)
+            mod.db.anchors.main.fullPreview = v
+        end,
+        disabled = previewDisabled
+    })
+
+    p2Preview = slider({
+        label = L["BossMods_LMP2PreviewMap"] or "P2 preview map",
+        min = 1,
+        max = 2,
+        step = 1,
+        get = function()
+            return mod.db.anchors.main.previewLayout or 1
+        end,
+        onChange = function(v)
+            mod.db.anchors.main.previewLayout = math.max(1, math.min(2, math.floor(v + 0.5)))
+        end,
+        format = function(v)
+            return v >= 1.5 and (L["BossMods_LMP2PreviewMap2"] or "Alt") or
+                (L["BossMods_LMP2PreviewMap1"] or "Normal")
+        end,
+        disabled = previewDisabled
+    })
+    y = row(y, {fullPreview, p2Preview})
 
     -- Enables
     local intEnable = checkbox({

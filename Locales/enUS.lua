@@ -691,6 +691,12 @@ L["BossMods_LMIntermissionPosition"] = "Intermission Position"
 L["BossMods_LMMainPosition"] = "P2 Position"
 L["BossMods_LMEnableIntermission"] = "Enable Intermission"
 L["BossMods_LMEnableMain"] = "Enable P2"
+L["BossMods_LMFullP2Preview"] = "P2 Circle Preview Only (for Raid Leaders)"
+L["BossMods_LMFullP2PreviewDesc"] =
+    "When frames are unlocked, the P2 maps show the complete circle instead of current slice"
+L["BossMods_LMP2PreviewMap"] = "P2 Preview Map"
+L["BossMods_LMP2PreviewMap1"] = "Spread 1-3"
+L["BossMods_LMP2PreviewMap2"] = "Spread 4"
 
 -- BossMods: Queldanas -> Dirge
 L["BossMods_Dirge"] = "L'ura Memory Game"

@@ -35,7 +35,9 @@ E:RegisterModuleDefaults("BossMods_LuraMap", {
                 g = 1,
                 b = 1
             },
-            borderOpacity = 0.60
+            borderOpacity = 0.60,
+            fullPreview = false,
+            previewLayout = 1
         }
     },
     font = {
@@ -385,6 +387,7 @@ local VIS_MAIN_ALT = {
 }
 
 local W, H, PAD = 260, 260, 10
+local FULL_W, FULL_H, FULL_D = 520, 520, 500
 
 local TR = {
     anchor = "BOTTOMLEFT",
@@ -522,6 +525,10 @@ local LuraMap = E:NewModule("BossMods_LuraMap", "AceEvent-3.0", "AceTimer-3.0")
 
 local BM
 
+local function editP2Layout(db)
+    return db.anchors.main.previewLayout == 2 and "mainAlt" or "main"
+end
+
 local function buildSpec(mod)
     local db = mod.db
     return {
@@ -573,7 +580,13 @@ local function buildSpec(mod)
                 noteBlock = "pos2",
                 visibility = VIS_MAIN,
                 slices = SLICES_MAIN,
-                markers = MARKERS
+                markers = MARKERS,
+                editFullCircle = db.anchors.main.fullPreview,
+                fullCircleSize = {
+                    w = FULL_W,
+                    h = FULL_H
+                },
+                fullCircleDiameter = FULL_D
             },
             mainAlt = {
                 anchor = "main",
@@ -583,7 +596,13 @@ local function buildSpec(mod)
                 noteBlock = "pos2",
                 visibility = VIS_MAIN_ALT,
                 slices = SLICES_MAIN_ALT,
-                markers = MARKERS
+                markers = MARKERS,
+                editFullCircle = db.anchors.main.fullPreview,
+                fullCircleSize = {
+                    w = FULL_W,
+                    h = FULL_H
+                },
+                fullCircleDiameter = FULL_D
             }
         },
         style = {
@@ -680,6 +699,26 @@ function LuraMap:Refresh()
     end
     self.map:Apply(buildSpec(self))
     self:ApplyPositions()
+    if self.editMode then
+        self:RefreshEditPreview()
+    end
+end
+
+function LuraMap:RefreshEditPreview()
+    if not self.editMode then
+        return
+    end
+
+    self.map:SetEditMode(true)
+    if not self.active then
+        self.map:HideAll()
+    end
+    if self.db.anchors.intermission.enabled then
+        self.map:Show("intermission")
+    end
+    if self.db.anchors.main.enabled then
+        self.map:Show(editP2Layout(self.db))
+    end
 end
 
 -- Triggers
@@ -778,13 +817,7 @@ function LuraMap:SetEditMode(v)
     end
     self.editMode = v and true or false
     if self.editMode then
-        self.map:SetEditMode(true)
-        if not self.active then
-            self.map:HideAll()
-        end
-        for key in pairs(self.db.anchors) do
-            self.map:Show(key)
-        end
+        self:RefreshEditPreview()
     else
         self.map:SetEditMode(false)
         if not self.active then
