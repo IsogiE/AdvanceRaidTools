@@ -37,6 +37,10 @@ function Engines.TextAlert(config)
         text:SetText(t or "")
     end
 
+    function handle:GetTextFontString()
+        return text
+    end
+
     function handle:Show()
         frame:Show()
     end

@@ -134,25 +134,13 @@ local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
         min = 2,
         max = 30,
         get = function()
-            return mod.db.duration or 10
+            return mod.db.duration or 15
         end,
         onChange = function(v)
             mod.db.duration = math.floor(v)
         end
     })
-    local width = slider({
-        label = L["Width"],
-        min = 220,
-        max = 900,
-        step = 10,
-        get = function()
-            return mod.db.size.w or 520
-        end,
-        onChange = function(v)
-            mod.db.size.w = math.floor(v)
-        end
-    })
-    y = row(y, {duration, width})
+    y = row(y, {duration})
 
     y = section(y, "Font")
     local fontSize = slider({

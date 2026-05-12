@@ -1,5 +1,10 @@
 local E, L = unpack(ART)
 
+local TEXT_MIN_WIDTH = 120
+local TEXT_PADDING_X = 20
+local TEXT_PADDING_Y = 18
+local VISUAL_ANCHOR_WIDTH = 520
+
 E:RegisterModuleDefaults("BossMods_AssignmentReminders", {
     enabled = false,
     position = {
@@ -13,10 +18,9 @@ E:RegisterModuleDefaults("BossMods_AssignmentReminders", {
         y = -170
     },
     size = {
-        w = 520,
         h = 84
     },
-    duration = 10,
+    duration = 15,
     font = {
         size = 24,
         outline = "OUTLINE",
@@ -49,13 +53,23 @@ local function getCatalogSheets(Text)
     return {}
 end
 
+local function fontStringWidth(text)
+    if not text then
+        return 0
+    end
+    if text.GetUnboundedStringWidth then
+        return text:GetUnboundedStringWidth() or 0
+    end
+    return text:GetStringWidth() or 0
+end
+
 local function buildAlertConfig(mod)
     return {
         parent = UIParent,
         strata = "HIGH",
         size = {
-            w = mod.db.size.w,
-            h = mod.db.size.h
+            w = TEXT_MIN_WIDTH,
+            h = mod.db.size.h or 84
         },
         font = {
             size = mod.db.font.size,
@@ -84,6 +98,22 @@ local function stopReadyActions(owner)
             owner = owner
         })
     end
+end
+
+local function measureLinesWidth(alert, lines)
+    local text = alert and alert.GetTextFontString and alert:GetTextFontString()
+    if not text then
+        return 0
+    end
+
+    local original = text:GetText()
+    local width = 0
+    for _, line in ipairs(lines or {}) do
+        text:SetText(tostring(line or ""))
+        width = math.max(width, fontStringWidth(text))
+    end
+    text:SetText(original or "")
+    return width
 end
 
 function Mod:OnInitialize()
@@ -127,7 +157,7 @@ function Mod:ApplyVisualAnchorStyle()
         return
     end
     local f = self.visualAnchor
-    f:SetSize(self.db.size.w or 520, self.db.size.h or 84)
+    f:SetSize(VISUAL_ANCHOR_WIDTH, self.db.size.h or 84)
     f:SetFrameStrata("HIGH")
 
     local text = f.text
@@ -248,8 +278,9 @@ function Mod:ShowLines(lines, holdSeconds)
 
     local fontSize = self.db.font.size or 24
     local lineHeight = fontSize + 6
-    local height = math.max(self.db.size.h or 84, (#lines * lineHeight) + 18)
-    self.alert.frame:SetHeight(height)
+    local width = math.max(TEXT_MIN_WIDTH, math.ceil(measureLinesWidth(self.alert, lines)) + (TEXT_PADDING_X * 2))
+    local height = math.max(self.db.size.h or 84, (#lines * lineHeight) + TEXT_PADDING_Y)
+    self.alert.frame:SetSize(width, height)
     self.alert:Show()
 
     if self.hideTimer then
@@ -297,7 +328,7 @@ function Mod:OnReadyCheck()
     self:ApplyVisualPosition()
     if Ready.RunActions then
         Ready:RunActions(ctx, {
-            duration = self.db.duration or 10,
+            duration = self.db.duration or 15,
             visualAnchor = self.visualAnchor,
             owner = self
         })
@@ -305,7 +336,7 @@ function Mod:OnReadyCheck()
 
     local reminders = Ready:Collect(ctx)
     local lines = Text:CompileAll(reminders)
-    self:ShowLines(lines, self.db.duration or 10)
+    self:ShowLines(lines, self.db.duration or 15)
 end
 
 function Mod:OnEnable()
