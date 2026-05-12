@@ -584,7 +584,7 @@ L["BossMods_AR_TextGenericTag"] = "You are assigned to #{tag}"
 -- BossMods: BossPush
 L["BossMods_BossPush"] = "Boss Push"
 L["BossMods_BossPushDesc"] =
-    "Static boss HP push bars. Visual reminder, and timer, as to when you need to push a boss"
+    "Visual reminder, and timer, as to when you need to push a boss"
 L["BossMods_BossPushDefaultName"] = "Boss Push"
 L["BossMods_BossPushBars"] = "Boss Push Bars"
 L["BossMods_BossPushSelectedBar"] = "Selected Bar"

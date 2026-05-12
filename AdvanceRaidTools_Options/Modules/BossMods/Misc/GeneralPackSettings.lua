@@ -184,6 +184,28 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     })
     y = row(y, {enableBg, enableBorder})
 
+    y = section(y, "Alerts")
+    local rowWidgets = {}
+    for i, def in ipairs(ALERT_TOGGLES) do
+        local key = def.key
+        local cb = checkbox({
+            text = L[def.label] or def.label,
+            labelTop = false,
+            get = function()
+                local v = mod.db.alerts[key]
+                return v ~= false
+            end,
+            onChange = function(v)
+                mod.db.alerts[key] = v and true or false
+            end
+        })
+        rowWidgets[#rowWidgets + 1] = cb
+        if #rowWidgets == 2 or i == #ALERT_TOGGLES then
+            y = row(y, rowWidgets)
+            rowWidgets = {}
+        end
+    end
+
     y = section(y, "Font")
     local fontSize = slider({
         label = (L["Font"] .. " " .. L["Size"]),
@@ -307,28 +329,6 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(y, {durSlider, holdSlider})
-
-    y = section(y, "Alerts")
-    local rowWidgets = {}
-    for i, def in ipairs(ALERT_TOGGLES) do
-        local key = def.key
-        local cb = checkbox({
-            text = L[def.label] or def.label,
-            labelTop = false,
-            get = function()
-                local v = mod.db.alerts[key]
-                return v ~= false
-            end,
-            onChange = function(v)
-                mod.db.alerts[key] = v and true or false
-            end
-        })
-        rowWidgets[#rowWidgets + 1] = cb
-        if #rowWidgets == 2 or i == #ALERT_TOGGLES then
-            y = row(y, rowWidgets)
-            rowWidgets = {}
-        end
-    end
 
     local posNewY, posHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = mod.frame,
