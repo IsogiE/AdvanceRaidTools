@@ -566,6 +566,21 @@ L["BossMods_PickFeature"] = "Pick a module"
 L["BossMods_Justify"] = "Text Justification"
 L["BossMods_UnlockFrame"] = "Unlock Frame"
 
+-- BossMods: Assignment Reminders
+L["BossMods_AssignmentReminders"] = "Assignment Reminders"
+L["BossMods_AssignmentRemindersDesc"] =
+    "Shows your note assignment reminders on ready check"
+L["BossMods_RA_Duration"] = "Popup Duration"
+L["BossMods_RA_TextPreview"] = "Assignment Reminders - drag to move"
+L["BossMods_AR_TextAnchor"] = "Assignment Text"
+L["BossMods_AR_VisualAnchor"] = "Assignment Visuals"
+L["BossMods_AR_VisualPreview"] = "Assignment Visuals - drag to move"
+L["BossMods_AR_TextKick"] = "You are kicking Prism {prism}, {kickIndex:ordinal} kick"
+L["BossMods_AR_TextDirgeRunes"] = "You are assigned to do runes"
+L["BossMods_AR_TextRequiem"] = "You are going {direction} in P3"
+L["BossMods_AR_TextLuraCrystals"] = "You are picking up a crystal in P1"
+L["BossMods_AR_TextGenericTag"] = "You are assigned to #{tag}"
+
 -- BossMods: BossPush
 L["BossMods_BossPush"] = "Boss Push"
 L["BossMods_BossPushDesc"] =
@@ -682,6 +697,7 @@ L["BossMods_LKPrismN"] = "Prism %d"
 L["BossMods_LKPlaceholder"] = "Placeholder%d"
 
 -- BossMods: Queldanas -> LuraMap
+L["BossMods_LuraCrystals"] = "L'ura Crystals"
 L["BossMods_LuraMap"] = "L'ura Spread Map"
 L["BossMods_LuraMapDesc"] =
     "Shows a map on the screen when it's time to spread. You can choose between Intermission, P2 or both"

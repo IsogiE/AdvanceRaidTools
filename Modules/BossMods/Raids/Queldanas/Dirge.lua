@@ -1226,20 +1226,3 @@ E:RegisterBossModFeature("Dirge", {
     descKey = "BossMods_DirgeDesc",
     moduleName = "BossMods_Dirge"
 })
-
-E:RegisterBossModNoteBlock("Dirge", {
-    blocks = {{
-        tag = "dirge",
-        template = "dirgeStart\nPlayer1 Player2 Player3\ndirgeEnd"
-    }, {
-        tag = "requimg1",
-        template = "requimg1Start\nPlayer1 Player2 Player3\nrequimg1End"
-    }, {
-        tag = "requimg2",
-        template = "requimg2Start\nPlayer1 Player2 Player3\nrequimg2End"
-    }},
-    moduleName = "BossMods_Dirge",
-    tab = "Queldanas",
-    order = 50,
-    labelKey = "BossMods_Dirge"
-})

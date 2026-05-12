@@ -470,6 +470,7 @@ function Engines.RaidMap(spec)
         local positions = normalizePositions(layout)
         local raidToNode = buildRaidToNodeMap(layout, editMode)
         local playerNode = resolvePlayerNode(layout, raidToNode, opts.perspective or state.editPerspective)
+        local fillEmptyNodes = editMode or layout.fillEmptyNodes or opts.fillEmptyNodes
         local fullCircle = opts.fullCircle
         if fullCircle == nil then
             fullCircle = editMode and layout.editFullCircle
@@ -503,7 +504,9 @@ function Engines.RaidMap(spec)
                     local _, classFile = UnitClass(unit)
                     local raw = UnitName(unit)
                     local display = raw
-                    if raw and BossMods.NoteBlock then
+                    if BossMods.NoteBlock and BossMods.NoteBlock.GetUnitDisplayName then
+                        display = BossMods.NoteBlock:GetUnitDisplayName(unit, raw)
+                    elseif raw and BossMods.NoteBlock then
                         display = BossMods.NoteBlock:GetDisplayName(raw) or raw
                     end
                     local isPlayerNode = UnitIsUnit("player", unit) or (targetNode == playerNode)
@@ -515,7 +518,7 @@ function Engines.RaidMap(spec)
         end
 
         -- fill unfilled visible nodes with dummy classes
-        if editMode then
+        if fillEmptyNodes then
             local iter
             if layout.visibility then
                 iter = {}

@@ -118,6 +118,13 @@ local function safeName(name, fallback)
     return name
 end
 
+local function encounterInProgress()
+    if C_InstanceEncounter and C_InstanceEncounter.IsEncounterInProgress then
+        return C_InstanceEncounter.IsEncounterInProgress()
+    end
+    return false
+end
+
 local function newID()
     local stamp = GetServerTime and GetServerTime() or time()
     return ("%s-%06d"):format(tostring(stamp), math.random(0, 999999))
@@ -623,7 +630,6 @@ function Mod:UpdateActive(force)
     end
 
     local elapsed = GetTime() - self.startTime
-    local visible = 0
     local maxHide = 0
 
     for _, active in ipairs(self.activeBars or {}) do
@@ -633,21 +639,21 @@ function Mod:UpdateActive(force)
         if elapsed >= (bar.showAt or 0) and elapsed <= pushTime then
             self:RenderRow(active.row, bar, elapsed)
             active.row:Show()
-            visible = visible + 1
         else
             active.row:Hide()
         end
     end
 
     self:LayoutRows()
-    if visible > 0 then
+    if maxHide > 0 and elapsed > maxHide then
+        self:Stop()
+        return
+    end
+
+    if maxHide > 0 then
         self.frame:Show()
     else
         self.frame:Hide()
-    end
-
-    if maxHide > 0 and elapsed > maxHide then
-        self:Stop()
     end
 end
 
@@ -665,9 +671,42 @@ function Mod:MatchesBar(bar, trigger, encounterID)
     return true
 end
 
-function Mod:Start(trigger, encounterID)
+function Mod:SyncCurrentEncounter()
+    local inEncounter = encounterInProgress()
+    if inEncounter then
+        local Notes = E:GetModule("Notes", true)
+        if Notes and Notes.currentEncounterID and Notes.encounterStartTime then
+            self.currentEncounterID = Notes.currentEncounterID
+            self.currentEncounterStartTime = Notes.encounterStartTime
+            return
+        end
+        if self.currentEncounterID then
+            return
+        end
+    end
+
+    self.currentEncounterID = nil
+    self.currentEncounterStartTime = nil
+end
+
+function Mod:TryStartCurrentContext()
+    if self.editMode or self.startTime then
+        return false
+    end
+
+    self:SyncCurrentEncounter()
+    if self.currentEncounterID and self:Start("encounter", self.currentEncounterID, self.currentEncounterStartTime) then
+        return true
+    end
+    if UnitAffectingCombat("player") then
+        return self:Start("combat")
+    end
+    return false
+end
+
+function Mod:Start(trigger, encounterID, startTime)
     if self.editMode then
-        return
+        return false
     end
     local matches = {}
     for _, bar in ipairs(self:GetBars()) do
@@ -676,7 +715,7 @@ function Mod:Start(trigger, encounterID)
         end
     end
     if #matches == 0 then
-        return
+        return false
     end
 
     table.sort(matches, function(a, b)
@@ -695,7 +734,8 @@ function Mod:Start(trigger, encounterID)
 
     self:Stop()
     self.activeTrigger = trigger
-    self.startTime = GetTime()
+    self.activeEncounterID = trigger == "encounter" and encounterID or nil
+    self.startTime = startTime or GetTime()
     self.activeBars = {}
 
     for i, bar in ipairs(matches) do
@@ -721,11 +761,13 @@ function Mod:Start(trigger, encounterID)
         Mod:UpdateActive()
     end)
     self:UpdateActive(true)
+    return true
 end
 
 function Mod:Stop()
     self.startTime = nil
     self.activeTrigger = nil
+    self.activeEncounterID = nil
     self.activeBars = nil
     if self.frame then
         self.frame:SetScript("OnUpdate", nil)
@@ -793,7 +835,14 @@ function Mod:Refresh()
     if self.editMode then
         self:RenderEditPreview()
     elseif self.startTime then
-        self:UpdateActive(true)
+        local trigger = self.activeTrigger
+        local encounterID = self.activeEncounterID
+        local startTime = self.startTime
+        if not self:Start(trigger, encounterID, startTime) then
+            self:Stop()
+        end
+    else
+        self:TryStartCurrentContext()
     end
 end
 
@@ -805,16 +854,25 @@ function Mod:SavePosition(pos)
 end
 
 function Mod:OnEncounterStart(_, encounterID)
-    self:Start("encounter", encounterID)
+    self.currentEncounterID = encounterID
+    self.currentEncounterStartTime = GetTime()
+    self:Start("encounter", encounterID, self.currentEncounterStartTime)
 end
 
-function Mod:OnEncounterEnd()
-    if self.activeTrigger == "encounter" then
+function Mod:OnEncounterEnd(_, encounterID)
+    if not encounterID or encounterID == self.currentEncounterID then
+        self.currentEncounterID = nil
+        self.currentEncounterStartTime = nil
+    end
+    if self.activeTrigger == "encounter" and (not encounterID or encounterID == self.activeEncounterID) then
         self:Stop()
     end
 end
 
 function Mod:OnCombatStart()
+    if self.currentEncounterID and self:Start("encounter", self.currentEncounterID, self.currentEncounterStartTime) then
+        return
+    end
     self:Start("combat")
 end
 
@@ -863,9 +921,7 @@ function Mod:OnEnable()
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
 
-    if UnitAffectingCombat("player") then
-        self:OnCombatStart()
-    end
+    self:TryStartCurrentContext()
 end
 
 function Mod:OnDisable()

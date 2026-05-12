@@ -5,6 +5,7 @@
     <Script file="Misc\BressSettings.lua"/>
     <Script file="Misc\BreakTimerSettings.lua"/>
     <Script file="Misc\GeneralPackSettings.lua"/>
+    <Script file="General\ReadyAssignmentsSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>
     <Script file="Raids\Queldanas\QuasarSettings.lua"/>

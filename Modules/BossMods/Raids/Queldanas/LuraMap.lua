@@ -54,6 +54,8 @@ local PHASE_1_DURATION = 45
 local INTERMISSION_HIDE = 5
 local MAIN_HIDE = 7.8
 local MAIN_ALT_HIDE = 12.1
+local READY_ASSIGNMENT_SCALE = 0.48 * 1.30
+local READY_ASSIGNMENT_SPACING = 390
 
 -- Position tables
 
@@ -529,6 +531,39 @@ local function editP2Layout(db)
     return db.anchors.main.previewLayout == 2 and "mainAlt" or "main"
 end
 
+local function intermissionLayout(anchor, opts)
+    opts = opts or {}
+    return {
+        anchor = anchor,
+        kind = "radial",
+        positions = POS_INTERMISSION,
+        raidToNodeMap = RAID_TO_NODE,
+        noteBlock = "pos1",
+        fillEmptyNodes = opts.fillEmptyNodes
+    }
+end
+
+local function mainLayout(anchor, opts)
+    opts = opts or {}
+    return {
+        anchor = anchor,
+        kind = "manual",
+        positions = opts.positions,
+        raidToNodeMap = RAID_TO_NODE,
+        noteBlock = "pos2",
+        visibility = opts.visibility,
+        fillEmptyNodes = opts.fillEmptyNodes,
+        slices = opts.slices,
+        markers = MARKERS,
+        editFullCircle = opts.editFullCircle,
+        fullCircleSize = {
+            w = FULL_W,
+            h = FULL_H
+        },
+        fullCircleDiameter = FULL_D
+    }
+end
+
 local function buildSpec(mod)
     local db = mod.db
     return {
@@ -565,48 +600,96 @@ local function buildSpec(mod)
             }
         },
         layouts = {
-            intermission = {
-                anchor = "intermission",
-                kind = "radial",
-                positions = POS_INTERMISSION,
-                raidToNodeMap = RAID_TO_NODE,
-                noteBlock = "pos1"
-            },
-            main = {
-                anchor = "main",
-                kind = "manual",
+            intermission = intermissionLayout("intermission"),
+            main = mainLayout("main", {
                 positions = POS_MAIN,
-                raidToNodeMap = RAID_TO_NODE,
-                noteBlock = "pos2",
                 visibility = VIS_MAIN,
                 slices = SLICES_MAIN,
-                markers = MARKERS,
-                editFullCircle = db.anchors.main.fullPreview,
-                fullCircleSize = {
-                    w = FULL_W,
-                    h = FULL_H
-                },
-                fullCircleDiameter = FULL_D
-            },
-            mainAlt = {
-                anchor = "main",
-                kind = "manual",
+                editFullCircle = db.anchors.main.fullPreview
+            }),
+            mainAlt = mainLayout("main", {
                 positions = POS_MAIN_ALT,
-                raidToNodeMap = RAID_TO_NODE,
-                noteBlock = "pos2",
                 visibility = VIS_MAIN_ALT,
                 slices = SLICES_MAIN_ALT,
-                markers = MARKERS,
-                editFullCircle = db.anchors.main.fullPreview,
-                fullCircleSize = {
-                    w = FULL_W,
-                    h = FULL_H
-                },
-                fullCircleDiameter = FULL_D
-            }
+                editFullCircle = db.anchors.main.fullPreview
+            })
         },
         style = {
             nodeSize = 32,
+            font = db.font
+        }
+    }
+end
+
+local function buildReadySpec(mod)
+    local db = mod.db
+    return {
+        parent = UIParent,
+        nodes = 20,
+        anchors = {
+            readyIntermission = {
+                defaultSize = {
+                    w = 512,
+                    h = 512
+                },
+                textureBackground = [[Interface\AddOns\AdvanceRaidTools\Media\Textures\LuraIntMap.png]],
+                textureMasked = true,
+                style = {
+                    scale = READY_ASSIGNMENT_SCALE,
+                    opacity = db.anchors.intermission.opacity,
+                    showBg = false
+                }
+            },
+            readyMain = {
+                defaultSize = {
+                    w = FULL_W,
+                    h = FULL_H
+                },
+                style = {
+                    scale = READY_ASSIGNMENT_SCALE,
+                    opacity = db.anchors.main.opacity,
+                    showBg = true,
+                    bgColor = db.anchors.main.bgColor,
+                    bgOpacity = db.anchors.main.bgOpacity,
+                    borderColor = db.anchors.main.borderColor,
+                    borderOpacity = db.anchors.main.borderOpacity
+                }
+            },
+            readyMainAlt = {
+                defaultSize = {
+                    w = FULL_W,
+                    h = FULL_H
+                },
+                style = {
+                    scale = READY_ASSIGNMENT_SCALE,
+                    opacity = db.anchors.main.opacity,
+                    showBg = true,
+                    bgColor = db.anchors.main.bgColor,
+                    bgOpacity = db.anchors.main.bgOpacity,
+                    borderColor = db.anchors.main.borderColor,
+                    borderOpacity = db.anchors.main.borderOpacity
+                }
+            }
+        },
+        layouts = {
+            readyIntermission = intermissionLayout("readyIntermission", {
+                fillEmptyNodes = true
+            }),
+            readyMain = mainLayout("readyMain", {
+                positions = POS_MAIN,
+                visibility = VIS_MAIN,
+                fillEmptyNodes = true,
+                slices = SLICES_MAIN
+            }),
+            readyMainAlt = mainLayout("readyMainAlt", {
+                positions = POS_MAIN_ALT,
+                visibility = VIS_MAIN_ALT,
+                fillEmptyNodes = true,
+                slices = SLICES_MAIN_ALT
+            })
+        },
+        style = {
+            nodeSize = 28,
             font = db.font
         }
     }
@@ -619,6 +702,15 @@ function LuraMap:EnsureMap()
     self.map = BM.Engines.RaidMap(buildSpec(self))
     self:ApplyPositions()
     self.map:HideAll()
+end
+
+function LuraMap:EnsureReadyMap()
+    if self.readyMap then
+        return
+    end
+    self.readyMap = BM.Engines.RaidMap(buildReadySpec(self))
+    self:ApplyReadyPositions()
+    self.readyMap:HideAll()
 end
 
 function LuraMap:OnInitialize()
@@ -652,6 +744,7 @@ function LuraMap:OnDisable()
     self:UnhookBigWigs()
     self.editMode = false
     self.active = false
+    self:HideReadyAssignments()
     self.map:SetEditMode(false)
     self.map:HideAll()
 end
@@ -686,6 +779,34 @@ function LuraMap:ApplyPositions()
     end
 end
 
+function LuraMap:ApplyReadyPositions()
+    if not self.readyMap then
+        return
+    end
+    local positions = {
+        readyIntermission = {
+            x = -READY_ASSIGNMENT_SPACING,
+            y = 0
+        },
+        readyMain = {
+            x = 0,
+            y = 0
+        },
+        readyMainAlt = {
+            x = READY_ASSIGNMENT_SPACING,
+            y = 0
+        }
+    }
+    local relativeTo = self.readyRelativeTo or UIParent
+    for key, anchor in pairs(self.readyMap.anchors) do
+        local pos = positions[key]
+        if pos then
+            anchor:ClearAllPoints()
+            anchor:SetPoint("CENTER", relativeTo, "CENTER", pos.x, pos.y)
+        end
+    end
+end
+
 function LuraMap:SavePosition(anchorKey, pos)
     self.db.anchors[anchorKey].position.point = pos.point
     self.db.anchors[anchorKey].position.x = pos.x
@@ -699,9 +820,47 @@ function LuraMap:Refresh()
     end
     self.map:Apply(buildSpec(self))
     self:ApplyPositions()
+    if self.readyMap then
+        self.readyMap:Apply(buildReadySpec(self))
+        self:ApplyReadyPositions()
+    end
     if self.editMode then
         self:RefreshEditPreview()
     end
+end
+
+function LuraMap:ShowReadyAssignments(duration, relativeTo)
+    if not self:IsEnabled() then
+        return
+    end
+    self.readyRelativeTo = relativeTo or UIParent
+    self:EnsureReadyMap()
+    self.readyMap:Apply(buildReadySpec(self))
+    self:ApplyReadyPositions()
+    self.readyMap:Show("readyIntermission")
+    self.readyMap:Show("readyMain")
+    self.readyMap:Show("readyMainAlt")
+
+    if self.readyHideTimer then
+        self:CancelTimer(self.readyHideTimer)
+        self.readyHideTimer = nil
+    end
+
+    duration = tonumber(duration) or 10
+    if duration > 0 then
+        self.readyHideTimer = self:ScheduleTimer("HideReadyAssignments", duration)
+    end
+end
+
+function LuraMap:HideReadyAssignments()
+    if self.readyHideTimer then
+        self:CancelTimer(self.readyHideTimer)
+        self.readyHideTimer = nil
+    end
+    if self.readyMap then
+        self.readyMap:HideAll()
+    end
+    self.readyRelativeTo = nil
 end
 
 function LuraMap:RefreshEditPreview()
@@ -734,6 +893,7 @@ function LuraMap:OnEncounterStart(_, encounterID)
 
     self.active = true
     self.scheduleTokens = {}
+    self:HideReadyAssignments()
     self.map:HideAll()
 
     self:HookBigWigs()

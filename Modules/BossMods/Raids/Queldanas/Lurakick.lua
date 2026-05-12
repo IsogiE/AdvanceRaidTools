@@ -497,14 +497,3 @@ E:RegisterBossModFeature("Lurakick", {
     descKey = "BossMods_LurakickDesc",
     moduleName = "BossMods_Lurakick"
 })
-
-E:RegisterBossModNoteBlock("Lurakick", {
-    blocks = {{
-        tag = "kick",
-        template = "kickStart\nPlayer1 Player2 Player3\nPlayer4 Player5 Player6\nPlayer7 Player8 Player9\nkickEnd"
-    }},
-    moduleName = "BossMods_Lurakick",
-    tab = "Queldanas",
-    order = 30,
-    labelKey = "BossMods_Lurakick"
-})

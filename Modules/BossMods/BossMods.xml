@@ -10,11 +10,14 @@
     <Script file="Core\BigWigs.lua"/>
     <Script file="Core\Alerts.lua"/>
     <Script file="Core\NoteBlock.lua"/>
+    <Script file="Core\ReadyAssignmentText.lua"/>
+    <Script file="Core\ReadyAssignments.lua"/>
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
     <Script file="Misc\BreakTimer.lua"/>
     <Script file="Misc\GeneralPack.lua"/>
+    <Script file="General\ReadyAssignments.lua"/>
     <Script file="General\BossPush.lua"/>
     <Script file="Raids\Queldanas\Feather.lua"/>
     <Script file="Raids\Queldanas\Quasar.lua"/>

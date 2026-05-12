@@ -4,6 +4,76 @@ local BossMods = E:GetModule("BossMods")
 BossMods.NoteBlock = BossMods.NoteBlock or {}
 local NoteBlock = BossMods.NoteBlock
 
+local function cleanToken(token)
+    if type(token) ~= "string" then
+        return ""
+    end
+    token = token:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    token = token:gsub("|T.-|t", "")
+    return token:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+local function normalizedToken(token)
+    token = cleanToken(token)
+    if token == "" then
+        return ""
+    end
+    return token:lower()
+end
+
+local function forEachGroupUnit(fn)
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() or 0 do
+            local unit = "raid" .. i
+            if UnitExists(unit) and fn(unit, i) then
+                return true
+            end
+        end
+        return false
+    end
+
+    if UnitExists("player") and fn("player", 1) then
+        return true
+    end
+
+    local num = GetNumGroupMembers() or 0
+    for i = 1, math.max(num - 1, 0) do
+        local unit = "party" .. i
+        if UnitExists(unit) and fn(unit, i + 1) then
+            return true
+        end
+    end
+    return false
+end
+
+local function unitNameMatches(unit, token)
+    local wanted = normalizedToken(token)
+    if wanted == "" or not UnitExists(unit) then
+        return false
+    end
+
+    local name = UnitName(unit)
+    if name and normalizedToken(name) == wanted then
+        return true
+    end
+
+    if E.GetUnitFullName then
+        local full = E:GetUnitFullName(unit, true)
+        if full and normalizedToken(full) == wanted then
+            return true
+        end
+    end
+
+    if E.GetNickname then
+        local nick = E:GetNickname(unit)
+        if nick and normalizedToken(nick) == wanted then
+            return true
+        end
+    end
+
+    return false
+end
+
 function NoteBlock:GetMainNoteText()
     if _G.ART and ART.GetRawNote then
         return ART:GetRawNote(1) or ""
@@ -79,7 +149,7 @@ function NoteBlock:IsPlayerToken(token, ids)
     if type(token) ~= "string" then
         return false
     end
-    local t = token:lower()
+    local t = normalizedToken(token)
     ids = ids or self:GetPlayerIdentifiers()
     if t == ids.name or t == ids.full then
         return true
@@ -90,34 +160,43 @@ function NoteBlock:IsPlayerToken(token, ids)
     return false
 end
 
+function NoteBlock:FindUnitByToken(token)
+    if type(token) ~= "string" or token == "" then
+        return nil
+    end
+
+    if E.GetCharacterInGroup then
+        local unit = E:GetCharacterInGroup(cleanToken(token))
+        if unit and UnitExists(unit) then
+            return unit
+        end
+    end
+
+    if E.GetGroupUnitByName then
+        local unit = E:GetGroupUnitByName(cleanToken(token))
+        if unit and UnitExists(unit) then
+            return unit
+        end
+    end
+
+    local found
+    forEachGroupUnit(function(unit)
+        if unitNameMatches(unit, token) then
+            found = unit
+            return true
+        end
+        return false
+    end)
+    return found
+end
+
 function NoteBlock:ResolveTokenToName(token)
     if type(token) ~= "string" or token == "" then
         return nil
     end
-    local lower = token:lower()
-
-    local pname = UnitName("player")
-    if pname and pname:lower() == lower then
-        return pname
-    end
-
-    local num = GetNumGroupMembers() or 0
-    local prefix = IsInRaid() and "raid" or "party"
-    for i = 1, num do
-        local unit = prefix .. i
-        if UnitExists(unit) then
-            local n = UnitName(unit)
-            if n and n:lower() == lower then
-                return n
-            end
-        end
-    end
-
-    if E.GetCharacterInGroup then
-        local unit = E:GetCharacterInGroup(token)
-        if unit then
-            return UnitName(unit)
-        end
+    local unit = self:FindUnitByToken(token)
+    if unit then
+        return UnitName(unit)
     end
     return nil
 end
@@ -138,12 +217,18 @@ function NoteBlock:ParseNodeMapping(slotText, blockName, nodeCount)
         end
         local n = UnitName(unit)
         if n and n ~= "" then
-            nameToIndex[n:lower()] = idx
+            nameToIndex[normalizedToken(n)] = idx
+        end
+        if E.GetUnitFullName then
+            local full = E:GetUnitFullName(unit, true)
+            if full and full ~= "" then
+                nameToIndex[normalizedToken(full)] = idx
+            end
         end
         if E.GetNickname then
             local nick = E:GetNickname(unit)
             if nick and nick ~= "" then
-                nameToIndex[nick:lower()] = idx
+                nameToIndex[normalizedToken(nick)] = idx
             end
         end
     end
@@ -167,7 +252,7 @@ function NoteBlock:ParseNodeMapping(slotText, blockName, nodeCount)
         if nodeCount and nodeIdx > nodeCount then
             break
         end
-        local raidIdx = nameToIndex[word:lower()]
+        local raidIdx = nameToIndex[normalizedToken(word)]
         if raidIdx then
             map[raidIdx] = nodeIdx
             matched = true
@@ -180,22 +265,29 @@ function NoteBlock:ParseNodeMapping(slotText, blockName, nodeCount)
     return map
 end
 
-function NoteBlock:GetDisplayName(charName)
-    if type(charName) ~= "string" or charName == "" or not E.GetNickname then
-        return charName
-    end
-    local num = GetNumGroupMembers() or 0
-    for i = 1, num do
-        local unit = "raid" .. i
-        if UnitName(unit) == charName then
+function NoteBlock:GetUnitDisplayName(unit, fallback)
+    if unit and UnitExists(unit) then
+        if E.GetNickname then
             local nick = E:GetNickname(unit)
             if nick and nick ~= "" then
                 return nick
             end
-            return charName
+        end
+
+        local raw = UnitName(unit)
+        if raw and raw ~= "" then
+            return raw
         end
     end
-    return charName
+    return fallback
+end
+
+function NoteBlock:GetDisplayName(charName)
+    if type(charName) ~= "string" or charName == "" then
+        return charName
+    end
+    local unit = self:FindUnitByToken(charName)
+    return self:GetUnitDisplayName(unit, charName)
 end
 
 NoteBlock._noteBlocks = NoteBlock._noteBlocks or {}

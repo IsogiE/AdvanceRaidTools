@@ -63,6 +63,21 @@ local function syncTiming(bar)
     ensureTargetPoint(bar)
 end
 
+local function encounterCustomValue(bar)
+    if not bar then
+        return 0
+    end
+    local custom = tonumber(bar.customEncounterID)
+    local encounterID = tonumber(bar.encounterID)
+    if custom and custom ~= 0 then
+        return custom
+    end
+    if encounterID and encounterID ~= 0 then
+        return encounterID
+    end
+    return custom or encounterID or 0
+end
+
 local function barDropdownValues(mod)
     local values = {}
     for i, bar in ipairs(mod:GetBars()) do
@@ -450,7 +465,7 @@ local function buildBossPushBody(rightPanel, mod, isDisabled)
                     local customKey = mod:GetCustomEncounterKey()
                     if v == customKey then
                         b.encounterMode = customKey
-                        b.customEncounterID = b.customEncounterID or b.encounterID or 0
+                        b.customEncounterID = encounterCustomValue(b)
                         b.encounterID = b.customEncounterID
                     else
                         b.encounterMode = "preset"
@@ -467,7 +482,7 @@ local function buildBossPushBody(rightPanel, mod, isDisabled)
             numeric = true,
             get = function()
                 local b = selectedBar(mod)
-                return tostring(b and b.customEncounterID or b and b.encounterID or 0)
+                return tostring(encounterCustomValue(b))
             end,
             onCommit = function(text)
                 local b = selectedBar(mod)
