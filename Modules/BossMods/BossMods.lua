@@ -118,6 +118,10 @@ BossMods:RegisterRaidTab("Misc", {
     labelKey = "BossMods_Misc",
     order = 10
 })
+BossMods:RegisterRaidTab("General", {
+    labelKey = "BossMods_General",
+    order = 15
+})
 BossMods:RegisterRaidTab("Queldanas", {
     labelKey = "BossMods_Queldanas",
     order = 20

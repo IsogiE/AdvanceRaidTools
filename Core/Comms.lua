@@ -139,13 +139,13 @@ function Comms:_dispatchProtocol(prefix, message, distribution, sender)
     end
 end
 
-function Comms:_sendOrQueue(prefix, msg, dist, target)
+function Comms:_sendOrQueue(prefix, msg, dist, target, prio, callback, callbackArg)
     if InCombatLockdown() then
-        sendQueue[#sendQueue + 1] = {prefix, msg, dist, target}
+        sendQueue[#sendQueue + 1] = {prefix, msg, dist, target, prio, callback, callbackArg}
         queueCommsFlush(self)
         return
     end
-    self:SendCommMessage(prefix, msg, dist, target)
+    self:SendCommMessage(prefix, msg, dist, target, prio, callback, callbackArg)
 end
 
 -- simple broadcast since we're not doing much complicated stuff with these
@@ -163,8 +163,8 @@ function Comms:Whisper(prefix, message, toName)
     self:_sendOrQueue(prefix, message or "", "WHISPER", toName)
 end
 
-function Comms:SendPayload(prefix, data, target)
-    if not IsInGroup() and not target then
+function Comms:SendPayload(prefix, data, target, distribution, callback, callbackArg)
+    if not IsInGroup() and not target and not distribution then
         return
     end
 
@@ -175,8 +175,9 @@ function Comms:SendPayload(prefix, data, target)
     if target then
         self:_sendOrQueue(prefix, encoded, "WHISPER", target)
     else
-        local chatType = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or (IsInRaid() and "RAID" or "PARTY")
-        self:_sendOrQueue(prefix, encoded, chatType)
+        local chatType = distribution or (IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or
+                             (IsInRaid() and "RAID" or "PARTY"))
+        self:_sendOrQueue(prefix, encoded, chatType, nil, "BULK", callback, callbackArg)
     end
 end
 
@@ -294,7 +295,7 @@ function Comms:PLAYER_REGEN_ENABLED()
         local pending = sendQueue
         sendQueue = {}
         for _, item in ipairs(pending) do
-            self:SendCommMessage(item[1], item[2], item[3], item[4])
+            self:SendCommMessage(item[1], item[2], item[3], item[4], item[5], item[6], item[7])
         end
     end
 

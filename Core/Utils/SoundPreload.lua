@@ -71,7 +71,6 @@ local function playNextSound()
         end
     end
 
-    -- Match the WeakAura's frame-by-frame scan cadence.
     C_Timer.After(0, playNextSound)
 end
 
