@@ -959,6 +959,13 @@ function Mod:OnConsumableComm(_, message, _, sender)
 end
 
 function Mod:BroadcastConsumable(kind)
+    if not CONSUMABLES[kind] then
+        return
+    end
+    local BossMods = E:GetModule("BossMods", true)
+    if BossMods and not BossMods:IsEnabled() then
+        return
+    end
     if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
         return
     end
@@ -985,6 +992,12 @@ function Mod:OnSpellcast(_, unit, _, spellID)
         self:BroadcastConsumable(kind)
     end
 end
+
+local consumableBroadcastFrame = CreateFrame("Frame")
+consumableBroadcastFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+consumableBroadcastFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
+    Mod:OnSpellcast(event, unit, castGUID, spellID)
+end)
 
 function Mod:OnZoneChanged()
     if InCombatLockdown() then
@@ -1019,7 +1032,6 @@ function Mod:OnEnable()
     self:RegisterEvent("UPDATE_INVENTORY_DURABILITY", "CheckRepair")
     self:RegisterEvent("UNIT_PET", "CheckPet")
     self:RegisterEvent("BAG_UPDATE", "OnBagUpdate")
-    self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "OnSpellcast")
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("ACTIONBAR_UPDATE_USABLE", "CheckGateway")
     self:RegisterEvent("CHAT_MSG_RAID", "OnChat")
