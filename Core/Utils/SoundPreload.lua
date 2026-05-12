@@ -7,12 +7,9 @@ local SOUND_CHANNEL = "Master"
 
 local soundsToPlay = {}
 local playedSounds = {}
-local cachedSounds = {}
-local cachedSoundOrder = {}
 local startScheduled = false
 local running = false
 local initialized = false
-local loginReportPending = false
 local eventFrame
 local lsmCallbackTarget = {}
 
@@ -41,18 +38,10 @@ local function addLSMSounds()
     end
 end
 
-local function printLoginReport()
-    loginReportPending = false
-    E:Printf("Sound preload cached %d sound(s).", #cachedSoundOrder)
-end
-
 local function playNextSound()
     local key, path = next(soundsToPlay)
     if not key then
         running = false
-        if loginReportPending then
-            printLoginReport()
-        end
         return
     end
 
@@ -61,11 +50,6 @@ local function playNextSound()
 
     local ok, played, handle = pcall(PlaySoundFile, path, SOUND_CHANNEL)
     if ok and played then
-        if not cachedSounds[key] then
-            cachedSoundOrder[#cachedSoundOrder + 1] = key
-        end
-        cachedSounds[key] = path
-
         if handle and StopSound then
             pcall(StopSound, handle)
         end
@@ -84,9 +68,6 @@ local function startPreload()
     end
 
     if not next(soundsToPlay) then
-        if loginReportPending then
-            printLoginReport()
-        end
         return
     end
 
@@ -138,10 +119,7 @@ local function initializeSoundPreload()
     eventFrame:RegisterEvent("PLAYER_LOGIN")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("ENCOUNTER_END")
-    eventFrame:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_LOGIN" then
-            loginReportPending = true
-        end
+    eventFrame:SetScript("OnEvent", function()
         schedulePreload(INITIAL_DELAY)
     end)
 
