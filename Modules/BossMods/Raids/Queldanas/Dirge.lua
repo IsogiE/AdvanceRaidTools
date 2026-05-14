@@ -831,7 +831,7 @@ function Dirge:OnChatMsg(event, msg)
 
         local hideDuration = 15
         if self.inMythicPhase and not DEBUG_MODE then
-            hideDuration = (maxForCounting == 4) and 20 or 15
+            hideDuration = (maxForCounting == 4) and 18 or 15
         end
 
         self.hideTimer = C_Timer.NewTimer(hideDuration, function()
