@@ -16,6 +16,9 @@ local DEFAULT_ROW_COLOR = {0.18, 0.18, 0.18}
 local QUESTION_MARK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local API_WARN_INTERVAL = 10
 local ROSTER_REBUILD_DELAY = 0.2
+local DEFAULT_AURA_SLOTS = 3
+local DEFAULT_COOLDOWN_TEXT_SCALE = 1
+local HIDDEN_PRIVATE_AURA_BORDER_SCALE = -10000
 local ROLE_ORDER = {
     TANK = 1,
     HEALER = 2,
@@ -37,6 +40,17 @@ local function clampInt(v, minV, maxV, fallback)
     return v
 end
 
+local function clampNumber(v, minV, maxV, fallback)
+    v = tonumber(v) or fallback or minV
+    if v < minV then
+        return minV
+    end
+    if v > maxV then
+        return maxV
+    end
+    return v
+end
+
 local function scaledAuraSize(rowHeight)
     return math.max(8, rowHeight - 2)
 end
@@ -46,7 +60,7 @@ local function scaledRoleSize(rowHeight)
 end
 
 local function scaledPrivateAuraBorder(iconSize)
-    return iconSize / 16
+    return iconSize / 32 * 2
 end
 
 local function scaledInset(rowHeight)
@@ -185,6 +199,22 @@ function Engines.PrivateAuraList(config)
         end
     end
 
+    local function privateAuraConfig()
+        return state.config.privateAuras or {}
+    end
+
+    local function cooldownTextScale()
+        return clampNumber(privateAuraConfig().cooldownTextScale, 0.1, 4, DEFAULT_COOLDOWN_TEXT_SCALE)
+    end
+
+    local function showDurationText()
+        return privateAuraConfig().showDurationText ~= false
+    end
+
+    local function showPrivateAuraBorder()
+        return privateAuraConfig().showBorder ~= false
+    end
+
     local function shouldShow()
         if state.editMode then
             return true
@@ -277,6 +307,9 @@ function Engines.PrivateAuraList(config)
         local host = CreateFrame("Frame", nil, row)
         host:SetFrameLevel(row:GetFrameLevel() + 2)
 
+        host.privateAuraAnchor = CreateFrame("Frame", nil, host)
+        host.privateAuraAnchor:SetFrameLevel(host:GetFrameLevel() + 1)
+
         host.preview = host:CreateTexture(nil, "ARTWORK")
         host.preview:SetAllPoints()
         host.preview:SetTexture(QUESTION_MARK_ICON)
@@ -326,6 +359,26 @@ function Engines.PrivateAuraList(config)
         display:SetSize(width, height)
     end
 
+    local function applyIconBorder(host)
+        local auraConfig = privateAuraConfig()
+        local border = auraConfig.customBorder or {}
+        local enabled = not showPrivateAuraBorder() and border.enabled ~= false
+        local er, eg, eb, ea = colorTuple(border.color, 0, 0, 0, 1)
+        local container = E:ApplyOuterBorder(host, {
+            enabled = enabled,
+            edgeFile = fetchBorder(border.texture or "Pixel"),
+            edgeSize = math.min(border.size or 1, 16),
+            r = er,
+            g = eg,
+            b = eb,
+            a = ea * (border.opacity or 1)
+        })
+
+        if container then
+            container:SetFrameLevel((host:GetFrameLevel() or 0) + 20)
+        end
+    end
+
     local function applyRow(row, data, index, rowCount)
         local layout = state.config.layout or {}
         local style = state.config.style or {}
@@ -338,7 +391,7 @@ function Engines.PrivateAuraList(config)
         local iconSize = scaledAuraSize(rowHeight)
         local iconGap = math.max(1, math.min(6, math.floor(rowHeight * 0.12 + 0.5)))
         local roleSize = scaledRoleSize(rowHeight)
-        local auraSlots = clampInt(layout.auraSlots, 1, 10, 1)
+        local auraSlots = clampInt(layout.auraSlots, 1, 10, DEFAULT_AURA_SLOTS)
 
         row:SetSize(width, rowHeight)
         row:ClearAllPoints()
@@ -372,9 +425,17 @@ function Engines.PrivateAuraList(config)
 
         for slot = 1, auraSlots do
             local host = getOrCreateAuraHost(row, slot)
+            local scale = cooldownTextScale()
+            local anchorSize = iconSize / scale
             host:SetSize(iconSize, iconSize)
             host:ClearAllPoints()
             host:SetPoint("LEFT", row, "RIGHT", iconGap + (slot - 1) * (iconSize + iconGap), 0)
+            host.privateAuraAnchor:SetSize(anchorSize, anchorSize)
+            host.privateAuraAnchor:SetScale(scale)
+            host.privateAuraAnchor:ClearAllPoints()
+            host.privateAuraAnchor:SetPoint("CENTER", host, "CENTER", 0, 0)
+            host.privateAuraAnchor:Show()
+            applyIconBorder(host)
             setHostPreview(host, state.editMode)
             host:Show()
         end
@@ -402,21 +463,26 @@ function Engines.PrivateAuraList(config)
         local layout = state.config.layout or {}
         local rowHeight = clampInt(layout.rowHeight, 12, 60, 22)
         local iconSize = scaledAuraSize(rowHeight)
+        local scale = cooldownTextScale()
+        local anchorSize = iconSize / scale
+        local anchorFrame = host.privateAuraAnchor or host
+        local borderScale = showPrivateAuraBorder() and scaledPrivateAuraBorder(anchorSize) or
+                                HIDDEN_PRIVATE_AURA_BORDER_SCALE
 
         local ok, anchorID = pcall(C_UnitAuras.AddPrivateAuraAnchor, {
             unitToken = unit,
             auraIndex = auraIndex,
-            parent = host,
+            parent = anchorFrame,
             isContainer = false,
             showCountdownFrame = true,
-            showCountdownNumbers = true,
+            showCountdownNumbers = showDurationText(),
             iconInfo = {
-                iconWidth = iconSize,
-                iconHeight = iconSize,
-                borderScale = scaledPrivateAuraBorder(iconSize),
+                iconWidth = anchorSize,
+                iconHeight = anchorSize,
+                borderScale = borderScale,
                 iconAnchor = {
                     point = "CENTER",
-                    relativeTo = host,
+                    relativeTo = anchorFrame,
                     relativePoint = "CENTER",
                     offsetX = 0,
                     offsetY = 0
@@ -495,7 +561,7 @@ function Engines.PrivateAuraList(config)
         local width = clampInt(layout.width, 80, 500, 150)
         local rowHeight = clampInt(layout.rowHeight, 12, 60, 22)
         local rowGap = clampInt(layout.rowGap, 0, 20, 2)
-        local auraSlots = clampInt(layout.auraSlots, 1, 10, 1)
+        local auraSlots = clampInt(layout.auraSlots, 1, 10, DEFAULT_AURA_SLOTS)
         local count = #state.rowData
         local height = count > 0 and (count * rowHeight + math.max(0, count - 1) * rowGap) or rowHeight
 

@@ -14,8 +14,20 @@ E:RegisterModuleDefaults("BossMods_PrivateAuraList", {
         width = 150,
         rowHeight = 22,
         rowGap = 2,
-        auraSlots = 1,
+        auraSlots = 3,
         previewRows = 5
+    },
+    privateAuras = {
+        showDurationText = true,
+        cooldownTextScale = 1,
+        showBorder = true,
+        customBorder = {
+            enabled = true,
+            texture = "Pixel",
+            size = 1,
+            color = {0, 0, 0, 1},
+            opacity = 1
+        }
     },
     style = {
         classColorAlpha = 0.62,
@@ -119,6 +131,7 @@ local function buildEngineConfig(self)
         end,
         visibility = self.db.visibility,
         layout = self.db.layout,
+        privateAuras = self.db.privateAuras,
         style = self.db.style
     }
 end

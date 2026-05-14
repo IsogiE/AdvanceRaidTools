@@ -64,6 +64,18 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
         return mod.db.style.background
     end
 
+    local function privateAuras()
+        mod.db.privateAuras = mod.db.privateAuras or {}
+        mod.db.privateAuras.customBorder = mod.db.privateAuras.customBorder or {
+            enabled = true,
+            texture = "Pixel",
+            size = 1,
+            color = {0, 0, 0, 1},
+            opacity = 1
+        }
+        return mod.db.privateAuras
+    end
+
     local function slider(opts)
         return track(T:Slider(rightPanel, {
             label = opts.label,
@@ -72,6 +84,7 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
             step = opts.step or 1,
             value = opts.get(),
             get = opts.get,
+            isPercent = opts.isPercent,
             onChange = function(v)
                 opts.onChange(v)
                 refreshLive()
@@ -267,6 +280,62 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
         end
     end
 
+    y = section(y, "BossMods_PALPrivateAuraIcons")
+    local showCooldownText = checkbox({
+        text = L["BossMods_PALShowCooldownText"],
+        labelTop = true,
+        get = function()
+            return privateAuras().showDurationText ~= false
+        end,
+        onChange = function(v)
+            privateAuras().showDurationText = v and true or false
+        end
+    })
+    local cooldownTextScale = slider({
+        label = L["BossMods_PALCooldownTextScale"],
+        min = 0.1,
+        max = 4,
+        step = 0.1,
+        isPercent = true,
+        get = function()
+            local v = tonumber(privateAuras().cooldownTextScale) or 1
+            return math.max(0.1, math.min(4, v))
+        end,
+        onChange = function(v)
+            privateAuras().cooldownTextScale = math.max(0.1, math.min(4, v))
+        end
+    })
+    y = row(y, {showCooldownText, cooldownTextScale})
+
+    local showDefaultBorder = checkbox({
+        text = L["BossMods_PALShowDefaultAuraBorder"],
+        labelTop = true,
+        get = function()
+            return privateAuras().showBorder ~= false
+        end,
+        onChange = function(v)
+            privateAuras().showBorder = v and true or false
+        end
+    })
+    local useArtBorder = checkbox({
+        text = L["BossMods_PALUseCustomIconBorder"],
+        labelTop = true,
+        get = function()
+            return privateAuras().customBorder.enabled ~= false
+        end,
+        onChange = function(v)
+            privateAuras().customBorder.enabled = v and true or false
+        end,
+        disabled = function()
+            local moduleDisabled = isDisabled
+            if type(isDisabled) == "function" then
+                moduleDisabled = isDisabled()
+            end
+            return moduleDisabled or privateAuras().showBorder ~= false
+        end
+    })
+    y = row(y, {showDefaultBorder, useArtBorder})
+
     y = section(y, "Layout")
     local listWidth = slider({
         label = L["Width"],
@@ -312,7 +381,7 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
         max = 10,
         step = 1,
         get = function()
-            return mod.db.layout.auraSlots or 1
+            return mod.db.layout.auraSlots or 3
         end,
         onChange = function(v)
             mod.db.layout.auraSlots = math.floor(v)

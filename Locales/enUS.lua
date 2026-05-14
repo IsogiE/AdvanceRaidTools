@@ -623,6 +623,11 @@ L["BossMods_PALRowGap"] = "Row Gap"
 L["BossMods_PALRoster"] = "Raid Members"
 L["BossMods_PALResetExclusions"] = "Reset Exclusions"
 L["BossMods_PALNoRoster"] = "No raid members found"
+L["BossMods_PALPrivateAuraIcons"] = "Private Aura Icons"
+L["BossMods_PALShowCooldownText"] = "Show Cooldown Text"
+L["BossMods_PALCooldownTextScale"] = "Cooldown Text Scale"
+L["BossMods_PALShowDefaultAuraBorder"] = "Show Default Aura Border"
+L["BossMods_PALUseCustomIconBorder"] = "Use Custom Icon Border"
 
 -- BossMods: CombatTimer
 L["BossMods_CombatTimer"] = "Combat Timer"
