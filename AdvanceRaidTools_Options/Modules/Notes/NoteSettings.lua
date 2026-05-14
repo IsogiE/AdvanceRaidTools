@@ -590,11 +590,6 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
                     title = L["Notes_Send"],
                     desc = L["NotInGroup"]
                 }
-            elseif reason == "EMPTY" then
-                return {
-                    title = L["Notes_Send"],
-                    desc = L["Notes_SendEmpty"]
-                }
             elseif reason == "NOT_AUTHORIZED" then
                 return {
                     title = L["Notes_Send"],

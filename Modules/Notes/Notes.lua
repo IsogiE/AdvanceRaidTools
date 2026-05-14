@@ -114,6 +114,7 @@ Notes.encounterStartTime = nil
 Notes.encounterTicker = nil --
 Notes.undoStacks = {} -- [slotIndex] = { previous text, ... } (session-only)
 Notes.editVisibleSlots = {} -- [slotIndex] = true while the options UI is temporarily showing an unlocked display
+Notes.receiveGlowFrames = {} -- [slotIndex] = UIParent overlay used so receive flash can show while note frame is hidden
 Notes._isResizing = false -- true only while a user is dragging a frame's resize grip
 Notes._resizingFrame = nil -- the frame currently being drag-resized; scopes the OnBackdropSizeChanged gate
 
@@ -135,10 +136,15 @@ local wipe = wipe
 local tinsert = table.insert
 local tremove = table.remove
 local max = math.max
+local min = math.min
 local floor = math.floor
 
 local DISPLAY_TIMER_COLOR = "ffffd200"
 local DISPLAY_TIMER_EXPIRED_COLOR = "ff888888"
+local RECEIVE_GLOW_DURATION = 3
+local RECEIVE_GLOW_FILL_ALPHA = 0.28
+local RECEIVE_GLOW_EDGE_ALPHA = 0.4
+local startReceiveGlow
 local isNameBoundary
 
 -- Utilities
@@ -1073,9 +1079,8 @@ function Notes:CanSend(index)
         return false, "NOT_AUTHORIZED"
     end
 
-    local slot = self:GetSlot(index)
-    if not slot or not slot.text or slot.text == "" then
-        return false, "EMPTY"
+    if not self:GetSlot(index) then
+        return false, "NO_SLOT"
     end
     return true
 end
@@ -1091,8 +1096,6 @@ function Notes:SendSlot(index)
             E:Printf(L["NotInGroup"])
         elseif reason == "PERSONAL" then
             E:Printf(L["Notes_SendPersonal"])
-        elseif reason == "EMPTY" then
-            E:Printf(L["Notes_SendEmpty"])
         elseif reason == "NOT_AUTHORIZED" then
             E:Printf(L["Notes_SendNotAuthorized"])
         end
@@ -1112,6 +1115,24 @@ function Notes:SendSlot(index)
     return true
 end
 
+function Notes:FlashReceiveGlow(slotIndex)
+    slotIndex = clampIndex(self, slotIndex or MAIN_SLOT)
+    if not slotIndex then
+        return
+    end
+    local frame = self.frames[slotIndex] or self:BuildFrame(slotIndex)
+    if not frame then
+        return
+    end
+    if self:ShouldSlotBeVisible(slotIndex) then
+        frame:Show()
+        self:RefreshFrame(slotIndex)
+    else
+        frame:Hide()
+    end
+    startReceiveGlow(slotIndex, frame)
+end
+
 function Notes:OnNoteReceive(prefix, message, distribution, sender)
     if not self:IsEnabled() then
         return
@@ -1125,6 +1146,7 @@ function Notes:OnNoteReceive(prefix, message, distribution, sender)
         return
     end
     self:SetSlotText(MAIN_SLOT, data.text)
+    self:FlashReceiveGlow(MAIN_SLOT)
     E:SendMessage("ART_NOTE_RECEIVED", MAIN_SLOT, sender, data.name)
 end
 
@@ -1266,6 +1288,84 @@ local function applyBackdropColors(frame, display)
     local borderAlpha = display.borderEnabled == false and 0 or br.a
     frame:SetBackdropColor(bg.r, bg.g, bg.b, bgAlpha)
     frame:SetBackdropBorderColor(br.r, br.g, br.b, borderAlpha)
+end
+
+local function setReceiveGlowAlpha(glow, scale)
+    scale = max(0, min(1, scale or 0))
+    glow.fill:SetColorTexture(1, 0, 0, RECEIVE_GLOW_FILL_ALPHA * scale)
+    for _, edge in ipairs(glow.edges) do
+        edge:SetColorTexture(1, 0, 0, RECEIVE_GLOW_EDGE_ALPHA * scale)
+    end
+end
+
+local function positionReceiveGlow(glow, anchorFrame)
+    glow:ClearAllPoints()
+    local point, relFrame, relPoint, x, y = anchorFrame:GetPoint(1)
+    if point then
+        glow:SetPoint(point, relFrame or UIParent, relPoint or point, x or 0, y or 0)
+    else
+        glow:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
+    glow:SetSize(max(anchorFrame:GetWidth() or DEFAULT_FRAME_W, 1), max(anchorFrame:GetHeight() or DEFAULT_FRAME_H, 1))
+    local strata = anchorFrame:GetFrameStrata() or (Notes.db and Notes.db.display and Notes.db.display.strata) or "MEDIUM"
+    glow:SetFrameStrata(strata)
+    glow:SetFrameLevel((anchorFrame:GetFrameLevel() or 0) + 4)
+end
+
+local function ensureReceiveGlow(slotIndex)
+    Notes.receiveGlowFrames = Notes.receiveGlowFrames or {}
+    if Notes.receiveGlowFrames[slotIndex] then
+        return Notes.receiveGlowFrames[slotIndex]
+    end
+
+    local glow = CreateFrame("Frame", "ARTNotesReceiveGlow" .. slotIndex, UIParent)
+    glow:EnableMouse(false)
+
+    local fill = glow:CreateTexture(nil, "BACKGROUND", nil, 1)
+    fill:SetAllPoints()
+    glow.fill = fill
+    glow.edges = {}
+
+    local function makeEdge(point1, point2, horizontal)
+        local edge = glow:CreateTexture(nil, "OVERLAY")
+        edge:SetPoint(point1)
+        edge:SetPoint(point2)
+        if horizontal then
+            edge:SetHeight(2)
+        else
+            edge:SetWidth(2)
+        end
+        tinsert(glow.edges, edge)
+    end
+
+    makeEdge("TOPLEFT", "TOPRIGHT", true)
+    makeEdge("BOTTOMLEFT", "BOTTOMRIGHT", true)
+    makeEdge("TOPLEFT", "BOTTOMLEFT", false)
+    makeEdge("TOPRIGHT", "BOTTOMRIGHT", false)
+
+    glow:SetScript("OnUpdate", function(self_)
+        local remaining = (self_.expires or 0) - GetTime()
+        if remaining <= 0 then
+            setReceiveGlowAlpha(self_, 0)
+            self_:Hide()
+            return
+        end
+        setReceiveGlowAlpha(self_, min(1, remaining / 2))
+    end)
+    glow:Hide()
+    Notes.receiveGlowFrames[slotIndex] = glow
+    return glow
+end
+
+startReceiveGlow = function(slotIndex, anchorFrame)
+    if not slotIndex or not anchorFrame then
+        return
+    end
+    local glow = ensureReceiveGlow(slotIndex)
+    positionReceiveGlow(glow, anchorFrame)
+    glow.expires = GetTime() + RECEIVE_GLOW_DURATION
+    setReceiveGlowAlpha(glow, 1)
+    glow:Show()
 end
 
 local function savePosition(frame)
@@ -1844,6 +1944,11 @@ function Notes:HideAllFrames()
             frame:Hide()
         end
     end
+    for _, frame in pairs(self.receiveGlowFrames or {}) do
+        if frame and frame.Hide then
+            frame:Hide()
+        end
+    end
 end
 
 local readOnlyDB = E:CreateReadOnlyProxy("ART_NotesDB is read-only; use E:SetNote or ART:SetNote to write.")
@@ -2149,6 +2254,11 @@ function Notes:OnProfileChanged()
     end
 
     for _, frame in pairs(self.frames) do
+        if frame and frame.Hide then
+            frame:Hide()
+        end
+    end
+    for _, frame in pairs(self.receiveGlowFrames or {}) do
         if frame and frame.Hide then
             frame:Hide()
         end
