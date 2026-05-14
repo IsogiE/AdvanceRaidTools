@@ -297,6 +297,36 @@ function E:GetPlayerRole()
     return role
 end
 
+function E:GetUnitRole(unit)
+    if not unit or not UnitExists(unit) then
+        return nil
+    end
+
+    local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit) or nil
+    role = self:SafeString(role)
+    if role and role ~= "" and role ~= "NONE" then
+        return role
+    end
+
+    return nil
+end
+
+function E:GetRoleIconAtlas(role)
+    role = self:SafeString(role)
+    if not role or role == "" or role == "NONE" or not GetIconForRole then
+        return nil
+    end
+    return GetIconForRole(role)
+end
+
+function E:GetUnitRoleIconAtlas(unit)
+    local role = self:GetUnitRole(unit)
+    if not role then
+        return nil
+    end
+    return self:GetRoleIconAtlas(role), role
+end
+
 function E:GetGroupUnitByName(name)
     name = self:SafeString(name)
     if not name or name == "" then

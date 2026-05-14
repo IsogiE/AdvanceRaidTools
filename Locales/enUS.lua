@@ -614,6 +614,16 @@ L["BossMods_BossPushExport"] = "Export Boss Push"
 L["BossMods_BossPushDeleteConfirm"] = "Delete Boss Push bar \"%s\"?"
 L["BossMods_BossPushNoBarSelected"] = "No Boss Push bar selected"
 
+-- BossMods: Private Aura List
+L["BossMods_PrivateAuraList"] = "Private Aura List"
+L["BossMods_PrivateAuraListDesc"] =
+    "Show character rows & show which Private Auras they have"
+L["BossMods_PALRowHeight"] = "Row Height"
+L["BossMods_PALRowGap"] = "Row Gap"
+L["BossMods_PALRoster"] = "Raid Members"
+L["BossMods_PALResetExclusions"] = "Reset Exclusions"
+L["BossMods_PALNoRoster"] = "No raid members found"
+
 -- BossMods: CombatTimer
 L["BossMods_CombatTimer"] = "Combat Timer"
 L["BossMods_CombatTimerDesc"] = "How does one even describe this, it counts time I guess, and in combat at that!"

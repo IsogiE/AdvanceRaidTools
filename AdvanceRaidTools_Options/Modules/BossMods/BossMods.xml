@@ -7,6 +7,7 @@
     <Script file="Misc\GeneralPackSettings.lua"/>
     <Script file="General\ReadyAssignmentsSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
+    <Script file="General\PrivateAuraListSettings.lua"/>
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>
     <Script file="Raids\Queldanas\QuasarSettings.lua"/>
     <Script file="Raids\Queldanas\LurakickSettings.lua"/>

@@ -399,7 +399,11 @@ local function buildTabBody(parent, tabKey)
             end
             local fb = state.featureBodies[state.activeFeature]
             if fb and fb.handle and fb.handle.Refresh then
-                pcall(fb.handle.Refresh)
+                local ok, rebuild = pcall(fb.handle.Refresh)
+                if ok and rebuild then
+                    destroyFeatureBody(state.activeFeature)
+                    showFeatureBody(state.activeFeature)
+                end
             end
         end
     }

@@ -4,6 +4,7 @@
     <Script file="Core\Engines\Shared.lua"/>
     <Script file="Core\Engines\Bar.lua"/>
     <Script file="Core\Engines\AuraDisplay.lua"/>
+    <Script file="Core\Engines\PrivateAuraList.lua"/>
     <Script file="Core\Engines\AssignmentList.lua"/>
     <Script file="Core\Engines\TextAlert.lua"/>
     <Script file="Core\Engines\RaidMap.lua"/>
@@ -20,6 +21,7 @@
     <Script file="Misc\GeneralPack.lua"/>
     <Script file="General\ReadyAssignments.lua"/>
     <Script file="General\BossPush.lua"/>
+    <Script file="General\PrivateAuraList.lua"/>
     <Script file="Raids\Queldanas\Feather.lua"/>
     <Script file="Raids\Queldanas\Quasar.lua"/>
     <Script file="Raids\Queldanas\Lurakick.lua"/>
