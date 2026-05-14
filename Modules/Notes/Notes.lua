@@ -1060,6 +1060,37 @@ function Notes:SendToPersonal(index)
     return self:SetSlotText(PINNED_PERSONAL_SLOT, text)
 end
 
+function Notes:CanSendToMain(index)
+    index = clampIndex(self, index)
+    if not index then
+        return false, "NO_SLOT"
+    end
+    if index == MAIN_SLOT then
+        return false, "IS_MAIN"
+    end
+    if not self:GetSlot(MAIN_SLOT) then
+        return false, "NO_MAIN_SLOT"
+    end
+    return true
+end
+
+function Notes:SendToMain(index)
+    local ok = self:CanSendToMain(index)
+    if not ok then
+        return false
+    end
+    local source = self:GetSlot(index)
+    local target = self:GetSlot(MAIN_SLOT)
+    if not source or not target then
+        return false
+    end
+    local text = source.text or ""
+    if target.text ~= text then
+        self:PushUndo(MAIN_SLOT, target.text or "")
+    end
+    return self:SetSlotText(MAIN_SLOT, text)
+end
+
 function Notes:CanSend(index)
     index = clampIndex(self, index or MAIN_SLOT)
     if not index then

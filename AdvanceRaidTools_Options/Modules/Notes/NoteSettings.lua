@@ -604,6 +604,29 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     sendBtn.frame:ClearAllPoints()
     sendBtn.frame:SetPoint("LEFT", undoBtn.frame, "RIGHT", GAP, 0)
 
+    local sendToMainBtn = T:Button(actionRow, {
+        text = L["Notes_SendToMain"],
+        width = 110,
+        onClick = function()
+            local idx = clampEditingSlot(mod)
+            if mod:SendToMain(idx) then
+                refreshPanel()
+            end
+        end,
+        disabled = function()
+            if isModuleDisabled() then
+                return true
+            end
+            return not mod:CanSendToMain(clampEditingSlot(mod))
+        end,
+        tooltip = {
+            title = L["Notes_SendToMain"],
+            desc = L["Notes_SendToMainDesc"]
+        }
+    })
+    sendToMainBtn.frame:ClearAllPoints()
+    sendToMainBtn.frame:SetPoint("LEFT", undoBtn.frame, "RIGHT", GAP, 0)
+
     local sendToPersonalBtn = T:Button(actionRow, {
         text = L["Notes_SendToPersonal"],
         width = 120,
@@ -625,14 +648,27 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         }
     })
     sendToPersonalBtn.frame:ClearAllPoints()
-    sendToPersonalBtn.frame:SetPoint("LEFT", sendBtn.frame, "RIGHT", GAP, 0)
+    sendToPersonalBtn.frame:SetPoint("LEFT", sendToMainBtn.frame, "RIGHT", GAP, 0)
 
-    local function refreshSendToPersonalBtn()
-        local show = clampEditingSlot(mod) > PINNED_PERSONAL_SLOT
-        if show then
+    local function refreshActionButtons()
+        local idx = clampEditingSlot(mod)
+        if idx == MAIN_SLOT then
+            sendBtn.frame:Show()
+            sendToMainBtn.frame:Hide()
+        else
+            sendBtn.frame:Hide()
+            sendToMainBtn.frame:Show()
+        end
+        if idx > PINNED_PERSONAL_SLOT then
             sendToPersonalBtn.frame:Show()
         else
             sendToPersonalBtn.frame:Hide()
+        end
+        if sendBtn.Refresh then
+            sendBtn.Refresh()
+        end
+        if sendToMainBtn.Refresh then
+            sendToMainBtn.Refresh()
         end
         if sendToPersonalBtn.Refresh then
             sendToPersonalBtn.Refresh()
@@ -897,16 +933,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         if undoBtn.Refresh then
             undoBtn.Refresh()
         end
-        if sendBtn.Refresh then
-            sendBtn.Refresh()
-        end
-        refreshSendToPersonalBtn()
+        refreshActionButtons()
         if rosterScroll.scrollbar and rosterScroll.scrollbar.Refresh then
             rosterScroll.scrollbar.Refresh()
         end
     end
 
-    refreshSendToPersonalBtn()
+    refreshActionButtons()
 
     return {
         frame = container,
