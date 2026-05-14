@@ -326,7 +326,7 @@ local POS_MAIN_ALT = {
     }
 }
 
--- Shared raid-to-node swaps for both main-phase layouts.
+-- Shared raid-to-node swaps for both main-phase layouts
 local RAID_TO_NODE = {
     [1] = 11,
     [11] = 1,
