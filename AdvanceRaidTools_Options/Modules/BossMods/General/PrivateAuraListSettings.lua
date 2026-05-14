@@ -84,6 +84,7 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
         return track(T:Checkbox(rightPanel, {
             text = opts.text,
             labelTop = opts.labelTop,
+            checked = opts.get(),
             get = opts.get,
             onChange = function(_, v)
                 opts.onChange(v)
@@ -252,6 +253,7 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
                 local colorCode = entry.classFile and E:ClassColorCode(entry.classFile) or "|cffffffff"
                 widgets[#widgets + 1] = track(T:Checkbox(rightPanel, {
                     text = ("%s%s|r"):format(colorCode, entry.displayName or entry.key),
+                    checked = not mod.db.excluded[entry.key],
                     get = function()
                         return not mod.db.excluded[entry.key]
                     end,
