@@ -1,12 +1,6 @@
 local E, L = unpack(ART)
 local T = E.Templates
 
-local SHOW_WHEN_VALUES = {
-    always = L["Always"],
-    combat = L["InCombat"],
-    nocombat = L["OutOfCombat"]
-}
-
 local OUTLINE_VALUES = {
     [""] = L["None"],
     OUTLINE = L["Outline"],
@@ -224,20 +218,6 @@ local function buildPrivateAuraListBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(y, {enableBg, enableBorder})
-
-    y = section(y, "Visibility")
-    local showWhen = dropdown({
-        label = L["BossMods_ShowWhen"],
-        values = SHOW_WHEN_VALUES,
-        get = function()
-            local v = mod.db.visibility.showWhen
-            return SHOW_WHEN_VALUES[v] and v or "always"
-        end,
-        onChange = function(v)
-            mod.db.visibility.showWhen = v
-        end
-    })
-    y = row(y, {showWhen})
 
     y = section(y, "BossMods_PALRoster")
     local reset = track(T:LabelAlignedButton(rightPanel, {

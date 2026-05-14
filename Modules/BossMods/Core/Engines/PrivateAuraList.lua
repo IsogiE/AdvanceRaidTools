@@ -215,22 +215,6 @@ function Engines.PrivateAuraList(config)
         return privateAuraConfig().showBorder ~= false
     end
 
-    local function shouldShow()
-        if state.editMode then
-            return true
-        end
-
-        local visibility = state.config.visibility or {}
-        local showWhen = visibility.showWhen or "always"
-        if showWhen == "combat" then
-            return UnitAffectingCombat and UnitAffectingCombat("player") or false
-        end
-        if showWhen == "nocombat" then
-            return not (UnitAffectingCombat and UnitAffectingCombat("player"))
-        end
-        return true
-    end
-
     local function clearPrivateAuraAnchors()
         if C_UnitAuras and C_UnitAuras.RemovePrivateAuraAnchor then
             for _, anchorID in ipairs(state.privateAnchorIDs) do
@@ -550,7 +534,7 @@ function Engines.PrivateAuraList(config)
 
         local rowSignature = buildRowSignature(state.rowData)
         if not force and rowSignature == state.rowSignature then
-            setVisible(state.active and shouldShow() and (#state.rowData > 0 or state.editMode))
+            setVisible(state.active and (#state.rowData > 0 or state.editMode))
             return
         end
         state.rowSignature = rowSignature
@@ -583,9 +567,7 @@ function Engines.PrivateAuraList(config)
             state.rows[i]:Hide()
         end
 
-        if state.editMode and count > 0 then
-            setVisible(true)
-        elseif state.active and shouldShow() and count > 0 then
+        if state.active and (count > 0 or state.editMode) then
             setVisible(true)
         else
             setVisible(false)
@@ -660,16 +642,6 @@ function Engines.PrivateAuraList(config)
     callbacks:RegisterEvent("PLAYER_ENTERING_WORLD", function()
         if state.active then
             queueRebuild(true)
-        end
-    end)
-    callbacks:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-        if state.active then
-            setVisible(shouldShow() and #state.rowData > 0)
-        end
-    end)
-    callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if state.active then
-            setVisible(shouldShow() and (#state.rowData > 0 or state.editMode))
         end
     end)
     callbacks:RegisterMessage("ART_NICKNAME_CHANGED", function()

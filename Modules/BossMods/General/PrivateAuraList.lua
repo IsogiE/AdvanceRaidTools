@@ -7,9 +7,6 @@ E:RegisterModuleDefaults("BossMods_PrivateAuraList", {
         x = -360,
         y = 0
     },
-    visibility = {
-        showWhen = "always"
-    },
     layout = {
         width = 150,
         rowHeight = 22,
@@ -129,7 +126,6 @@ local function buildEngineConfig(self)
         isExcluded = function(unit)
             return self:IsUnitExcluded(unit)
         end,
-        visibility = self.db.visibility,
         layout = self.db.layout,
         privateAuras = self.db.privateAuras,
         style = self.db.style
