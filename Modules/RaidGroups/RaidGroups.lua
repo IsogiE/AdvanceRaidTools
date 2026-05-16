@@ -880,7 +880,6 @@ function RaidGroups:ApplyGroups(list, skipValidation)
     local needGroup = {}
     local needPosInGroup = {}
     local lockedUnit = {}
-    local missing = {}
     local seen = {}
 
     local _, _, _, _, aliases = self:BuildRaidRosterMaps()
@@ -900,16 +899,11 @@ function RaidGroups:ApplyGroups(list, skipValidation)
                     needGroup[name] = i
                     needPosInGroup[name] = pos
                     pos = pos + 1
-                else
-                    tinsert(missing, rawName)
                 end
             end
         end
     end
 
-    if #missing > 0 then
-        E:Printf(("Skipped missing players: %s"):format(limitedNameList(missing)))
-    end
     if not next(needGroup) then
         E:Printf("No assigned raiders are currently in the raid")
         return false
@@ -1020,7 +1014,7 @@ function RaidGroups:OnNoteChanged(_, slotIndex, text)
     end
 end
 
-function RaidGroups:_GiveUpProcessRoster(reason)
+function RaidGroups:_GiveUpProcessRoster(reason, silent)
     self._needGroup = nil
     self._needPosInGroup = nil
     self._lockedUnit = nil
@@ -1028,6 +1022,9 @@ function RaidGroups:_GiveUpProcessRoster(reason)
     if self._processTimer then
         self._processTimer:Cancel()
         self._processTimer = nil
+    end
+    if silent then
+        return
     end
     E:Printf(L["RG_ApplyGaveUp"], reason or "too many attempts")
 end
@@ -1068,7 +1065,7 @@ function RaidGroups:ProcessRoster()
         end
     end
     if #missingNow > 0 then
-        self:_GiveUpProcessRoster(("Skipped missing players: %s"):format(limitedNameList(missingNow)))
+        self:_GiveUpProcessRoster(nil, true)
         return
     end
 
