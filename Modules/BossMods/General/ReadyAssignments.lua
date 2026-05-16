@@ -379,7 +379,15 @@ for _, sheet in ipairs(getCatalogSheets(ReadyText)) do
             moduleName = sheet.moduleName or "BossMods_AssignmentReminders",
             tab = sheet.tab,
             order = sheet.order,
-            labelKey = sheet.labelKey
+            labelKey = sheet.labelKey,
+            raidKey = sheet.raidKey,
+            raidLabelKey = sheet.raidLabelKey,
+            bossKey = sheet.bossKey,
+            bossLabelKey = sheet.bossLabelKey,
+            bossOrder = sheet.bossOrder,
+            itemKey = sheet.itemKey,
+            itemLabelKey = sheet.itemLabelKey,
+            itemOrder = sheet.itemOrder
         })
     end
 end

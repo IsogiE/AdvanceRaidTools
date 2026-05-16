@@ -311,6 +311,11 @@ local pendingBossModNoteBlocks = {
     entries = {}
 }
 
+local pendingBossModNoteGroups = {
+    order = {},
+    entries = {}
+}
+
 function E:RegisterBossModNoteBlock(key, opts)
     assert(type(key) == "string" and key ~= "", "RegisterBossModNoteBlock: key required")
     assert(type(opts) == "table", "RegisterBossModNoteBlock: opts required")
@@ -332,6 +337,27 @@ function E:RegisterBossModNoteBlock(key, opts)
     return false
 end
 
+function E:RegisterBossModNoteGroup(key, opts)
+    assert(type(key) == "string" and key ~= "", "RegisterBossModNoteGroup: key required")
+    assert(type(opts) == "table", "RegisterBossModNoteGroup: opts required")
+
+    local BossMods = self:GetModule("BossMods", true)
+    local NoteBlock = BossMods and BossMods.NoteBlock
+    if NoteBlock and type(NoteBlock.RegisterNoteBlockGroup) == "function" then
+        NoteBlock:RegisterNoteBlockGroup(key, opts)
+        return true
+    end
+
+    if not pendingBossModNoteGroups.entries[key] then
+        pendingBossModNoteGroups.order[#pendingBossModNoteGroups.order + 1] = key
+    end
+    pendingBossModNoteGroups.entries[key] = {
+        opts = shallowCopy(opts),
+        warned = false
+    }
+    return false
+end
+
 function E:FlushBossModNoteBlockRegistrations()
     local BossMods = self:GetModule("BossMods", true)
     local NoteBlock = BossMods and BossMods.NoteBlock
@@ -346,8 +372,19 @@ function E:FlushBossModNoteBlockRegistrations()
         end
     end
 
+    if type(NoteBlock.RegisterNoteBlockGroup) == "function" then
+        for _, key in ipairs(pendingBossModNoteGroups.order) do
+            local entry = pendingBossModNoteGroups.entries[key]
+            if entry then
+                NoteBlock:RegisterNoteBlockGroup(key, entry.opts)
+            end
+        end
+    end
+
     wipe(pendingBossModNoteBlocks.order)
     wipe(pendingBossModNoteBlocks.entries)
+    wipe(pendingBossModNoteGroups.order)
+    wipe(pendingBossModNoteGroups.entries)
     return true
 end
 
@@ -356,6 +393,13 @@ function E:WarnUnresolvedBossModNoteBlockRegistrations()
         local entry = pendingBossModNoteBlocks.entries[key]
         if entry and not entry.warned then
             self:ChannelWarn("FeatureRegistry", "note block '%s' is still waiting for BossMods.NoteBlock", key)
+            entry.warned = true
+        end
+    end
+    for _, key in ipairs(pendingBossModNoteGroups.order) do
+        local entry = pendingBossModNoteGroups.entries[key]
+        if entry and not entry.warned then
+            self:ChannelWarn("FeatureRegistry", "note group '%s' is still waiting for BossMods.NoteBlock", key)
             entry.warned = true
         end
     end

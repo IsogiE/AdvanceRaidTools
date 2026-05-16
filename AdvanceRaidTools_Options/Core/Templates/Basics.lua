@@ -218,7 +218,7 @@ end
 --     confirmTitle = "Confirm?",       -- title of the confirm popup
 --     confirmText  = "Are you sure?",  -- fallback when confirm==true
 --     sound        = 852,              -- play on click; false to disable
---     emphasize    = false,            -- accent border always on (primary action)
+--     emphasize    = false,            -- accent border while enabled (primary action)
 --     template     = "Default" | "Transparent",
 -- }
 --
@@ -308,10 +308,10 @@ function T:Button(parent, opts)
             f:SetBackdropColor(unpack(bg))
         end
 
-        if opts.emphasize or (state.hovered and not state.disabled) then
-            f:SetBackdropBorderColor(unpack(c_accent()))
-        elseif state.disabled then
+        if state.disabled then
             f:SetBackdropBorderColor(unpack(c_textDim()))
+        elseif opts.emphasize or state.hovered then
+            f:SetBackdropBorderColor(unpack(c_accent()))
         else
             f:SetBackdropBorderColor(unpack(c_border()))
         end

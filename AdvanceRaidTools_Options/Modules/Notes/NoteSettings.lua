@@ -10,6 +10,9 @@ local editingSlot = MAIN_SLOT
 -- Which slot the Display tab is currently targeting
 local displayingSlot = MAIN_SLOT
 
+local selectedBossModRaid
+local selectedBossModBoss
+
 -- Track the last-committed text per slot
 local lastCommittedText = {}
 
@@ -45,6 +48,8 @@ end)
 NoteEvents:RegisterMessage("ART_PROFILE_CHANGED", function()
     editingSlot = MAIN_SLOT
     displayingSlot = MAIN_SLOT
+    selectedBossModRaid = nil
+    selectedBossModBoss = nil
     wipe(lastCommittedText)
     refreshPanel()
 end)
@@ -89,23 +94,21 @@ end
 
 local EDITOR_LINES = 25
 local TOOLBAR_H = 40
-local TOKEN_STRIP_H = 22
 local ACTION_ROW_H = 24
 local ACTIVE_ROW_H = 20
 local GAP = 4
 local COL_GAP = 8
 local SLOT_LIST_W = 170
-local ACTION_COL_W = 220
+local ACTION_COL_W = SLOT_LIST_W
 local SLOT_ROW_H = 22
 local ROSTER_ROW_H = 18
 local MRT_BTN_H = 24
 local DROPDOWN_BTN_H = 26
-local DROPDOWN_LABEL_H = 16
-local DROPDOWN_CONTAINER_H = DROPDOWN_LABEL_H + DROPDOWN_BTN_H + GAP
+local BOSS_MOD_ROW_H = DROPDOWN_BTN_H
 local ROSTER_HEADER_H = 16
-local PRE_EDITOR_H = TOOLBAR_H + GAP + TOKEN_STRIP_H + GAP + ACTION_ROW_H + GAP + ACTIVE_ROW_H + GAP
-local PRE_ROSTER_H = MRT_BTN_H + GAP + DROPDOWN_CONTAINER_H + GAP + ROSTER_HEADER_H + GAP
-local EDITOR_INNER_H = EDITOR_LINES * 16 + 10
+local PRE_EDITOR_H = TOOLBAR_H + GAP + BOSS_MOD_ROW_H + GAP + ACTION_ROW_H + GAP + ACTIVE_ROW_H + GAP
+local PRE_ROSTER_H = MRT_BTN_H + GAP + ROSTER_HEADER_H + GAP
+local EDITOR_INNER_H = EDITOR_LINES * 16 + 8
 local EDITOR_HEIGHT = math.max(PRE_EDITOR_H, PRE_ROSTER_H) + EDITOR_INNER_H
 
 local function fmtSlotLabel(mod, index)
@@ -122,26 +125,170 @@ local function fmtSlotLabel(mod, index)
     return "|cff888888#" .. index .. "|r  " .. name
 end
 
-local TOKEN_INSERTS = {{
-    label = "{spell}",
-    insert = "{spell:12345}"
-}, {
-    label = "{p}",
-    insert = "{p:Name}"
-}, {
-    label = "{class}",
-    insert = "{class:warrior,mage}"
-}, {
-    label = "{time}",
-    insert = "{time:30}"
-}, {
-    label = "{zone}",
-    insert = "{zone:name}"
-}}
-
 local function bossModNoteRegistry()
     local BossMods = E:GetModule("BossMods", true)
     return BossMods and BossMods.NoteBlock or nil
+end
+
+local function localizedLabel(labelKey, fallback)
+    if type(labelKey) == "string" and labelKey ~= "" then
+        return L[labelKey] or labelKey
+    end
+    return fallback
+end
+
+local function bossModNoteEntries()
+    local NoteBlock = bossModNoteRegistry()
+    if not NoteBlock or not NoteBlock.GetRegisteredNoteBlocks then
+        return {}
+    end
+    return NoteBlock:GetRegisteredNoteBlocks()
+end
+
+local function firstSortedKey(values, order)
+    for _, key in ipairs(order or {}) do
+        if values[key] ~= nil then
+            return key
+        end
+    end
+    for key in pairs(values or {}) do
+        return key
+    end
+    return nil
+end
+
+local function bossModNoteStructure()
+    local BossMods = E:GetModule("BossMods", true)
+    local raidTabs = BossMods and BossMods.raidTabs or nil
+    local raids, raidOrder, raidSort = {}, {}, {}
+    local bosses, bossOrder, bossSort = {}, {}, {}
+    local items, itemOrder, itemSort = {}, {}, {}
+
+    for _, entry in ipairs(bossModNoteEntries()) do
+        local raidKey = entry.raidKey or entry.tab or "General"
+        local raidTab = raidTabs and raidTabs.Get and raidTabs:Get(raidKey) or nil
+        local raidLabelKey = entry.raidLabelKey or (raidTab and raidTab.labelKey)
+        local raidLabel = localizedLabel(raidLabelKey, raidKey)
+        local raidSortValue = entry.raidOrder or (raidTab and raidTab.order) or 1000
+
+        local bossKey = entry.bossKey or entry.key
+        local bossLabel = localizedLabel(entry.bossLabelKey, localizedLabel(entry.labelKey, bossKey))
+        local bossSortValue = entry.bossOrder or entry.order or 100
+
+        local itemKey = entry.key
+        local itemLabel = localizedLabel(entry.itemLabelKey, localizedLabel(entry.labelKey, itemKey))
+        local itemSortValue = entry.itemOrder or entry.order or 100
+
+        if not raids[raidKey] then
+            raidOrder[#raidOrder + 1] = raidKey
+            raids[raidKey] = raidLabel
+            raidSort[raidKey] = raidSortValue
+        elseif raidSortValue < (raidSort[raidKey] or raidSortValue) then
+            raidSort[raidKey] = raidSortValue
+        end
+
+        bosses[raidKey] = bosses[raidKey] or {}
+        bossOrder[raidKey] = bossOrder[raidKey] or {}
+        bossSort[raidKey] = bossSort[raidKey] or {}
+        if not bosses[raidKey][bossKey] then
+            bossOrder[raidKey][#bossOrder[raidKey] + 1] = bossKey
+            bosses[raidKey][bossKey] = bossLabel
+            bossSort[raidKey][bossKey] = bossSortValue
+        elseif bossSortValue < (bossSort[raidKey][bossKey] or bossSortValue) then
+            bossSort[raidKey][bossKey] = bossSortValue
+        end
+
+        items[raidKey] = items[raidKey] or {}
+        items[raidKey][bossKey] = items[raidKey][bossKey] or {}
+        itemOrder[raidKey] = itemOrder[raidKey] or {}
+        itemOrder[raidKey][bossKey] = itemOrder[raidKey][bossKey] or {}
+        itemSort[raidKey] = itemSort[raidKey] or {}
+        itemSort[raidKey][bossKey] = itemSort[raidKey][bossKey] or {}
+        items[raidKey][bossKey][itemKey] = itemLabel
+        itemOrder[raidKey][bossKey][#itemOrder[raidKey][bossKey] + 1] = itemKey
+        itemSort[raidKey][bossKey][itemKey] = itemSortValue
+    end
+
+    table.sort(raidOrder, function(a, b)
+        local ao, bo = raidSort[a] or 1000, raidSort[b] or 1000
+        if ao ~= bo then
+            return ao < bo
+        end
+        return tostring(raids[a] or a) < tostring(raids[b] or b)
+    end)
+    for raidKey, order in pairs(bossOrder) do
+        table.sort(order, function(a, b)
+            local ao, bo = bossSort[raidKey][a] or 100, bossSort[raidKey][b] or 100
+            if ao ~= bo then
+                return ao < bo
+            end
+            return tostring(bosses[raidKey][a] or a) < tostring(bosses[raidKey][b] or b)
+        end)
+    end
+    for raidKey, byBoss in pairs(itemOrder) do
+        for bossKey, order in pairs(byBoss) do
+            table.sort(order, function(a, b)
+                local ao, bo = itemSort[raidKey][bossKey][a] or 100, itemSort[raidKey][bossKey][b] or 100
+                if ao ~= bo then
+                    return ao < bo
+                end
+                return tostring(items[raidKey][bossKey][a] or a) < tostring(items[raidKey][bossKey][b] or b)
+            end)
+        end
+    end
+
+    return {
+        raids = raids,
+        raidOrder = raidOrder,
+        bosses = bosses,
+        bossOrder = bossOrder,
+        items = items,
+        itemOrder = itemOrder
+    }
+end
+
+local function ensureBossModNoteSelection()
+    local structure = bossModNoteStructure()
+    if not (selectedBossModRaid and structure.raids[selectedBossModRaid]) then
+        selectedBossModRaid = firstSortedKey(structure.raids, structure.raidOrder)
+        selectedBossModBoss = nil
+    end
+    local bosses = selectedBossModRaid and structure.bosses[selectedBossModRaid] or nil
+    local bossOrder = selectedBossModRaid and structure.bossOrder[selectedBossModRaid] or nil
+    if not (selectedBossModBoss and bosses and bosses[selectedBossModBoss]) then
+        selectedBossModBoss = firstSortedKey(bosses, bossOrder)
+    end
+    return structure
+end
+
+local function bossModRaidValues()
+    return ensureBossModNoteSelection().raids
+end
+
+local function bossModRaidSorting()
+    return ensureBossModNoteSelection().raidOrder
+end
+
+local function bossModBossValues()
+    local structure = ensureBossModNoteSelection()
+    return (selectedBossModRaid and structure.bosses[selectedBossModRaid]) or {}
+end
+
+local function bossModBossSorting()
+    local structure = ensureBossModNoteSelection()
+    return (selectedBossModRaid and structure.bossOrder[selectedBossModRaid]) or {}
+end
+
+local function bossModItemValues()
+    local structure = ensureBossModNoteSelection()
+    return (selectedBossModRaid and selectedBossModBoss and structure.items[selectedBossModRaid] and
+               structure.items[selectedBossModRaid][selectedBossModBoss]) or {}
+end
+
+local function bossModItemSorting()
+    local structure = ensureBossModNoteSelection()
+    return (selectedBossModRaid and selectedBossModBoss and structure.itemOrder[selectedBossModRaid] and
+               structure.itemOrder[selectedBossModRaid][selectedBossModBoss]) or {}
 end
 
 local function resolveDisplay(unit, rawName)
@@ -385,7 +532,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         end
 
         local contentH = mod:GetSlotCount() * (SLOT_ROW_H + 2) + 4
-        slotScroll.SetContentSize(viewW > 0 and viewW or nil, math.max(viewH, contentH))
+        slotScroll.SetContentSize(viewW > 0 and viewW or nil, math.max(1, contentH))
 
         if addBtn.Refresh then
             addBtn.Refresh()
@@ -449,14 +596,14 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     nameBox.frame:SetPoint("TOPLEFT", 0, 0)
     nameBox.frame:SetPoint("TOPRIGHT", 0, 0)
 
-    local tokenStrip = CreateFrame("Frame", nil, editorCol)
-    tokenStrip:SetPoint("TOPLEFT", toolbar, "BOTTOMLEFT", 0, -GAP)
-    tokenStrip:SetPoint("TOPRIGHT", toolbar, "BOTTOMRIGHT", 0, -GAP)
-    tokenStrip:SetHeight(TOKEN_STRIP_H)
+    local bossModRow = CreateFrame("Frame", nil, editorCol)
+    bossModRow:SetPoint("TOPLEFT", toolbar, "BOTTOMLEFT", 0, -GAP)
+    bossModRow:SetPoint("TOPRIGHT", toolbar, "BOTTOMRIGHT", 0, -GAP)
+    bossModRow:SetHeight(BOSS_MOD_ROW_H)
 
     local actionRow = CreateFrame("Frame", nil, editorCol)
-    actionRow:SetPoint("TOPLEFT", tokenStrip, "BOTTOMLEFT", 0, -GAP)
-    actionRow:SetPoint("TOPRIGHT", tokenStrip, "BOTTOMRIGHT", 0, -GAP)
+    actionRow:SetPoint("TOPLEFT", bossModRow, "BOTTOMLEFT", 0, -GAP)
+    actionRow:SetPoint("TOPRIGHT", bossModRow, "BOTTOMRIGHT", 0, -GAP)
     actionRow:SetHeight(ACTION_ROW_H)
 
     local activeRow = CreateFrame("Frame", nil, editorCol)
@@ -518,20 +665,129 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         refreshPanel()
     end
 
-    local stripX = 0
-    for _, entry in ipairs(TOKEN_INSERTS) do
-        local btn = T:Button(tokenStrip, {
-            text = entry.label,
-            height = 20,
-            onClick = function()
-                insertAtCursor(entry.insert)
-            end,
-            disabled = isModuleDisabled
-        })
-        btn.frame:ClearAllPoints()
-        btn.frame:SetPoint("TOPLEFT", tokenStrip, "TOPLEFT", stripX, 0)
-        stripX = stripX + (btn.frame:GetWidth() or 60) + 4
+    local function insertBossModBlock(body)
+        if type(body) ~= "string" or body == "" then
+            return
+        end
+        body = body:gsub("\r\n", "\n"):gsub("\r", "\n"):gsub("^\n+", ""):gsub("\n+$", "")
+        if body == "" then
+            return
+        end
+
+        local eb = editor.editBox
+        local cur = eb and eb:GetText() or ""
+        local pos = eb and eb:GetCursorPosition() or 0
+        local prefix = cur:sub(1, pos)
+        local suffix = cur:sub(pos + 1)
+        local insert = body
+        if prefix ~= "" then
+            local trailingNewlines = prefix:match("(\n*)$") or ""
+            if #trailingNewlines == 0 then
+                insert = "\n\n" .. insert
+            elseif #trailingNewlines == 1 then
+                insert = "\n" .. insert
+            end
+        end
+        if suffix == "" then
+            insert = insert .. "\n\n"
+        else
+            local leadingNewlines = suffix:match("^(\n*)") or ""
+            if #leadingNewlines == 0 then
+                insert = insert .. "\n\n"
+            elseif #leadingNewlines == 1 then
+                insert = insert .. "\n"
+            end
+        end
+        insertAtCursor(insert)
     end
+
+    local bossModRaidDropdown, bossModBossDropdown, bossModItemDropdown
+
+    bossModRaidDropdown = T:Dropdown(bossModRow, {
+        emptyText = L["Notes_NoBossModNotes"],
+        buttonHeight = DROPDOWN_BTN_H,
+        height = BOSS_MOD_ROW_H,
+        values = bossModRaidValues,
+        sorting = bossModRaidSorting,
+        get = function()
+            ensureBossModNoteSelection()
+            return selectedBossModRaid
+        end,
+        onChange = function(key)
+            selectedBossModRaid = key
+            selectedBossModBoss = nil
+            ensureBossModNoteSelection()
+            if bossModBossDropdown and bossModBossDropdown.Refresh then
+                bossModBossDropdown.Refresh()
+            end
+            if bossModItemDropdown and bossModItemDropdown.Refresh then
+                bossModItemDropdown.Refresh()
+            end
+        end,
+        tooltip = {
+            title = L["BossMods"]
+        },
+        disabled = isModuleDisabled
+    })
+    bossModRaidDropdown.frame:ClearAllPoints()
+    bossModRaidDropdown.frame:SetPoint("TOPLEFT", bossModRow, "TOPLEFT", 0, 0)
+    bossModRaidDropdown.frame:SetWidth(150)
+
+    bossModBossDropdown = T:Dropdown(bossModRow, {
+        emptyText = L["Notes_NoBossModNotes"],
+        buttonHeight = DROPDOWN_BTN_H,
+        height = BOSS_MOD_ROW_H,
+        values = bossModBossValues,
+        sorting = bossModBossSorting,
+        get = function()
+            ensureBossModNoteSelection()
+            return selectedBossModBoss
+        end,
+        onChange = function(key)
+            selectedBossModBoss = key
+            if bossModItemDropdown and bossModItemDropdown.Refresh then
+                bossModItemDropdown.Refresh()
+            end
+        end,
+        tooltip = {
+            title = L["BossMods_PickFeature"]
+        },
+        disabled = isModuleDisabled
+    })
+    bossModBossDropdown.frame:ClearAllPoints()
+    bossModBossDropdown.frame:SetPoint("TOPLEFT", bossModRaidDropdown.frame, "TOPRIGHT", GAP, 0)
+    bossModBossDropdown.frame:SetWidth(120)
+
+    bossModItemDropdown = T:Dropdown(bossModRow, {
+        placeholder = L["Notes_InsertBossModPlaceholder"],
+        emptyText = L["Notes_NoBossModNotes"],
+        buttonHeight = DROPDOWN_BTN_H,
+        height = BOSS_MOD_ROW_H,
+        values = bossModItemValues,
+        sorting = bossModItemSorting,
+        get = function()
+            return nil
+        end,
+        onChange = function(key)
+            local NoteBlock = bossModNoteRegistry()
+            if not NoteBlock then
+                return
+            end
+            local entry = NoteBlock:GetNoteBlockEntry(key)
+            if not entry then
+                return
+            end
+            insertBossModBlock(NoteBlock:BuildBlockTemplate(entry))
+        end,
+        tooltip = {
+            title = L["Notes_InsertBossMod"],
+            desc = L["Notes_InsertBossModDesc"]
+        },
+        disabled = isModuleDisabled
+    })
+    bossModItemDropdown.frame:ClearAllPoints()
+    bossModItemDropdown.frame:SetPoint("TOPLEFT", bossModBossDropdown.frame, "TOPRIGHT", GAP, 0)
+    bossModItemDropdown.frame:SetPoint("TOPRIGHT", bossModRow, "TOPRIGHT", 0, 0)
 
     local undoBtn = T:Button(actionRow, {
         text = L["Notes_Undo"],
@@ -725,63 +981,13 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     mrtBtn.frame:SetPoint("TOPLEFT", actionCol, "TOPLEFT", 0, 0)
     mrtBtn.frame:SetPoint("TOPRIGHT", actionCol, "TOPRIGHT", 0, 0)
 
-    local bossModDropdown = T:Dropdown(actionCol, {
-        label = L["Notes_InsertBossMod"],
-        placeholder = L["Notes_InsertBossModPlaceholder"],
-        emptyText = L["Notes_NoBossModNotes"],
-        buttonHeight = DROPDOWN_BTN_H,
-        height = DROPDOWN_CONTAINER_H,
-        values = function()
-            local NoteBlock = bossModNoteRegistry()
-            if not NoteBlock or not NoteBlock.GetRegisteredNoteBlocks then
-                return {}
-            end
-            local out = {}
-            for _, entry in ipairs(NoteBlock:GetRegisteredNoteBlocks()) do
-                out[entry.key] = (entry.labelKey and L[entry.labelKey]) or entry.labelKey or entry.key
-            end
-            return out
-        end,
-        get = function()
-            return nil
-        end,
-        onChange = function(key)
-            local NoteBlock = bossModNoteRegistry()
-            if not NoteBlock then
-                return
-            end
-            local entry = NoteBlock:GetNoteBlockEntry(key)
-            if not entry then
-                return
-            end
-            local body = NoteBlock:BuildBlockTemplate(entry)
-            if body == "" then
-                return
-            end
-            local eb = editor.editBox
-            local cur = eb and eb:GetText() or ""
-            local pos = eb and eb:GetCursorPosition() or 0
-            local prefix = cur:sub(1, pos)
-            local needsLeadingNewline = prefix ~= "" and not prefix:match("\n$")
-            insertAtCursor((needsLeadingNewline and "\n" or "") .. body .. "\n")
-        end,
-        tooltip = {
-            title = L["Notes_InsertBossMod"],
-            desc = L["Notes_InsertBossModDesc"]
-        },
-        disabled = isModuleDisabled
-    })
-    bossModDropdown.frame:ClearAllPoints()
-    bossModDropdown.frame:SetPoint("TOPLEFT", mrtBtn.frame, "BOTTOMLEFT", 0, -GAP)
-    bossModDropdown.frame:SetPoint("TOPRIGHT", mrtBtn.frame, "BOTTOMRIGHT", 0, -GAP)
-
     local rosterHeader = T:Label(actionCol, {
         text = L["Notes_Roster"],
         height = ROSTER_HEADER_H
     })
     rosterHeader.frame:ClearAllPoints()
-    rosterHeader.frame:SetPoint("TOPLEFT", bossModDropdown.frame, "BOTTOMLEFT", 0, -GAP)
-    rosterHeader.frame:SetPoint("TOPRIGHT", bossModDropdown.frame, "BOTTOMRIGHT", 0, -GAP)
+    rosterHeader.frame:SetPoint("TOPLEFT", mrtBtn.frame, "BOTTOMLEFT", 0, -GAP)
+    rosterHeader.frame:SetPoint("TOPRIGHT", mrtBtn.frame, "BOTTOMRIGHT", 0, -GAP)
 
     local rosterScroll = T:ScrollFrame(actionCol, {
         template = "Default",
@@ -924,8 +1130,14 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         if mrtBtn.Refresh then
             mrtBtn.Refresh()
         end
-        if bossModDropdown.Refresh then
-            bossModDropdown.Refresh()
+        if bossModRaidDropdown.Refresh then
+            bossModRaidDropdown.Refresh()
+        end
+        if bossModBossDropdown.Refresh then
+            bossModBossDropdown.Refresh()
+        end
+        if bossModItemDropdown.Refresh then
+            bossModItemDropdown.Refresh()
         end
         if editor.Refresh then
             editor.Refresh()

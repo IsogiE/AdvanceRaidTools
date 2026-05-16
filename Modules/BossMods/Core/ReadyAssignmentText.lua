@@ -180,6 +180,14 @@ local function prepareReminder(def)
             meta.order = meta.order or def.order
             meta.moduleName = meta.moduleName or def.moduleName
             meta.standalone = meta.standalone or def.standalone
+            meta.raidKey = meta.raidKey or def.raidKey or def.tab
+            meta.raidLabelKey = meta.raidLabelKey or def.raidLabelKey
+            meta.bossKey = meta.bossKey or def.bossKey
+            meta.bossLabelKey = meta.bossLabelKey or def.bossLabelKey
+            meta.bossOrder = meta.bossOrder or def.bossOrder or def.order
+            meta.itemKey = meta.itemKey or def.itemKey or sheet
+            meta.itemLabelKey = meta.itemLabelKey or def.itemLabelKey or def.labelKey
+            meta.itemOrder = meta.itemOrder or def.itemOrder or def.order
             REGISTRY.sheetMeta[sheet] = meta
         end
     end
@@ -294,7 +302,15 @@ function Text:GetSheets(standaloneOnly)
                 tab = meta.tab or "General",
                 order = meta.order or 100,
                 moduleName = meta.moduleName,
-                standalone = meta.standalone
+                standalone = meta.standalone,
+                raidKey = meta.raidKey,
+                raidLabelKey = meta.raidLabelKey,
+                bossKey = meta.bossKey,
+                bossLabelKey = meta.bossLabelKey,
+                bossOrder = meta.bossOrder,
+                itemKey = meta.itemKey,
+                itemLabelKey = meta.itemLabelKey,
+                itemOrder = meta.itemOrder
             }
         end
     end

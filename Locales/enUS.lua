@@ -472,8 +472,8 @@ L["Notes_MRTEmpty"] = "MRT's current note is empty"
 L["Notes_ImportFromMRT"] = "Import from MRT"
 L["Notes_ImportFromMRTDesc"] = "Pull MRT's current note into this slot"
 L["Notes_InsertBossMod"] = "Insert Boss Mod Note"
-L["Notes_InsertBossModPlaceholder"] = "Pick a boss mod..."
-L["Notes_InsertBossModDesc"] = "Inserts the note blocks for the selected boss mod"
+L["Notes_InsertBossModPlaceholder"] = "Insert note..."
+L["Notes_InsertBossModDesc"] = "Inserts the selected boss note block"
 L["Notes_NoBossModNotes"] = "No boss mod notes registered"
 L["Notes_Roster"] = "Insert from Roster"
 
@@ -703,7 +703,13 @@ L["BossMods_DQTTSDangerCountdown"] = "Danger Countdown"
 L["BossMods_DQBarLabel"] = "BEAM"
 
 -- BossMods: Queldanas -> Lurakick (kick assignments)
-L["BossMods_Lurakick"] = "L'ura Kick Assignments"
+L["BossMods_Lura"] = "L'ura"
+L["BossMods_NoteFull"] = "Full Note"
+L["BossMods_NoteCrystals"] = "Crystals"
+L["BossMods_NoteKickAssignments"] = "Kick Assignments"
+L["BossMods_NoteSpreadMap"] = "Spread Map"
+L["BossMods_NoteMemoryGame"] = "Memory Game"
+L["BossMods_Lurakick"] = L["BossMods_Lura"] .. " " .. L["BossMods_NoteKickAssignments"]
 L["BossMods_LurakickDesc"] = "Kick assignments for Prisms"
 L["BossMods_LKSoundSection"] = "Alert Sound"
 L["BossMods_LKKickSound"] = "Your-Turn Sound"
@@ -713,8 +719,8 @@ L["BossMods_LKPrismN"] = "Prism %d"
 L["BossMods_LKPlaceholder"] = "Placeholder%d"
 
 -- BossMods: Queldanas -> LuraMap
-L["BossMods_LuraCrystals"] = "L'ura Crystals"
-L["BossMods_LuraMap"] = "L'ura Spread Map"
+L["BossMods_LuraCrystals"] = L["BossMods_Lura"] .. " " .. L["BossMods_NoteCrystals"]
+L["BossMods_LuraMap"] = L["BossMods_Lura"] .. " " .. L["BossMods_NoteSpreadMap"]
 L["BossMods_LuraMapDesc"] =
     "Shows a map on the screen when it's time to spread. You can choose between Intermission, P2 or both"
 L["BossMods_LMIntermission"] = "Intermission Map"
@@ -731,7 +737,7 @@ L["BossMods_LMP2PreviewMap1"] = "Spread 1-3"
 L["BossMods_LMP2PreviewMap2"] = "Spread 4"
 
 -- BossMods: Queldanas -> Dirge
-L["BossMods_Dirge"] = "L'ura Memory Game"
+L["BossMods_Dirge"] = L["BossMods_Lura"] .. " " .. L["BossMods_NoteMemoryGame"]
 L["BossMods_DirgeDesc"] = "Memory game solver"
 L["BossMods_DirgeButtonsSection"] = "Caller Button Bar"
 L["BossMods_DirgeClickthrough"] = "Clickthrough"

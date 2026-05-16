@@ -110,6 +110,16 @@ local function defaultSpellTargetHandler(command)
     reportMacroResult(m, ok, err, extra, successText)
 end
 
+local function toggleNoteDisplay(slotIndex)
+    local mod = E:GetModule("Notes", true)
+    if not (mod and mod.IsEnabled and mod:IsEnabled() and mod.IsSlotActive and mod.SetSlotActive) then
+        return
+    end
+
+    local active = not mod:IsSlotActive(slotIndex)
+    mod:SetSlotActive(slotIndex, active)
+end
+
 local function printDebugList()
     local channels = E:ListDebugChannels()
     local d = E.db and E.db.profile.general.debug
@@ -222,6 +232,10 @@ local function handler(input)
         profile.minimapIcon.hide = not profile.minimapIcon.hide
         -- /art map must never error if HomeSettings failed to register
         E:CallModule("HomeSettings", "UpdateMinimap")
+    elseif verb == "note" then
+        toggleNoteDisplay(1)
+    elseif verb == "pnote" then
+        toggleNoteDisplay(2)
     elseif spellCommand then
         defaultSpellTargetHandler(spellCommand)
     elseif verb == "help" then

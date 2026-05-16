@@ -293,24 +293,65 @@ end
 NoteBlock._noteBlocks = NoteBlock._noteBlocks or {}
 NoteBlock._noteBlockOrder = NoteBlock._noteBlockOrder or {}
 
+local function registerNoteBlockEntry(registry, key, entry)
+    if not registry._noteBlocks[key] then
+        registry._noteBlockOrder[#registry._noteBlockOrder + 1] = key
+    end
+    registry._noteBlocks[key] = entry
+end
+
 function NoteBlock:RegisterNoteBlock(key, opts)
     assert(type(key) == "string" and key ~= "", "RegisterNoteBlock: key required")
     assert(type(opts) == "table", "RegisterNoteBlock: opts required")
     assert(type(opts.blocks) == "table" and #opts.blocks > 0,
         "RegisterNoteBlock: opts.blocks must be a non-empty array of {tag, template}")
 
-    if not self._noteBlocks[key] then
-        self._noteBlockOrder[#self._noteBlockOrder + 1] = key
-    end
-    self._noteBlocks[key] = {
+    registerNoteBlockEntry(self, key, {
         key = key,
+        entryType = "block",
         blocks = opts.blocks,
         moduleName = opts.moduleName,
         labelKey = opts.labelKey or key,
         descKey = opts.descKey,
         tab = opts.tab,
-        order = opts.order or 100
-    }
+        order = opts.order or 100,
+        raidKey = opts.raidKey,
+        raidLabelKey = opts.raidLabelKey,
+        bossKey = opts.bossKey,
+        bossLabelKey = opts.bossLabelKey,
+        bossOrder = opts.bossOrder,
+        itemKey = opts.itemKey,
+        itemLabelKey = opts.itemLabelKey,
+        itemOrder = opts.itemOrder
+    })
+end
+
+function NoteBlock:RegisterNoteBlockGroup(key, opts)
+    assert(type(key) == "string" and key ~= "", "RegisterNoteBlockGroup: key required")
+    assert(type(opts) == "table", "RegisterNoteBlockGroup: opts required")
+
+    local entries = opts.entries or opts.noteBlocks or opts.blockKeys
+    assert(type(entries) == "table" and #entries > 0,
+        "RegisterNoteBlockGroup: opts.entries must be a non-empty array of note block keys")
+
+    registerNoteBlockEntry(self, key, {
+        key = key,
+        entryType = "group",
+        entries = entries,
+        moduleName = opts.moduleName,
+        labelKey = opts.labelKey or key,
+        descKey = opts.descKey,
+        tab = opts.tab,
+        order = opts.order or 100,
+        raidKey = opts.raidKey,
+        raidLabelKey = opts.raidLabelKey,
+        bossKey = opts.bossKey,
+        bossLabelKey = opts.bossLabelKey,
+        bossOrder = opts.bossOrder,
+        itemKey = opts.itemKey,
+        itemLabelKey = opts.itemLabelKey,
+        itemOrder = opts.itemOrder
+    })
 end
 
 E:FlushBossModNoteBlockRegistrations()
@@ -319,19 +360,50 @@ function NoteBlock:GetNoteBlockEntry(key)
     return self._noteBlocks[key]
 end
 
-function NoteBlock:BuildBlockTemplate(entry)
-    if type(entry) ~= "table" or type(entry.blocks) ~= "table" then
+local function normalizeTemplate(template)
+    if type(template) ~= "string" then
         return ""
     end
-    local out = {}
-    for _, b in ipairs(entry.blocks) do
-        local tpl = b.template
-        if type(tpl) ~= "string" or tpl == "" then
-            local tag = b.tag or ""
-            tpl = tag .. "Start\n\n" .. tag .. "End"
-        end
-        out[#out + 1] = tpl
+    template = template:gsub("\r\n", "\n"):gsub("\r", "\n")
+    template = template:gsub("[ \t]+\n", "\n")
+    return template:gsub("^\n+", ""):gsub("\n+$", "")
+end
+
+function NoteBlock:BuildBlockTemplate(entry, seen)
+    if type(entry) ~= "table" then
+        return ""
     end
+
+    seen = seen or {}
+    if entry.key then
+        if seen[entry.key] then
+            return ""
+        end
+        seen[entry.key] = true
+    end
+
+    local out = {}
+    if entry.entryType == "group" then
+        for _, childKey in ipairs(entry.entries or {}) do
+            local body = self:BuildBlockTemplate(self:GetNoteBlockEntry(childKey), seen)
+            if body ~= "" then
+                out[#out + 1] = body
+            end
+        end
+    elseif type(entry.blocks) == "table" then
+        for _, b in ipairs(entry.blocks) do
+            local tpl = b.template
+            if type(tpl) ~= "string" or tpl == "" then
+                local tag = b.tag or ""
+                tpl = tag .. "Start\n\n" .. tag .. "End"
+            end
+            tpl = normalizeTemplate(tpl)
+            if tpl ~= "" then
+                out[#out + 1] = tpl
+            end
+        end
+    end
+
     return table.concat(out, "\n\n")
 end
 
