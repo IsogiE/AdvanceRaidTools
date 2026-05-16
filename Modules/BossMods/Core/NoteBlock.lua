@@ -290,6 +290,62 @@ function NoteBlock:GetDisplayName(charName)
     return self:GetUnitDisplayName(unit, charName)
 end
 
+local function unitClassFile(unit)
+    if unit and UnitExists(unit) then
+        local _, classFile = UnitClass(unit)
+        return classFile
+    end
+    return nil
+end
+
+function NoteBlock:GetClassForToken(token)
+    if type(token) ~= "string" or token == "" then
+        return nil
+    end
+
+    local unit = self:FindUnitByToken(token)
+    local classFile = unitClassFile(unit)
+    if classFile then
+        return classFile, unit
+    end
+
+    local clean = cleanToken(token)
+    local Roster = E:GetModule("Roster", true)
+    if Roster and Roster.GetClassForName then
+        return Roster:GetClassForName(clean)
+    end
+    return nil
+end
+
+function NoteBlock:GetClassColorCode(token)
+    local classFile = self:GetClassForToken(token)
+    if classFile then
+        return E:ClassColorCode(classFile)
+    end
+    return nil
+end
+
+function NoteBlock:GetColoredDisplayName(token, fallback)
+    local display = self:GetDisplayName(token)
+    if not display or display == "" then
+        display = fallback or token
+    end
+    if type(display) ~= "string" or display == "" then
+        return display
+    end
+
+    local classFile = self:GetClassForToken(token)
+    if not classFile and display ~= token then
+        classFile = self:GetClassForToken(display)
+    end
+    if classFile then
+        return E:ClassColorCode(classFile) .. display .. "|r"
+    end
+    return display
+end
+
+NoteBlock.ColorizeDisplayName = NoteBlock.GetColoredDisplayName
+
 NoteBlock._noteBlocks = NoteBlock._noteBlocks or {}
 NoteBlock._noteBlockOrder = NoteBlock._noteBlockOrder or {}
 

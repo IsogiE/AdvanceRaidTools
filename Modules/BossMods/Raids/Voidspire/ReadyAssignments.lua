@@ -49,6 +49,9 @@ if Text and Text.Register then
 
     local function displayName(token)
         local NoteBlock = BossMods and BossMods.NoteBlock
+        if NoteBlock and NoteBlock.GetColoredDisplayName then
+            return NoteBlock:GetColoredDisplayName(token) or token
+        end
         if NoteBlock and NoteBlock.GetDisplayName then
             return NoteBlock:GetDisplayName(token) or token
         end

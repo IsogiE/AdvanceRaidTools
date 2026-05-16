@@ -58,8 +58,16 @@ local function colorCode(color)
         math.floor(clampColorChannel(g) * 255 + 0.5), math.floor(clampColorChannel(b) * 255 + 0.5))
 end
 
+local function hasColorCode(value)
+    return value:find("|c%x%x%x%x%x%x%x%x") ~= nil
+end
+
 local function highlightValue(value, opts)
     value = tostring(value or "")
+    if hasColorCode(value) then
+        return value
+    end
+
     local code = opts and opts.highlightCode
     if not code or value == "" then
         return value
