@@ -9,6 +9,7 @@ local RaidGroups = E:NewModule("RaidGroups", "AceEvent-3.0")
 local GetCursorPosition = GetCursorPosition
 local GetRaidRosterInfo = GetRaidRosterInfo
 local GetNumGroupMembers = GetNumGroupMembers
+local GetNormalizedRealmName = GetNormalizedRealmName
 local InCombatLockdown = InCombatLockdown
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitName = UnitName
@@ -33,8 +34,8 @@ local SLOT_W = 112
 local SLOT_H = 20
 local SLOT_GAP = 4
 local NAME_ROW_H = 20
-local EDITOR_W = 1080
-local EDITOR_H = 600
+local EDITOR_W = 1240
+local EDITOR_H = 520
 local MAX_PROCESS_ATTEMPTS = 10
 
 RaidGroups.GROUP_COUNT = GROUP_COUNT
@@ -138,27 +139,32 @@ function RaidGroups:GetPresetByName(name)
     end
 end
 
-function RaidGroups:SavePreset(name, dataString)
+function RaidGroups:SavePreset(name, dataString, note)
     name = name and strtrim(name) or ""
     if name == "" or not dataString then
         return false, L["RG_ErrorNameEmpty"]
     end
-    local normalized, err = self:ValidateAndNormalizePresetString(dataString)
+    local normalized, err, decodedNote = self:ValidateAndNormalizePresetString(dataString)
     if not normalized then
         return false, err
+    end
+    if note == nil then
+        note = decodedNote
+    end
+    note = tostring(note or "")
+    local saved = {
+        name = name,
+        data = normalized
+    }
+    if note ~= "" then
+        saved.note = note
     end
     local presets = self:GetPresets()
     local existing, idx = self:GetPresetByName(name)
     if existing then
-        presets[idx] = {
-            name = name,
-            data = normalized
-        }
+        presets[idx] = saved
     else
-        tinsert(presets, {
-            name = name,
-            data = normalized
-        })
+        tinsert(presets, saved)
     end
     E:SendMessage("ART_RAIDGROUPS_PRESETS_CHANGED", name)
     return true
@@ -248,6 +254,28 @@ local function decodePayload(code)
         return nil, L["RG_PresetDecodeFailed"]
     end
     return decoded
+end
+
+local function encodeNoteText(note)
+    note = tostring(note or "")
+    if note == "" then
+        return nil
+    end
+    local ok, encoded = pcall(C_EncodingUtil.EncodeBase64, note)
+    if ok and type(encoded) == "string" and encoded ~= "" then
+        return encoded
+    end
+end
+
+local function decodeNoteText(encoded)
+    encoded = strtrim(encoded or "")
+    if encoded == "" then
+        return ""
+    end
+    local ok, decoded = pcall(C_EncodingUtil.DecodeBase64, encoded)
+    if ok and type(decoded) == "string" then
+        return decoded
+    end
 end
 
 local function splitDelimited(line, delim)
@@ -340,6 +368,26 @@ local function normalizeGroups(groups)
     return normalized
 end
 
+local function importBucketKey(title)
+    title = strtrim(title or "")
+    return title ~= "" and title or "\001", title
+end
+
+local function ensureImportBucket(buckets, order, title)
+    local key, cleanTitle = importBucketKey(title)
+    local bucket = buckets[key]
+    if not bucket then
+        bucket = {
+            name = cleanTitle,
+            groups = emptyPresetGroups(),
+            assigned = {}
+        }
+        buckets[key] = bucket
+        tinsert(order, key)
+    end
+    return bucket
+end
+
 local function addImportRow(buckets, order, title, groupNum, slotNum, character, lineNum, errors)
     if not groupNum or groupNum < 1 or groupNum > GROUP_COUNT then
         tinsert(errors, ("Line %d: group must be 1-%d"):format(lineNum, GROUP_COUNT))
@@ -354,18 +402,7 @@ local function addImportRow(buckets, order, title, groupNum, slotNum, character,
         return
     end
 
-    title = strtrim(title or "")
-    local key = title ~= "" and title or "\001"
-    local bucket = buckets[key]
-    if not bucket then
-        bucket = {
-            name = title,
-            groups = emptyPresetGroups(),
-            assigned = {}
-        }
-        buckets[key] = bucket
-        tinsert(order, key)
-    end
+    local bucket = ensureImportBucket(buckets, order, title)
 
     bucket.assigned[groupNum] = bucket.assigned[groupNum] or {}
     if bucket.assigned[groupNum][slotNum] then
@@ -374,6 +411,27 @@ local function addImportRow(buckets, order, title, groupNum, slotNum, character,
     end
     bucket.assigned[groupNum][slotNum] = true
     bucket.groups[groupNum][slotNum] = character
+end
+
+local function addImportNote(buckets, order, title, encoded, lineNum, errors)
+    local note = decodeNoteText(encoded)
+    if note == nil then
+        tinsert(errors, ("Line %d: invalid note64 payload"):format(lineNum))
+        return
+    end
+    local bucket = ensureImportBucket(buckets, order, title)
+    bucket.note = note
+end
+
+local function noteDirectiveTitle(buckets, order, currentTitle)
+    currentTitle = strtrim(currentTitle or "")
+    if currentTitle ~= "" then
+        return currentTitle
+    end
+    if #order == 1 and buckets[order[1]] then
+        return buckets[order[1]].name
+    end
+    return currentTitle
 end
 
 local function parsePayloadRows(text)
@@ -392,42 +450,49 @@ local function parsePayloadRows(text)
             if directiveTitle then
                 currentTitle = strtrim(directiveTitle)
             else
-                local delim = detectDelimiter(trimmed)
-                if delim then
-                    local cols = splitDelimited(trimmed, delim)
-                    local maybeHeader = headerMapFor(cols)
-                    if maybeHeader then
-                        headerMap = maybeHeader
-                    else
-                        local title, groupRaw, slotRaw, character
-                        if headerMap then
-                            title = headerMap.preset and cols[headerMap.preset] or currentTitle
-                            groupRaw = cols[headerMap.group]
-                            slotRaw = cols[headerMap.slot]
-                            character = cols[headerMap.character]
-                        elseif #cols >= 4 then
-                            if tonumber(cols[1]) then
-                                groupRaw, slotRaw, character, title = cols[1], cols[2], cols[3], cols[4]
-                            else
-                                title, groupRaw, slotRaw, character = cols[1], cols[2], cols[3], cols[4]
-                            end
-                            if title == "" then
-                                title = currentTitle
-                            end
-                        elseif #cols >= 3 then
-                            title = currentTitle
-                            groupRaw, slotRaw, character = cols[1], cols[2], cols[3]
-                        end
-
-                        if groupRaw and slotRaw and character then
-                            addImportRow(buckets, order, title, tonumber(groupRaw), tonumber(slotRaw), character, lineNum,
-                                errors)
-                        else
-                            tinsert(errors, ("Line %d: expected group, slot, character"):format(lineNum))
-                        end
-                    end
+                local note64 = strmatch(trimmed, "^[Nn]ote64%s*[:=]%s*(.-)%s*$")
+                if note64 ~= nil then
+                    addImportNote(buckets, order, noteDirectiveTitle(buckets, order, currentTitle), note64, lineNum,
+                        errors)
                 else
-                    tinsert(errors, ("Line %d: expected tab, comma, pipe, or semicolon separated columns"):format(lineNum))
+                    local delim = detectDelimiter(trimmed)
+                    if delim then
+                        local cols = splitDelimited(trimmed, delim)
+                        local maybeHeader = headerMapFor(cols)
+                        if maybeHeader then
+                            headerMap = maybeHeader
+                        else
+                            local title, groupRaw, slotRaw, character
+                            if headerMap then
+                                title = headerMap.preset and cols[headerMap.preset] or currentTitle
+                                groupRaw = cols[headerMap.group]
+                                slotRaw = cols[headerMap.slot]
+                                character = cols[headerMap.character]
+                            elseif #cols >= 4 then
+                                if tonumber(cols[1]) then
+                                    groupRaw, slotRaw, character, title = cols[1], cols[2], cols[3], cols[4]
+                                else
+                                    title, groupRaw, slotRaw, character = cols[1], cols[2], cols[3], cols[4]
+                                end
+                                if title == "" then
+                                    title = currentTitle
+                                end
+                            elseif #cols >= 3 then
+                                title = currentTitle
+                                groupRaw, slotRaw, character = cols[1], cols[2], cols[3]
+                            end
+
+                            if groupRaw and slotRaw and character then
+                                addImportRow(buckets, order, title, tonumber(groupRaw), tonumber(slotRaw), character,
+                                    lineNum, errors)
+                            else
+                                tinsert(errors, ("Line %d: expected group, slot, character"):format(lineNum))
+                            end
+                        end
+                    else
+                        tinsert(errors,
+                            ("Line %d: expected tab, comma, pipe, or semicolon separated columns"):format(lineNum))
+                    end
                 end
             end
         end
@@ -444,7 +509,8 @@ local function parsePayloadRows(text)
         if groups then
             tinsert(imports, {
                 name = bucket.name,
-                groups = groups
+                groups = groups,
+                note = bucket.note
             })
         else
             tinsert(errors, ("%s: %s"):format(bucket.name ~= "" and bucket.name or (L["RG_DefaultPresetName"] or "Preset"),
@@ -470,14 +536,38 @@ local function appendPayloadRows(out, groups, presetName, includePreset)
     end
 end
 
-local function encodeGroups(groups, presetName, includePreset)
+local function appendNotePayload(out, note)
+    note = tostring(note or "")
+    if note == "" then
+        return true
+    end
+    local encoded = encodeNoteText(note)
+    if not encoded then
+        return false
+    end
+    tinsert(out, "note64=" .. encoded)
+    return true
+end
+
+local function encodeGroups(groups, presetName, includePreset, note)
     local out = {}
     if includePreset then
         tinsert(out, "preset,group,slot,character")
+        if note and note ~= "" then
+            if presetName and presetName ~= "" then
+                tinsert(out, "preset=" .. presetName)
+            end
+            if not appendNotePayload(out, note) then
+                return nil, L["RG_PresetEncodeFailed"]
+            end
+        end
         appendPayloadRows(out, groups, presetName, true)
     else
         if presetName and presetName ~= "" then
             tinsert(out, "title=" .. presetName)
+        end
+        if not appendNotePayload(out, note) then
+            return nil, L["RG_PresetEncodeFailed"]
         end
         tinsert(out, "group,slot,character")
         appendPayloadRows(out, groups, nil, false)
@@ -528,6 +618,17 @@ function RaidGroups:PresetStringToGroups(text)
     return nil, errors and errors[1] or L["RG_InvalidString"]
 end
 
+function RaidGroups:PresetStringToAssignment(text)
+    local imports, errors = self:ParsePresetImportString(text)
+    if imports and #imports == 1 then
+        return imports[1]
+    end
+    if imports and #imports > 1 then
+        return nil, L["RG_OnePresetOnly"]
+    end
+    return nil, errors and errors[1] or L["RG_InvalidString"]
+end
+
 function RaidGroups:BulkImport(text)
     local imports, errors = self:ParsePresetImportString(text)
     errors = errors or {}
@@ -538,6 +639,7 @@ function RaidGroups:BulkImport(text)
     local imported = 0
     local usedNames = {}
     local reservedAutoNames = {}
+    local importedNames = {}
 
     for _, item in ipairs(imports) do
         local name = strtrim(item.name or "")
@@ -553,10 +655,11 @@ function RaidGroups:BulkImport(text)
             if not data then
                 tinsert(errors, ("%s: %s"):format(name, encodeErr or L["RG_PresetEncodeFailed"]))
             else
-                local ok, saveErr = self:SavePreset(name, data)
+                local ok, saveErr = self:SavePreset(name, data, item.note)
                 if ok then
                     imported = imported + 1
                     usedNames[name] = true
+                    tinsert(importedNames, name)
                 else
                     tinsert(errors, ("%s: %s"):format(name, saveErr or "save failed"))
                 end
@@ -564,7 +667,7 @@ function RaidGroups:BulkImport(text)
         end
     end
 
-    return imported, errors
+    return imported, errors, importedNames
 end
 
 function RaidGroups:ExportPresetString(preset)
@@ -574,20 +677,32 @@ function RaidGroups:ExportPresetString(preset)
     if not preset or not preset.data then
         return ""
     end
-    local groups, err = self:PresetStringToGroups(preset.data)
-    if not groups then
+    local assignment, err = self:PresetStringToAssignment(preset.data)
+    if not assignment then
         return err or ""
     end
-    local encoded = encodeGroups(groups, preset.name)
+    local note = preset.note
+    if note == nil then
+        note = assignment.note
+    end
+    local encoded = encodeGroups(assignment.groups, preset.name, nil, note)
     return encoded or ""
 end
 
 function RaidGroups:BulkExportString()
     local out = {"preset,group,slot,character"}
     for _, preset in ipairs(self:GetPresets()) do
-        local groups = self:PresetStringToGroups(preset.data)
-        if groups then
-            appendPayloadRows(out, groups, preset.name, true)
+        local assignment = self:PresetStringToAssignment(preset.data)
+        if assignment then
+            local note = preset.note
+            if note == nil then
+                note = assignment.note
+            end
+            if note and note ~= "" then
+                tinsert(out, "preset=" .. (preset.name or ""))
+                appendNotePayload(out, note)
+            end
+            appendPayloadRows(out, assignment.groups, preset.name, true)
         end
     end
     local encoded = encodePayload(tconcat(out, "\n"))
@@ -599,11 +714,15 @@ function RaidGroups:ValidateAndNormalizePresetString(text)
         return nil, L["RG_InvalidString"]
     end
 
-    local groups, err = self:PresetStringToGroups(text)
-    if not groups then
+    local assignment, err = self:PresetStringToAssignment(text)
+    if not assignment then
         return nil, err
     end
-    return encodeGroups(groups)
+    local data, encodeErr = encodeGroups(assignment.groups)
+    if not data then
+        return nil, encodeErr
+    end
+    return data, nil, assignment.note
 end
 
 function RaidGroups:SerializeSlots(slots)
@@ -618,59 +737,287 @@ function RaidGroups:SerializeSlots(slots)
     return encodeGroups(normalized or groups)
 end
 
--- Apply logic
-function RaidGroups:ApplyGroups(list)
+function RaidGroups:GroupsToList(groups)
+    local list = {}
+    for g = 1, GROUP_COUNT do
+        for s = 1, SLOTS_PER_GROUP do
+            list[(g - 1) * SLOTS_PER_GROUP + s] = groups[g] and groups[g][s] or ""
+        end
+    end
+    return list
+end
+
+function RaidGroups:IsAssignmentMarkerLine(line)
+    line = strtrim(tostring(line or ""))
+    return strmatch(line, "^" .. PRESET_STRING_VERSION .. ":[A-Za-z0-9%+/%=]+$") ~= nil
+end
+
+function RaidGroups:StripAssignmentMarkers(text)
+    text = tostring(text or "")
+    if text == "" then
+        return text
+    end
+    local out = {}
+    for line in strgmatch(text .. "\n", "(.-)\n") do
+        if not self:IsAssignmentMarkerLine(line) then
+            tinsert(out, line)
+        end
+    end
+    return tconcat(out, "\n")
+end
+
+function RaidGroups:FindAssignmentMarker(text)
+    for line in strgmatch(tostring(text or "") .. "\n", "(.-)\n") do
+        if self:IsAssignmentMarkerLine(line) then
+            local assignment = self:PresetStringToAssignment(line)
+            if assignment and assignment.groups then
+                return strtrim(line), assignment
+            end
+        end
+    end
+end
+
+local function limitedNameList(names, maxNames)
+    maxNames = maxNames or 8
+    local out = {}
+    for i = 1, #names do
+        if i > maxNames then
+            out[#out + 1] = ("+%d"):format(#names - maxNames)
+            break
+        end
+        out[#out + 1] = names[i]
+    end
+    return tconcat(out, ", ")
+end
+
+local function validateCanApplyRaidGroups()
     if not IsInRaid() then
         E:Printf(L["RG_NotInRaid"])
-        return
+        return false
+    end
+    if not E:HasBroadcastAuthority(UnitName("player") or "") then
+        E:Printf("You need raid lead or assist to apply assignments")
+        return false
     end
     if InCombatLockdown() then
         E:Printf(L["RG_InCombat"])
-        return
+        return false
     end
     for i = 1, 40 do
         if UnitAffectingCombat("raid" .. i) then
             E:Printf(L["RG_RaidInCombat"])
-            return
+            return false
         end
+    end
+    return true
+end
+
+local function addRosterAlias(aliases, alias, canonical)
+    alias = alias and E:NormalizeName(alias) or ""
+    if alias == "" then
+        return
+    end
+    aliases[alias] = canonical
+    local bare = E:NormalizeName(E:BareName(alias))
+    if bare ~= "" then
+        aliases[bare] = canonical
+    end
+end
+
+function RaidGroups:BuildRaidRosterMaps()
+    local currentGroup, currentPos, nameToID, groupSize, aliases = {}, {}, {}, {}, {}
+    for i = 1, GROUP_COUNT do
+        groupSize[i] = 0
+    end
+
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
+    for i = 1, GetNumGroupMembers() do
+        local name, _, subgroup, _, _, _, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
+        if name and subgroup then
+            local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
+            local canonical = E:NormalizeName(display)
+            currentGroup[canonical] = subgroup
+            nameToID[canonical] = i
+            groupSize[subgroup] = (groupSize[subgroup] or 0) + 1
+            currentPos[canonical] = groupSize[subgroup]
+            addRosterAlias(aliases, display, canonical)
+            addRosterAlias(aliases, name, canonical)
+            addRosterAlias(aliases, canonical, canonical)
+        end
+    end
+
+    return currentGroup, currentPos, nameToID, groupSize, aliases
+end
+
+function RaidGroups:ResolveRosterAssignmentName(name, aliases)
+    name = strtrim(name or "")
+    if name == "" then
+        return nil
+    end
+    local normalized = E:NormalizeName(self:ResolveNickname(name))
+    return aliases[normalized] or aliases[E:NormalizeName(E:BareName(normalized))]
+end
+
+function RaidGroups:HasResolvableAssignments(list)
+    local _, _, _, _, aliases = self:BuildRaidRosterMaps()
+    for i = 1, GROUP_COUNT * SLOTS_PER_GROUP do
+        local rawName = list[i]
+        rawName = rawName and strtrim(rawName) or ""
+        if rawName ~= "" and self:ResolveRosterAssignmentName(rawName, aliases) then
+            return true
+        end
+    end
+    E:Printf("No assigned raiders are currently in the raid")
+    return false
+end
+
+-- Apply logic
+function RaidGroups:ApplyGroups(list, skipValidation)
+    if not skipValidation and not validateCanApplyRaidGroups() then
+        return false
     end
 
     local needGroup = {}
     local needPosInGroup = {}
     local lockedUnit = {}
+    local missing = {}
+    local seen = {}
 
-    local RLName, _, RLGroup = GetRaidRosterInfo(1)
-    local isRLfound = false
-    for i = 1, 8 do
+    local _, _, _, _, aliases = self:BuildRaidRosterMaps()
+    for i = 1, GROUP_COUNT do
         local pos = 1
-        for j = 1, 5 do
-            local name = list[(i - 1) * 5 + j]
-            if name == RLName then
-                needGroup[name] = i
-                needPosInGroup[name] = pos
-                pos = pos + 1
-                isRLfound = true
-                break
+        for j = 1, SLOTS_PER_GROUP do
+            local rawName = list[(i - 1) * SLOTS_PER_GROUP + j]
+            rawName = rawName and strtrim(rawName) or ""
+            if rawName ~= "" then
+                local name = self:ResolveRosterAssignmentName(rawName, aliases)
+                if name then
+                    if seen[name] then
+                        E:Printf(L["RG_DuplicateOnApply"], rawName)
+                        return false
+                    end
+                    seen[name] = true
+                    needGroup[name] = i
+                    needPosInGroup[name] = pos
+                    pos = pos + 1
+                else
+                    tinsert(missing, rawName)
+                end
             end
         end
-        for j = 1, 5 do
-            local name = list[(i - 1) * 5 + j]
-            if name and name ~= RLName and UnitName(name) then
-                needGroup[name] = i
-                needPosInGroup[name] = pos
-                pos = pos + 1
-            end
-        end
+    end
+
+    if #missing > 0 then
+        E:Printf(("Skipped missing players: %s"):format(limitedNameList(missing)))
+    end
+    if not next(needGroup) then
+        E:Printf("No assigned raiders are currently in the raid")
+        return false
     end
 
     self._needGroup = needGroup
     self._needPosInGroup = needPosInGroup
     self._lockedUnit = lockedUnit
     self._groupsReady = false
-    self._groupWithRL = isRLfound and 0 or RLGroup
     self._processAttempts = 0
 
     self:ProcessRoster()
+    return true
+end
+
+function RaidGroups:ApplyAssignment(groupsOrList, noteText)
+    if not validateCanApplyRaidGroups() then
+        return false
+    end
+    if type(groupsOrList) ~= "table" then
+        return false
+    end
+
+    local list = groupsOrList
+    if type(groupsOrList[1]) == "table" then
+        list = self:GroupsToList(groupsOrList)
+    end
+    if not self:HasResolvableAssignments(list) then
+        return false
+    end
+
+    local Notes = E:GetModule("Notes", true)
+    if Notes and Notes:IsEnabled() then
+        if noteText ~= nil then
+            self._suppressNoteTrigger = true
+            Notes:SetSlotText(Notes.GetMainSlotIndex and Notes:GetMainSlotIndex() or 1, noteText)
+            self._suppressNoteTrigger = nil
+        end
+        Notes:SendSlot(Notes.GetMainSlotIndex and Notes:GetMainSlotIndex() or 1)
+    elseif noteText ~= nil then
+        E:Printf("Notes module is unavailable. Applying groups only")
+    end
+
+    return self:ApplyGroups(list, true)
+end
+
+local function showAssignmentConfirm(title, text, onAccept)
+    if E.Confirm then
+        E:Confirm({
+            key = "ART_RG_NOTE_ASSIGNMENT",
+            title = title,
+            text = text,
+            onAccept = onAccept
+        })
+        return
+    end
+
+    StaticPopupDialogs.ART_RG_NOTE_ASSIGNMENT = StaticPopupDialogs.ART_RG_NOTE_ASSIGNMENT or {
+        button1 = ACCEPT or OKAY,
+        button2 = CANCEL,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+        OnAccept = function(_, payload)
+            if payload and payload.accept then
+                payload.accept()
+            end
+        end
+    }
+    StaticPopupDialogs.ART_RG_NOTE_ASSIGNMENT.text = text
+    StaticPopup_Show("ART_RG_NOTE_ASSIGNMENT", nil, nil, {
+        accept = onAccept
+    })
+end
+
+function RaidGroups:MaybePromptAssignmentFromNote(text)
+    if self._suppressNoteTrigger then
+        return
+    end
+    if not IsInRaid() or not E:HasBroadcastAuthority(UnitName("player") or "") then
+        return
+    end
+
+    local marker, assignment = self:FindAssignmentMarker(text)
+    if not marker or not assignment or not assignment.groups then
+        return
+    end
+
+    self._promptedAssignmentMarkers = self._promptedAssignmentMarkers or {}
+    if self._promptedAssignmentMarkers[marker] then
+        return
+    end
+    self._promptedAssignmentMarkers[marker] = true
+
+    local name = strtrim(assignment.name or "")
+    if name == "" then
+        name = L["RG_DefaultPresetName"] or "Preset"
+    end
+    showAssignmentConfirm(L["RG_NoteTriggerTitle"], ("Apply raid assignment '%s' from the note?"):format(name), function()
+        self:ApplyAssignment(assignment.groups)
+    end)
+end
+
+function RaidGroups:OnNoteChanged(_, slotIndex, text)
+    if slotIndex == 1 then
+        self:MaybePromptAssignmentFromNote(text)
+    end
 end
 
 function RaidGroups:_GiveUpProcessRoster(reason)
@@ -713,26 +1060,16 @@ function RaidGroups:ProcessRoster()
         return
     end
 
-    local currentGroup, currentPos, nameToID, groupSize = {}, {}, {}, {}
-    for i = 1, 8 do
-        groupSize[i] = 0
-    end
-
-    for i = 1, GetNumGroupMembers() do
-        local name, _, subgroup = GetRaidRosterInfo(i)
-        if name then
-            local checkName = name
-            if not needGroup[checkName] then
-                local bare = E:BareName(name)
-                if bare ~= "" and bare ~= name and needGroup[bare] then
-                    checkName = bare
-                end
-            end
-            currentGroup[checkName] = subgroup
-            nameToID[checkName] = i
-            groupSize[subgroup] = groupSize[subgroup] + 1
-            currentPos[checkName] = groupSize[subgroup]
+    local currentGroup, currentPos, nameToID, groupSize = self:BuildRaidRosterMaps()
+    local missingNow = {}
+    for unit in pairs(needGroup) do
+        if not currentGroup[unit] then
+            tinsert(missingNow, unit)
         end
+    end
+    if #missingNow > 0 then
+        self:_GiveUpProcessRoster(("Skipped missing players: %s"):format(limitedNameList(missingNow)))
+        return
     end
 
     if not self._groupsReady then
@@ -740,7 +1077,12 @@ function RaidGroups:ProcessRoster()
         for unit, group in pairs(needGroup) do
             if currentGroup[unit] and currentGroup[unit] ~= group and nameToID[unit] then
                 if groupSize[group] < 5 then
+                    local fromGroup = currentGroup[unit]
                     SetRaidSubgroup(nameToID[unit], group)
+                    groupSize[group] = groupSize[group] + 1
+                    if fromGroup and groupSize[fromGroup] then
+                        groupSize[fromGroup] = math.max(0, groupSize[fromGroup] - 1)
+                    end
                     waitForGroup = true
                 end
             end
@@ -768,6 +1110,17 @@ function RaidGroups:ProcessRoster()
             end
         end
         if waitForSwap then
+            return
+        end
+
+        local stillWrong = {}
+        for unit, group in pairs(needGroup) do
+            if currentGroup[unit] and currentGroup[unit] ~= group then
+                tinsert(stillWrong, unit)
+            end
+        end
+        if #stillWrong > 0 then
+            self:_GiveUpProcessRoster("group movement blocked: " .. limitedNameList(stillWrong))
             return
         end
 
@@ -816,6 +1169,17 @@ function RaidGroups:ProcessRoster()
         end
     end
 
+    local stillMisplaced = {}
+    for unit, pos in pairs(needPosInGroup) do
+        if currentPos[unit] and currentPos[unit] ~= pos then
+            tinsert(stillMisplaced, unit)
+        end
+    end
+    if #stillMisplaced > 0 then
+        self:_GiveUpProcessRoster("position order blocked: " .. limitedNameList(stillMisplaced))
+        return
+    end
+
     self._needGroup = nil
     self._processAttempts = 0
     if self._processTimer then
@@ -846,6 +1210,7 @@ end
 
 function RaidGroups:OnEnable()
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
+    self:RegisterMessage("ART_NOTE_CHANGED", "OnNoteChanged")
 end
 
 function RaidGroups:OnDisable()
@@ -854,6 +1219,7 @@ function RaidGroups:OnDisable()
         self._processTimer = nil
     end
     E:CancelRunWhenOutOfCombat("RaidGroups:ProcessRoster")
+    self:UnregisterMessage("ART_NOTE_CHANGED")
     -- If the editor is open it will close itself on ART_RAIDGROUPS_DISABLED
     E:SendMessage("ART_RAIDGROUPS_DISABLED")
 end
@@ -895,7 +1261,8 @@ E:MountMethods(_G.ART, {
         for i, preset in ipairs(RaidGroups:GetPresets()) do
             out[i] = {
                 name = preset.name,
-                data = preset.data
+                data = preset.data,
+                note = preset.note
             }
         end
         return out
@@ -910,7 +1277,8 @@ E:MountMethods(_G.ART, {
         end
         return {
             name = preset.name,
-            data = preset.data
+            data = preset.data,
+            note = preset.note
         }
     end
 }, {

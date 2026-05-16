@@ -49,6 +49,9 @@ local function validateRaidGroups(data)
         if type(p) ~= "table" or type(p.name) ~= "string" or type(p.data) ~= "string" then
             return false, "each preset needs a string name and data"
         end
+        if p.note ~= nil and type(p.note) ~= "string" then
+            return false, "preset note must be a string"
+        end
     end
     return true
 end

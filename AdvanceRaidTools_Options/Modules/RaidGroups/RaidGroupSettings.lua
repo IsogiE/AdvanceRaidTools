@@ -117,7 +117,7 @@ function RGUI:ShowImportPrompt(parent, onAccepted)
             if text == "" then
                 return
             end
-            local imported, errors = m:BulkImport(text)
+            local imported, errors, importedNames = m:BulkImport(text)
             if imported > 0 then
                 E:Printf(L["RG_BulkImportedN"]:format(imported))
             end
@@ -125,62 +125,9 @@ function RGUI:ShowImportPrompt(parent, onAccepted)
                 E:Printf("|cffff4040%s|r", err)
             end
             if onAccepted and imported > 0 then
-                onAccepted()
+                onAccepted(importedNames and importedNames[1], importedNames)
             end
         end
-    })
-end
-
--- Bulk import
-function RGUI:ShowBulkImportPrompt(parent)
-    local m = Mod()
-    if not m then
-        return
-    end
-    E:PromptMultiline({
-        key = "ART_RG_BULK_IMPORT",
-        title = (L["Bulk"] .. " " .. L["Import"]),
-        text = L["RG_BulkImportDesc"],
-        parent = parent,
-        input = {
-            multiline = 12,
-            default = "",
-            maxLetters = 200000
-        },
-        buttons = {{
-            preset = "accept",
-            text = (L["Apply"] .. " " .. L["Bulk"] .. " " .. L["Import"]),
-            isDefault = true
-        }, {
-            preset = "cancel",
-            text = CANCEL
-        }},
-        onAccept = function(text)
-            local imported, errors = m:BulkImport(text or "")
-            if imported > 0 then
-                E:Printf(L["RG_BulkImportedN"]:format(imported))
-            end
-            for _, err in ipairs(errors or {}) do
-                E:Printf("|cffff4040%s|r", err)
-            end
-        end
-    })
-end
-
--- Bulk export
-function RGUI:ShowBulkExportViewer(parent)
-    local m = Mod()
-    if not m then
-        return
-    end
-    E:ShowText({
-        key = "ART_RG_BULK_EXPORT",
-        title = (L["Bulk"] .. " " .. L["Export"]),
-        parent = parent,
-        viewer = {
-            text = m:BulkExportString() or "",
-            lines = 12
-        }
     })
 end
 
@@ -220,6 +167,7 @@ end
 
 -- Settings panel
 local selectedPreset
+local TOOLTIP_ANCHOR = "ANCHOR_CURSOR"
 
 local function presetCount()
     local m = Mod()
@@ -294,112 +242,9 @@ local function generalArgs()
                         title = L["RG_OpenEditor"],
                         desc = L["RG_OpenEditorDesc"]
                     },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     onClick = openEditor,
                     disabled = isModuleDisabled
-                })
-            end
-        }
-    }
-end
-
--- Presets tab
-local function quickActionsArgs()
-    return {
-        intro = {
-            order = 1,
-            build = function(parent)
-                return T:Description(parent, {
-                    text = L["RG_PresetsDesc"],
-                    sizeDelta = 1
-                })
-            end
-        },
-
-        spacer = {
-            order = 1.5,
-            build = function(parent)
-                return T:Spacer(parent, {
-                    height = 5
-                })
-            end
-        },
-
-        actionsHeader = {
-            order = 10,
-            build = function(parent)
-                return T:Header(parent, {
-                    text = L["RG_QuickActions"]
-                })
-            end
-        },
-
-        openEditorAction = {
-            order = 11,
-            width = "1/3",
-            build = function(parent)
-                return T:Button(parent, {
-                    text = L["RG_OpenEditor"],
-                    onClick = openEditor,
-                    disabled = isModuleDisabled
-                })
-            end
-        },
-
-        importAction = {
-            order = 12,
-            width = "1/3",
-            build = function(parent)
-                return T:Button(parent, {
-                    text = L["RG_ImportSingle"],
-                    tooltip = {
-                        title = L["RG_ImportSingle"],
-                        desc = L["RG_ImportSingleDesc"]
-                    },
-                    onClick = function()
-                        RGUI:ShowImportPrompt(popupParent())
-                    end,
-                    disabled = isModuleDisabled
-                })
-            end
-        },
-
-        bulkImportAction = {
-            order = 13,
-            width = "1/3",
-            build = function(parent)
-                return T:Button(parent, {
-                    text = (L["Bulk"] .. " " .. L["Import"]),
-                    tooltip = {
-                        title = (L["Bulk"] .. " " .. L["Import"]),
-                        desc = L["RG_BulkImportDesc"]
-                    },
-                    onClick = function()
-                        RGUI:ShowBulkImportPrompt(popupParent())
-                    end,
-                    disabled = isModuleDisabled
-                })
-            end
-        },
-
-        bulkExportAction = {
-            order = 14,
-            width = "full",
-            build = function(parent)
-                return T:Button(parent, {
-                    text = (L["Bulk"] .. " " .. L["Export"]),
-                    tooltip = {
-                        title = (L["Bulk"] .. " " .. L["Export"]),
-                        desc = L["RG_BulkExportDesc"]
-                    },
-                    disabled = function()
-                        if isModuleDisabled() then
-                            return true
-                        end
-                        return presetCount() == 0
-                    end,
-                    onClick = function()
-                        RGUI:ShowBulkExportViewer(popupParent())
-                    end
                 })
             end
         }
@@ -410,8 +255,12 @@ local function savedPresetsArgs()
     local function havePresets()
         return presetCount() > 0
     end
+    local function selectedPresetData()
+        local m = Mod()
+        return m and selectedPreset and m:GetPresetByName(selectedPreset)
+    end
     local function noSelection()
-        return not selectedPreset
+        return not selectedPresetData()
     end
 
     return {
@@ -419,7 +268,7 @@ local function savedPresetsArgs()
             order = 50,
             build = function(parent)
                 return T:Header(parent, {
-                    text = L["RG_SavedPresets"]
+                    text = L["RG_QuickActions"]
                 })
             end
         },
@@ -446,6 +295,11 @@ local function savedPresetsArgs()
             build = function(parent)
                 return T:Dropdown(parent, {
                     label = L["RG_SelectPreset"],
+                    tooltip = {
+                        title = L["RG_SelectPreset"],
+                        desc = "Choose a saved preset for the actions below"
+                    },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     values = presetValues,
                     get = function()
                         local m = Mod()
@@ -466,7 +320,7 @@ local function savedPresetsArgs()
 
         loadBtn = {
             order = 61,
-            width = "1/4",
+            width = "1/5",
             hidden = function()
                 return not havePresets()
             end,
@@ -477,6 +331,7 @@ local function savedPresetsArgs()
                         title = L["RG_Load"],
                         desc = L["RG_LoadIntoEditorDesc"]
                     },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     disabled = function()
                         if isModuleDisabled() then
                             return true
@@ -485,25 +340,73 @@ local function savedPresetsArgs()
                     end,
                     onClick = function()
                         openEditor()
-                        local m = Mod()
-                        local preset = m and selectedPreset and m:GetPresetByName(selectedPreset)
+                        local preset = selectedPresetData()
                         if preset then
-                            m:LoadPresetIntoSlots(preset.data)
+                            local m = Mod()
+                            m:LoadPresetIntoSlots(preset.data, preset.note)
                         end
                     end
                 })
             end
         },
 
-        renameBtn = {
+        applyBtn = {
             order = 62,
-            width = "1/4",
+            width = "1/5",
+            hidden = function()
+                return not havePresets()
+            end,
+            build = function(parent)
+                return T:Button(parent, {
+                    text = L["RG_ApplyPreset"],
+                    tooltip = {
+                        title = L["RG_ApplyPreset"],
+                        desc = "Apply this preset immediately without opening the editor"
+                    },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
+                    disabled = function()
+                        if isModuleDisabled() then
+                            return true
+                        end
+                        return noSelection()
+                    end,
+                    onClick = function()
+                        local m = Mod()
+                        local preset = selectedPresetData()
+                        if not (m and preset) then
+                            return
+                        end
+                        local assignment, err = m:PresetStringToAssignment(preset.data)
+                        if not assignment then
+                            if err then
+                                E:Printf(err)
+                            end
+                            return
+                        end
+                        local note = preset.note
+                        if note == nil then
+                            note = assignment.note
+                        end
+                        m:ApplyAssignment(assignment.groups, note)
+                    end
+                })
+            end
+        },
+
+        renameBtn = {
+            order = 63,
+            width = "1/5",
             hidden = function()
                 return not havePresets()
             end,
             build = function(parent)
                 return T:Button(parent, {
                     text = L["RG_Rename"],
+                    tooltip = {
+                        title = L["RG_Rename"],
+                        desc = "Rename this preset"
+                    },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     disabled = function()
                         if isModuleDisabled() then
                             return true
@@ -520,18 +423,19 @@ local function savedPresetsArgs()
         },
 
         exportBtn = {
-            order = 63,
-            width = "1/4",
+            order = 64,
+            width = "1/5",
             hidden = function()
                 return not havePresets()
             end,
             build = function(parent)
                 return T:Button(parent, {
-                    text = L["ExportString"],
+                    text = L["Export"],
                     tooltip = {
                         title = L["ExportString"],
                         desc = L["RG_ExportStringDesc"]
                     },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     disabled = function()
                         if isModuleDisabled() then
                             return true
@@ -546,14 +450,19 @@ local function savedPresetsArgs()
         },
 
         deleteBtn = {
-            order = 64,
-            width = "1/4",
+            order = 65,
+            width = "1/5",
             hidden = function()
                 return not havePresets()
             end,
             build = function(parent)
                 return T:Button(parent, {
                     text = L["RG_Delete"],
+                    tooltip = {
+                        title = L["RG_Delete"],
+                        desc = "Delete this preset"
+                    },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     disabled = function()
                         if isModuleDisabled() then
                             return true
@@ -596,6 +505,7 @@ local function dangerArgs()
                         title = L["RG_DeleteAll"],
                         desc = L["RG_DeleteAllDesc"]
                     },
+                    tooltipAnchor = TOOLTIP_ANCHOR,
                     confirm = L["RG_DeleteAllConfirm"],
                     confirmTitle = L["RG_DeleteAll"],
                     onClick = function()
@@ -640,21 +550,7 @@ local function buildPanel()
     return {
         type = "group",
         name = L["RaidGroups"],
-        childGroups = "tab",
-        args = {
-            general = {
-                type = "group",
-                order = 1,
-                name = L["General"],
-                args = generalArgs()
-            },
-            presets = {
-                type = "group",
-                order = 2,
-                name = L["RG_Presets"],
-                args = T:MergeArgs(quickActionsArgs(), savedPresetsArgs(), dangerArgs())
-            }
-        }
+        args = T:MergeArgs(generalArgs(), savedPresetsArgs(), dangerArgs())
     }
 end
 

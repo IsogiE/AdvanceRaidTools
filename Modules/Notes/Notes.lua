@@ -298,6 +298,14 @@ function Notes:BumpRenderRevision()
     wipe(self.processedCache)
 end
 
+local function stripRaidAssignmentMarkers(text)
+    local RaidGroups = E:GetModule("RaidGroups", true)
+    if RaidGroups and RaidGroups.StripAssignmentMarkers then
+        return RaidGroups:StripAssignmentMarkers(text)
+    end
+    return text
+end
+
 -- Process the raw text of a slot through the token registry plus nickname substitution
 function Notes:ProcessText(slotIndex)
     local slot = self:GetSlot(slotIndex)
@@ -316,6 +324,7 @@ function Notes:ProcessText(slotIndex)
 
     -- Normalize line endings so the "up to \n" patterns behave consistently
     local text = gsub(raw, "\r\n", "\n")
+    text = stripRaidAssignmentMarkers(text)
 
     for _, token in ipairs(self.tokens) do
         local ok, result = pcall(gsub, text, token.pattern, token.handler)
@@ -718,6 +727,7 @@ function Notes:ProcessDisplayText(slotIndex)
 
     local display = slot.display or makeDefaultSlotDisplay()
     local text = gsub(raw, "\r\n", "\n")
+    text = stripRaidAssignmentMarkers(text)
     text = filterDisplayLines(text, display)
     text = self:RenderDisplayTimeTokens(text, display)
 

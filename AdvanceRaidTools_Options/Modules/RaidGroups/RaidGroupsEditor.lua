@@ -247,7 +247,6 @@ local function createSlotEditBox(self, parent, group, slot)
     local container = CreateFrame("Button", nil, parent, "BackdropTemplate")
     container:SetSize(SLOT_W, SLOT_H)
     E:SetTemplate(container, "Default")
-    E:SetSolidBackdrop(container)
     container:RegisterForClicks("LeftButtonUp")
 
     local label = E:CreateFontString(container, nil, "OVERLAY", (E.media.normFontSize or 12) - 2)
@@ -336,7 +335,6 @@ local function createNameRow(self, parent)
     end
 
     E:SetTemplate(row, "Default")
-    row:SetBackdropColor(0, 0, 0, 0.25)
     row:SetBackdropBorderColor(unpack(E.media.borderColor))
     row:EnableMouse(true)
     row:RegisterForDrag("LeftButton")
@@ -472,6 +470,11 @@ function RaidGroups:RefreshVisibleRows()
 
     local list = self._nameList or {}
     content:SetHeight(math.max(1, #list * NAME_ROW_H))
+    scroll:UpdateScrollChildRect()
+    local maxY = math.max(0, (content:GetHeight() or 0) - (scroll:GetHeight() or 0))
+    if (scroll:GetVerticalScroll() or 0) > maxY then
+        scroll:SetVerticalScroll(maxY)
+    end
 
     -- Nothing to show. Hide any existing rows and bail before creating more
     if #list == 0 then
@@ -529,6 +532,9 @@ function RaidGroups:UpdateNameListHeight()
     end
     local rows = #(self._nameList or {})
     local desired = rows * NAME_ROW_H + 8
+    if self._nameListFixedHeight then
+        return
+    end
 
     local headerBottom = header:GetBottom()
     local colBottom = leftCol:GetBottom()
@@ -569,6 +575,11 @@ local TINT_DEFAULT = {0.07, 0.07, 0.07, 1.0}
 local TINT_MISSING = {0.55, 0.15, 0.15, 0.8}
 local TINT_EXTRA = {0.55, 0.50, 0.10, 0.8}
 
+local function setDefaultSlotTint(container)
+    local bg = E.media and E.media.backdropColor or TINT_DEFAULT
+    container:SetBackdropColor(bg[1] or 0.07, bg[2] or 0.07, bg[3] or 0.07, bg[4] or 1)
+end
+
 function RaidGroups:UpdateSlotTints()
     if not self._slots then
         return
@@ -576,7 +587,7 @@ function RaidGroups:UpdateSlotTints()
     if not (IsInRaid() or IsInGroup()) then
         for _, group in ipairs(self._slots) do
             for _, eb in ipairs(group) do
-                eb._container:SetBackdropColor(unpack(TINT_DEFAULT))
+                setDefaultSlotTint(eb._container)
             end
         end
         return
@@ -588,8 +599,14 @@ function RaidGroups:UpdateSlotTints()
         local name, _, subgroup, _, _, _, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
         if name then
             local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
-            inGroup[display] = true
-            subs[display] = subgroup
+            local normalized = E:NormalizeName(display)
+            local bare = E:NormalizeName(E:BareName(normalized))
+            inGroup[normalized] = true
+            inGroup[bare] = true
+            inGroup[E:NormalizeName(name)] = true
+            subs[normalized] = subgroup
+            subs[bare] = subgroup
+            subs[E:NormalizeName(name)] = subgroup
         end
     end
 
@@ -597,15 +614,16 @@ function RaidGroups:UpdateSlotTints()
         for _, eb in ipairs(group) do
             local name = eb.usedName
             if name and name ~= "" then
-                if not inGroup[name] then
+                local normalized = E:NormalizeName(name)
+                if not inGroup[normalized] then
                     eb._container:SetBackdropColor(unpack(TINT_MISSING))
-                elseif subs[name] and subs[name] >= 7 then
+                elseif subs[normalized] and subs[normalized] >= 7 then
                     eb._container:SetBackdropColor(unpack(TINT_EXTRA))
                 else
-                    eb._container:SetBackdropColor(unpack(TINT_DEFAULT))
+                    setDefaultSlotTint(eb._container)
                 end
             else
-                eb._container:SetBackdropColor(unpack(TINT_DEFAULT))
+                setDefaultSlotTint(eb._container)
             end
         end
     end
@@ -619,10 +637,26 @@ function RaidGroups:ClearSlots()
         for _, eb in ipairs(group) do
             eb:SetText("")
             eb.usedName = nil
-            eb._container:SetBackdropColor(unpack(TINT_DEFAULT))
+            setDefaultSlotTint(eb._container)
         end
     end
     self:PopulateNameList()
+end
+
+function RaidGroups:GetEditorNote()
+    return self._assignmentNote or ""
+end
+
+function RaidGroups:SetEditorNote(text)
+    self._assignmentNote = tostring(text or "")
+    self:RefreshAssignmentNoteEditor()
+end
+
+function RaidGroups:RefreshAssignmentNoteEditor()
+    local editor = self._editor and self._editor._noteEditor
+    if editor and editor.Refresh then
+        editor.Refresh()
+    end
 end
 
 function RaidGroups:ImportRosterToSlots()
@@ -681,7 +715,7 @@ function RaidGroups:ApplyFromEditor()
             end
         end
     end
-    self:ApplyGroups(list)
+    self:ApplyAssignment(list, self:GetEditorNote())
 end
 
 function RaidGroups:GetRosterExportString()
@@ -703,16 +737,20 @@ function RaidGroups:GetRosterExportString()
     return tconcat(out, "\n")
 end
 
-function RaidGroups:LoadPresetIntoSlots(dataString)
+function RaidGroups:LoadPresetIntoSlots(dataString, note)
     if not self._slots or not dataString then
         return
     end
-    local groups, err = self:PresetStringToGroups(dataString)
-    if not groups then
+    local assignment, err = self:PresetStringToAssignment(dataString)
+    if not assignment then
         if err then
             E:Printf(err)
         end
         return
+    end
+    local groups = assignment.groups
+    if note == nil then
+        note = assignment.note
     end
 
     self:ClearSlots()
@@ -727,6 +765,7 @@ function RaidGroups:LoadPresetIntoSlots(dataString)
             end
         end
     end
+    self:SetEditorNote(note or "")
     self:PopulateNameList()
     self:UpdateSlotTints()
 end
@@ -753,7 +792,7 @@ function RaidGroups:SaveCurrentSlotsAsPreset(name)
         return false, L["RG_EmptyPreset"]
     end
     local data = self:SerializeSlots(self._slots)
-    return self:SavePreset(name, data)
+    return self:SavePreset(name, data, self:GetEditorNote())
 end
 
 function RaidGroups:BuildEditor()
@@ -773,7 +812,6 @@ function RaidGroups:BuildEditor()
     f:SetScript("OnDragStart", f.StartMoving)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
     E:SetTemplate(f, "Default")
-    E:SetSolidBackdrop(f)
     tinsert(UISpecialFrames, "ART_RaidGroupsEditor")
     self._editor = f
 
@@ -789,16 +827,42 @@ function RaidGroups:BuildEditor()
     })
     close.frame:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
 
-    local leftW = 220
-    local leftCol = CreateFrame("Frame", nil, f)
-    leftCol:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -40)
-    leftCol:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 60)
-    leftCol:SetWidth(leftW)
+    local OUTER_PAD = 12
+    local PANEL_PAD = 10
+    local PANEL_GAP = 10
+    local CONTENT_TOP = -40
+    local CONTENT_BOTTOM = 12
+
+    local function createContentPanel(parent)
+        local panel = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+        E:SetTemplate(panel, "Transparent")
+        return panel
+    end
+
+    local sourceW = 190
+    local rosterLabelW = 62
+    local rosterInnerW = rosterLabelW + SLOT_W * SLOTS_PER_GROUP + (SLOTS_PER_GROUP - 1) * SLOT_GAP
+    local rosterW = rosterInnerW + PANEL_PAD * 2
+    local sideW = EDITOR_W - OUTER_PAD * 2 - sourceW - rosterW - PANEL_GAP * 2
+
+    local leftCol = createContentPanel(f)
+    leftCol:SetPoint("TOPLEFT", f, "TOPLEFT", OUTER_PAD, CONTENT_TOP)
+    leftCol:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", OUTER_PAD, CONTENT_BOTTOM)
+    leftCol:SetWidth(sourceW)
+
+    local function setAvailableListShown(shown)
+        if RaidGroups._nameListHeader then
+            RaidGroups._nameListHeader:SetShown(shown)
+        end
+        if RaidGroups._nameListFrame then
+            RaidGroups._nameListFrame:SetShown(shown)
+        end
+    end
 
     local srcHeader = T:Label(leftCol, {
         text = L["RG_Source"]
     })
-    srcHeader.frame:SetPoint("TOPLEFT", leftCol, "TOPLEFT", 0, 0)
+    srcHeader.frame:SetPoint("TOPLEFT", leftCol, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
 
     local raidChk = T:Checkbox(leftCol, {
         text = L["Raid"],
@@ -809,9 +873,7 @@ function RaidGroups:BuildEditor()
             else
                 f._listSource = nil
             end
-            if RaidGroups._nameListFrame then
-                RaidGroups._nameListFrame:SetShown(f._listSource ~= nil)
-            end
+            setAvailableListShown(f._listSource ~= nil)
             if RaidGroups._nameListScroll then
                 RaidGroups._nameListScroll:SetVerticalScroll(0)
             end
@@ -830,9 +892,7 @@ function RaidGroups:BuildEditor()
             else
                 f._listSource = nil
             end
-            if RaidGroups._nameListFrame then
-                RaidGroups._nameListFrame:SetShown(f._listSource ~= nil)
-            end
+            setAvailableListShown(f._listSource ~= nil)
             if RaidGroups._nameListScroll then
                 RaidGroups._nameListScroll:SetVerticalScroll(0)
             end
@@ -847,19 +907,25 @@ function RaidGroups:BuildEditor()
         text = L["RG_AvailableNames"]
     })
     listHeader.frame:SetPoint("TOPLEFT", raidChk.frame, "BOTTOMLEFT", 0, -10)
+    listHeader.frame:Hide()
 
     local listSF = T:ScrollFrame(leftCol, {
-        template = "Default",
-        insets = {4, 4, 4, 4},
-        mouseWheelStep = NAME_ROW_H
+        chrome = false,
+        autoWidth = true,
+        minContentWidth = sourceW - PANEL_PAD * 2 - 16,
+        mouseWheelStep = NAME_ROW_H,
+        scrollbarWidth = 10,
+        scrollbarGap = 4
     })
 
-    listSF.frame:SetPoint("TOPLEFT", listHeader.frame, "BOTTOMLEFT", 0, -4)
-    listSF.frame:SetWidth(leftW)
+    listSF.frame:SetPoint("TOPLEFT", listHeader.frame, "BOTTOMLEFT", 0, -6)
+    listSF.frame:SetPoint("BOTTOMRIGHT", leftCol, "BOTTOMRIGHT", -PANEL_PAD, PANEL_PAD)
+    listSF.scroll:HookScript("OnSizeChanged", listSF.ApplyAutoWidth)
     self._nameListFrame = listSF.frame
     self._nameListLeftCol = leftCol
     self._nameListHeader = listHeader.frame
     self._nameListSF = listSF
+    self._nameListFixedHeight = true
     self._nameListScrollbarShouldShow = false
 
     if listSF.scrollbar and listSF.scrollbar.frame then
@@ -887,48 +953,50 @@ function RaidGroups:BuildEditor()
     self._nameListScroll = scroll
 
     local content = listSF.content
-    content:SetSize(leftW - 32, 1)
+    content:SetSize(sourceW - PANEL_PAD * 2 - 16, 1)
     self._nameListContent = content
 
     -- 8 groups of 5 slots
-    local centreX = 10 + leftW + 14
-    local centreW = SLOT_W * SLOTS_PER_GROUP + (SLOTS_PER_GROUP - 1) * SLOT_GAP + 40
-    local centreCol = CreateFrame("Frame", nil, f)
-    centreCol:SetPoint("TOPLEFT", f, "TOPLEFT", centreX, -40)
-    centreCol:SetSize(centreW, 500)
+    local centreCol = createContentPanel(f)
+    centreCol:SetPoint("TOPLEFT", leftCol, "TOPRIGHT", PANEL_GAP, 0)
+    centreCol:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", OUTER_PAD + sourceW + PANEL_GAP, CONTENT_BOTTOM)
+    centreCol:SetWidth(rosterW)
+
+    local layoutHeader = T:Label(centreCol, {
+        text = "Roster Layout"
+    })
+    layoutHeader.frame:SetPoint("TOPLEFT", centreCol, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
 
     self._slots = {}
     for g = 1, GROUP_COUNT do
-        local rowY = -(g - 1) * (SLOT_H + 14)
+        local rowY = -38 - (g - 1) * (SLOT_H + 14)
         local label = E:CreateFontString(centreCol, nil, "OVERLAY")
-        label:SetPoint("TOPLEFT", centreCol, "TOPLEFT", -3, rowY)
+        label:SetPoint("TOPLEFT", centreCol, "TOPLEFT", PANEL_PAD, rowY)
         label:SetText(strformat(L["RG_GroupN"], g))
         E:RegisterAccentText(label)
 
         self._slots[g] = {}
         for s = 1, SLOTS_PER_GROUP do
             local eb, container = createSlotEditBox(self, centreCol, g, s)
-            container:SetPoint("TOPLEFT", centreCol, "TOPLEFT", 50 + (s - 1) * (SLOT_W + SLOT_GAP), rowY - 2)
+            container:SetPoint("TOPLEFT", centreCol, "TOPLEFT",
+                PANEL_PAD + rosterLabelW + (s - 1) * (SLOT_W + SLOT_GAP), rowY - 2)
             self._slots[g][s] = eb
         end
     end
 
     -- presets
-    local rightX = centreX + centreW + 14
-    local rightW = EDITOR_W - rightX - 10
-    local rightCol = CreateFrame("Frame", nil, f)
-    rightCol:SetPoint("TOPLEFT", f, "TOPLEFT", rightX, -40)
-    rightCol:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 60)
-    rightCol:SetWidth(rightW)
+    local presetPanel = createContentPanel(f)
+    presetPanel:SetPoint("TOPLEFT", centreCol, "TOPRIGHT", PANEL_GAP, 0)
+    presetPanel:SetSize(sideW, 144)
 
-    local presetHeader = T:Label(rightCol, {
-        text = L["RG_Presets"]
+    local presetHeader = T:Label(presetPanel, {
+        text = "Assignment Presets"
     })
-    presetHeader.frame:SetPoint("TOPLEFT", rightCol, "TOPLEFT", 0, 0)
+    presetHeader.frame:SetPoint("TOPLEFT", presetPanel, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
 
     self._selectedPreset = self._selectedPreset or nil
 
-    local presetDropdown = T:Dropdown(rightCol, {
+    local presetDropdown = T:Dropdown(presetPanel, {
         placeholder = L["RG_SelectPreset"],
         values = function()
             local t = {}
@@ -951,7 +1019,7 @@ function RaidGroups:BuildEditor()
         end,
         buttonHeight = 24
     })
-    presetDropdown.frame:SetWidth(rightW)
+    presetDropdown.frame:SetWidth(sideW - PANEL_PAD * 2)
     presetDropdown.frame:SetPoint("TOPLEFT", presetHeader.frame, "BOTTOMLEFT", 0, -4)
     f._presetDropdown = presetDropdown
 
@@ -969,32 +1037,35 @@ function RaidGroups:BuildEditor()
         end
     end
 
-    local btnW = (rightW - 4) / 2
+    local btnW = (sideW - PANEL_PAD * 2 - 4) / 2
 
-    local loadBtn = T:Button(rightCol, {
+    local loadBtn = T:Button(presetPanel, {
         text = L["RG_Load"],
         width = btnW,
         height = 22,
         onClick = needsSelection(function(name)
             local preset = RaidGroups:GetPresetByName(name)
             if preset then
-                RaidGroups:LoadPresetIntoSlots(preset.data)
+                RaidGroups:LoadPresetIntoSlots(preset.data, preset.note)
             end
         end)
     })
     loadBtn.frame:SetPoint("TOPLEFT", presetDropdown.frame, "BOTTOMLEFT", 0, -6)
 
-    local saveBtn = T:Button(rightCol, {
+    local saveBtn = T:Button(presetPanel, {
         text = L["RG_SaveAsPreset"],
         width = btnW,
         height = 22,
         onClick = function()
-            ART.RaidGroupsUI:ShowSavePresetPrompt(RaidGroups._editor)
+            ART.RaidGroupsUI:ShowSavePresetPrompt(RaidGroups._editor, function(name)
+                RaidGroups._selectedPreset = name
+                RaidGroups:RefreshPresetList(name)
+            end)
         end
     })
     saveBtn.frame:SetPoint("LEFT", loadBtn.frame, "RIGHT", 4, 0)
 
-    local renameBtn = T:Button(rightCol, {
+    local renameBtn = T:Button(presetPanel, {
         text = L["RG_Rename"],
         width = btnW,
         height = 22,
@@ -1004,7 +1075,7 @@ function RaidGroups:BuildEditor()
     })
     renameBtn.frame:SetPoint("TOPLEFT", loadBtn.frame, "BOTTOMLEFT", 0, -4)
 
-    local deleteBtn = T:Button(rightCol, {
+    local deleteBtn = T:Button(presetPanel, {
         text = L["RG_Delete"],
         width = btnW,
         height = 22,
@@ -1014,17 +1085,27 @@ function RaidGroups:BuildEditor()
     })
     deleteBtn.frame:SetPoint("LEFT", renameBtn.frame, "RIGHT", 4, 0)
 
-    local importBtn = T:Button(rightCol, {
+    local importBtn = T:Button(presetPanel, {
         text = L["Import"],
         width = btnW,
         height = 22,
         onClick = function()
-            ART.RaidGroupsUI:ShowImportPrompt(RaidGroups._editor)
+            ART.RaidGroupsUI:ShowImportPrompt(RaidGroups._editor, function(name)
+                if not name then
+                    return
+                end
+                RaidGroups._selectedPreset = name
+                RaidGroups:RefreshPresetList(name)
+                local preset = RaidGroups:GetPresetByName(name)
+                if preset then
+                    RaidGroups:LoadPresetIntoSlots(preset.data, preset.note)
+                end
+            end)
         end
     })
     importBtn.frame:SetPoint("TOPLEFT", renameBtn.frame, "BOTTOMLEFT", 0, -4)
 
-    local exportBtn = T:Button(rightCol, {
+    local exportBtn = T:Button(presetPanel, {
         text = L["Export"],
         width = btnW,
         height = 22,
@@ -1033,6 +1114,33 @@ function RaidGroups:BuildEditor()
         end)
     })
     exportBtn.frame:SetPoint("LEFT", importBtn.frame, "RIGHT", 4, 0)
+
+    local notePanel = createContentPanel(f)
+    notePanel:SetPoint("TOPLEFT", presetPanel, "BOTTOMLEFT", 0, -PANEL_GAP)
+    notePanel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -OUTER_PAD, CONTENT_BOTTOM)
+
+    local noteHeader = T:Label(notePanel, {
+        text = "Main Note"
+    })
+    noteHeader.frame:SetPoint("TOPLEFT", notePanel, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
+
+    local noteEditor = T:MultilineEditBox(notePanel, {
+        lines = 16,
+        get = function()
+            return RaidGroups:GetEditorNote()
+        end,
+        onTextChanged = function(text, userInput)
+            if userInput then
+                RaidGroups._assignmentNote = text or ""
+            end
+        end
+    })
+    noteEditor.frame:SetPoint("TOPLEFT", noteHeader.frame, "BOTTOMLEFT", 0, -4)
+    noteEditor.frame:SetPoint("BOTTOMRIGHT", notePanel, "BOTTOMRIGHT", -PANEL_PAD, PANEL_PAD)
+    noteEditor.box:ClearAllPoints()
+    noteEditor.box:SetPoint("TOPLEFT", noteEditor.frame, "TOPLEFT", 0, 0)
+    noteEditor.box:SetPoint("BOTTOMRIGHT", noteEditor.frame, "BOTTOMRIGHT", 0, 0)
+    f._noteEditor = noteEditor
 
     local presetBtns = {loadBtn, saveBtn, renameBtn, deleteBtn, importBtn, exportBtn}
     local function fitPresetButtons()
@@ -1045,9 +1153,9 @@ function RaidGroups:BuildEditor()
 
     -- action buttons
     local actionBar = CreateFrame("Frame", nil, f)
-    actionBar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 10)
-    actionBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 10)
-    actionBar:SetHeight(40)
+    actionBar:SetPoint("BOTTOMLEFT", centreCol, "BOTTOMLEFT", PANEL_PAD + rosterLabelW, PANEL_PAD)
+    actionBar:SetPoint("BOTTOMRIGHT", centreCol, "BOTTOMRIGHT", -PANEL_PAD, PANEL_PAD)
+    actionBar:SetHeight(32)
 
     local getRosterBtn = T:Button(actionBar, {
         text = L["RG_GetRoster"],
@@ -1060,7 +1168,7 @@ function RaidGroups:BuildEditor()
     getRosterBtn.frame:SetPoint("LEFT", actionBar, "LEFT", 0, 0)
 
     local applyBtn = T:Button(actionBar, {
-        text = L["RG_ApplyGroups"],
+        text = L["RG_ApplyAssignment"],
         width = 130,
         height = 26,
         onClick = function()
@@ -1108,6 +1216,9 @@ function RaidGroups:BuildEditor()
     end
     fitActionButtons()
     f:HookScript("OnShow", fitActionButtons)
+    f:HookScript("OnShow", function()
+        RaidGroups:RefreshAssignmentNoteEditor()
+    end)
 
     -- populate preset list
     self:RefreshPresetList()
@@ -1117,9 +1228,7 @@ function RaidGroups:BuildEditor()
         RaidGroups:PopulateNameList()
         RaidGroups:UpdateSlotTints()
         RaidGroups:RefreshPresetList()
-        if RaidGroups._nameListFrame then
-            RaidGroups._nameListFrame:SetShown(f._listSource ~= nil)
-        end
+        setAvailableListShown(f._listSource ~= nil)
     end)
     f:SetScript("OnHide", function()
         stopDragPreview(RaidGroups)
@@ -1130,6 +1239,7 @@ function RaidGroups:BuildEditor()
             f._guildChk.SetChecked(false)
         end
         f._listSource = nil
+        setAvailableListShown(false)
     end)
 
     return f
@@ -1236,4 +1346,5 @@ editorEvents:RegisterMessage("ART_MEDIA_UPDATED", function()
     if sharedSlotEditBox then
         applyEditBoxFont(sharedSlotEditBox)
     end
+    RaidGroups:UpdateSlotTints()
 end)
