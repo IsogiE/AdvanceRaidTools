@@ -6,7 +6,7 @@ local TEXT_PADDING_Y = 18
 local VISUAL_ANCHOR_WIDTH = 520
 
 E:RegisterModuleDefaults("BossMods_AssignmentReminders", {
-    enabled = false,
+    enabled = true,
     position = {
         point = "CENTER",
         x = 0,
