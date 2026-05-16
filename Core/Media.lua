@@ -32,6 +32,9 @@ local function scheduleLSMSweep()
         if Home and Home.SyncMediaTable then
             Home:SyncMediaTable()
         end
+        if E.RebuildImagePools then
+            E:RebuildImagePools()
+        end
         if E.UpdateMedia then
             E:UpdateMedia()
         elseif E.SendMessage then

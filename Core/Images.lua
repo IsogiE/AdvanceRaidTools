@@ -1,7 +1,10 @@
 local E = unpack(ART)
 
 local pools = {}
+local HASH_MOD = 2147483647
 local random = math.random
+local sort = table.sort
+local byte = string.byte
 
 function E:RegisterImagePool(name, spec)
     if type(name) ~= "string" or name == "" then
@@ -22,6 +25,31 @@ function E:RebuildImagePool(name)
     if spec then
         spec._cached = nil
     end
+end
+
+function E:RebuildImagePools()
+    for _, spec in pairs(pools) do
+        spec._cached = nil
+    end
+end
+
+local function entrySortKey(entry)
+    if type(entry) == "string" or type(entry) == "number" then
+        return tostring(entry)
+    end
+    if type(entry) ~= "table" then
+        return tostring(entry)
+    end
+    local key = entry.key or entry.name or entry[4]
+    local path = entry[1] or entry.path
+    local w = entry[2] or entry.w
+    local h = entry[3] or entry.h
+    return ("%s\001%s\001%s\001%s"):format(tostring(key or path or ""), tostring(path or ""), tostring(w or ""),
+        tostring(h or ""))
+end
+
+local function entryLess(a, b)
+    return entrySortKey(a) < entrySortKey(b)
 end
 
 local function discover(spec)
@@ -46,15 +74,16 @@ local function discover(spec)
                     if type(lsmName) == "string" and lsmName:sub(1, plen) == prefix then
                         local d = dims[lsmName]
                         if d then
-                            list[#list + 1] = {path, d.w, d.h}
+                            list[#list + 1] = {path, d.w, d.h, key = lsmName}
                         else
-                            list[#list + 1] = path
+                            list[#list + 1] = {path, key = lsmName}
                         end
                     end
                 end
             end
         end
     end
+    sort(list, entryLess)
     spec._cached = list
     return list
 end
@@ -73,6 +102,33 @@ local function applyCap(spec, w, h)
     return math.floor(w * s + 0.5), math.floor(h * s + 0.5)
 end
 
+local function resolveEntry(spec, entry)
+    local path, w, h
+    if type(entry) == "string" or type(entry) == "number" then
+        path, w, h = entry, spec.w, spec.h
+    elseif type(entry) == "table" then
+        path = entry[1] or entry.path
+        w = entry[2] or entry.w or spec.w
+        h = entry[3] or entry.h or spec.h
+    else
+        return nil
+    end
+    if type(path) ~= "string" and type(path) ~= "number" then
+        return nil
+    end
+    w, h = applyCap(spec, w, h)
+    return path, w, h
+end
+
+local function hashSeed(seed)
+    seed = tostring(seed or "")
+    local hash = 5381
+    for i = 1, #seed do
+        hash = ((hash * 33) + byte(seed, i)) % HASH_MOD
+    end
+    return hash
+end
+
 function E:PickRandomImage(name)
     local spec = pools[name]
     if not spec then
@@ -83,18 +139,21 @@ function E:PickRandomImage(name)
         return nil
     end
     local entry = list[random(1, #list)]
-    local path, w, h
-    if type(entry) == "string" then
-        path, w, h = entry, spec.w, spec.h
-    elseif type(entry) == "table" then
-        path = entry[1] or entry.path
-        w = entry[2] or entry.w or spec.w
-        h = entry[3] or entry.h or spec.h
-    else
+    return resolveEntry(spec, entry)
+end
+
+function E:PickImageBySeed(name, seed)
+    local spec = pools[name]
+    if not spec then
         return nil
     end
-    w, h = applyCap(spec, w, h)
-    return path, w, h
+    local list = discover(spec)
+    local count = #list
+    if count == 0 then
+        return nil
+    end
+    local entry = list[(hashSeed(seed) % count) + 1]
+    return resolveEntry(spec, entry)
 end
 
 _G.ART_Media = _G.ART_Media or {}

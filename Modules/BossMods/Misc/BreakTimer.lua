@@ -16,6 +16,7 @@ E:RegisterModuleDefaults("BossMods_BreakTimer", {
 local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
 
 local IMAGE_POOL = "Dreams"
+local IMAGE_SEED_BUCKET_SECONDS = 10
 local TIMER_GAP = 8
 local TICK_INTERVAL = 0.1
 local PREVIEW_DURATION = 300
@@ -29,6 +30,14 @@ local function formatTime(seconds)
     local m = math.floor(seconds / 60)
     local s = math.floor(seconds % 60)
     return string.format("%d:%02d", m, s)
+end
+
+-- Use the break's server-side end time so bar replays after loading screens keep the same image.
+local function makeImageSeed(duration)
+    local serverNow = GetServerTime and GetServerTime() or time()
+    local serverEnd = serverNow + (tonumber(duration) or 0)
+    local serverEndBucket = math.floor((serverEnd + (IMAGE_SEED_BUCKET_SECONDS / 2)) / IMAGE_SEED_BUCKET_SECONDS)
+    return ("break:%d"):format(serverEndBucket)
 end
 
 local function getBigWigsBreakBarText()
@@ -150,7 +159,7 @@ function Mod:Start(_, duration)
     if not duration or duration <= 0 then
         return
     end
-    if not self:Show() then
+    if not self:Show(makeImageSeed(duration)) then
         return
     end
     self.endTime = GetTime() + duration
@@ -168,8 +177,13 @@ function Mod:Stop()
     end
 end
 
-function Mod:Show()
-    local imgPath, imgW, imgH = E:PickRandomImage(IMAGE_POOL)
+function Mod:Show(seed)
+    local imgPath, imgW, imgH
+    if seed then
+        imgPath, imgW, imgH = E:PickImageBySeed(IMAGE_POOL, seed)
+    else
+        imgPath, imgW, imgH = E:PickRandomImage(IMAGE_POOL)
+    end
     if not imgPath or not imgW or not imgH or imgW <= 0 or imgH <= 0 then
         return false
     end

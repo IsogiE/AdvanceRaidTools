@@ -7,7 +7,7 @@
 ## AddonCompartmentFunc: ART_OnAddonCompartmentClick
 ## IconTexture: Interface\AddOns\AdvanceRaidTools\Media\Textures\Logo
 ## LoadManagers: AddonLoader
-## RequiredDeps: AdvanceRaidTools_Libraries
+## RequiredDeps: AdvanceRaidTools_Libraries, BigWigs
 ## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, AdvanceRaidTools_Media
 ## DefaultState: enabled
 ## Category: Advance
