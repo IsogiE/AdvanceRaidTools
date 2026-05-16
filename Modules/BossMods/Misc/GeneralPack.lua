@@ -1,7 +1,7 @@
 local E, L = unpack(ART)
 
 E:RegisterModuleDefaults("BossMods_GeneralPack", {
-    enabled = false,
+    enabled = true,
     position = {
         point = "CENTER",
         x = 0,
@@ -11,7 +11,7 @@ E:RegisterModuleDefaults("BossMods_GeneralPack", {
         w = 420,
         h = 56
     },
-    transientDuration = 6,
+    transientDuration = 10,
     durabilityThreshold = 0.30,
     summonGlowSeconds = 10,
     font = {
@@ -751,7 +751,7 @@ function Mod:OnReadyCheck()
         local size = (self.db.font.size or 18) + 2
         self:Set("petPassive",
             spellTex(SPELL_PET_GENERIC, size) .. " " .. colorize("ff4040", loc("BossMods_GP_TextPetPassive")),
-            PRIORITY.PET_PASSIVE, self.db.transientDuration or 6)
+            PRIORITY.PET_PASSIVE, self.db.transientDuration or 10)
     end
 
     if self:WantAlert("applySoulstone") then
@@ -760,7 +760,7 @@ function Mod:OnReadyCheck()
             local size = (self.db.font.size or 18) + 2
             self:Set("applySoulstone", spellTex(SPELL_SOULSTONE, size) .. " " ..
                 colorize("aa66ff", loc("BossMods_GP_ApplySoulstone")), PRIORITY.APPLY_SS,
-                self.db.transientDuration or 6)
+                self.db.transientDuration or 10)
         end
     end
 end
@@ -853,7 +853,7 @@ function Mod:HandleChatTrigger(msg, sender)
 
     local _, class = UnitClass("player")
     local size = (self.db.font.size or 18) + 2
-    local hold = self.db.transientDuration or 6
+    local hold = self.db.transientDuration or 10
 
     if msg == hsTrigger then
         if class == "WARLOCK" and self:WantAlert("chatHealthstone") and not isSpellOnCooldown(SPELL_SOULWELL) then
@@ -936,7 +936,7 @@ function Mod:HandleConsumable(kind, sender)
     end
 
     self:Set("consumable_" .. kind, spellTex(meta.spellID, size) .. " " .. label, PRIORITY.CONSUMABLE,
-        self.db.transientDuration or 6)
+        self.db.transientDuration or 10)
 end
 
 function Mod:OnConsumableComm(_, message, _, sender)

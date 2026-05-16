@@ -206,6 +206,33 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     end
 
+    y = section(y, "Tuning")
+    local durSlider = slider({
+        label = L["BossMods_GP_DurabilityThreshold"],
+        min = 0.05,
+        max = 0.95,
+        step = 0.05,
+        isPercent = true,
+        get = function()
+            return mod.db.durabilityThreshold or 0.30
+        end,
+        onChange = function(v)
+            mod.db.durabilityThreshold = v
+        end
+    })
+    local holdSlider = slider({
+        label = L["BossMods_GP_TransientDuration"],
+        min = 2,
+        max = 20,
+        get = function()
+            return mod.db.transientDuration or 10
+        end,
+        onChange = function(v)
+            mod.db.transientDuration = math.floor(v)
+        end
+    })
+    y = row(y, {durSlider, holdSlider})
+
     y = section(y, "Font")
     local fontSize = slider({
         label = (L["Font"] .. " " .. L["Size"]),
@@ -302,33 +329,6 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(y, {borderSize, borderColor})
-
-    y = section(y, "Tuning")
-    local durSlider = slider({
-        label = L["BossMods_GP_DurabilityThreshold"],
-        min = 0.05,
-        max = 0.95,
-        step = 0.05,
-        isPercent = true,
-        get = function()
-            return mod.db.durabilityThreshold or 0.30
-        end,
-        onChange = function(v)
-            mod.db.durabilityThreshold = v
-        end
-    })
-    local holdSlider = slider({
-        label = L["BossMods_GP_TransientDuration"],
-        min = 2,
-        max = 20,
-        get = function()
-            return mod.db.transientDuration or 6
-        end,
-        onChange = function(v)
-            mod.db.transientDuration = math.floor(v)
-        end
-    })
-    y = row(y, {durSlider, holdSlider})
 
     local posNewY, posHandle = T:PositionSection(rightPanel, y, widthPx, {
         anchor = mod.frame,
