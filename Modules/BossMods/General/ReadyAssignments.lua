@@ -316,6 +316,9 @@ function Mod:OnReadyCheck()
     if not self:IsEnabled() or InCombatLockdown() or self.editMode then
         return
     end
+    if not IsInRaid() then
+        return
+    end
 
     local Ready = BM and BM.ReadyAssignments
     local Text = BM and BM.ReadyAssignmentText
