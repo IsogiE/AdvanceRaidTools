@@ -260,20 +260,7 @@ function Mod:RenderEditPreview()
     self:ApplyVisualAnchorStyle()
     self.visualAnchor:Show()
 
-    local Text = BM and BM.ReadyAssignmentText
-    local preview = Text and Text.Compile and Text:Compile({
-        key = "kick",
-        type = "kick",
-        lineIndex = 1,
-        tokenIndex = 3
-    }, {
-        highlightColor = assignmentColor(self)
-    })
-    if preview then
-        self:ShowLines({preview, L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
-    else
-        self:ShowLines({L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
-    end
+    self:ShowLines({L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
 end
 
 function Mod:SetEditMode(v)
