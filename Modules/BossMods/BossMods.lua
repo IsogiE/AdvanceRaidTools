@@ -130,5 +130,9 @@ BossMods:RegisterRaidTab("Voidspire", {
     labelKey = "BossMods_Voidspire",
     order = 30
 })
+BossMods:RegisterRaidTab("Dreamrift", {
+    labelKey = "BossMods_Dreamrift",
+    order = 40
+})
 
 E:FlushModuleFeatureRegistrations("BossMods")

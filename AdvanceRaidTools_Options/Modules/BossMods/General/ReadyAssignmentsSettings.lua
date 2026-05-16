@@ -175,7 +175,18 @@ local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
             mod.db.font.color = {r, g, b, a}
         end
     })
-    y = row(y, {fontColor})
+    local assignmentColor = color({
+        label = L["BossMods_RA_AssignmentColor"],
+        get = function()
+            mod.db.assignment = mod.db.assignment or {}
+            return mod.db.assignment.color or {1, 0.82, 0, 1}
+        end,
+        onChange = function(r, g, b, a)
+            mod.db.assignment = mod.db.assignment or {}
+            mod.db.assignment.color = {r, g, b, a}
+        end
+    })
+    y = row(y, {fontColor, assignmentColor})
 
     y = section(y, "Background")
     local enableBg = checkbox({

@@ -14,6 +14,8 @@
     <Script file="Core\ReadyAssignmentText.lua"/>
     <Script file="Core\ReadyAssignments.lua"/>
     <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
+    <Script file="Raids\Voidspire\ReadyAssignments.lua"/>
+    <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>

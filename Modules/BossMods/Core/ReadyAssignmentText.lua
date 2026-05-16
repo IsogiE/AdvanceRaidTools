@@ -35,19 +35,51 @@ local function ordinal(n)
     return tostring(n) .. "th"
 end
 
-local function fill(template, values)
+local function clampColorChannel(value)
+    value = tonumber(value) or 0
+    if value < 0 then
+        return 0
+    elseif value > 1 then
+        return 1
+    end
+    return value
+end
+
+local function colorCode(color)
+    if type(color) == "string" and color:match("^|c%x%x%x%x%x%x%x%x$") then
+        return color
+    end
+    if type(color) ~= "table" then
+        return nil
+    end
+
+    local r, g, b = E:ColorTuple(color, 1, 0.82, 0, 1)
+    return ("|cff%02x%02x%02x"):format(math.floor(clampColorChannel(r) * 255 + 0.5),
+        math.floor(clampColorChannel(g) * 255 + 0.5), math.floor(clampColorChannel(b) * 255 + 0.5))
+end
+
+local function highlightValue(value, opts)
+    value = tostring(value or "")
+    local code = opts and opts.highlightCode
+    if not code or value == "" then
+        return value
+    end
+    return code .. value .. "|r"
+end
+
+local function fill(template, values, opts)
     if type(template) ~= "string" then
         return nil
     end
     values = values or {}
     return (template:gsub("{([%w_]+):ordinal}", function(key)
-        return ordinal(values[key])
+        return highlightValue(ordinal(values[key]), opts)
     end):gsub("{([%w_]+)}", function(key)
         local value = values[key]
         if value == nil then
             return ""
         end
-        return tostring(value)
+        return highlightValue(value, opts)
     end))
 end
 
@@ -188,6 +220,7 @@ local function prepareReminder(def)
             meta.itemKey = meta.itemKey or def.itemKey or sheet
             meta.itemLabelKey = meta.itemLabelKey or def.itemLabelKey or def.labelKey
             meta.itemOrder = meta.itemOrder or def.itemOrder or def.order
+            meta.noteBlockSeparator = meta.noteBlockSeparator or def.noteBlockSeparator or def.blockSeparator
             REGISTRY.sheetMeta[sheet] = meta
         end
     end
@@ -310,7 +343,8 @@ function Text:GetSheets(standaloneOnly)
                 bossOrder = meta.bossOrder,
                 itemKey = meta.itemKey,
                 itemLabelKey = meta.itemLabelKey,
-                itemOrder = meta.itemOrder
+                itemOrder = meta.itemOrder,
+                noteBlockSeparator = meta.noteBlockSeparator
             }
         end
     end
@@ -396,7 +430,7 @@ end
 
 Text:Register(REGISTRY.fallback.key or REGISTRY.fallbackKey, REGISTRY.fallback)
 
-function Text:Compile(reminder)
+function Text:Compile(reminder, opts)
     if type(reminder) ~= "table" then
         return nil
     end
@@ -406,25 +440,28 @@ function Text:Compile(reminder)
     end
 
     local def = self:GetDefinitionForReminder(reminder)
+    local fillOpts = {
+        highlightCode = colorCode(opts and opts.highlightColor)
+    }
     if def and type(def.textKey) == "string" and def.textKey ~= "" then
-        return withNicknames(fill(loc(def.textKey), self:BuildValues(def, reminder)))
+        return withNicknames(fill(loc(def.textKey), self:BuildValues(def, reminder), fillOpts))
     end
 
     if type(reminder.textKey) == "string" and reminder.textKey ~= "" then
-        return withNicknames(fill(loc(reminder.textKey), self:BuildValues(reminder, reminder)))
+        return withNicknames(fill(loc(reminder.textKey), self:BuildValues(reminder, reminder), fillOpts))
     end
 
     return nil
 end
 
-function Text:CompileAll(reminders)
+function Text:CompileAll(reminders, opts)
     local out = {}
     if type(reminders) ~= "table" then
         return out
     end
 
     for _, reminder in ipairs(reminders) do
-        local line = self:Compile(reminder)
+        local line = self:Compile(reminder, opts)
         if line and line ~= "" then
             out[#out + 1] = line
         end

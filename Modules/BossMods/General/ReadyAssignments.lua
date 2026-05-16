@@ -26,6 +26,9 @@ E:RegisterModuleDefaults("BossMods_AssignmentReminders", {
         outline = "OUTLINE",
         color = {1, 1, 1, 1}
     },
+    assignment = {
+        color = {1, 0.82, 0, 1}
+    },
     background = {
         enabled = true,
         color = {0, 0, 0},
@@ -77,6 +80,10 @@ local function buildAlertConfig(mod)
             color = mod.db.font.color
         }
     }
+end
+
+local function assignmentColor(mod)
+    return mod and mod.db and mod.db.assignment and mod.db.assignment.color or {1, 0.82, 0, 1}
 end
 
 local function registerDefaultReminders()
@@ -252,7 +259,21 @@ function Mod:RenderEditPreview()
     self:EnsureVisualAnchor()
     self:ApplyVisualAnchorStyle()
     self.visualAnchor:Show()
-    self:ShowLines({L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
+
+    local Text = BM and BM.ReadyAssignmentText
+    local preview = Text and Text.Compile and Text:Compile({
+        key = "kick",
+        type = "kick",
+        lineIndex = 1,
+        tokenIndex = 3
+    }, {
+        highlightColor = assignmentColor(self)
+    })
+    if preview then
+        self:ShowLines({preview, L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
+    else
+        self:ShowLines({L["BossMods_RA_TextPreview"] or "Assignment Reminders - drag to move"}, 0)
+    end
 end
 
 function Mod:SetEditMode(v)
@@ -338,7 +359,9 @@ function Mod:OnReadyCheck()
     end
 
     local reminders = Ready:Collect(ctx)
-    local lines = Text:CompileAll(reminders)
+    local lines = Text:CompileAll(reminders, {
+        highlightColor = assignmentColor(self)
+    })
     self:ShowLines(lines, self.db.duration or 15)
 end
 
@@ -390,7 +413,8 @@ for _, sheet in ipairs(getCatalogSheets(ReadyText)) do
             bossOrder = sheet.bossOrder,
             itemKey = sheet.itemKey,
             itemLabelKey = sheet.itemLabelKey,
-            itemOrder = sheet.itemOrder
+            itemOrder = sheet.itemOrder,
+            blockSeparator = sheet.noteBlockSeparator
         })
     end
 end

@@ -322,7 +322,8 @@ function NoteBlock:RegisterNoteBlock(key, opts)
         bossOrder = opts.bossOrder,
         itemKey = opts.itemKey,
         itemLabelKey = opts.itemLabelKey,
-        itemOrder = opts.itemOrder
+        itemOrder = opts.itemOrder,
+        blockSeparator = opts.blockSeparator or opts.noteBlockSeparator
     })
 end
 
@@ -404,7 +405,11 @@ function NoteBlock:BuildBlockTemplate(entry, seen)
         end
     end
 
-    return table.concat(out, "\n\n")
+    local separator = entry.blockSeparator
+    if type(separator) ~= "string" then
+        separator = "\n\n"
+    end
+    return table.concat(out, separator)
 end
 
 function NoteBlock:GetRegisteredNoteBlocks()

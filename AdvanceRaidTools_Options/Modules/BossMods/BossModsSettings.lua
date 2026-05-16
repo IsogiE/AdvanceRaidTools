@@ -446,7 +446,9 @@ local function buildBossModsPanel()
 
     local tabs = {}
     for _, tab in ipairs(BossMods:GetTabs()) do
-        tabs[tab.key] = buildTabGroup(tab)
+        if #BossMods:GetFeaturesForTab(tab.key) > 0 then
+            tabs[tab.key] = buildTabGroup(tab)
+        end
     end
 
     return {
