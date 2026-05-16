@@ -1762,7 +1762,7 @@ local function buildMainFrame()
     f:SetPoint("CENTER")
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
-    f:SetClampedToScreen(true)
+    f:SetClampedToScreen(false)
     f:EnableMouse(true)
     f:SetMovable(true)
     tinsert(UISpecialFrames, "ARTOptionsFrame")
@@ -2221,6 +2221,16 @@ end
 
 function ART_UI:GetMainFrame()
     return self.mainFrame
+end
+
+function ART_UI:ResetWindowPosition()
+    local frame = self.mainFrame
+    if not frame then
+        return
+    end
+    frame:StopMovingOrSizing()
+    frame:ClearAllPoints()
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 end
 
 local UIEvents = E:NewCallbackHandle()

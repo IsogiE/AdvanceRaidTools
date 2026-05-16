@@ -6,6 +6,7 @@ local function printHelp()
     E:Printf("  /art map        %s", L["SlashHelpMap"])
     E:Printf("  /art pi         %s", L["SlashHelpPI"])
     E:Printf("  /art innervate  %s", L["SlashHelpInnervate"])
+    E:Printf("  /art reset      reset options window position")
     E:Printf("  /art help       %s", L["SlashHelpHelp"])
 end
 
@@ -118,6 +119,23 @@ local function toggleNoteDisplay(slotIndex)
 
     local active = not mod:IsSlotActive(slotIndex)
     mod:SetSlotActive(slotIndex, active)
+end
+
+local function resetOptionsWindowPosition()
+    if not E:EnsureOptions() then
+        return
+    end
+
+    if E.InitializeOptionsUI then
+        E:InitializeOptionsUI()
+    end
+
+    if E.OptionsUI and E.OptionsUI.ResetWindowPosition then
+        E.OptionsUI:ResetWindowPosition()
+        if E.OptionsUI.Show then
+            E.OptionsUI:Show()
+        end
+    end
 end
 
 local function printDebugList()
@@ -236,6 +254,8 @@ local function handler(input)
         toggleNoteDisplay(1)
     elseif verb == "pnote" then
         toggleNoteDisplay(2)
+    elseif verb == "reset" then
+        resetOptionsWindowPosition()
     elseif spellCommand then
         defaultSpellTargetHandler(spellCommand)
     elseif verb == "help" then
