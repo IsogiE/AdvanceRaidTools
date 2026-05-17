@@ -343,7 +343,7 @@ local function savedPresetsArgs()
                         local preset = selectedPresetData()
                         if preset then
                             local m = Mod()
-                            m:LoadPresetIntoSlots(preset.data, preset.note)
+                            m:LoadPresetIntoSlots(preset.data, preset.note, preset.name)
                         end
                     end
                 })

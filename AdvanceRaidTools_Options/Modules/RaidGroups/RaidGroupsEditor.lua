@@ -737,16 +737,16 @@ function RaidGroups:GetRosterExportString()
     return tconcat(out, "\n")
 end
 
-function RaidGroups:LoadPresetIntoSlots(dataString, note)
+function RaidGroups:LoadPresetIntoSlots(dataString, note, presetName)
     if not self._slots or not dataString then
-        return
+        return false
     end
     local assignment, err = self:PresetStringToAssignment(dataString)
     if not assignment then
         if err then
             E:Printf(err)
         end
-        return
+        return false
     end
     local groups = assignment.groups
     if note == nil then
@@ -768,6 +768,12 @@ function RaidGroups:LoadPresetIntoSlots(dataString, note)
     self:SetEditorNote(note or "")
     self:PopulateNameList()
     self:UpdateSlotTints()
+    if presetName then
+        self._selectedPreset = presetName
+        self._loadedPreset = presetName
+        self:RefreshPresetList(presetName)
+    end
+    return true
 end
 
 function RaidGroups:SaveCurrentSlotsAsPreset(name)
@@ -987,7 +993,7 @@ function RaidGroups:BuildEditor()
     -- presets
     local presetPanel = createContentPanel(f)
     presetPanel:SetPoint("TOPLEFT", centreCol, "TOPRIGHT", PANEL_GAP, 0)
-    presetPanel:SetSize(sideW, 144)
+    presetPanel:SetSize(sideW, 170)
 
     local presetHeader = T:Label(presetPanel, {
         text = "Assignment Presets"
@@ -995,6 +1001,9 @@ function RaidGroups:BuildEditor()
     presetHeader.frame:SetPoint("TOPLEFT", presetPanel, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
 
     self._selectedPreset = self._selectedPreset or nil
+    self._loadedPreset = self._loadedPreset or nil
+    local refreshPresetButtons = function()
+    end
 
     local presetDropdown = T:Dropdown(presetPanel, {
         placeholder = L["RG_SelectPreset"],
@@ -1016,6 +1025,10 @@ function RaidGroups:BuildEditor()
         end,
         onChange = function(key)
             RaidGroups._selectedPreset = key
+            if RaidGroups._loadedPreset ~= key then
+                RaidGroups._loadedPreset = nil
+            end
+            refreshPresetButtons()
         end,
         buttonHeight = 24
     })
@@ -1024,7 +1037,17 @@ function RaidGroups:BuildEditor()
     f._presetDropdown = presetDropdown
 
     local function currentPresetName()
-        return RaidGroups._selectedPreset
+        local name = RaidGroups._selectedPreset
+        if name and RaidGroups:GetPresetByName(name) then
+            return name
+        end
+    end
+
+    local function currentLoadedPresetName()
+        local name = RaidGroups._loadedPreset
+        if name and name == RaidGroups._selectedPreset and RaidGroups:GetPresetByName(name) then
+            return name
+        end
     end
 
     local function needsSelection(fn)
@@ -1046,7 +1069,7 @@ function RaidGroups:BuildEditor()
         onClick = needsSelection(function(name)
             local preset = RaidGroups:GetPresetByName(name)
             if preset then
-                RaidGroups:LoadPresetIntoSlots(preset.data, preset.note)
+                RaidGroups:LoadPresetIntoSlots(preset.data, preset.note, name)
             end
         end)
     })
@@ -1059,6 +1082,7 @@ function RaidGroups:BuildEditor()
         onClick = function()
             ART.RaidGroupsUI:ShowSavePresetPrompt(RaidGroups._editor, function(name)
                 RaidGroups._selectedPreset = name
+                RaidGroups._loadedPreset = name
                 RaidGroups:RefreshPresetList(name)
             end)
         end
@@ -1070,7 +1094,14 @@ function RaidGroups:BuildEditor()
         width = btnW,
         height = 22,
         onClick = needsSelection(function(name)
-            ART.RaidGroupsUI:ShowRenamePrompt(RaidGroups._editor, name)
+            local wasLoaded = RaidGroups._loadedPreset == name
+            ART.RaidGroupsUI:ShowRenamePrompt(RaidGroups._editor, name, function(newName)
+                RaidGroups._selectedPreset = newName
+                if wasLoaded then
+                    RaidGroups._loadedPreset = newName
+                end
+                RaidGroups:RefreshPresetList(newName)
+            end)
         end)
     })
     renameBtn.frame:SetPoint("TOPLEFT", loadBtn.frame, "BOTTOMLEFT", 0, -4)
@@ -1080,7 +1111,12 @@ function RaidGroups:BuildEditor()
         width = btnW,
         height = 22,
         onClick = needsSelection(function(name)
-            ART.RaidGroupsUI:ShowDeleteConfirm(RaidGroups._editor, name)
+            ART.RaidGroupsUI:ShowDeleteConfirm(RaidGroups._editor, name, function()
+                if RaidGroups._loadedPreset == name then
+                    RaidGroups._loadedPreset = nil
+                end
+                RaidGroups:RefreshPresetList()
+            end)
         end)
     })
     deleteBtn.frame:SetPoint("LEFT", renameBtn.frame, "RIGHT", 4, 0)
@@ -1098,7 +1134,7 @@ function RaidGroups:BuildEditor()
                 RaidGroups:RefreshPresetList(name)
                 local preset = RaidGroups:GetPresetByName(name)
                 if preset then
-                    RaidGroups:LoadPresetIntoSlots(preset.data, preset.note)
+                    RaidGroups:LoadPresetIntoSlots(preset.data, preset.note, name)
                 end
             end)
         end
@@ -1114,6 +1150,32 @@ function RaidGroups:BuildEditor()
         end)
     })
     exportBtn.frame:SetPoint("LEFT", importBtn.frame, "RIGHT", 4, 0)
+
+    local saveCurrentBtn = T:Button(presetPanel, {
+        text = L["RG_SaveCurrentPreset"],
+        width = sideW - PANEL_PAD * 2,
+        height = 22,
+        disabled = function()
+            return currentLoadedPresetName() == nil
+        end,
+        onClick = function()
+            local name = currentLoadedPresetName()
+            if not name then
+                return
+            end
+            local ok, err = RaidGroups:SaveCurrentSlotsAsPreset(name)
+            if not ok then
+                if err then
+                    E:Printf(err)
+                end
+                return
+            end
+            RaidGroups._selectedPreset = name
+            RaidGroups._loadedPreset = name
+            RaidGroups:RefreshPresetList(name)
+        end
+    })
+    saveCurrentBtn.frame:SetPoint("TOPLEFT", importBtn.frame, "BOTTOMLEFT", 0, -4)
 
     local notePanel = createContentPanel(f)
     notePanel:SetPoint("TOPLEFT", presetPanel, "BOTTOMLEFT", 0, -PANEL_GAP)
@@ -1142,10 +1204,22 @@ function RaidGroups:BuildEditor()
     noteEditor.box:SetPoint("BOTTOMRIGHT", noteEditor.frame, "BOTTOMRIGHT", 0, 0)
     f._noteEditor = noteEditor
 
-    local presetBtns = {loadBtn, saveBtn, renameBtn, deleteBtn, importBtn, exportBtn}
+    local presetBtns = {loadBtn, saveBtn, renameBtn, deleteBtn, importBtn, exportBtn, saveCurrentBtn}
+    refreshPresetButtons = function()
+        for _, b in ipairs(presetBtns) do
+            if b.Refresh then
+                b.Refresh()
+            end
+        end
+    end
+    f._refreshPresetButtons = refreshPresetButtons
     local function fitPresetButtons()
         for _, b in ipairs(presetBtns) do
-            b.frame:SetWidth(btnW)
+            if b == saveCurrentBtn then
+                b.frame:SetWidth(sideW - PANEL_PAD * 2)
+            else
+                b.frame:SetWidth(btnW)
+            end
         end
     end
     fitPresetButtons()
@@ -1258,8 +1332,14 @@ function RaidGroups:RefreshPresetList(touchedName)
         local first = self:GetPresets()[1]
         self._selectedPreset = first and first.name or nil
     end
+    if self._loadedPreset and not self:GetPresetByName(self._loadedPreset) then
+        self._loadedPreset = nil
+    end
 
     f._presetDropdown.Refresh()
+    if f._refreshPresetButtons then
+        f._refreshPresetButtons()
+    end
 end
 
 function RaidGroups:OpenEditor()
