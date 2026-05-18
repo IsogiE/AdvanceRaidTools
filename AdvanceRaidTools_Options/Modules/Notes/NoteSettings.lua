@@ -12,12 +12,15 @@ local displayingSlot = MAIN_SLOT
 
 local selectedBossModRaid
 local selectedBossModBoss
+local EXTERNAL_NOTE_ACCESS_ORDER = {"ALWAYS", "RAID", "PARTY"}
+local WIPE_NOTE_ON_GROUP_LEAVE_ORDER = {"NONE", "MAIN", "PERSONAL", "BOTH"}
 
 -- Track the last-committed text per slot
 local lastCommittedText = {}
 
 -- Cached reference
 local editorRef
+local reloadEditor
 
 local function optionsResizeActive()
     return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
@@ -37,7 +40,18 @@ NoteEvents:RegisterMessage("ART_NOTE_SLOT_ACTIVE_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTES_LOCK_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTES_EDIT_MODE_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_NOTE_RECEIVED", refreshPanel)
-NoteEvents:RegisterMessage("ART_NOTE_CHANGED", refreshPanel)
+NoteEvents:RegisterMessage("ART_NOTE_CHANGED", function(_, slotIndex)
+    local mod = E:GetModule("Notes", true)
+    local idx = tonumber(slotIndex)
+    if mod and idx == editingSlot and reloadEditor then
+        local text = mod:GetSlotText(idx) or ""
+        local editorText = editorRef and editorRef.GetText and editorRef.GetText()
+        if lastCommittedText[idx] ~= text or editorText ~= text then
+            reloadEditor(mod)
+        end
+    end
+    refreshPanel()
+end)
 NoteEvents:RegisterMessage("ART_NICKNAME_CHANGED", refreshPanel)
 NoteEvents:RegisterMessage("ART_OPTIONS_HIDDEN", function()
     local mod = E:GetModule("Notes", true)
@@ -80,7 +94,7 @@ local function clampDisplayingSlot(mod)
 end
 
 -- Force-reload the editor's text from the current slot's raw text
-local function reloadEditor(mod)
+reloadEditor = function(mod)
     local idx = clampEditingSlot(mod)
     local text = mod:GetSlotText(idx) or ""
     lastCommittedText[idx] = text
@@ -135,6 +149,23 @@ local function localizedLabel(labelKey, fallback)
         return L[labelKey] or labelKey
     end
     return fallback
+end
+
+local function externalNoteAccessValues()
+    return {
+        ALWAYS = L["Always"],
+        RAID = L["InRaid"],
+        PARTY = L["InParty"]
+    }
+end
+
+local function wipeNoteOnGroupLeaveValues()
+    return {
+        NONE = L["No"],
+        MAIN = L["Notes_MainNote"],
+        PERSONAL = L["Notes_PersonalTag"],
+        BOTH = L["Both"]
+    }
 end
 
 local function bossModNoteEntries()
@@ -1790,6 +1821,48 @@ local function buildDisplayArgs(mod, isModuleDisabled)
     return args
 end
 
+local function buildIntegrationsArgs(mod, isModuleDisabled)
+    return {
+        header = {
+            type = "header",
+            order = 1,
+            name = L["Integrations"]
+        },
+        externalNoteAccess = {
+            type = "select",
+            order = 10,
+            width = "1/2",
+            name = L["Notes_ExternalNoteAccess"],
+            desc = L["Notes_ExternalNoteAccessDesc"],
+            values = externalNoteAccessValues,
+            sorting = EXTERNAL_NOTE_ACCESS_ORDER,
+            get = function()
+                return mod:GetExternalAddonNoteAccess()
+            end,
+            set = function(_, v)
+                mod:SetExternalAddonNoteAccess(v)
+            end,
+            disabled = isModuleDisabled
+        },
+        wipeNoteOnGroupLeave = {
+            type = "select",
+            order = 20,
+            width = "1/2",
+            name = L["Notes_WipeNoteOnGroupLeave"],
+            desc = L["Notes_WipeNoteOnGroupLeaveDesc"],
+            values = wipeNoteOnGroupLeaveValues,
+            sorting = WIPE_NOTE_ON_GROUP_LEAVE_ORDER,
+            get = function()
+                return mod:GetWipeNoteOnGroupLeave()
+            end,
+            set = function(_, v)
+                mod:SetWipeNoteOnGroupLeave(v)
+            end,
+            disabled = isModuleDisabled
+        }
+    }
+end
+
 -- Panel core
 
 local function buildNotesPanel()
@@ -1849,6 +1922,12 @@ local function buildNotesPanel()
                 order = 2,
                 name = L["Display"],
                 args = buildDisplayArgs(mod, isModuleDisabled)
+            },
+            integrations = {
+                type = "group",
+                order = 3,
+                name = L["Integrations"],
+                args = buildIntegrationsArgs(mod, isModuleDisabled)
             }
         }
     }

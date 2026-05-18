@@ -8,6 +8,27 @@ local DEFAULT_FRAME_W, DEFAULT_FRAME_H = 300, 200
 local MIN_FRAME_W, MIN_FRAME_H = 160, 80
 local MAX_SPELL_ICON = 40
 local DEFAULT_SPELL_ICON = 16
+local EXTERNAL_NOTE_ACCESS_ALWAYS = "ALWAYS"
+local EXTERNAL_NOTE_ACCESS_RAID = "RAID"
+local EXTERNAL_NOTE_ACCESS_PARTY = "PARTY"
+local EXTERNAL_NOTE_ACCESS_SOLO = "SOLO"
+local EXTERNAL_NOTE_ACCESS_DEFAULT = EXTERNAL_NOTE_ACCESS_ALWAYS
+local VALID_EXTERNAL_NOTE_ACCESS = {
+    [EXTERNAL_NOTE_ACCESS_ALWAYS] = true,
+    [EXTERNAL_NOTE_ACCESS_RAID] = true,
+    [EXTERNAL_NOTE_ACCESS_PARTY] = true
+}
+local WIPE_NOTE_TARGET_NONE = "NONE"
+local WIPE_NOTE_TARGET_MAIN = "MAIN"
+local WIPE_NOTE_TARGET_PERSONAL = "PERSONAL"
+local WIPE_NOTE_TARGET_BOTH = "BOTH"
+local WIPE_NOTE_TARGET_DEFAULT = WIPE_NOTE_TARGET_NONE
+local VALID_WIPE_NOTE_TARGET = {
+    [WIPE_NOTE_TARGET_NONE] = true,
+    [WIPE_NOTE_TARGET_MAIN] = true,
+    [WIPE_NOTE_TARGET_PERSONAL] = true,
+    [WIPE_NOTE_TARGET_BOTH] = true
+}
 
 local DEFAULT_TIMER_COLOR = {
     r = 1,
@@ -96,6 +117,10 @@ E:RegisterModuleDefaults("Notes", {
     display = {
         -- Per-slot lock lives on slot.display.locked
         strata = "MEDIUM"
+    },
+    integrations = {
+        externalNoteAccess = EXTERNAL_NOTE_ACCESS_DEFAULT,
+        wipeNoteOnGroupLeave = WIPE_NOTE_TARGET_DEFAULT
     }
 })
 
@@ -117,6 +142,8 @@ Notes.editVisibleSlots = {} -- [slotIndex] = true while the options UI is tempor
 Notes.receiveGlowFrames = {} -- [slotIndex] = UIParent overlay used so receive flash can show while note frame is hidden
 Notes._isResizing = false -- true only while a user is dragging a frame's resize grip
 Notes._resizingFrame = nil -- the frame currently being drag-resized; scopes the OnBackdropSizeChanged gate
+Notes._externalNoteAccessGroupState = nil
+Notes._externalNoteAccessExposed = nil
 
 local GetTime = GetTime
 local GetSpellTexture = C_Spell and C_Spell.GetSpellTexture or GetSpellTexture
@@ -181,6 +208,29 @@ local function classTokenMatches(token)
         return true
     end
     return false
+end
+
+local function normalizeIntegrations(db)
+    db.integrations = db.integrations or {}
+    local legacy = db.integrations.timelineReminders and db.integrations.timelineReminders.noteVisibility
+    local legacyWipeMain = db.integrations.wipeMainNoteOnGroupLeave
+    if not VALID_EXTERNAL_NOTE_ACCESS[db.integrations.externalNoteAccess] then
+        db.integrations.externalNoteAccess = VALID_EXTERNAL_NOTE_ACCESS[legacy] and legacy or EXTERNAL_NOTE_ACCESS_DEFAULT
+    end
+    if not VALID_WIPE_NOTE_TARGET[db.integrations.wipeNoteOnGroupLeave] then
+        db.integrations.wipeNoteOnGroupLeave = legacyWipeMain == true and WIPE_NOTE_TARGET_MAIN or WIPE_NOTE_TARGET_DEFAULT
+    end
+    db.integrations.wipeMainNoteOnGroupLeave = nil
+    db.integrations.timelineReminders = nil
+end
+
+local function externalNoteAccessGroupState()
+    if IsInRaid() then
+        return EXTERNAL_NOTE_ACCESS_RAID
+    elseif IsInGroup() then
+        return EXTERNAL_NOTE_ACCESS_PARTY
+    end
+    return EXTERNAL_NOTE_ACCESS_SOLO
 end
 
 -- Token registry
@@ -838,6 +888,152 @@ function Notes:SetSlotText(index, text)
     self:RefreshFrame(index)
     self:RefreshTimeTicker()
     return true
+end
+
+function Notes:GetExternalAddonNoteAccess()
+    if not self.db then
+        return EXTERNAL_NOTE_ACCESS_DEFAULT
+    end
+    normalizeIntegrations(self.db)
+    return self.db.integrations.externalNoteAccess
+end
+
+function Notes:SetExternalAddonNoteAccess(value)
+    if not VALID_EXTERNAL_NOTE_ACCESS[value] then
+        value = EXTERNAL_NOTE_ACCESS_DEFAULT
+    end
+    if not self.db then
+        return false
+    end
+    normalizeIntegrations(self.db)
+    if self.db.integrations.externalNoteAccess == value then
+        return false
+    end
+    self.db.integrations.externalNoteAccess = value
+    self:StoreExternalNoteAccessState()
+    self:NotifyExternalNoteAccessChanged()
+    return true
+end
+
+function Notes:GetWipeNoteOnGroupLeave()
+    if not self.db then
+        return WIPE_NOTE_TARGET_DEFAULT
+    end
+    normalizeIntegrations(self.db)
+    return self.db.integrations.wipeNoteOnGroupLeave
+end
+
+function Notes:SetWipeNoteOnGroupLeave(value)
+    if not VALID_WIPE_NOTE_TARGET[value] then
+        value = WIPE_NOTE_TARGET_DEFAULT
+    end
+    if not self.db then
+        return false
+    end
+    normalizeIntegrations(self.db)
+    if self.db.integrations.wipeNoteOnGroupLeave == value then
+        return false
+    end
+    self.db.integrations.wipeNoteOnGroupLeave = value
+    return true
+end
+
+function Notes:ShouldExposeExternalNoteData()
+    local visibility = self:GetExternalAddonNoteAccess()
+    if visibility == EXTERNAL_NOTE_ACCESS_RAID then
+        return IsInRaid()
+    elseif visibility == EXTERNAL_NOTE_ACCESS_PARTY then
+        return IsInGroup() and not IsInRaid()
+    end
+    return true
+end
+
+function Notes:ShouldExposeExternalNoteDataForGroupState(groupState)
+    local visibility = self:GetExternalAddonNoteAccess()
+    if visibility == EXTERNAL_NOTE_ACCESS_RAID then
+        return groupState == EXTERNAL_NOTE_ACCESS_RAID
+    elseif visibility == EXTERNAL_NOTE_ACCESS_PARTY then
+        return groupState == EXTERNAL_NOTE_ACCESS_PARTY
+    end
+    return true
+end
+
+function Notes:GetExternalNoteText(index, processed)
+    if not self:ShouldExposeExternalNoteData() then
+        return ""
+    end
+    if processed then
+        return self:ProcessText(index or MAIN_SLOT) or ""
+    end
+    return self:GetSlotText(index or MAIN_SLOT) or ""
+end
+
+function Notes:GetExternalPersonalNote(personalIndex)
+    if not self:ShouldExposeExternalNoteData() then
+        return ""
+    end
+    personalIndex = tonumber(personalIndex) or 0
+    if personalIndex < 1 then
+        return ""
+    end
+    return self:ProcessText(personalIndex + 1) or ""
+end
+
+function Notes:StoreExternalNoteAccessState()
+    self._externalNoteAccessGroupState = externalNoteAccessGroupState()
+    self._externalNoteAccessExposed = self:ShouldExposeExternalNoteDataForGroupState(self._externalNoteAccessGroupState) and true or false
+end
+
+function Notes:NotifyExternalNoteAccessChanged()
+    self:SyncReadOnlyDB()
+    E:SendMessage("ART_NOTE_CHANGED", MAIN_SLOT, self:GetExternalNoteText(MAIN_SLOT, false))
+    return true
+end
+
+function Notes:MaybeWipeNoteOnGroupLeave(previousGroupState, groupState)
+    if groupState ~= EXTERNAL_NOTE_ACCESS_SOLO then
+        return false
+    end
+    if previousGroupState ~= EXTERNAL_NOTE_ACCESS_PARTY and previousGroupState ~= EXTERNAL_NOTE_ACCESS_RAID then
+        return false
+    end
+    local target = self:GetWipeNoteOnGroupLeave()
+    if target == WIPE_NOTE_TARGET_NONE then
+        return false
+    end
+    local mainNoteChanged = false
+    if target == WIPE_NOTE_TARGET_MAIN or target == WIPE_NOTE_TARGET_BOTH then
+        mainNoteChanged = self:SetSlotText(MAIN_SLOT, "")
+    end
+    if target == WIPE_NOTE_TARGET_PERSONAL or target == WIPE_NOTE_TARGET_BOTH then
+        self:SetSlotText(PINNED_PERSONAL_SLOT, "")
+    end
+    return mainNoteChanged
+end
+
+function Notes:OnExternalNoteAccessGroupChanged()
+    local previousGroupState = self._externalNoteAccessGroupState
+    local previousExposed = self._externalNoteAccessExposed
+    local groupState = externalNoteAccessGroupState()
+
+    if previousGroupState == nil then
+        self:StoreExternalNoteAccessState()
+        return
+    end
+    if groupState == previousGroupState then
+        return
+    end
+
+    self._externalNoteAccessGroupState = groupState
+    self._externalNoteAccessExposed = self:ShouldExposeExternalNoteDataForGroupState(groupState) and true or false
+
+    local mainNoteChanged = self:MaybeWipeNoteOnGroupLeave(previousGroupState, groupState)
+
+    if mainNoteChanged or self._externalNoteAccessExposed == previousExposed then
+        return
+    end
+
+    self:NotifyExternalNoteAccessChanged()
 end
 
 -- `E:GetNote()` without an explicit slot defaults to Main
@@ -1999,8 +2195,9 @@ function Notes:SyncReadOnlyDB()
     if not self.db or not self.db.slots then
         return
     end
+    local exposeNotes = self:ShouldExposeExternalNoteData()
     for i, slot in ipairs(self.db.slots) do
-        rawset(readOnlyDB, i, slot.text or "")
+        rawset(readOnlyDB, i, exposeNotes and (slot.text or "") or "")
     end
 end
 
@@ -2017,13 +2214,13 @@ E:MountMethods(_G.ART, {
         if not notesLive() then
             return ""
         end
-        return Notes:ProcessText(index or MAIN_SLOT) or ""
+        return Notes:GetExternalNoteText(index or MAIN_SLOT, true)
     end,
     GetRawNote = function(_, index)
         if not notesLive() then
             return ""
         end
-        return Notes:GetSlotText(index or MAIN_SLOT) or ""
+        return Notes:GetExternalNoteText(index or MAIN_SLOT, false)
     end,
     GetMainNoteSlot = function()
         return MAIN_SLOT
@@ -2035,11 +2232,7 @@ E:MountMethods(_G.ART, {
         if not notesLive() then
             return ""
         end
-        personalIndex = tonumber(personalIndex) or 0
-        if personalIndex < 1 then
-            return ""
-        end
-        return Notes:ProcessText(personalIndex + 1) or ""
+        return Notes:GetExternalPersonalNote(personalIndex)
     end,
     GetPersonalNoteCount = function()
         if not notesLive() then
@@ -2056,6 +2249,21 @@ E:MountMethods(_G.ART, {
 }, {
     noClobber = true
 })
+
+local previousPrepareExternalCallbackArgs = E._prepareExternalCallbackArgs
+E._prepareExternalCallbackArgs = function(core, event, ...)
+    if event == "ART_NOTE_CHANGED" then
+        local slotIndex = ...
+        if slotIndex ~= nil then
+            local text = notesLive() and Notes:GetExternalNoteText(slotIndex, false) or ""
+            return slotIndex, text
+        end
+    end
+    if previousPrepareExternalCallbackArgs then
+        return previousPrepareExternalCallbackArgs(core, event, ...)
+    end
+    return ...
+end
 
 -- Internal calls
 function Notes:Publish()
@@ -2191,6 +2399,7 @@ local function normalizeSlots(db)
 end
 
 function Notes:OnInitialize(db)
+    normalizeIntegrations(db)
     db.display = db.display or {
         strata = "MEDIUM"
     }
@@ -2229,6 +2438,7 @@ function Notes:OnEnable()
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnExternalNoteAccessGroupChanged")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStateChanged")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatStateChanged")
 
@@ -2242,6 +2452,7 @@ function Notes:OnEnable()
     })
 
     self:SyncReadOnlyDB()
+    self:StoreExternalNoteAccessState()
     self:Publish()
     self:BumpRenderRevision()
     self:RefreshAllFrames()

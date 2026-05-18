@@ -402,6 +402,13 @@ function _G.ART.UnregisterCallback(_, event, fn)
     end
 end
 
+local function packArgs(...)
+    return {
+        n = select("#", ...),
+        ...
+    }
+end
+
 -- Wrap E:SendMessage once
 local origSendMessage = E.SendMessage
 function E:SendMessage(event, ...)
@@ -410,8 +417,10 @@ function E:SendMessage(event, ...)
     if not list then
         return
     end
+    local args = type(self._prepareExternalCallbackArgs) == "function" and
+                     packArgs(self:_prepareExternalCallbackArgs(event, ...)) or packArgs(...)
     for fn in pairs(list) do
-        pcall(fn, ...)
+        pcall(fn, unpack(args, 1, args.n))
     end
 end
 
