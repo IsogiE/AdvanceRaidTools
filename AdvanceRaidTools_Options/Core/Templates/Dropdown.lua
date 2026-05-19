@@ -91,6 +91,9 @@ local function getDropdownPullout()
     p._scroll = sfInstance.scroll
     p._content = sfInstance.content
     p._scrollInstance = sfInstance
+    if sfInstance.scrollbar and sfInstance.scrollbar.SetSuppressed then
+        sfInstance.scrollbar.SetSuppressed(true)
+    end
 
     p._rowPool = {}
     p._createRow = function()
@@ -339,19 +342,30 @@ function T:Dropdown(parent, opts)
                 y = y + 18
             end
         end
-        p._content:SetSize(self:GetWidth(), math.max(1, y))
-        if p._scrollInstance and p._scrollInstance.scrollbar then
-            p._scrollInstance.scrollbar.Refresh()
-        end
-
         p:ClearAllPoints()
         p:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
         p:SetWidth(self:GetWidth())
 
         local maxH = opts.maxPulloutH or 220
-        p:SetHeight(math.min(maxH, y + 8))
+        local contentH = math.max(1, y)
+        local needsScroll = (contentH + 8) > maxH
+        p:SetHeight(math.min(maxH, contentH + 8))
         p._owner = self
         p:Show()
+        p._content:SetSize(self:GetWidth(), contentH)
+        if p._scroll then
+            p._scroll:UpdateScrollChildRect()
+        end
+        local scrollbar = p._scrollInstance and p._scrollInstance.scrollbar
+        if scrollbar and scrollbar.SetSuppressed then
+            scrollbar.SetSuppressed(not needsScroll)
+            if needsScroll then
+                scrollbar.Refresh()
+                C_Timer.After(0, scrollbar.Refresh)
+            end
+        elseif scrollbar then
+            scrollbar.Refresh()
+        end
         self:SetBackdropBorderColor(unpack(c_accent()))
         self._highlight = true
     end)

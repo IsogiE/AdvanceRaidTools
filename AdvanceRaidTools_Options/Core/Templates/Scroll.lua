@@ -89,6 +89,7 @@ function T:ScrollBar(parent, scrollFrame, opts)
     local MIN_THUMB_H = 20 -- don't let the thumb disappear on very long content
 
     local isSyncing = false
+    local suppressed = false
 
     local thumbHit = CreateFrame("Button", nil, bar)
     thumbHit:SetFrameLevel(slider:GetFrameLevel() + 5)
@@ -191,6 +192,12 @@ function T:ScrollBar(parent, scrollFrame, opts)
     end
 
     local function refresh()
+        if suppressed then
+            bar:Hide()
+            scrollFrame:SetVerticalScroll(0)
+            return
+        end
+
         local child = scrollFrame:GetScrollChild()
         if not child then
             bar:Hide()
@@ -225,6 +232,9 @@ function T:ScrollBar(parent, scrollFrame, opts)
 
     local refreshPending = false
     local function scheduleRefresh()
+        if suppressed then
+            return
+        end
         if optionsResizeActive() then
             return
         end
@@ -282,6 +292,15 @@ function T:ScrollBar(parent, scrollFrame, opts)
         frame = bar,
         width = width,
         Refresh = refresh,
+        SetSuppressed = function(value)
+            suppressed = value and true or false
+            if suppressed then
+                bar:Hide()
+                scrollFrame:SetVerticalScroll(0)
+            else
+                refresh()
+            end
+        end,
         IsShown = function()
             return bar:IsShown()
         end
