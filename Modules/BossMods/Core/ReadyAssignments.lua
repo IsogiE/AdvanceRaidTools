@@ -19,6 +19,13 @@ local function trim(value)
     return (value:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+local function isNoteBlockBoundary(line)
+    if type(line) ~= "string" then
+        return false
+    end
+    return line:match("^%S+Start$") ~= nil or line:match("^%S+End$") ~= nil
+end
+
 local function copyInto(dst, src)
     if type(src) ~= "table" then
         return dst
@@ -124,6 +131,8 @@ function Ready:ParseHashSections(noteText)
         local line = trim(raw)
         if line == "" then
             finish()
+        elseif isNoteBlockBoundary(line) then
+            finish()
         else
             local tag, rest = line:match("^#(%S+)%s*(.*)$")
             if tag then
@@ -132,10 +141,12 @@ function Ready:ParseHashSections(noteText)
                 if tag then
                     current = {
                         tag = tag,
+                        headerText = "",
                         lines = {}
                     }
                     rest = trim(rest or "")
                     if rest ~= "" then
+                        current.headerText = rest
                         current.lines[#current.lines + 1] = rest
                     end
                 end
@@ -191,7 +202,17 @@ function Ready:PlayerInBlock(ctx, blockName)
     return self:FindPlayerInBlock(ctx, blockName) ~= nil
 end
 
-function Ready:FindPlayerInHashTag(ctx, tag)
+local function hashSectionText(section, opts)
+    if not section then
+        return ""
+    end
+    if opts and opts.hashtagMultiline then
+        return section.text or ""
+    end
+    return section.headerText or section.text or ""
+end
+
+function Ready:FindPlayerInHashTag(ctx, tag, opts)
     tag = self:NormalizeTag(tag)
     if not tag or not ctx or not ctx.tags then
         return nil
@@ -203,7 +224,7 @@ function Ready:FindPlayerInHashTag(ctx, tag)
     end
 
     for _, section in ipairs(matches) do
-        local tokenIndex = self:FindPlayerInText(section.text, ctx)
+        local tokenIndex = self:FindPlayerInText(hashSectionText(section, opts), ctx)
         if tokenIndex then
             return section, tokenIndex
         end
@@ -212,7 +233,7 @@ function Ready:FindPlayerInHashTag(ctx, tag)
     return nil
 end
 
-function Ready:HashTagHasWord(ctx, tag, word)
+function Ready:HashTagHasWord(ctx, tag, word, opts)
     tag = self:NormalizeTag(tag)
     word = self:NormalizeTag(word)
     if not tag or not word or not ctx or not ctx.tags then
@@ -225,7 +246,7 @@ function Ready:HashTagHasWord(ctx, tag, word)
     end
 
     for _, section in ipairs(matches) do
-        for _, token in ipairs(self:Words(section.text)) do
+        for _, token in ipairs(self:Words(hashSectionText(section, opts))) do
             if self:NormalizeTag(token) == word then
                 return true
             end
@@ -269,12 +290,12 @@ function Ready:ActionMatches(opts, ctx)
 
     local source = opts.source or opts.kind
     if source == "hashtagWord" then
-        return self:HashTagHasWord(ctx, opts.tag or opts.key, opts.word)
+        return self:HashTagHasWord(ctx, opts.tag or opts.key, opts.word, opts)
     elseif source == "hashtag" then
         if opts.requiresPlayer == false then
             return self:HashTagExists(ctx, opts.tag or opts.key)
         end
-        return self:FindPlayerInHashTag(ctx, opts.tag or opts.key) ~= nil
+        return self:FindPlayerInHashTag(ctx, opts.tag or opts.key, opts) ~= nil
     elseif source == "noteBlock" then
         return self:PlayerInBlock(ctx, opts.noteBlock or opts.block or opts.tag or opts.key)
     end
@@ -513,7 +534,7 @@ function Ready:Collect(ctx)
     for _, tag in ipairs(self.staticReminderOrder) do
         local opts = self.staticReminders[tag]
         if opts and self:IsModuleEnabled(opts.moduleName) then
-            local section = self:FindPlayerInHashTag(ctx, tag)
+            local section = self:FindPlayerInHashTag(ctx, tag, opts)
             if section or opts.requiresPlayer == false then
                 self:Add(out, self:NewReminder(opts, {
                     key = opts.key or tag,

@@ -143,6 +143,7 @@ end
 --     source     = "hashtag"|"noteBlock", -- how ReadyAssignments finds the player
 --                  "hashtagWord"          -- #tag word action trigger
 --     tag        = "lurapickup",          -- hashtag source, without '#'
+--     hashtagMultiline = true,            -- optional: search following non-# lines too
 --     word       = "lura",                -- hashtagWord source
 --     noteBlock  = "kick",                -- noteBlock source, matches fooStart/fooEnd
 --     type       = "kick",                -- display family for sorting/compat
