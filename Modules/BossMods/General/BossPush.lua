@@ -1,7 +1,7 @@
 local E, L = unpack(ART)
 
 E:RegisterModuleDefaults("BossMods_BossPush", {
-    enabled = false,
+    enabled = true,
     selectedBar = 1,
     position = {
         point = "CENTER",
@@ -142,6 +142,19 @@ local function formatTime(seconds)
     return ("%s%d:%02d"):format(prefix, m, s)
 end
 
+local function parseNoteTime(value)
+    local text = strtrim(tostring(value or "")):lower():gsub("s$", "")
+    if text == "" then
+        return nil
+    end
+
+    local minutes, seconds = text:match("^(%-?%d+):(%d+)$")
+    if minutes then
+        return (tonumber(minutes) or 0) * 60 + (tonumber(seconds) or 0)
+    end
+    return tonumber(text)
+end
+
 local function normalizePoints(src, targetTime, targetPercent)
     local points = {}
     if type(src) == "table" then
@@ -221,6 +234,62 @@ local function exportBar(bar)
         targetPercent = bar.targetPercent,
         points = copyTable(bar.points)
     }
+end
+
+local function noteUnit(value)
+    local unit = tostring(value or ""):lower():gsub("%s+", "")
+    if unit:match("^b%d$") then
+        unit = "boss" .. unit:sub(2)
+    elseif unit:match("^%d$") then
+        unit = "boss" .. unit
+    end
+    return UNIT_VALUES[unit] and unit or nil
+end
+
+local function parseNoteBars(text)
+    local bars = {}
+    text = tostring(text or ""):gsub("\r\n", "\n"):gsub("\r", "\n")
+    local lineIndex = 0
+    for line in (text .. "\n"):gmatch("(.-)\n") do
+        lineIndex = lineIndex + 1
+        local clean = strtrim(E:StripColorCodes(line):gsub("|T.-|t", "")):lower()
+        local args = clean:match("^#bosspush%s+(.+)$") or clean:match("^#bp%s+(.+)$")
+        if args then
+            local encounterID, unit, targetTime, showOffset, targetPercent = args:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)%s*(%S*)")
+            encounterID = (encounterID == "any" or encounterID == "*") and 0 or tonumber(encounterID)
+            unit = noteUnit(unit)
+            targetTime = parseNoteTime(targetTime)
+            showOffset = parseNoteTime(showOffset) or 10
+            targetPercent = tostring(targetPercent or ""):gsub("%%", "")
+            targetPercent = tonumber(targetPercent) or 70
+
+            if encounterID and unit and targetTime and targetTime > 0 then
+                bars[#bars + 1] = normalizeBar({
+                    id = "note:" .. lineIndex,
+                    trigger = "encounter",
+                    encounterID = encounterID,
+                    customEncounterID = encounterID,
+                    bossUnit = unit,
+                    targetTime = targetTime,
+                    showOffset = -math.abs(showOffset),
+                    targetPercent = targetPercent
+                })
+            end
+        end
+    end
+    return bars
+end
+
+local function getNoteBars()
+    local Notes = E:GetModule("Notes", true)
+    if Notes and Notes.GetSlotText then
+        local slot = Notes.GetMainSlotIndex and Notes:GetMainSlotIndex() or 1
+        return parseNoteBars(Notes:GetSlotText(slot) or "")
+    end
+
+    local BossMods = E:GetModule("BossMods", true)
+    local NoteBlock = BossMods and BossMods.NoteBlock or nil
+    return parseNoteBars((NoteBlock and NoteBlock.GetMainNoteText and NoteBlock:GetMainNoteText()) or "")
 end
 
 local function paintUnitHealth(row, unit)
@@ -709,9 +778,17 @@ function Mod:Start(trigger, encounterID, startTime)
         return false
     end
     local matches = {}
-    for _, bar in ipairs(self:GetBars()) do
+    local function addMatch(bar)
         if self:MatchesBar(bar, trigger, encounterID) then
             matches[#matches + 1] = bar
+        end
+    end
+    for _, bar in ipairs(self:GetBars()) do
+        addMatch(bar)
+    end
+    if trigger == "encounter" then
+        for _, bar in ipairs(getNoteBars()) do
+            addMatch(bar)
         end
     end
     if #matches == 0 then
@@ -928,6 +1005,18 @@ function Mod:OnDisable()
     self.editMode = false
     self:Stop()
 end
+
+E:RegisterBossModNoteBlock("BossPush", {
+    blocks = {{
+        tag = "BossPush",
+        template = "#BossPush 2265 boss1 0:20 15s 70%"
+    }},
+    moduleName = "BossMods_BossPush",
+    tab = "General",
+    order = 10,
+    labelKey = "BossMods_BossPush",
+    itemLabelKey = "BossMods_BossPush"
+})
 
 E:RegisterBossModFeature("BossPush", {
     tab = "General",
