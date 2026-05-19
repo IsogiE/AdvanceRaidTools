@@ -66,8 +66,7 @@ local RUNE_ICON_IDS = {1392912, -- 1: 70_inscription_deck_dominion_2
 1392913, -- 2: 70_inscription_deck_dominion_3
 1392914, -- 3: 70_inscription_deck_dominion_4
 1392915, -- 4: 70_inscription_deck_dominion_5
-1392916, -- 5: 70_inscription_deck_dominion_6
-1392917 -- 6: 70_inscription_deck_dominion_7
+1392916 -- 5: 70_inscription_deck_dominion_6
 }
 
 local SQUAD_POSITIONS = {{
@@ -97,20 +96,19 @@ local SQUAD_POSITIONS = {{
 } -- #5 Top Left
 }
 
-local SHAPE_NAMES = {"4", "6", "7", "2", "3", "5"}
+local SHAPE_NAMES = {"4", "6", "7", "2", "3"}
 
 local CHAT_MSGS = {
     ["2"] = "1392915",
     ["3"] = "1392916",
     ["4"] = "1392912",
-    ["5"] = "1392917",
     ["6"] = "1392913",
     ["7"] = "1392914"
 }
 
 local KEYBIND_NAMES = {"CLICK ART_Dirge_Btn1:LeftButton", "CLICK ART_Dirge_Btn2:LeftButton",
                        "CLICK ART_Dirge_Btn3:LeftButton", "CLICK ART_Dirge_Btn4:LeftButton",
-                       "CLICK ART_Dirge_Btn5:LeftButton", "CLICK ART_Dirge_Btn6:LeftButton"}
+                       "CLICK ART_Dirge_Btn5:LeftButton"}
 
 local PHASE_TRANSITIONS = {
     [15] = {
@@ -153,7 +151,7 @@ local BW_KEY_MYTHIC = 1273158
 local CHAT_CHANNEL = "/raid "
 
 BINDING_HEADER_ART_DIRGE = "ART"
-for i = 1, 6 do
+for i = 1, 5 do
     _G["BINDING_NAME_CLICK ART_Dirge_Btn" .. i .. ":LeftButton"] = "Dirge Button " .. i
 end
 
@@ -196,7 +194,7 @@ function Dirge:EnsureFrames()
     end
 
     local barAnchor = CreateFrame("Frame", "ART_Dirge_ButtonBar", UIParent, "SecureHandlerStateTemplate")
-    barAnchor:SetSize(265, 40)
+    barAnchor:SetSize(220, 40)
     barAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
     barAnchor:Hide()
 
@@ -204,7 +202,7 @@ function Dirge:EnsureFrames()
     local keybindTexts = {}
     local buttonIcons = {}
 
-    for i = 1, 6 do
+    for i = 1, 5 do
         local btn = CreateFrame("Button", "ART_Dirge_Btn" .. i, barAnchor, "SecureActionButtonTemplate")
         btn:SetSize(40, 40)
         btn:SetPoint("LEFT", barAnchor, "LEFT", (i - 1) * 45, 0)
@@ -342,7 +340,7 @@ function Dirge:ApplySettings()
         local pb = db.buttons.position
         E:ApplyFramePosition(f.barAnchor, pb)
 
-        for j = 1, 6 do
+        for j = 1, 5 do
             f.secureButtons[j]:ClearAllPoints()
             f.secureButtons[j]:SetPoint("LEFT", f.barAnchor, "LEFT", (j - 1) * 45, 0)
         end
@@ -366,7 +364,7 @@ function Dirge:ApplyClickthrough()
         return
     end
     local enabled = (self.editVisible and self.editVisible.buttons) or self.db.buttons.clickthrough
-    for i = 1, 6 do
+    for i = 1, 5 do
         self.frames.secureButtons[i]:EnableMouse(not enabled)
     end
 end
@@ -376,7 +374,7 @@ function Dirge:UpdateKeybindLabels()
         return
     end
     local pos = self.db.buttons.keybindLabelPos or "below"
-    for i = 1, 6 do
+    for i = 1, 5 do
         local key1 = GetBindingKey(KEYBIND_NAMES[i])
         local display = key1 or ""
         display = display:gsub("ALT%-", "A-")

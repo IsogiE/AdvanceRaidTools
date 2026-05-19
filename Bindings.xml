@@ -4,5 +4,4 @@
     <Binding name="CLICK ART_Dirge_Btn3:LeftButton" category="ART"/>
     <Binding name="CLICK ART_Dirge_Btn4:LeftButton" category="ART"/>
     <Binding name="CLICK ART_Dirge_Btn5:LeftButton" category="ART"/>
-    <Binding name="CLICK ART_Dirge_Btn6:LeftButton" category="ART"/>
 </Bindings>
