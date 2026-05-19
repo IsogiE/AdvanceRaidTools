@@ -163,6 +163,7 @@ L["RG_Rename"] = "Rename"
 L["RG_Delete"] = "Delete"
 L["RG_GetRoster"] = "Get Roster"
 L["RG_ApplyAssignment"] = "Apply Assignment"
+L["RG_SortGroupsOnly"] = "Sort Groups Only"
 L["RG_Clear"] = "Clear"
 L["RG_ExportRoster"] = "Export Roster"
 

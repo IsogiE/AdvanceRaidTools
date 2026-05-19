@@ -695,7 +695,7 @@ function RaidGroups:ImportRosterToSlots()
     self:UpdateSlotTints()
 end
 
-function RaidGroups:ApplyFromEditor()
+function RaidGroups:GetEditorAssignmentList()
     if not self._slots then
         return
     end
@@ -715,7 +715,23 @@ function RaidGroups:ApplyFromEditor()
             end
         end
     end
+    return list
+end
+
+function RaidGroups:ApplyFromEditor()
+    local list = self:GetEditorAssignmentList()
+    if not list then
+        return
+    end
     self:ApplyAssignment(list, self:GetEditorNote())
+end
+
+function RaidGroups:SortGroupsOnlyFromEditor()
+    local list = self:GetEditorAssignmentList()
+    if not list then
+        return
+    end
+    self:ApplyGroups(list)
 end
 
 function RaidGroups:GetRosterExportString()
@@ -1227,13 +1243,14 @@ function RaidGroups:BuildEditor()
 
     -- action buttons
     local actionBar = CreateFrame("Frame", nil, f)
-    actionBar:SetPoint("BOTTOMLEFT", centreCol, "BOTTOMLEFT", PANEL_PAD + rosterLabelW, PANEL_PAD)
+    actionBar:SetPoint("BOTTOMLEFT", centreCol, "BOTTOMLEFT", PANEL_PAD, PANEL_PAD)
     actionBar:SetPoint("BOTTOMRIGHT", centreCol, "BOTTOMRIGHT", -PANEL_PAD, PANEL_PAD)
     actionBar:SetHeight(32)
+    local ACTION_GAP = 8
 
     local getRosterBtn = T:Button(actionBar, {
         text = L["RG_GetRoster"],
-        width = 130,
+        width = 110,
         height = 26,
         onClick = function()
             RaidGroups:ImportRosterToSlots()
@@ -1241,29 +1258,19 @@ function RaidGroups:BuildEditor()
     })
     getRosterBtn.frame:SetPoint("LEFT", actionBar, "LEFT", 0, 0)
 
-    local applyBtn = T:Button(actionBar, {
-        text = L["RG_ApplyAssignment"],
-        width = 130,
-        height = 26,
-        onClick = function()
-            RaidGroups:ApplyFromEditor()
-        end
-    })
-    applyBtn.frame:SetPoint("LEFT", getRosterBtn.frame, "RIGHT", 10, 0)
-
     local clearBtn = T:Button(actionBar, {
         text = L["RG_Clear"],
-        width = 100,
+        width = 70,
         height = 26,
         onClick = function()
             RaidGroups:ClearSlots()
         end
     })
-    clearBtn.frame:SetPoint("LEFT", applyBtn.frame, "RIGHT", 10, 0)
+    clearBtn.frame:SetPoint("LEFT", getRosterBtn.frame, "RIGHT", ACTION_GAP, 0)
 
     local exportRosterBtn = T:Button(actionBar, {
         text = L["RG_ExportRoster"],
-        width = 130,
+        width = 125,
         height = 26,
         onClick = function()
             local text = RaidGroups:GetRosterExportString()
@@ -1274,9 +1281,29 @@ function RaidGroups:BuildEditor()
             ART.RaidGroupsUI:ShowRosterViewer(RaidGroups._editor, text)
         end
     })
-    exportRosterBtn.frame:SetPoint("LEFT", clearBtn.frame, "RIGHT", 10, 0)
+    exportRosterBtn.frame:SetPoint("LEFT", clearBtn.frame, "RIGHT", ACTION_GAP, 0)
 
-    local actionBtns = {getRosterBtn, applyBtn, clearBtn, exportRosterBtn}
+    local sortGroupsOnlyBtn = T:Button(actionBar, {
+        text = L["RG_SortGroupsOnly"],
+        width = 122,
+        height = 26,
+        onClick = function()
+            RaidGroups:SortGroupsOnlyFromEditor()
+        end
+    })
+    sortGroupsOnlyBtn.frame:SetPoint("LEFT", exportRosterBtn.frame, "RIGHT", ACTION_GAP, 0)
+
+    local applyBtn = T:Button(actionBar, {
+        text = L["RG_ApplyAssignment"],
+        width = 128,
+        height = 26,
+        onClick = function()
+            RaidGroups:ApplyFromEditor()
+        end
+    })
+    applyBtn.frame:SetPoint("LEFT", sortGroupsOnlyBtn.frame, "RIGHT", ACTION_GAP, 0)
+
+    local actionBtns = {getRosterBtn, clearBtn, exportRosterBtn, sortGroupsOnlyBtn, applyBtn}
     local function fitActionButtons()
         for _, b in ipairs(actionBtns) do
             local textW = b.label and b.label:GetStringWidth() or 0
