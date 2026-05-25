@@ -141,8 +141,11 @@ end
 
 function Nicknames:OnInitialize(db)
     local selfKey = realmKey("player")
-    if selfKey and db.myNickname and db.myNickname ~= "" then
-        db.map[selfKey] = db.myNickname
+    local nick = db.myNickname
+    if selfKey and nick and nick ~= "" then
+        nick = strtrim(nick):gsub("^%l", string.upper)
+        db.myNickname = nick
+        db.map[selfKey] = nick
     end
 end
 
@@ -162,6 +165,8 @@ function Nicknames:OnEnable()
     if selfKey then
         local nick = self.db.myNickname
         if nick and nick ~= "" then
+            nick = strtrim(nick):gsub("^%l", string.upper)
+            self.db.myNickname = nick
             self.db.map[selfKey] = nick
         else
             self.db.map[selfKey] = nil
@@ -207,6 +212,8 @@ function Nicknames:OnProfileChanged()
     if selfKey then
         local nick = self.db.myNickname
         if nick and nick ~= "" then
+            nick = strtrim(nick):gsub("^%l", string.upper)
+            self.db.myNickname = nick
             self.db.map[selfKey] = nick
         else
             self.db.map[selfKey] = nil
@@ -298,7 +305,7 @@ function Nicknames:OnReceiveData(encoded, sender)
         return
     end
 
-    local nickname = strtrim(data.nickname)
+    local nickname = strtrim(data.nickname):gsub("^%l", string.upper)
     if nickname == "" then
         nickname = nil
     end
@@ -416,7 +423,7 @@ function Nicknames:Set(unit, nickname)
         return
     end
 
-    nickname = nickname and strtrim(nickname)
+    nickname = nickname and strtrim(nickname):gsub("^%l", string.upper)
     if nickname == "" then
         nickname = nil
     end
@@ -431,6 +438,8 @@ function Nicknames:Set(unit, nickname)
     if hadChange and unit == "player" then
         self:QueueBroadcast()
     end
+
+    return nickname
 end
 
 function Nicknames:GetCharacterInGroup(nickname)

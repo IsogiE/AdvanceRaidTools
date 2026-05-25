@@ -121,7 +121,8 @@ local function buildNicknamesPanel()
                         order = 2,
                         width = "1/2",
                         build = function(parent)
-                            return T:EditBox(parent, {
+                            local input
+                            input = T:EditBox(parent, {
                                 label = L["YourNickname"],
                                 commitOn = "enter",
                                 get = function()
@@ -136,7 +137,8 @@ local function buildNicknamesPanel()
                                 end,
                                 onCommit = function(text)
                                     text = strtrim(text or "")
-                                    mod:Set("player", text ~= "" and text or nil)
+                                    local normalized = mod:Set("player", text ~= "" and text or nil) or ""
+                                    input:SetText(normalized)
                                 end,
                                 disabled = isModuleDisabled,
                                 tooltip = {
@@ -144,6 +146,7 @@ local function buildNicknamesPanel()
                                     desc = L["ShownNick"]
                                 }
                             })
+                            return input
                         end
                     }
                 }
