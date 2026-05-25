@@ -560,7 +560,7 @@ L["Macros_TypeWorld"] = "World Marker"
 L["Macros_TypeFocusMark"] = "Focus + Mark"
 
 -- BossMods
-L["BossMods"] = "Boss Mods"
+L["BossMods"] = "Combat Tools"
 L["BossModsDesc"] = "Alerts, assignments, and visuals. Enable what you need. \nFonts and textures are configured in Home > Appearance > Module Visuals"
 L["BossMods_Misc"] = "Misc"
 L["BossMods_General"] = "General"
