@@ -13,5 +13,4 @@
     <Script file="Raids\Queldanas\LurakickSettings.lua"/>
     <Script file="Raids\Queldanas\LuraMapSettings.lua"/>
     <Script file="Raids\Queldanas\DirgeSettings.lua"/>
-    <Script file="Raids\Voidspire\PalaDispelSettings.lua"/>
 </Ui>

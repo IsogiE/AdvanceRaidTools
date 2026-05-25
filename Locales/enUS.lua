@@ -775,15 +775,6 @@ L["BossMods_NoteMarkerSoaks"] = "Marker Soaks"
 L["BossMods_NoteElkBait"] = "Elk Bait"
 L["BossMods_NoteKillSquad"] = "Kill Squad"
 L["BossMods_NoteGapAssist"] = "Gap Assist"
-L["BossMods_PalaDispel"] = "Vanguard Dispels"
-L["BossMods_PalaDispelDesc"] = "Automatic assignments to dispel Avenger's Shield"
-L["BossMods_PDDwarfColor"] = "Dwarf Action Color"
-L["BossMods_PDNameMode"] = "Target Name Color"
-L["BossMods_PDNameCustomColor"] = "Custom Name Color"
-L["BossMods_PDGlowLines"] = "Lines / Particles"
-L["BossMods_PDDispel"] = "Dispel"
-L["BossMods_PDUseDwarf"] = "Use Dwarf"
-L["BossMods_PDUseDwarfLabel"] = "USE DWARF"
 
 -- BossMods: Dreamrift
 L["BossMods_Chimaerus"] = "Chimaerus"
@@ -791,7 +782,7 @@ L["BossMods_NoteGodSoaks"] = "God Soaks"
 L["BossMods_NoteGodSwappers"] = "God Swappers"
 L["BossMods_NoteGodFarKicks"] = "God Far Kicks"
 
--- Glow types (used by PalaDispel + any future glow callers)
+-- Glow types
 L["BossMods_GlowPixel"] = "Pixel Glow"
 L["BossMods_GlowAutocast"] = "Autocast Shine"
 L["BossMods_GlowButton"] = "Action Button Glow"

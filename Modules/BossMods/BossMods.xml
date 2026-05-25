@@ -29,5 +29,4 @@
     <Script file="Raids\Queldanas\Lurakick.lua"/>
     <Script file="Raids\Queldanas\LuraMap.lua"/>
     <Script file="Raids\Queldanas\Dirge.lua"/>
-    <Script file="Raids\Voidspire\PalaDispel.lua"/>
 </Ui>
