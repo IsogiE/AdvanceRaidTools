@@ -16,12 +16,16 @@ E:RegisterModuleDefaults("BossMods_BreakTimer", {
 local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
 
 local IMAGE_POOL = "Dreams"
-local IMAGE_SEED_BUCKET_SECONDS = 10
+local IMAGE_SEED_BUCKET_SECONDS = 30
 local TIMER_GAP = 8
 local TICK_INTERVAL = 0.1
 local PREVIEW_DURATION = 300
 local LISTENER_TOKEN = "AdvanceRaidTools_BossMods_BreakTimer"
 local POSITION_COORD_SPACE = "UIParent"
+
+local function getServerTime()
+    return GetServerTime and GetServerTime() or time()
+end
 
 local function formatTime(seconds)
     if seconds < 0 then
@@ -32,12 +36,12 @@ local function formatTime(seconds)
     return string.format("%d:%02d", m, s)
 end
 
--- Use the break's server-side end time so bar replays after loading screens keep the same image.
-local function makeImageSeed(duration)
-    local serverNow = GetServerTime and GetServerTime() or time()
+local function makeImageSeed(key, duration)
+    local serverNow = getServerTime()
     local serverEnd = serverNow + (tonumber(duration) or 0)
     local serverEndBucket = math.floor((serverEnd + (IMAGE_SEED_BUCKET_SECONDS / 2)) / IMAGE_SEED_BUCKET_SECONDS)
-    return ("break:%d"):format(serverEndBucket)
+    local keyPart = (type(key) == "number" and tostring(key)) or E:SafeString(key) or "break"
+    return ("break:%s:%d"):format(keyPart, serverEndBucket)
 end
 
 local function getBigWigsBreakBarText()
@@ -154,12 +158,12 @@ function Mod:OnStopBar(text)
     end
 end
 
-function Mod:Start(_, duration)
+function Mod:Start(key, duration)
     duration = tonumber(duration)
     if not duration or duration <= 0 then
         return
     end
-    if not self:Show(makeImageSeed(duration)) then
+    if not self:Show(makeImageSeed(key, duration)) then
         return
     end
     self.endTime = GetTime() + duration
