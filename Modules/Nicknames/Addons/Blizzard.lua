@@ -4,6 +4,7 @@ local Nicknames = E:GetModule("Nicknames")
 local hookedFrames = {}
 local inUpdate = {}
 local hookedCompactSetup = false
+local hookedCompactUpdateName = false
 
 local function UpdateFrame(frame, force)
     if not force and not Nicknames:IsIntegrationActive("Blizzard") then
@@ -189,7 +190,19 @@ local function Init()
         end)
     end
 
+    if CompactUnitFrame_UpdateName and not hookedCompactUpdateName then
+        hookedCompactUpdateName = true
+        hooksecurefunc("CompactUnitFrame_UpdateName", function(frame)
+            UpdateFrame(frame)
+        end)
+    end
+
     ForceUpdate(true)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.1, function()
+            ForceUpdate(true)
+        end)
+    end
 end
 
 Nicknames:RegisterIntegration("Blizzard", {
