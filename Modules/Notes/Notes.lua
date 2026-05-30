@@ -131,8 +131,11 @@ local Notes = E:NewModule("Notes", "AceEvent-3.0")
 Notes.tokens = {} -- ordered list of { pattern, handler }
 Notes.frames = {} -- [slotIndex] = frame instance
 Notes.processedCache = {} -- [slotIndex] = { key = cacheKey, text = processed }
+Notes.displayCache = {} -- [slotIndex] = last rendered display text for on-screen frames
+Notes.timerUsageCache = {} -- [slotIndex] = whether the raw slot text contains display timers
 Notes.renderRevision = 0 -- bumped on anything that invalidates rendered output
 Notes.nicknameRevision = 0 -- bumped on ART_NICKNAME_CHANGED
+Notes.rosterRevision = 0 -- bumped on ART_ROSTER_INVALIDATED
 Notes.currentEncounterID = nil
 Notes.currentEncounterName = nil
 Notes.encounterStartTime = nil
@@ -168,6 +171,7 @@ local floor = math.floor
 
 local DISPLAY_TIMER_COLOR = "ffffd200"
 local DISPLAY_TIMER_EXPIRED_COLOR = "ff888888"
+local DISPLAY_TEXT_CHUNK_SIZE = 8192
 local RECEIVE_GLOW_DURATION = 3
 local RECEIVE_GLOW_FILL_ALPHA = 0.28
 local RECEIVE_GLOW_EDGE_ALPHA = 0.4
@@ -346,6 +350,8 @@ end
 function Notes:BumpRenderRevision()
     self.renderRevision = (self.renderRevision or 0) + 1
     wipe(self.processedCache)
+    wipe(self.displayCache)
+    wipe(self.timerUsageCache)
 end
 
 local function stripRaidAssignmentMarkers(text)
@@ -465,14 +471,140 @@ local function displayTimerColorHex(display)
     return string.format("%02x%02x%02x%02x", colorComponent(a), colorComponent(r), colorComponent(g), colorComponent(b))
 end
 
-local function lineHasTimer(line)
-    return type(line) == "string" and line:find("{time:[^}]+}") ~= nil
+local STRUCTURED_NOTE_RAID_MARKERS = {
+    star = 1,
+    circle = 2,
+    diamond = 3,
+    triangle = 4,
+    moon = 5,
+    square = 6,
+    cross = 7,
+    skull = 8
+}
+
+local STRUCTURED_NOTE_EVERYONE_TAGS = {
+    everyone = true,
+    all = true
+}
+
+local STRUCTURED_NOTE_ROLE_TAGS = {
+    tank = "TANK",
+    tanks = "TANK",
+    healer = "HEALER",
+    healers = "HEALER",
+    dps = "DAMAGER",
+    damager = "DAMAGER",
+    damagers = "DAMAGER"
+}
+
+local function getPlayerNoteRole()
+    local role = E.GetUnitRole and E:GetUnitRole("player") or nil
+    if not role and E.GetPlayerRole then
+        role = E:GetPlayerRole()
+    end
+    return role
 end
 
-local function lineHasPassedTimer(line)
+local function structuredTagMatchesPlayer(tag)
+    tag = strlower(strtrim(E:StripColorCodes(tag or "")))
+    if tag == "" then
+        return false
+    end
+
+    local role = getPlayerNoteRole()
+    for token in tag:gmatch("[^,%s]+") do
+        if STRUCTURED_NOTE_EVERYONE_TAGS[token] then
+            return true
+        end
+        local wantedRole = STRUCTURED_NOTE_ROLE_TAGS[token]
+        if wantedRole and role == wantedRole then
+            return true
+        end
+    end
+    return false
+end
+
+local function parseStructuredNoteLine(line)
+    if type(line) ~= "string" or not line:find("time:%d", 1, false) or not line:find("tag:", 1, true) or
+        not (line:find("text:", 1, true) or line:find("spellid:", 1, true) or line:find("bossSpell:", 1, true)) then
+        return nil
+    end
+
+    local fields = {}
+    for key, value in line:gmatch("([%a][%w_]*):([^;]*)") do
+        fields[key] = value
+    end
+
+    local seconds = tonumber(fields.time)
+    if not seconds or fields.tag == nil then
+        return nil
+    end
+
+    fields.timeSeconds = seconds
+    fields.phase = tonumber(fields.ph) or 1
+    fields.displayable = (fields.text and fields.text ~= "") or (fields.spellid and fields.spellid ~= "")
+    return fields
+end
+
+local function structuredNoteTimerState(fields, encounterID, difficulty)
+    local seconds = fields and tonumber(fields.timeSeconds)
+    if not seconds then
+        return 0, false
+    end
+    if not Notes.encounterStartTime or (encounterID and Notes.currentEncounterID and tonumber(encounterID) ~= tonumber(Notes.currentEncounterID)) then
+        return seconds, false
+    end
+
+    local phase = tonumber(fields.phase) or 1
+    local remaining
+    if E.GetEncounterPhaseRelativeRemaining then
+        remaining = E:GetEncounterPhaseRelativeRemaining(encounterID or Notes.currentEncounterID, phase, seconds,
+            Notes.encounterStartTime, difficulty)
+    elseif phase == 1 and Notes.encounterStartTime then
+        remaining = seconds - (GetTime() - Notes.encounterStartTime)
+    end
+
+    if not remaining then
+        return seconds, false
+    end
+    return remaining, remaining <= 0
+end
+
+local function lineHasTimer(line, fields)
+    if type(line) ~= "string" then
+        return false
+    end
+    if line:find("{time:[^}]+}") then
+        return true
+    end
+    fields = fields or parseStructuredNoteLine(line)
+    return fields and fields.displayable or false
+end
+
+local function textHasDisplayTimer(text)
+    if type(text) ~= "string" then
+        return false
+    end
+    if text:find("{time:[^}]+}") then
+        return true
+    end
+    if not (text:find("time:%d", 1, false) and text:find("tag:", 1, true)) then
+        return false
+    end
+    return text:find("text:", 1, true) or text:find("spellid:", 1, true)
+end
+
+local function lineHasPassedTimer(line, encounterID, difficulty, fields)
     if not Notes.encounterStartTime or type(line) ~= "string" then
         return false
     end
+
+    fields = fields or parseStructuredNoteLine(line)
+    if fields and fields.displayable then
+        local _, expired = structuredNoteTimerState(fields, encounterID, difficulty)
+        return expired
+    end
+
     local elapsed = GetTime() - Notes.encounterStartTime
     for value in line:gmatch("{time:([^}]+)}") do
         local targetSeconds = parseNoteTimeSeconds(value)
@@ -529,10 +661,19 @@ local function buildPlayerNameAliases()
     return aliases
 end
 
-local function lineMentionsPlayer(line, aliases)
+local function lineMentionsPlayer(line, aliases, fields)
     if type(line) ~= "string" or line == "" then
         return false
     end
+    fields = fields or parseStructuredNoteLine(line)
+    if fields then
+        local tag = strtrim(E:StripColorCodes(fields.tag or ""))
+        if structuredTagMatchesPlayer(tag) then
+            return true
+        end
+        line = tag
+    end
+
     local plain = strlower(E:StripColorCodes(line))
     for _, alias in ipairs(aliases or buildPlayerNameAliases()) do
         local from = 1
@@ -550,6 +691,89 @@ local function lineMentionsPlayer(line, aliases)
     return false
 end
 
+local function formatStructuredNoteDisplay(text, display)
+    if type(text) ~= "string" or text == "" then
+        return text or ""
+    end
+    if not text:find("time:%d", 1, false) or not text:find("tag:", 1, true) then
+        return text
+    end
+
+    local encounterID = tonumber(text:match("EncounterID:(%d+)"))
+    local difficulty = text:match("[Dd]ifficulty:([^;\n]+)")
+    local reminders, extras = {}, {}
+    local structured, order = false, 0
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        local fields = parseStructuredNoteLine(line)
+        if fields then
+            structured = true
+            if fields.displayable then
+                order = order + 1
+                fields.order = order
+                reminders[#reminders + 1] = fields
+            end
+        elseif line:match("^%s*EncounterID:%d+;") or line:match("^%s*invitelist:") then
+            structured = true
+        else
+            extras[#extras + 1] = line
+        end
+    end
+
+    if not structured then
+        return text
+    end
+
+    sort(reminders, function(a, b)
+        if a.phase == b.phase then
+            if a.timeSeconds == b.timeSeconds then
+                return a.order < b.order
+            end
+            return a.timeSeconds < b.timeSeconds
+        end
+        return a.phase < b.phase
+    end)
+
+    local out, lastPhase = {}, nil
+    for _, fields in ipairs(reminders) do
+        if fields.phase ~= lastPhase then
+            out[#out + 1] = "Phase " .. fields.phase
+            lastPhase = fields.phase
+        end
+
+        local seconds, expired = structuredNoteTimerState(fields, encounterID, difficulty)
+        local color = expired and DISPLAY_TIMER_EXPIRED_COLOR or displayTimerColorHex(display)
+        local parts = {"|c" .. color .. formatNoteTimer(seconds) .. "|r"}
+        local tag = strtrim((fields.tag or ""):gsub("%s+", " "))
+        if tag ~= "" then
+            parts[#parts + 1] = tag
+        end
+        if fields.text and fields.text ~= "" then
+            parts[#parts + 1] = "- " .. (fields.text:gsub("{([^}]+)}", function(token)
+                local clean = strlower(strtrim(token or ""))
+                local id = STRUCTURED_NOTE_RAID_MARKERS[clean] or tonumber(clean:match("^rt([1-8])$"))
+                return id and "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_" .. id .. ":0|t" or "{" .. token .. "}"
+            end))
+        end
+
+        if fields.spellid and fields.spellid ~= "" then
+            parts[#parts + 1] = "{spell:" .. fields.spellid .. ":12}"
+        end
+
+        out[#out + 1] = concat(parts, " ")
+    end
+
+    if #extras > 0 then
+        if #out > 0 then
+            out[#out + 1] = ""
+        end
+        for _, line in ipairs(extras) do
+            out[#out + 1] = line
+        end
+    end
+
+    return concat(out, "\n")
+end
+
 local function filterDisplayLines(text, display)
     if type(text) ~= "string" or text == "" then
         return text or ""
@@ -560,15 +784,21 @@ local function filterDisplayLines(text, display)
 
     local out = {}
     local playerAliases = display.hideTimerLinesWithoutMe and buildPlayerNameAliases() or nil
+    if playerAliases and #playerAliases == 0 then
+        return text
+    end
+    local encounterID = tonumber(text:match("EncounterID:(%d+)"))
+    local difficulty = text:match("[Dd]ifficulty:([^;\n]+)")
     local startIndex = 1
     while true do
         local newline = text:find("\n", startIndex, true)
         local line = newline and text:sub(startIndex, newline - 1) or text:sub(startIndex)
+        local fields = parseStructuredNoteLine(line)
         local hide = false
-        if display.hidePassedTimers and lineHasPassedTimer(line) then
+        if display.hidePassedTimers and lineHasPassedTimer(line, encounterID, difficulty, fields) then
             hide = true
         end
-        if not hide and display.hideTimerLinesWithoutMe and lineHasTimer(line) and not lineMentionsPlayer(line, playerAliases) then
+        if not hide and display.hideTimerLinesWithoutMe and lineHasTimer(line, fields) and not lineMentionsPlayer(line, playerAliases, fields) then
             hide = true
         end
         if not hide then
@@ -644,6 +874,8 @@ local function addDisplayNameAlias(aliases, seen, text, class)
         lower = key,
         color = E:ClassColorCode(class)
     }
+    aliases.map = aliases.map or {}
+    aliases.map[key] = aliases[#aliases].color
 end
 
 local function addDisplayNameUnitAliases(aliases, seen, unit)
@@ -691,29 +923,22 @@ local function colorizePlainDisplayNames(text, aliases)
         return text or ""
     end
 
-    local lowerText = strlower(text)
-    local out = {}
-    local i = 1
-    while i <= #text do
-        local match
+    local aliasMap = aliases.map
+    if not aliasMap then
+        aliasMap = {}
         for _, alias in ipairs(aliases) do
-            local len = #alias.text
-            local last = i + len - 1
-            if last <= #text and lowerText:sub(i, last) == alias.lower and isNameBoundary(lowerText, i, last) then
-                match = alias
-                break
-            end
+            aliasMap[alias.lower] = alias.color
         end
-
-        if match then
-            out[#out + 1] = match.color .. text:sub(i, i + #match.text - 1) .. "|r"
-            i = i + #match.text
-        else
-            out[#out + 1] = text:sub(i, i)
-            i = i + 1
-        end
+        aliases.map = aliasMap
     end
-    return concat(out)
+
+    return (text:gsub("[%w_'%-]+", function(token)
+        local color = aliasMap[strlower(token)]
+        if color then
+            return color .. token .. "|r"
+        end
+        return token
+    end))
 end
 
 function Notes:ColorizeDisplayNames(text)
@@ -764,6 +989,29 @@ function Notes:ColorizeDisplayNames(text)
     return concat(out)
 end
 
+local function displayRenderKey(notes, display)
+    local encounterStart = notes.encounterStartTime and string.format("%.3f", notes.encounterStartTime) or ""
+    local role = display and display.hideTimerLinesWithoutMe and (getPlayerNoteRole() or "") or ""
+    return concat({
+        notes.renderRevision or 0,
+        notes.nicknameRevision or 0,
+        notes.rosterRevision or 0,
+        role,
+        notes.currentEncounterID or "",
+        encounterStart,
+        display and display.hidePassedTimers and 1 or 0,
+        display and display.hideTimerLinesWithoutMe and 1 or 0,
+        displayTimerColorHex(display)
+    }, ":")
+end
+
+local function displayTimeBucket(notes, usesTime)
+    if not notes.encounterStartTime or not usesTime then
+        return 0
+    end
+    return floor((GetTime() - notes.encounterStartTime) + 0.5)
+end
+
 -- Process text for the on-screen note frame only
 function Notes:ProcessDisplayText(slotIndex)
     local slot = self:GetSlot(slotIndex)
@@ -776,9 +1024,36 @@ function Notes:ProcessDisplayText(slotIndex)
     end
 
     local display = slot.display or makeDefaultSlotDisplay()
+    local renderKey = displayRenderKey(self, display)
+    local usesTime = self:SlotUsesTime(slotIndex)
+    local timeBucket = displayTimeBucket(self, usesTime)
+    local cache = self.displayCache[slotIndex]
+    local liveRender = self.encounterStartTime and usesTime
+    if cache and cache.raw == raw then
+        if liveRender then
+            if cache.liveKey == renderKey and cache.liveTimeBucket == timeBucket then
+                return cache.liveText
+            end
+        elseif cache.stableKey == renderKey then
+            return cache.stableText
+        end
+    elseif cache then
+        cache.raw = raw
+        cache.stableKey = nil
+        cache.stableText = nil
+        cache.liveKey = nil
+        cache.liveTimeBucket = nil
+        cache.liveText = nil
+    else
+        cache = {
+            raw = raw
+        }
+    end
+
     local text = gsub(raw, "\r\n", "\n")
     text = stripRaidAssignmentMarkers(text)
     text = filterDisplayLines(text, display)
+    text = formatStructuredNoteDisplay(text, display)
     text = self:RenderDisplayTimeTokens(text, display)
 
     for _, token in ipairs(self.tokens) do
@@ -797,6 +1072,15 @@ function Notes:ProcessDisplayText(slotIndex)
     text = self:StripDisplayTextTags(text)
     text = self:ColorizeDisplayNames(text)
 
+    if liveRender then
+        cache.liveKey = renderKey
+        cache.liveTimeBucket = timeBucket
+        cache.liveText = text
+    else
+        cache.stableKey = renderKey
+        cache.stableText = text
+    end
+    self.displayCache[slotIndex] = cache
     return text
 end
 
@@ -884,6 +1168,8 @@ function Notes:SetSlotText(index, text)
     self:SyncReadOnlyDB()
     -- Invalidate just this slot's cache entry
     self.processedCache[index] = nil
+    self.displayCache[index] = nil
+    self.timerUsageCache[index] = nil
     E:SendMessage("ART_NOTE_CHANGED", index, text)
     self:RefreshFrame(index)
     self:RefreshTimeTicker()
@@ -1012,6 +1298,8 @@ function Notes:MaybeWipeNoteOnGroupLeave(previousGroupState, groupState)
 end
 
 function Notes:OnExternalNoteAccessGroupChanged()
+    self:RefreshPlayerNoteRole()
+
     local previousGroupState = self._externalNoteAccessGroupState
     local previousExposed = self._externalNoteAccessExposed
     local groupState = externalNoteAccessGroupState()
@@ -1225,6 +1513,8 @@ function Notes:Undo(index)
         slot.text = entry.text or ""
         self:SyncReadOnlyDB()
         self.processedCache[index] = nil
+        self.displayCache[index] = nil
+        self.timerUsageCache[index] = nil
         E:SendMessage("ART_NOTE_CHANGED", index, slot.text)
         self:RefreshFrame(index)
     end
@@ -1396,16 +1686,41 @@ function Notes:IsWithinEncounterTime(seconds)
     return (GetTime() - self.encounterStartTime) <= seconds
 end
 
+function Notes:SlotUsesTime(slotIndex)
+    local slot = self:GetSlot(slotIndex)
+    local text = slot and slot.text
+    local cache = self.timerUsageCache[slotIndex]
+    if cache and cache.raw == text then
+        return cache.uses
+    end
+
+    local uses = textHasDisplayTimer(text) and true or false
+    self.timerUsageCache[slotIndex] = {
+        raw = text,
+        uses = uses
+    }
+    return uses
+end
+
 function Notes:AnyVisibleSlotUsesTime()
     for i = 1, self:GetSlotCount() do
-        if self:ShouldSlotBeVisible(i) then
-            local slot = self.db.slots[i]
-            if slot and slot.text and slot.text:find("{time:[^}]+}") then
-                return true
-            end
+        if self:ShouldSlotBeVisible(i) and self:SlotUsesTime(i) then
+            return true
         end
     end
     return false
+end
+
+function Notes:RefreshVisibleTimerFrames()
+    for i = 1, self:GetSlotCount() do
+        if self:ShouldSlotBeVisible(i) and self:SlotUsesTime(i) then
+            local frame = self.frames[i] or self:BuildFrame(i)
+            if frame then
+                frame:Show()
+                self:RefreshFrame(i)
+            end
+        end
+    end
 end
 
 function Notes:StartEncounterTicker()
@@ -1418,12 +1733,17 @@ function Notes:StartEncounterTicker()
     if not self:AnyVisibleSlotUsesTime() then
         return
     end
+    self.lastTimerRefreshBucket = nil
     self.encounterTicker = C_Timer.NewTicker(0.5, function()
         if not self.encounterStartTime then
             return
         end
-        wipe(self.processedCache)
-        self:RefreshAllFrames()
+        local bucket = floor((GetTime() - self.encounterStartTime) + 0.5)
+        if self.lastTimerRefreshBucket == bucket then
+            return
+        end
+        self.lastTimerRefreshBucket = bucket
+        self:RefreshVisibleTimerFrames()
     end)
 end
 
@@ -1432,6 +1752,7 @@ function Notes:StopEncounterTicker()
         self.encounterTicker:Cancel()
         self.encounterTicker = nil
     end
+    self.lastTimerRefreshBucket = nil
 end
 
 function Notes:RefreshTimeTicker()
@@ -1442,11 +1763,15 @@ function Notes:RefreshTimeTicker()
     end
 end
 
+function Notes:InvalidateEncounterProcessedText()
+    wipe(self.processedCache)
+end
+
 function Notes:OnEncounterStart(_, encounterID, encounterName, difficultyID, groupSize)
     self.currentEncounterID = encounterID
     self.currentEncounterName = encounterName
     self.encounterStartTime = GetTime()
-    self:BumpRenderRevision()
+    self:InvalidateEncounterProcessedText()
     E:SendMessage("ART_NOTE_ENCOUNTER_START", encounterID, encounterName, difficultyID, groupSize)
     self:RefreshAllFrames()
     self:RefreshTimeTicker()
@@ -1457,7 +1782,7 @@ function Notes:OnEncounterEnd(_, encounterID, encounterName, difficultyID, group
     self.encounterStartTime = nil
     self.currentEncounterID = nil
     self.currentEncounterName = nil
-    self:BumpRenderRevision()
+    self:InvalidateEncounterProcessedText()
     E:SendMessage("ART_NOTE_ENCOUNTER_END", encounterID, success == 1 or success == true)
     self:RefreshAllFrames()
 end
@@ -1484,13 +1809,35 @@ function Notes:OnRosterChanged()
         if not Notes:IsEnabled() then
             return
         end
+        Notes.rosterRevision = (Notes.rosterRevision or 0) + 1
+        wipe(Notes.displayCache)
         Notes:RefreshFrameVisibility()
         Notes:RefreshTimeTicker()
     end)
 end
 
-function Notes:OnCombatStateChanged()
+function Notes:RefreshPlayerNoteRole()
+    local role = getPlayerNoteRole() or ""
+    if self._playerNoteRole == role then
+        return false
+    end
+
+    self._playerNoteRole = role
+    wipe(self.displayCache)
     self:RefreshAllFrames()
+    self:RefreshTimeTicker()
+    return true
+end
+
+function Notes:OnPlayerSpecializationChanged(_, unit)
+    if unit and unit ~= "player" then
+        return
+    end
+    self:RefreshPlayerNoteRole()
+end
+
+function Notes:OnCombatStateChanged()
+    self:RefreshFrameVisibility()
     self:RefreshTimeTicker()
 end
 
@@ -1959,6 +2306,100 @@ function Notes:GetFrame(slotIndex)
     return self.frames[slotIndex]
 end
 
+local function frameTextLayoutKey(display, width)
+    return concat({
+        display.fontName or "",
+        display.fontSize or "",
+        display.fontOutline or "",
+        display.spacing or "",
+        width or 0
+    }, ":")
+end
+
+local function splitDisplayTextChunks(text)
+    text = tostring(text or "")
+    if #text <= DISPLAY_TEXT_CHUNK_SIZE then
+        return {text}
+    end
+
+    local chunks = {}
+    local current = {}
+    local currentLen = 0
+    local startIndex = 1
+    while true do
+        local newline = text:find("\n", startIndex, true)
+        local segment = newline and text:sub(startIndex, newline) or text:sub(startIndex)
+        if segment == "" and not newline then
+            break
+        end
+
+        while #segment > DISPLAY_TEXT_CHUNK_SIZE do
+            if #current > 0 then
+                chunks[#chunks + 1] = concat(current)
+                current = {}
+                currentLen = 0
+            end
+            chunks[#chunks + 1] = segment:sub(1, DISPLAY_TEXT_CHUNK_SIZE)
+            segment = segment:sub(DISPLAY_TEXT_CHUNK_SIZE + 1)
+        end
+
+        if currentLen > 0 and currentLen + #segment > DISPLAY_TEXT_CHUNK_SIZE then
+            chunks[#chunks + 1] = concat(current)
+            current = {}
+            currentLen = 0
+        end
+
+        if segment ~= "" then
+            current[#current + 1] = segment
+            currentLen = currentLen + #segment
+        end
+
+        if not newline then
+            break
+        end
+        startIndex = newline + 1
+    end
+
+    if #current > 0 or #chunks == 0 then
+        chunks[#chunks + 1] = concat(current)
+    end
+    return chunks
+end
+
+local function ensureFrameTextChunk(frame, index)
+    if index == 1 then
+        return frame.textFS
+    end
+
+    frame.textChunks = frame.textChunks or {frame.textFS}
+    local fs = frame.textChunks[index]
+    if fs then
+        return fs
+    end
+
+    local previous = frame.textChunks[index - 1] or frame.textFS
+    fs = frame.content:CreateFontString(nil, "OVERLAY")
+    fs:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, 0)
+    fs:SetPoint("TOPRIGHT", previous, "BOTTOMRIGHT", 0, 0)
+    fs:SetJustifyH("LEFT")
+    fs:SetJustifyV("TOP")
+    fs:SetWordWrap(true)
+    frame.textChunks[index] = fs
+    return fs
+end
+
+local function hideUnusedTextChunks(frame, firstUnused)
+    if not frame.textChunks then
+        return
+    end
+    for i = firstUnused, #frame.textChunks do
+        local fs = frame.textChunks[i]
+        if fs then
+            fs:Hide()
+        end
+    end
+end
+
 function Notes:RefreshFrame(slotIndex)
     local frame = self.frames[slotIndex]
     if not frame then
@@ -1976,15 +2417,39 @@ function Notes:RefreshFrame(slotIndex)
     applyLockState(frame)
 
     local processed = self:ProcessDisplayText(slotIndex)
-    frame.textFS:SetText(processed)
-    -- After setting text, size the scroll child to fit
     local w = frame.scroll:GetWidth()
+    local layoutKey = frameTextLayoutKey(display, w)
+    if frame._artLastProcessedText == processed and frame._artLastLayoutKey == layoutKey then
+        return
+    end
+
+    -- After setting text, size the scroll child to fit
     if w and w > 0 then
         frame.content:SetWidth(w)
     end
-    local h = max(frame.textFS:GetStringHeight() or 0, frame.scroll:GetHeight() or 0)
+
+    local chunks = splitDisplayTextChunks(processed)
+    local textChanged = frame._artLastProcessedText ~= processed
+    local textHeight = 0
+    for i, chunk in ipairs(chunks) do
+        local fs = ensureFrameTextChunk(frame, i)
+        applyFontToText(fs, display)
+        if textChanged or fs._artLastChunkText ~= chunk then
+            fs:SetText(chunk)
+            fs._artLastChunkText = chunk
+        end
+        if not fs:IsShown() then
+            fs:Show()
+        end
+        textHeight = textHeight + max(fs:GetStringHeight() or 0, 0)
+    end
+    hideUnusedTextChunks(frame, #chunks + 1)
+    frame._artLastProcessedText = processed
+
+    local h = max(textHeight, frame.scroll:GetHeight() or 0)
     frame.content:SetHeight(h)
     frame.scroll:UpdateScrollChildRect()
+    frame._artLastLayoutKey = layoutKey
 end
 
 function Notes:SetDisplayStrata(strata)
@@ -2160,7 +2625,11 @@ function Notes:RefreshFrameVisibility()
         if self:ShouldSlotBeVisible(i) then
             local frame = self.frames[i]
             if frame then
+                local wasShown = frame:IsShown()
                 frame:Show()
+                if not wasShown then
+                    self:RefreshFrame(i)
+                end
             else
                 frame = self:BuildFrame(i)
                 frame:Show()
@@ -2439,6 +2908,7 @@ function Notes:OnEnable()
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnExternalNoteAccessGroupChanged")
+    self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", "OnPlayerSpecializationChanged")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStateChanged")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatStateChanged")
 
@@ -2453,6 +2923,7 @@ function Notes:OnEnable()
 
     self:SyncReadOnlyDB()
     self:StoreExternalNoteAccessState()
+    self._playerNoteRole = getPlayerNoteRole() or ""
     self:Publish()
     self:BumpRenderRevision()
     self:RefreshAllFrames()
@@ -2478,7 +2949,10 @@ function Notes:OnDisable()
         self.rosterRefreshTimer = nil
     end
     self:StopEncounterTicker()
+    wipe(self.displayCache)
+    wipe(self.timerUsageCache)
     wipe(self.editVisibleSlots)
+    self._playerNoteRole = nil
     self.encounterStartTime = nil
     self:HideAllFrames()
     self:Unpublish()
@@ -2488,6 +2962,8 @@ end
 
 function Notes:OnProfileChanged()
     wipe(self.processedCache)
+    wipe(self.displayCache)
+    wipe(self.timerUsageCache)
     wipe(self.undoStacks)
     wipe(self.editVisibleSlots)
     if self.rosterRefreshTimer then
