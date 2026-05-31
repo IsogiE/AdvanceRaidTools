@@ -701,29 +701,7 @@ local function formatStructuredNoteDisplay(text, display)
 
     local encounterID = tonumber(text:match("EncounterID:(%d+)"))
     local difficulty = text:match("[Dd]ifficulty:([^;\n]+)")
-    local reminders, extras = {}, {}
-    local structured, order = false, 0
-    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
-        local fields = parseStructuredNoteLine(line)
-        if fields then
-            structured = true
-            if fields.displayable then
-                order = order + 1
-                fields.order = order
-                reminders[#reminders + 1] = fields
-            end
-        elseif line:match("^%s*EncounterID:%d+;") or line:match("^%s*invitelist:") then
-            structured = true
-        else
-            extras[#extras + 1] = line
-        end
-    end
-
-    if not structured then
-        return text
-    end
-
-    sort(reminders, function(a, b)
+    local function reminderSort(a, b)
         if a.phase == b.phase then
             if a.timeSeconds == b.timeSeconds then
                 return a.order < b.order
@@ -731,15 +709,9 @@ local function formatStructuredNoteDisplay(text, display)
             return a.timeSeconds < b.timeSeconds
         end
         return a.phase < b.phase
-    end)
+    end
 
-    local out, lastPhase = {}, nil
-    for _, fields in ipairs(reminders) do
-        if fields.phase ~= lastPhase then
-            out[#out + 1] = "Phase " .. fields.phase
-            lastPhase = fields.phase
-        end
-
+    local function appendReminder(out, fields)
         local seconds, expired = structuredNoteTimerState(fields, encounterID, difficulty)
         local color = expired and DISPLAY_TIMER_EXPIRED_COLOR or displayTimerColorHex(display)
         local parts = {"|c" .. color .. formatNoteTimer(seconds) .. "|r"}
@@ -762,13 +734,43 @@ local function formatStructuredNoteDisplay(text, display)
         out[#out + 1] = concat(parts, " ")
     end
 
-    if #extras > 0 then
-        if #out > 0 then
-            out[#out + 1] = ""
+    local out, reminders = {}, {}
+    local structured = false
+    local function flushReminders()
+        if #reminders == 0 then
+            return
         end
-        for _, line in ipairs(extras) do
+        sort(reminders, reminderSort)
+        local lastPhase = nil
+        for _, fields in ipairs(reminders) do
+            if fields.phase ~= lastPhase then
+                out[#out + 1] = "Phase " .. fields.phase
+                lastPhase = fields.phase
+            end
+            appendReminder(out, fields)
+        end
+        reminders = {}
+    end
+
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+        local fields = parseStructuredNoteLine(line)
+        if fields then
+            structured = true
+            if fields.displayable then
+                fields.order = #reminders + 1
+                reminders[#reminders + 1] = fields
+            end
+        elseif line:match("^%s*EncounterID:%d+;") or line:match("^%s*invitelist:") then
+            structured = true
+        else
+            flushReminders()
             out[#out + 1] = line
         end
+    end
+    flushReminders()
+
+    if not structured then
+        return text
     end
 
     return concat(out, "\n")
