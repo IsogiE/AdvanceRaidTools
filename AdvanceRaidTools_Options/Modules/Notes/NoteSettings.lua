@@ -968,7 +968,9 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
             return mod:IsSlotActive(clampEditingSlot(mod))
         end,
         onChange = function(_, v)
-            mod:SetSlotActive(clampEditingSlot(mod), v)
+            if not mod:SetSlotActive(clampEditingSlot(mod), v) then
+                refreshPanel()
+            end
         end,
         tooltip = {
             title = L["Notes_Active"],
@@ -1429,6 +1431,10 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                 onChange = function(_, v)
                     local _, d = currentSlotDisplay(mod)
                     if d then
+                        if InCombatLockdown() and d.hideOutsideRaid and not v then
+                            refreshPanel()
+                            return
+                        end
                         d.hideOutsideRaid = v and true or false
                         mod:RefreshAllFrames()
                         if mod.RefreshTimeTicker then
@@ -1459,6 +1465,10 @@ local function buildDisplayArgs(mod, isModuleDisabled)
                 onChange = function(_, v)
                     local _, d = currentSlotDisplay(mod)
                     if d then
+                        if InCombatLockdown() and d.hideInCombat and not v then
+                            refreshPanel()
+                            return
+                        end
                         d.hideInCombat = v and true or false
                         mod:RefreshAllFrames()
                         if mod.RefreshTimeTicker then

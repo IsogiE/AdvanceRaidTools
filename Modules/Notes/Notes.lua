@@ -1446,6 +1446,9 @@ function Notes:SetSlotActive(index, active)
         return false
     end
     active = active and true or false
+    if active and not slot.active and InCombatLockdown() then
+        return false
+    end
     if slot.active == active then
         return false
     end
@@ -1702,9 +1705,34 @@ function Notes:SlotUsesTime(slotIndex)
     return uses
 end
 
+function Notes:ShouldSlotBeRuntimeVisible(slotIndex)
+    if not self:IsEnabled() then
+        return false
+    end
+    local slot = self:GetSlot(slotIndex)
+    if not slot then
+        return false
+    end
+    if not slot.active then
+        return false
+    end
+    local display = slot.display or {}
+    if display.hideOutsideRaid and not IsInRaid() then
+        return false
+    end
+    if display.hideInCombat and InCombatLockdown() then
+        return false
+    end
+    return true
+end
+
+function Notes:ShouldSlotRunTimers(slotIndex)
+    return self:ShouldSlotBeRuntimeVisible(slotIndex) and self:SlotUsesTime(slotIndex)
+end
+
 function Notes:AnyVisibleSlotUsesTime()
     for i = 1, self:GetSlotCount() do
-        if self:ShouldSlotBeVisible(i) and self:SlotUsesTime(i) then
+        if self:ShouldSlotRunTimers(i) then
             return true
         end
     end
@@ -1713,7 +1741,7 @@ end
 
 function Notes:RefreshVisibleTimerFrames()
     for i = 1, self:GetSlotCount() do
-        if self:ShouldSlotBeVisible(i) and self:SlotUsesTime(i) then
+        if self:ShouldSlotRunTimers(i) then
             local frame = self.frames[i] or self:BuildFrame(i)
             if frame then
                 frame:Show()
@@ -2541,6 +2569,9 @@ function Notes:SetSlotEditMode(index, enabled)
     end
     self.editVisibleSlots = self.editVisibleSlots or {}
     enabled = enabled and true or false
+    if enabled and InCombatLockdown() then
+        return false
+    end
     if (self.editVisibleSlots[index] and true or false) == enabled then
         return false
     end
@@ -2583,20 +2614,10 @@ function Notes:ShouldSlotBeVisible(slotIndex)
     if not slot then
         return false
     end
-    if self.editVisibleSlots and self.editVisibleSlots[slotIndex] then
+    if self.editVisibleSlots and self.editVisibleSlots[slotIndex] and not InCombatLockdown() then
         return true
     end
-    if not slot.active then
-        return false
-    end
-    local display = slot.display or {}
-    if display.hideOutsideRaid and not IsInRaid() then
-        return false
-    end
-    if display.hideInCombat and InCombatLockdown() then
-        return false
-    end
-    return true
+    return self:ShouldSlotBeRuntimeVisible(slotIndex)
 end
 
 function Notes:RefreshAllFrames()
