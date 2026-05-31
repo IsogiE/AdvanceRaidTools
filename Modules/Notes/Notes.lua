@@ -2054,7 +2054,7 @@ local function onFrameDragStop(self)
 end
 
 local CHILD_ANCHORS = {
-    scroll = {{"TOPLEFT", 4, -20}, {"BOTTOMRIGHT", -4, 4}},
+    scroll = {{"TOPLEFT", 4, -4}, {"BOTTOMRIGHT", -4, 6}},
     grip = {{"BOTTOMRIGHT", -1, 1}},
     lockToggle = {{"TOPRIGHT", -1, -1}}
 }
@@ -2248,8 +2248,8 @@ function Notes:BuildFrame(slotIndex)
 
     -- Scrolling text body
     local scroll = CreateFrame("ScrollFrame", nil, frame)
-    scroll:SetPoint("TOPLEFT", 4, -20)
-    scroll:SetPoint("BOTTOMRIGHT", -4, 4)
+    scroll:SetPoint("TOPLEFT", 4, -4)
+    scroll:SetPoint("BOTTOMRIGHT", -4, 6)
     scroll:EnableMouse(false)
     scroll:EnableMouseWheel(true)
     scroll:SetScript("OnMouseWheel", function(self_, delta)
