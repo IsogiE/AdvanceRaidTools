@@ -38,11 +38,75 @@ E:RegisterModuleDefaults("QoL_Resources", {
 local Resources = E:NewModule("QoL_Resources", "AceEvent-3.0")
 
 local PRD_CVAR = "nameplateShowSelf"
+local PRD_STATUS_BAR_BACKGROUND_ATLAS = "UI-HUD-CoolDownManager-Bar-BG"
 
 local hooksInstalled = false
 
 local function prd()
     return _G.PersonalResourceDisplayFrame
+end
+
+local function ensurePRDSetup(frame)
+    if frame and frame.Setup and not frame.hasBeenSetup then
+        frame:Setup()
+    end
+end
+
+local function updatePRDLayout(frame)
+    if frame.UpdatePowerBarAnchor then
+        frame:UpdatePowerBarAnchor()
+    end
+    if frame.UpdateAdditionalBarAnchors then
+        frame:UpdateAdditionalBarAnchors()
+    end
+    if frame.UpdateFrameHeight then
+        frame:UpdateFrameHeight()
+    end
+end
+
+local function hasClassFrame(frame)
+    if not frame then
+        return false
+    end
+    if frame.HasClassInfo then
+        return frame:HasClassInfo()
+    end
+    if frame.classFrame or _G.prdClassFrame then
+        return true
+    end
+    return frame.ClassFrameContainer and frame.ClassFrameContainer.yOffset ~= nil
+end
+
+local function setHealthShown(frame, shown)
+    if frame.SetHideHealth then
+        frame:SetHideHealth(not shown)
+    elseif frame.HealthBarsContainer then
+        frame.HealthBarsContainer:SetShown(shown)
+    end
+end
+
+local function setPowerShown(frame, shown)
+    if frame.SetHidePower then
+        frame:SetHidePower(not shown)
+    elseif frame.PowerBar then
+        frame.PowerBar:SetShown(shown)
+    end
+end
+
+local function setClassFrameShown(frame, shown)
+    if frame.SetHideClassInfo then
+        frame:SetHideClassInfo(not shown)
+    elseif frame.ClassFrameContainer then
+        frame.ClassFrameContainer:SetShown(shown and hasClassFrame(frame))
+    end
+end
+
+local function setAltPowerShown(frame, shown)
+    if frame.SetHideAltPower then
+        frame:SetHideAltPower(not shown)
+    elseif frame.AlternatePowerBar then
+        frame.AlternatePowerBar:SetShown(shown and frame.AlternatePowerBar.alternatePowerRequirementsMet)
+    end
 end
 
 local function enablePRDForART(self_)
@@ -81,14 +145,76 @@ end
 
 -- Visuals
 
+local function setRegionShown(region, shown)
+    if region.SetShown then
+        region:SetShown(shown)
+    elseif shown and region.Show then
+        region:Show()
+    elseif not shown and region.Hide then
+        region:Hide()
+    end
+end
+
+local function hideBlizzardStatusBarBackground(bar)
+    if not bar or not bar.GetRegions then
+        return false
+    end
+
+    local hiddenRegions = bar._artPRDHiddenRegions
+    if not hiddenRegions then
+        hiddenRegions = {}
+        bar._artPRDHiddenRegions = hiddenRegions
+    end
+
+    local foundNewPRDArt = false
+    for _, region in ipairs({bar:GetRegions()}) do
+        if region.GetAtlas and region:GetAtlas() == PRD_STATUS_BAR_BACKGROUND_ATLAS then
+            hiddenRegions[region] = true
+            setRegionShown(region, false)
+            foundNewPRDArt = true
+        end
+    end
+
+    if foundNewPRDArt then
+        local bg = bar._artPRDBackground
+        if not bg then
+            bg = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
+            bg:SetAllPoints(bar)
+            bar._artPRDBackground = bg
+        end
+        bg:SetTexture(E.media.blankTex)
+        bg:SetVertexColor(0.2, 0.2, 0.2, 0.65)
+        bg:Show()
+    end
+
+    return foundNewPRDArt
+end
+
+local function restoreBlizzardStatusBarBackground(bar)
+    if not bar then
+        return
+    end
+
+    if bar._artPRDHiddenRegions then
+        for region in pairs(bar._artPRDHiddenRegions) do
+            setRegionShown(region, true)
+        end
+    end
+    if bar._artPRDBackground then
+        bar._artPRDBackground:Hide()
+    end
+end
+
 local function applyCustomBorder(bar, show, color)
+    hideBlizzardStatusBarBackground(bar)
+
     if not show then
         E:ApplyOuterBorder(bar, {
             enabled = false
         })
         return
     end
-    E:ApplyOuterBorder(bar, {
+    local border = E:ApplyOuterBorder(bar, {
         enabled = true,
         edgeFile = E.media.blankTex,
         edgeSize = 1,
@@ -97,9 +223,13 @@ local function applyCustomBorder(bar, show, color)
         b = color[3],
         a = color[4] or 1
     })
+    if border and border.SetFrameLevel then
+        border:SetFrameLevel((bar:GetFrameLevel() or 0) + 10)
+    end
 end
 
 local function hideCustomBorder(bar)
+    restoreBlizzardStatusBarBackground(bar)
     E:ApplyOuterBorder(bar, {
         enabled = false
     })
@@ -112,11 +242,10 @@ local function applyPowerBar(self_, frame)
         return
     end
 
+    setPowerShown(frame, db.showPowerBar)
     if db.showPowerBar then
         bar:SetSize(db.powerWidth, db.powerHeight)
-        bar:Show()
     else
-        bar:Hide()
         return
     end
 
@@ -135,6 +264,7 @@ local function applyPowerBar(self_, frame)
     applyCustomBorder(bar, db.showPowerBorder, db.powerBorderColor)
 
     self_:UpdatePowerText(bar)
+    updatePRDLayout(frame)
 end
 
 local HEALTH_TEXT_TICK = 0.1
@@ -169,7 +299,7 @@ local function applyHealthBar(self_, frame)
         return
     end
 
-    container:SetShown(db.showHealthBar)
+    setHealthShown(frame, db.showHealthBar)
     if not db.showHealthBar then
         if container.healthBar and container.healthBar.artHealthText then
             container.healthBar.artHealthText:Hide()
@@ -182,8 +312,13 @@ local function applyHealthBar(self_, frame)
     container:SetSize(db.healthWidth, db.healthHeight)
 
     local tex = E:FetchStatusBar(db.healthTexture)
-    if tex and container.healthBar and container.healthBar.barTexture then
-        container.healthBar.barTexture:SetTexture(tex)
+    if tex and container.healthBar then
+        if container.healthBar.SetStatusBarTexture then
+            container.healthBar:SetStatusBarTexture(tex)
+        end
+        if container.healthBar.barTexture then
+            container.healthBar.barTexture:SetTexture(tex)
+        end
     end
 
     if container.border then
@@ -195,14 +330,13 @@ local function applyHealthBar(self_, frame)
     end
 
     self_:UpdateHealthText(container.healthBar)
+    updatePRDLayout(frame)
 end
 
 local function applyClassFrame(self_, frame)
     local db = self_.db
-    local cfc = frame.ClassFrameContainer
-    if cfc then
-        cfc:SetShown(db.showClassFrame)
-    end
+    setClassFrameShown(frame, db.showClassFrame and hasClassFrame(frame))
+    updatePRDLayout(frame)
 end
 
 function Resources:UpdatePowerText(bar)
@@ -283,15 +417,11 @@ function Resources:UpdateHealthText(bar)
 end
 
 local function hidePRDChildren(frame)
-    if frame.HealthBarsContainer then
-        frame.HealthBarsContainer:Hide()
-    end
-    if frame.PowerBar then
-        frame.PowerBar:Hide()
-    end
-    if frame.ClassFrameContainer then
-        frame.ClassFrameContainer:Hide()
-    end
+    ensurePRDSetup(frame)
+    setClassFrameShown(frame, false)
+    setAltPowerShown(frame, false)
+    setPowerShown(frame, false)
+    setHealthShown(frame, false)
 end
 
 -- Restore Blizzard defaults for anything we changed
@@ -303,11 +433,13 @@ local function revert(self_)
 
     if frame.HealthBarsContainer then
         local c = frame.HealthBarsContainer
-        c:Show()
+        setHealthShown(frame, true)
         c:ClearAllPoints()
-        c:SetPoint("LEFT", frame, "LEFT", 0, 0)
         c:SetPoint("TOP", frame, "TOP", 0, 0)
-        c:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+        if not frame.UpdateBarWidth then
+            c:SetPoint("LEFT", frame, "LEFT", 0, 0)
+            c:SetPoint("RIGHT", frame, "RIGHT", 0, 0)
+        end
         c:SetHeight(15)
         if c.border then
             c.border:Show()
@@ -326,7 +458,7 @@ local function revert(self_)
     end
 
     if frame.PowerBar then
-        frame.PowerBar:Show()
+        setPowerShown(frame, true)
         frame.PowerBar:SetSize(200, 15)
         hideCustomBorder(frame.PowerBar)
         if frame.PowerBar.Border then
@@ -343,8 +475,10 @@ local function revert(self_)
     end
 
     if frame.ClassFrameContainer then
-        frame.ClassFrameContainer:Show()
+        setAltPowerShown(frame, true)
+        setClassFrameShown(frame, hasClassFrame(frame))
     end
+    updatePRDLayout(frame)
 end
 
 -- Pushes current db state onto PRD
@@ -374,6 +508,7 @@ function Resources:Apply()
             return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
         end
 
+        ensurePRDSetup(frame)
         applyHealthBar(self, frame)
         applyPowerBar(self, frame)
         applyClassFrame(self, frame)
