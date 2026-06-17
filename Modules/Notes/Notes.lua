@@ -728,7 +728,7 @@ local function formatStructuredNoteDisplay(text, display)
         end
 
         if fields.spellid and fields.spellid ~= "" then
-            parts[#parts + 1] = "{spell:" .. fields.spellid .. ":12}"
+            parts[#parts + 1] = "{spell:" .. fields.spellid .. "}"
         end
 
         out[#out + 1] = concat(parts, " ")
