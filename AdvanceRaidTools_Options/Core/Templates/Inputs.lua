@@ -133,8 +133,16 @@ function T:EditBox(parent, opts)
         end)
     end
 
+    local initial = opts.default
+    if type(opts.get) == "function" then
+        local v = safeCall("EditBox.get", opts.get)
+        if v ~= nil then
+            initial = v
+        end
+    end
+
     local state = {
-        original = opts.default or "",
+        original = tostring(initial or ""),
         committed = false,
         disabled = false
     }
@@ -178,10 +186,18 @@ function T:EditBox(parent, opts)
             eb:ClearFocus()
             return
         end
-        state.original = text
         state.committed = true
         showOK(false)
-        safeCall("EditBox.onCommit", opts.onCommit, text)
+        local committedText = safeCall("EditBox.onCommit", opts.onCommit, text)
+        if committedText ~= nil then
+            state.original = tostring(committedText)
+            if (eb:GetText() or "") ~= state.original then
+                eb:SetText(state.original)
+            end
+            eb:SetCursorPosition(0)
+        else
+            state.original = eb:GetText() or text
+        end
         eb:ClearFocus()
     end
 

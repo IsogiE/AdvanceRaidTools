@@ -127,6 +127,19 @@ end
 
 Nicknames.GetKey = realmKey
 
+local function normalizeNickname(nickname)
+    if nickname ~= nil and type(nickname) ~= "string" then
+        return nil
+    end
+    if nickname ~= nil then
+        nickname = strtrim(nickname):gsub("^%l", string.upper)
+    end
+    if nickname == "" then
+        nickname = nil
+    end
+    return nickname
+end
+
 local function safeCall(addonKey, handlers, method, ...)
     local fn = handlers and handlers[method]
     if type(fn) ~= "function" then
@@ -139,14 +152,28 @@ local function safeCall(addonKey, handlers, method, ...)
     return ok
 end
 
-function Nicknames:OnInitialize(db)
-    local selfKey = realmKey("player")
-    local nick = db.myNickname
-    if selfKey and nick and nick ~= "" then
-        nick = strtrim(nick):gsub("^%l", string.upper)
-        db.myNickname = nick
-        db.map[selfKey] = nick
+function Nicknames:SyncSelfNickname()
+    if not self.db then
+        return false
     end
+    self.db.map = self.db.map or {}
+    local selfKey = realmKey("player")
+    if not selfKey then
+        return false
+    end
+    local nick = normalizeNickname(self.db.myNickname)
+    self.db.myNickname = nick
+    if nick then
+        self.db.map[selfKey] = nick
+    else
+        self.db.map[selfKey] = nil
+    end
+    return true
+end
+
+function Nicknames:OnInitialize(db)
+    self.db = db
+    self:SyncSelfNickname()
 end
 
 function Nicknames:OnEnable()
@@ -161,18 +188,7 @@ function Nicknames:OnEnable()
     self._broadcastPending = false
     self._lastBroadcastAt = 0
 
-    local selfKey = realmKey("player")
-    if selfKey then
-        local nick = self.db.myNickname
-        if nick and nick ~= "" then
-            nick = strtrim(nick):gsub("^%l", string.upper)
-            self.db.myNickname = nick
-            self.db.map[selfKey] = nick
-        else
-            self.db.map[selfKey] = nil
-        end
-    end
-
+    self:SyncSelfNickname()
     self:ValidateMap()
 
     self:Publish()
@@ -208,18 +224,7 @@ function Nicknames:OnProfileChanged()
     self:CancelBroadcastTimer()
     self._broadcastPending = false
 
-    local selfKey = realmKey("player")
-    if selfKey then
-        local nick = self.db.myNickname
-        if nick and nick ~= "" then
-            nick = strtrim(nick):gsub("^%l", string.upper)
-            self.db.myNickname = nick
-            self.db.map[selfKey] = nick
-        else
-            self.db.map[selfKey] = nil
-        end
-    end
-
+    self:SyncSelfNickname()
     self:RefreshIntegrations()
 
     if IsInGroup() then
@@ -305,10 +310,7 @@ function Nicknames:OnReceiveData(encoded, sender)
         return
     end
 
-    local nickname = strtrim(data.nickname):gsub("^%l", string.upper)
-    if nickname == "" then
-        nickname = nil
-    end
+    local nickname = normalizeNickname(data.nickname)
 
     self:_storeAndPropagate(sender, key, nickname)
 end
@@ -415,21 +417,21 @@ function Nicknames:Set(unit, nickname)
     if not self:IsEnabled() then
         return
     end
-    if not unit or not UnitExists(unit) then
+    if not unit then
         return
     end
-    local key = realmKey(unit)
-    if not key then
-        return
-    end
-
-    nickname = nickname and strtrim(nickname):gsub("^%l", string.upper)
-    if nickname == "" then
-        nickname = nil
-    end
+    nickname = normalizeNickname(nickname)
 
     if unit == "player" then
         self.db.myNickname = nickname
+    end
+
+    if not UnitExists(unit) then
+        return unit == "player" and nickname or nil
+    end
+    local key = realmKey(unit)
+    if not key then
+        return unit == "player" and nickname or nil
     end
 
     local hadChange = self.db.map[key] ~= nickname
@@ -719,6 +721,7 @@ function Nicknames:WipeMapExceptSelf()
     if not self.db or not self.db.map then
         return
     end
+    self:SyncSelfNickname()
     local selfKey = realmKey("player")
     local selfNick = selfKey and self.db.map[selfKey]
     wipe(self.db.map)
@@ -737,6 +740,7 @@ end
 
 function Nicknames:OnPlayerEnteringWorld()
     self:InvalidateCache()
+    self:SyncSelfNickname()
     self:ValidateMap()
     if IsInGroup() then
         self:RequestNicknames()
