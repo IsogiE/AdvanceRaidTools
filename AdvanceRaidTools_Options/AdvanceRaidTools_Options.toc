@@ -1,4 +1,4 @@
-## Interface: 120005, 120007
+## Interface: 120007, 120100
 ## Title: |cff1784d1Advance|r |cffffffffRaid Tools|r |cff888888Options|r
 ## Notes: Options Window for ART
 ## Author: Isogi
