@@ -8,7 +8,7 @@
 ## IconTexture: Interface\AddOns\AdvanceRaidTools\Media\Textures\Logo
 ## LoadManagers: AddonLoader
 ## RequiredDeps: AdvanceRaidTools_Libraries, BigWigs
-## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, AdvanceRaidTools_Media
+## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, EllesmereUI, AdvanceRaidTools_Media
 ## DefaultState: enabled
 ## Category: Advance
 ## X-Wago-ID: qKQmRoKx

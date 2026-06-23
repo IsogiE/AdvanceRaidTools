@@ -11,6 +11,7 @@ E:RegisterModuleDefaults("Nicknames", {
         Cell = false,
         DandersFrames = false,
         ElvUI = false,
+        EllesmereUI = false,
         Grid2 = false,
         UnhaltedUnitFrames = false,
         VuhDo = false
@@ -43,17 +44,21 @@ Nicknames.integrationDisplay = {{
     labelKey = "ElvUI",
     order = 5
 }, {
+    key = "EllesmereUI",
+    labelKey = "Ellesmere UI",
+    order = 6
+}, {
     key = "Grid2",
     labelKey = "Grid2",
-    order = 6
+    order = 7
 }, {
     key = "UnhaltedUnitFrames",
     labelKey = "Unhalted Unit Frames",
-    order = 7
+    order = 8
 }, {
     key = "VuhDo",
     labelKey = "VuhDo",
-    order = 8
+    order = 9
 }}
 
 local UnitExists = UnitExists

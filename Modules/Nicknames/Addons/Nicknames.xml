@@ -5,6 +5,7 @@
     <Script file="Unhalted.lua"/>
     <Script file="Eqol.lua"/>
     <Script file="Elvui.lua"/>
+    <Script file="EllesmereUI.lua"/>
     <Script file="Grid2.lua"/>
     <Script file="LiquidAPI.lua"/>
     <Script file="VuhDo.lua"/>
