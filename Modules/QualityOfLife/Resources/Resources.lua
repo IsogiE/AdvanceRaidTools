@@ -46,21 +46,45 @@ local function prd()
     return _G.PersonalResourceDisplayFrame
 end
 
+local function secureCall(func, ...)
+    if type(func) ~= "function" then
+        return nil
+    end
+    if securecallfunction then
+        return securecallfunction(func, ...)
+    end
+    return func(...)
+end
+
+local function callBlizzardMethod(frame, methodName, ...)
+    local method = frame and frame[methodName]
+    if type(method) ~= "function" then
+        return nil
+    end
+    return secureCall(method, frame, ...)
+end
+
+local function ensurePRDSetup(frame)
+    if frame and frame.Setup and not frame.hasBeenSetup then
+        callBlizzardMethod(frame, "Setup")
+    end
+end
+
 local function updatePRDLayout(frame)
     if frame.UpdatePowerBarAnchor then
-        frame:UpdatePowerBarAnchor()
+        callBlizzardMethod(frame, "UpdatePowerBarAnchor")
     end
     if frame.UpdateAdditionalBarAnchors then
-        frame:UpdateAdditionalBarAnchors()
+        callBlizzardMethod(frame, "UpdateAdditionalBarAnchors")
     end
     if frame.UpdateFrameHeight then
-        frame:UpdateFrameHeight()
+        callBlizzardMethod(frame, "UpdateFrameHeight")
     end
 end
 
 local function setFrameShown(frame, shown)
     if frame and frame.IsShown and frame:IsShown() ~= shown then
-        frame:SetShown(shown)
+        callBlizzardMethod(frame, "SetShown", shown)
     end
 end
 
@@ -69,7 +93,7 @@ local function hasClassFrame(frame)
         return false
     end
     if frame.HasClassInfo then
-        return frame:HasClassInfo()
+        return callBlizzardMethod(frame, "HasClassInfo") and true or false
     end
     if frame.classFrame or _G.prdClassFrame then
         return true
@@ -79,7 +103,7 @@ end
 
 local function setHealthShown(frame, shown)
     if frame.SetHideHealth then
-        frame:SetHideHealth(not shown)
+        callBlizzardMethod(frame, "SetHideHealth", not shown)
     else
         setFrameShown(frame.HealthBarsContainer, shown)
     end
@@ -87,7 +111,7 @@ end
 
 local function setPowerShown(frame, shown)
     if frame.SetHidePower then
-        frame:SetHidePower(not shown)
+        callBlizzardMethod(frame, "SetHidePower", not shown)
     else
         setFrameShown(frame.PowerBar, shown)
     end
@@ -95,7 +119,7 @@ end
 
 local function setClassFrameShown(frame, shown)
     if frame.SetHideClassInfo then
-        frame:SetHideClassInfo(not shown)
+        callBlizzardMethod(frame, "SetHideClassInfo", not shown)
     else
         setFrameShown(frame.ClassFrameContainer, shown and hasClassFrame(frame))
     end
@@ -103,7 +127,7 @@ end
 
 local function setAltPowerShown(frame, shown)
     if frame.SetHideAltPower then
-        frame:SetHideAltPower(not shown)
+        callBlizzardMethod(frame, "SetHideAltPower", not shown)
     else
         local altPower = frame.AlternatePowerBar
         setFrameShown(altPower, shown and altPower and altPower.alternatePowerRequirementsMet)
@@ -117,7 +141,7 @@ local function enablePRDForART(self_)
     if self_._artOriginalPRDCVar == nil then
         self_._artOriginalPRDCVar = GetCVar(PRD_CVAR)
     end
-    SetCVar(PRD_CVAR, "1")
+    secureCall(SetCVar, PRD_CVAR, "1")
 end
 
 local function restorePRDCVar(self_)
@@ -127,7 +151,7 @@ local function restorePRDCVar(self_)
     end
     self_._artOriginalPRDCVar = nil
     if GetCVar(PRD_CVAR) ~= original then
-        SetCVar(PRD_CVAR, original)
+        secureCall(SetCVar, PRD_CVAR, original)
     end
 end
 
@@ -424,6 +448,7 @@ function Resources:UpdateHealthText(bar)
 end
 
 local function hidePRDChildren(frame)
+    ensurePRDSetup(frame)
     setClassFrameShown(frame, false)
     setAltPowerShown(frame, false)
     setPowerShown(frame, false)
@@ -515,6 +540,7 @@ function Resources:Apply()
             return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
         end
 
+        ensurePRDSetup(frame)
         applyHealthBar(self, frame)
         applyPowerBar(self, frame)
         applyClassFrame(self, frame)
