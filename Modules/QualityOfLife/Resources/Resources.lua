@@ -46,12 +46,6 @@ local function prd()
     return _G.PersonalResourceDisplayFrame
 end
 
-local function ensurePRDSetup(frame)
-    if frame and frame.Setup and not frame.hasBeenSetup then
-        frame:Setup()
-    end
-end
-
 local function updatePRDLayout(frame)
     if frame.UpdatePowerBarAnchor then
         frame:UpdatePowerBarAnchor()
@@ -61,6 +55,12 @@ local function updatePRDLayout(frame)
     end
     if frame.UpdateFrameHeight then
         frame:UpdateFrameHeight()
+    end
+end
+
+local function setFrameShown(frame, shown)
+    if frame and frame.IsShown and frame:IsShown() ~= shown then
+        frame:SetShown(shown)
     end
 end
 
@@ -80,32 +80,33 @@ end
 local function setHealthShown(frame, shown)
     if frame.SetHideHealth then
         frame:SetHideHealth(not shown)
-    elseif frame.HealthBarsContainer then
-        frame.HealthBarsContainer:SetShown(shown)
+    else
+        setFrameShown(frame.HealthBarsContainer, shown)
     end
 end
 
 local function setPowerShown(frame, shown)
     if frame.SetHidePower then
         frame:SetHidePower(not shown)
-    elseif frame.PowerBar then
-        frame.PowerBar:SetShown(shown)
+    else
+        setFrameShown(frame.PowerBar, shown)
     end
 end
 
 local function setClassFrameShown(frame, shown)
     if frame.SetHideClassInfo then
         frame:SetHideClassInfo(not shown)
-    elseif frame.ClassFrameContainer then
-        frame.ClassFrameContainer:SetShown(shown and hasClassFrame(frame))
+    else
+        setFrameShown(frame.ClassFrameContainer, shown and hasClassFrame(frame))
     end
 end
 
 local function setAltPowerShown(frame, shown)
     if frame.SetHideAltPower then
         frame:SetHideAltPower(not shown)
-    elseif frame.AlternatePowerBar then
-        frame.AlternatePowerBar:SetShown(shown and frame.AlternatePowerBar.alternatePowerRequirementsMet)
+    else
+        local altPower = frame.AlternatePowerBar
+        setFrameShown(altPower, shown and altPower and altPower.alternatePowerRequirementsMet)
     end
 end
 
@@ -152,6 +153,18 @@ local function setRegionShown(region, shown)
         region:Show()
     elseif not shown and region.Hide then
         region:Hide()
+    end
+end
+
+local function setFormattedNumberText(fontString, format, value)
+    if type(value) ~= "number" then
+        fontString:SetText("")
+        return
+    end
+
+    local ok = pcall(fontString.SetFormattedText, fontString, format, value)
+    if not ok then
+        fontString:SetText("")
     end
 end
 
@@ -364,14 +377,11 @@ function Resources:UpdatePowerText(bar)
     fs:Show()
 
     if mode == "percent" then
-        local pct = UnitPowerPercent("player", nil, false, CurveConstants and CurveConstants.ScaleTo100 or nil)
-        if pct ~= nil then
-            fs:SetFormattedText("%.0f%%", pct)
-        else
-            fs:SetText("")
-        end
+        local ok, pct = pcall(UnitPowerPercent, "player", nil, false, CurveConstants and CurveConstants.ScaleTo100 or nil)
+        setFormattedNumberText(fs, "%.0f%%", ok and pct or nil)
     elseif mode == "numeric" then
-        fs:SetFormattedText("%d", UnitPower("player"))
+        local ok, power = pcall(UnitPower, "player")
+        setFormattedNumberText(fs, "%d", ok and power or nil)
     end
 end
 
@@ -405,23 +415,20 @@ function Resources:UpdateHealthText(bar)
     fs:Show()
 
     if mode == "percent" then
-        local pct = UnitHealthPercent("player", false, CurveConstants and CurveConstants.ScaleTo100 or nil)
-        if pct ~= nil then
-            fs:SetFormattedText("%.0f%%", pct)
-        else
-            fs:SetText("")
-        end
+        local ok, pct = pcall(UnitHealthPercent, "player", false, CurveConstants and CurveConstants.ScaleTo100 or nil)
+        setFormattedNumberText(fs, "%.0f%%", ok and pct or nil)
     elseif mode == "numeric" then
-        fs:SetFormattedText("%d", UnitHealth("player"))
+        local ok, health = pcall(UnitHealth, "player")
+        setFormattedNumberText(fs, "%d", ok and health or nil)
     end
 end
 
 local function hidePRDChildren(frame)
-    ensurePRDSetup(frame)
     setClassFrameShown(frame, false)
     setAltPowerShown(frame, false)
     setPowerShown(frame, false)
     setHealthShown(frame, false)
+    updatePRDLayout(frame)
 end
 
 -- Restore Blizzard defaults for anything we changed
@@ -508,7 +515,6 @@ function Resources:Apply()
             return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
         end
 
-        ensurePRDSetup(frame)
         applyHealthBar(self, frame)
         applyPowerBar(self, frame)
         applyClassFrame(self, frame)
@@ -545,9 +551,8 @@ function Resources:InstallHooks()
         if Resources:IsActive() then
             applyHealthBar(Resources, self_)
         elseif Resources.db.hideBlizzardPRD then
-            if self_.HealthBarsContainer then
-                self_.HealthBarsContainer:Hide()
-            end
+            setHealthShown(self_, false)
+            updatePRDLayout(self_)
         end
     end)
 
@@ -558,9 +563,8 @@ function Resources:InstallHooks()
         if Resources:IsActive() then
             applyPowerBar(Resources, self_)
         elseif Resources.db.hideBlizzardPRD then
-            if self_.PowerBar then
-                self_.PowerBar:Hide()
-            end
+            setPowerShown(self_, false)
+            updatePRDLayout(self_)
         end
     end)
 
@@ -584,9 +588,9 @@ function Resources:InstallHooks()
         if Resources:IsActive() then
             applyClassFrame(Resources, self_)
         elseif Resources.db.hideBlizzardPRD then
-            if self_.ClassFrameContainer then
-                self_.ClassFrameContainer:Hide()
-            end
+            setClassFrameShown(self_, false)
+            setAltPowerShown(self_, false)
+            updatePRDLayout(self_)
         end
     end)
 
