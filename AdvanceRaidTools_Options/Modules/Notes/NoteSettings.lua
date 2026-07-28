@@ -980,6 +980,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     })
     activeChk.frame:ClearAllPoints()
     activeChk.frame:SetPoint("LEFT", activeRow, "LEFT", 0, 0)
+    activeChk.frame:SetPoint("RIGHT", activeRow, "RIGHT", 0, 0)
 
     local mrtBtn = T:Button(actionCol, {
         text = L["Notes_ImportFromMRT"],
