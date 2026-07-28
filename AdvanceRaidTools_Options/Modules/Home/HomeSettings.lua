@@ -5,10 +5,11 @@ local OUTLINES = {
     NONE = L["None"],
     OUTLINE = L["Outline"],
     THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = "Slug Outline",
     MONOCHROME = L["Monochrome"],
     MONOCHROMEOUTLINE = (L["Monochrome"] .. " " .. L["Outline"])
 }
-local OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME", "MONOCHROMEOUTLINE"}
+local OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "OUTLINE_SLUG", "MONOCHROME", "MONOCHROMEOUTLINE"}
 
 local PRESET_ORDER = {"default", "classColor", "midnight", "highContrast"}
 

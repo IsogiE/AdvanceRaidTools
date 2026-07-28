@@ -4,7 +4,8 @@ local T = E.Templates
 local OUTLINE_VALUES = {
     [""] = L["None"],
     OUTLINE = L["Outline"],
-    THICKOUTLINE = L["ThickOutline"]
+    THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = "Slug Outline"
 }
 
 local STRATA_VALUES = {

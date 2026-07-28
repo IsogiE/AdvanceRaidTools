@@ -9,8 +9,98 @@ Engines.Shared = Shared
 
 Shared.WHITE = E.media.blankTex
 
-function Shared.FetchFont()
-    return E:FetchModuleFont()
+local VALID_ANCHOR_POINTS = {
+    TOP = true,
+    CENTER = true,
+    BOTTOM = true,
+    LEFT = true,
+    RIGHT = true,
+    TOPLEFT = true,
+    TOPRIGHT = true,
+    BOTTOMLEFT = true,
+    BOTTOMRIGHT = true
+}
+
+function Shared.NormalizeAnchorPoint(point)
+    return VALID_ANCHOR_POINTS[point] and point or "CENTER"
+end
+
+function Shared.GetCenterRelativePosition(frame, point)
+    point = Shared.NormalizeAnchorPoint(point)
+
+    local left, right = frame:GetLeft(), frame:GetRight()
+    local top, bottom = frame:GetTop(), frame:GetBottom()
+    local screenX, screenY = UIParent:GetCenter()
+    if not left or not right or not top or not bottom or not screenX or not screenY then
+        return { point = point, x = 0, y = 0 }
+    end
+
+    local anchorX = (point:find("LEFT", 1, true) and left)
+        or (point:find("RIGHT", 1, true) and right)
+        or ((left + right) / 2)
+    local anchorY = (point:find("TOP", 1, true) and top)
+        or (point:find("BOTTOM", 1, true) and bottom)
+        or ((top + bottom) / 2)
+
+    return {
+        point = point,
+        x = anchorX - screenX,
+        y = anchorY - screenY
+    }
+end
+
+function Shared.UpdateAnchorPointMarker(frame, point, shown)
+    if not frame then
+        return
+    end
+
+    local marker = frame.artAnchorPointMarker
+    if not marker then
+        marker = CreateFrame("Frame", nil, frame)
+        marker:SetSize(14, 14)
+        marker:SetFrameLevel(frame:GetFrameLevel() + 20)
+        marker:EnableMouse(false)
+
+        local outer = marker:CreateTexture(nil, "OVERLAY", nil, 6)
+        outer:SetAllPoints()
+        outer:SetColorTexture(0, 0, 0, 1)
+        local outerMask = marker:CreateMaskTexture(nil, "OVERLAY")
+        outerMask:SetAllPoints(outer)
+        outerMask:SetTexture(
+            "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
+            "CLAMPTOBLACKADDITIVE",
+            "CLAMPTOBLACKADDITIVE"
+        )
+        outer:AddMaskTexture(outerMask)
+
+        local inner = marker:CreateTexture(nil, "OVERLAY", nil, 7)
+        inner:SetPoint("CENTER")
+        inner:SetSize(10, 10)
+        inner:SetColorTexture(0.18, 0.60, 1.00, 1)
+        local innerMask = marker:CreateMaskTexture(nil, "OVERLAY")
+        innerMask:SetAllPoints(inner)
+        innerMask:SetTexture(
+            "Interface\\CHARACTERFRAME\\TempPortraitAlphaMask",
+            "CLAMPTOBLACKADDITIVE",
+            "CLAMPTOBLACKADDITIVE"
+        )
+        inner:AddMaskTexture(innerMask)
+
+        marker:Hide()
+        frame.artAnchorPointMarker = marker
+    end
+
+    marker:ClearAllPoints()
+    marker:SetPoint("CENTER", frame, Shared.NormalizeAnchorPoint(point), 0, 0)
+    if shown == true then
+        marker:Show()
+    elseif shown == false then
+        marker:Hide()
+    end
+end
+
+function Shared.FetchFont(name)
+    return E:FetchModuleFont(name)
 end
 
 function Shared.FetchStatusBar(tex)
@@ -31,7 +121,12 @@ end
 
 function Shared.ApplyFontTo(fs, style, parent, anchor)
     anchor = anchor or {}
-    Shared.ApplyFontIfChanged(fs, Shared.FetchFont(), style.size or 12, style.outline or "")
+    Shared.ApplyFontIfChanged(
+        fs,
+        Shared.FetchFont(style.font),
+        style.size or 12,
+        style.outline or ""
+    )
     fs:ClearAllPoints()
     local justify = style.justify or anchor.justify
     if justify == "CENTER" then

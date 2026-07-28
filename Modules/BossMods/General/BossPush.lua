@@ -76,10 +76,38 @@ local ENCOUNTER_VALUES = {
     [3306] = "The Dreamrift - Chimaerus the Undreamt God",
     [3182] = "March on Quel'Danas - Belo'ren, Child of Al'ar",
     [3183] = "March on Quel'Danas - Midnight Falls",
+    [3470] = "The Venomous Abyss - Nek'zali the Soulcoiler",
+    [3445] = "The Venomous Abyss - Entombed Sentinels",
+    [3497] = "The Venomous Abyss - The Lost Explorers",
+    [3455] = "The Venomous Abyss - Vashnik the Malignant",
+    [3420] = "The Venomous Abyss - Sszorak",
+    [3421] = "The Venomous Abyss - The Twin Fangs",
+    [3429] = "The Venomous Abyss - The Coiled Alter",
+    [3492] = "The Venomous Abyss - Ula'tek",
     [CUSTOM_ENCOUNTER] = L["Custom"] or "Custom"
 }
 
-local ENCOUNTER_SORTING = {0, 3176, 3177, 3179, 3178, 3180, 3181, 3306, 3182, 3183, CUSTOM_ENCOUNTER}
+local ENCOUNTER_SORTING = {
+    0,
+    3176,
+    3177,
+    3179,
+    3178,
+    3180,
+    3181,
+    3306,
+    3182,
+    3183,
+    3470,
+    3445,
+    3497,
+    3455,
+    3420,
+    3421,
+    3429,
+    3492,
+    CUSTOM_ENCOUNTER
+}
 
 local function copyTable(src)
     if type(src) ~= "table" then

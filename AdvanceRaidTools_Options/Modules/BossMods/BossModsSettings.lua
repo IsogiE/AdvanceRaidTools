@@ -96,11 +96,22 @@ local function buildTabBody(parent, tabKey)
         return BossMods:IsEnabled()
     end
 
+    local function isFeatureActive(feature)
+        local mod = feature and E:GetModule(feature.moduleName, true)
+        return mod
+            and mod:IsEnabled()
+            and BossMods:IsFeatureEnabled(feature.key)
+            or false
+    end
+
     local function paintAllRows()
         for _, entry in ipairs(state.navRows) do
             if entry.feature then
-                local m = E:GetModule(entry.feature.moduleName, true)
-                paintNavRow(entry.row, entry.feature.key == state.activeFeature, m and m:IsEnabled() or false)
+                paintNavRow(
+                    entry.row,
+                    entry.feature.key == state.activeFeature,
+                    isFeatureActive(entry.feature)
+                )
                 if entry.row._check and entry.row._check.Refresh then
                     entry.row._check.Refresh()
                 end
@@ -155,7 +166,11 @@ local function buildTabBody(parent, tabKey)
         wrapper:Hide()
 
         local function isDisabled()
-            return not (isBossModsEnabled() and mod:IsEnabled())
+            return not (
+                isBossModsEnabled()
+                and mod:IsEnabled()
+                and BossMods:IsFeatureEnabled(featureKey)
+            )
         end
 
         local handle = builder(wrapper, mod, isDisabled) or {}
@@ -312,19 +327,46 @@ local function buildTabBody(parent, tabKey)
             label:SetText(L[feat.labelKey] or feat.labelKey)
             row._label = label
 
-            local check = T:Checkbox(row, {
-                text = "",
-                get = function()
-                    local m = E:GetModule(feat.moduleName, true)
-                    return m and m:IsEnabled() or false
-                end,
-                onChange = function(_, v)
-                    E:SetModuleEnabled(feat.moduleName, v)
-                end,
-                disabled = function()
-                    return not isBossModsEnabled()
+local check = T:Checkbox(row, {
+    text = "",
+
+    get = function()
+        return isFeatureActive(feat)
+    end,
+
+    onChange = function(_, value)
+        BossMods:SetFeatureEnabled(feat.key, value)
+
+        if value then
+            E:SetModuleEnabled(feat.moduleName, true)
+        else
+            local keepModuleEnabled = false
+            for _, sibling in ipairs(features) do
+                if sibling.moduleName == feat.moduleName
+                    and BossMods:IsFeatureEnabled(sibling.key)
+                then
+                    keepModuleEnabled = true
+                    break
                 end
-            })
+            end
+
+            if not keepModuleEnabled then
+                E:SetModuleEnabled(feat.moduleName, false)
+            end
+        end
+
+        paintAllRows()
+
+        local fb = state.featureBodies[feat.key]
+        if fb and fb.handle and fb.handle.Refresh then
+            pcall(fb.handle.Refresh)
+        end
+    end,
+
+    disabled = function()
+        return not isBossModsEnabled()
+    end
+})
             check.frame:SetPoint("LEFT", row, "LEFT", 4, 0)
             if check.Refresh then
                 check.Refresh()

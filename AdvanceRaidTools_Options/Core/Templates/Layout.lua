@@ -124,12 +124,14 @@ end
 
 -- =============================================================================
 -- T:NumericStepper(parent, opts)
--- Compact integer input: [label] / [- editbox +]
+-- Compact numeric input: [label] / [- editbox +]
 -- opts:
 --   label     label shown above the input
 --   get       function() -> number (current value)
---   set       function(int) commits a new value
+--   set       function(number) commits a new value
 --   step      nudge amount per button click (default 1)
+--   decimals  decimal places to preserve (default 0)
+--   min/max   optional value limits
 --   disabled  bool | function
 -- =============================================================================
 local STEPPER_LABEL_H = 14
@@ -141,7 +143,34 @@ function T:NumericStepper(parent, opts)
     assert(type(opts.get) == "function", "NumericStepper: get required")
     assert(type(opts.set) == "function", "NumericStepper: set required")
 
-    local step = opts.step or 1
+    local step = tonumber(opts.step) or 1
+    local decimals = math.max(0, math.floor(tonumber(opts.decimals) or 0))
+    local factor = 10 ^ decimals
+
+    local function normalizeValue(value)
+        value = tonumber(value) or 0
+        local scaled = value * factor
+        if scaled >= 0 then
+            scaled = math.floor(scaled + 0.5)
+        else
+            scaled = math.ceil(scaled - 0.5)
+        end
+        value = scaled / factor
+        if opts.min ~= nil then
+            value = math.max(tonumber(opts.min) or value, value)
+        end
+        if opts.max ~= nil then
+            value = math.min(tonumber(opts.max) or value, value)
+        end
+        return value
+    end
+
+    local function formatValue(value)
+        if decimals > 0 then
+            return string.format("%." .. decimals .. "f", normalizeValue(value))
+        end
+        return string.format("%.0f", normalizeValue(value))
+    end
 
     local container = CreateFrame("Frame", nil, parent)
     container:SetHeight(STEPPER_LABEL_H + 2 + STEPPER_INPUT_H)
@@ -194,12 +223,12 @@ function T:NumericStepper(parent, opts)
 
     local function readDisplay()
         local v = opts.get()
-        return math.floor((v or 0) + 0.5)
+        return normalizeValue(v)
     end
 
     local function syncText()
         if not eb:HasFocus() then
-            eb:SetText(tostring(readDisplay()))
+            eb:SetText(formatValue(readDisplay()))
             eb:SetCursorPosition(0)
         end
     end
@@ -209,7 +238,7 @@ function T:NumericStepper(parent, opts)
         local txt = eb:GetText() or ""
         local n = tonumber(txt)
         if n then
-            opts.set(math.floor(n))
+            opts.set(normalizeValue(n))
         end
         syncText()
     end
@@ -233,7 +262,7 @@ function T:NumericStepper(parent, opts)
         if state.disabled then
             return
         end
-        opts.set(readDisplay() + delta)
+        opts.set(normalizeValue(readDisplay() + delta))
         syncText()
     end
 
@@ -622,6 +651,138 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             wipe(own)
         end
     }
+end
+
+-- =============================================================================
+-- T:XYOffsetControls(parent, yOffset, widthPx, opts)
+-- Numeric X/Y inputs for exact coordinates relative to the WoW window center.
+-- opts:
+--   getPosition  function() -> { point, x, y }
+--   setPosition  function(position)
+--   tracker      optional template tracker
+--   disabled     bool | function
+--   onChanged    optional callback after a value is committed
+--   anchorLabel  optional label for the anchor dropdown
+-- =============================================================================
+function T:XYOffsetControls(parent, yOffset, widthPx, opts)
+    opts = opts or {}
+    assert(type(opts.getPosition) == "function", "XYOffsetControls: getPosition required")
+    assert(type(opts.setPosition) == "function", "XYOffsetControls: setPosition required")
+
+    local tracker = opts.tracker
+    local function track(control)
+        if tracker and tracker.track then
+            return tracker.track(control)
+        end
+
+        return control
+    end
+
+    local function currentPosition()
+        return opts.getPosition() or {}
+    end
+
+    local function commitPosition(nextPosition)
+        opts.setPosition(nextPosition)
+
+        if opts.onChanged then
+            opts.onChanged(nextPosition)
+        end
+
+        if tracker and tracker.refresh then
+            tracker.refresh()
+        end
+    end
+
+    local function writeAxis(axis, value)
+        local position = currentPosition()
+        local nextPosition = {
+            point = position.point or "CENTER",
+            x = tonumber(position.x) or 0,
+            y = tonumber(position.y) or 0
+        }
+
+        nextPosition[axis] = math.floor((tonumber(value) or 0) + 0.5)
+        commitPosition(nextPosition)
+    end
+
+    local anchorValues = {
+        TOP = "Top",
+        CENTER = "Center",
+        BOTTOM = "Bottom",
+        LEFT = "Left",
+        RIGHT = "Right",
+        TOPLEFT = "Top left",
+        TOPRIGHT = "Top right",
+        BOTTOMLEFT = "Bottom left",
+        BOTTOMRIGHT = "Bottom right"
+    }
+
+    local anchorSorting = {
+        "TOP",
+        "CENTER",
+        "BOTTOM",
+        "LEFT",
+        "RIGHT",
+        "TOPLEFT",
+        "TOPRIGHT",
+        "BOTTOMLEFT",
+        "BOTTOMRIGHT"
+    }
+
+    local anchorDropdown = track(T:Dropdown(parent, {
+        label = opts.anchorLabel or "Anchor point on alert",
+        values = anchorValues,
+        sorting = anchorSorting,
+        get = function()
+            return currentPosition().point or "CENTER"
+        end,
+        onChange = function(value)
+            local position = currentPosition()
+            commitPosition({
+                point = anchorValues[value] and value or "CENTER",
+                x = tonumber(position.x) or 0,
+                y = tonumber(position.y) or 0
+            })
+        end,
+        disabled = opts.disabled
+    }))
+
+    local anchorDescription = track(T:Description(parent, {
+        text = "X and Y are relative to the center of the WoW window."
+    }))
+
+    local xInput = track(T:NumericStepper(parent, {
+        label = opts.xInputLabel or "X value",
+        get = function()
+            return tonumber(currentPosition().x) or 0
+        end,
+        set = function(value)
+            writeAxis("x", value)
+        end,
+        step = 1,
+        disabled = opts.disabled
+    }))
+
+    local yInput = track(T:NumericStepper(parent, {
+        label = opts.yInputLabel or "Y value",
+        get = function()
+            return tonumber(currentPosition().y) or 0
+        end,
+        set = function(value)
+            writeAxis("y", value)
+        end,
+        step = 1,
+        disabled = opts.disabled
+    }))
+
+    local y = yOffset or 0
+    local gap = opts.rowGap or 6
+    y = y + T:PlaceFull(parent, anchorDropdown, y, widthPx) + gap
+    y = y + T:PlaceFull(parent, anchorDescription, y, widthPx) + gap
+    y = y + T:PlaceRow(parent, {xInput, yInput}, y, widthPx) + gap
+
+    return y
 end
 
 -- =============================================================================

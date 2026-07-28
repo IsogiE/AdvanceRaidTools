@@ -1,13 +1,22 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Script file="BossModsSettings.lua"/>
+    <Script file="AbilityAlertDefaultsSettings.lua"/>
+
     <Script file="Misc\CombatTimerSettings.lua"/>
     <Script file="Misc\HoTTrackerSettings.lua"/>
     <Script file="Misc\BressSettings.lua"/>
     <Script file="Misc\BreakTimerSettings.lua"/>
     <Script file="Misc\GeneralPackSettings.lua"/>
+
     <Script file="General\ReadyAssignmentsSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\ReadyAssignmentsSettings.lua"/>
+    <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
+    <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>
+    <Script file="General\WhisperKickAlertSettings.lua"/>
+
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>
     <Script file="Raids\Queldanas\QuasarSettings.lua"/>
     <Script file="Raids\Queldanas\LurakickSettings.lua"/>

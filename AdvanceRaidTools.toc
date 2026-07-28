@@ -42,6 +42,14 @@ Modules\Nicknames\Addons\Nicknames.xml
 
 Modules\RaidGroups\RaidGroups.lua
 
+Modules\MythicPlusGrouper\MythicPlusGrouper.lua
+
+Modules\InviteTool\InviteTool.lua
+
+Modules\TodoList\TodoList.lua
+
+Modules\OmniumFolio\OmniumFolioReminder.lua
+
 Modules\Currency\Currency.lua
 
 Modules\AddonChecker\AddonChecker.lua

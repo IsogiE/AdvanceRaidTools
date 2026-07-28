@@ -28,6 +28,12 @@ Modules\Nicknames\NicknameSettings.lua
 Modules\RaidGroups\RaidGroupsEditor.lua
 Modules\RaidGroups\RaidGroupSettings.lua
 
+Modules\MythicPlusGrouper\MythicPlusGrouperSettings.lua
+
+Modules\InviteTool\InviteToolSettings.lua
+
+Modules\TodoList\TodoListSettings.lua
+
 Modules\Currency\CurrencySettings.lua
 
 Modules\AddonChecker\AddonCheckerSettings.lua

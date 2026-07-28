@@ -272,6 +272,38 @@ local function hideCustomBorder(bar)
     })
 end
 
+local RESOURCE_TEXT_TICK = 0.1
+
+local function stopResourceTextTicker()
+    if Resources.textTicker then
+        Resources.textTicker:Cancel()
+        Resources.textTicker = nil
+    end
+end
+
+local function ensureResourceTextTicker()
+    if Resources.textTicker then
+        return
+    end
+    Resources.textTicker = C_Timer.NewTicker(RESOURCE_TEXT_TICK, function()
+        if not Resources:IsActive() then
+            return
+        end
+        local db = Resources.db
+        local frame = prd()
+        if not frame then
+            return
+        end
+        if db.showPowerBar and db.powerTextMode ~= "off" then
+            Resources:UpdatePowerText(frame.PowerBar)
+        end
+        if db.showHealthBar and db.healthTextMode ~= "off" then
+            local container = frame.HealthBarsContainer
+            Resources:UpdateHealthText(container and container.healthBar)
+        end
+    end)
+end
+
 local function applyPowerBar(self_, frame)
     local db = self_.db
     local bar = frame.PowerBar
@@ -300,33 +332,13 @@ local function applyPowerBar(self_, frame)
     end
     applyCustomBorder(bar, db.showPowerBorder, db.powerBorderColor)
 
+    ensureResourceTextTicker()
     self_:UpdatePowerText(bar)
     updatePRDLayout(frame)
 end
 
-local HEALTH_TEXT_TICK = 0.1
-
 local function attachHealthTextTicker(bar)
-    if bar.artHealthTickerAttached then
-        return
-    end
-    bar.artHealthTickerAttached = true
-    local elapsed = 0
-    bar:HookScript("OnUpdate", function(self_, dt)
-        elapsed = elapsed + dt
-        if elapsed < HEALTH_TEXT_TICK then
-            return
-        end
-        elapsed = 0
-        if not Resources:IsActive() then
-            return
-        end
-        local db = Resources.db
-        if not db.showHealthBar or db.healthTextMode == "off" then
-            return
-        end
-        Resources:UpdateHealthText(self_)
-    end)
+    ensureResourceTextTicker()
 end
 
 local function applyHealthBar(self_, frame)
@@ -525,6 +537,7 @@ function Resources:Apply()
     end
 
     if not self:IsEnabled() then
+        stopResourceTextTicker()
         restorePRDCVar(self)
         revert(self)
         return
@@ -548,12 +561,14 @@ function Resources:Apply()
     end
 
     if not self.db.hideBlizzardPRD then
+        stopResourceTextTicker()
         restorePRDCVar(self)
         revert(self)
         return
     end
 
     self:InstallHooks()
+    stopResourceTextTicker()
     local frame = prd()
     if frame then
         hidePRDChildren(frame)
@@ -594,19 +609,6 @@ function Resources:InstallHooks()
         end
     end)
 
-    hooksecurefunc(frame, "UpdatePower", function(self_)
-        if Resources:IsActive() then
-            Resources:UpdatePowerText(self_.PowerBar)
-        end
-    end)
-
-    hooksecurefunc(frame, "UpdateHealth", function(self_)
-        if Resources:IsActive() then
-            local hb = self_.HealthBarsContainer and self_.HealthBarsContainer.healthBar
-            Resources:UpdateHealthText(hb)
-        end
-    end)
-
     hooksecurefunc(frame, "SetupClassBar", function(self_)
         if not Resources:IsEnabled() then
             return
@@ -634,6 +636,7 @@ function Resources:OnEnable()
 end
 
 function Resources:OnDisable()
+    stopResourceTextTicker()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
     if InCombatLockdown() then

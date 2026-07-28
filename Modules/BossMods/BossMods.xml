@@ -1,5 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Script file="BossMods.lua"/>
+
     <Script file="Core\PhaseTimerData.lua"/>
     <Script file="Core\Engines.lua"/>
     <Script file="Core\Engines\Shared.lua"/>
@@ -8,23 +9,36 @@
     <Script file="Core\Engines\PrivateAuraList.lua"/>
     <Script file="Core\Engines\AssignmentList.lua"/>
     <Script file="Core\Engines\TextAlert.lua"/>
+    <Script file="AbilityAlertDefaults.lua"/>
     <Script file="Core\Engines\RaidMap.lua"/>
     <Script file="Core\BigWigs.lua"/>
     <Script file="Core\Alerts.lua"/>
     <Script file="Core\NoteBlock.lua"/>
     <Script file="Core\ReadyAssignmentText.lua"/>
     <Script file="Core\ReadyAssignments.lua"/>
+
     <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
+    <Script file="Raids\Voidspire\AbilityData.lua"/>
+    <Script file="Raids\Voidspire\AbilityAlerts.lua"/>
     <Script file="Raids\Voidspire\ReadyAssignments.lua"/>
     <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
+
+    <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
+    <Script file="Raids\VenomousAbyss\AbilityAlerts.lua"/>
+    <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
+
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
     <Script file="Misc\BreakTimer.lua"/>
     <Script file="Misc\GeneralPack.lua"/>
+
     <Script file="General\ReadyAssignments.lua"/>
     <Script file="General\BossPush.lua"/>
+    <Script file="General\CustomBars.lua"/>
     <Script file="General\PrivateAuraList.lua"/>
+    <Script file="General\WhisperKickAlert.lua"/>
+
     <Script file="Raids\Queldanas\Feather.lua"/>
     <Script file="Raids\Queldanas\Quasar.lua"/>
     <Script file="Raids\Queldanas\Lurakick.lua"/>

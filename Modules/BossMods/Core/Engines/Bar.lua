@@ -30,6 +30,10 @@ function Engines.Bar(config)
     local labelFS = frame:CreateFontString(nil, "OVERLAY")
     local rightFS = frame:CreateFontString(nil, "OVERLAY")
     local centerFS = frame:CreateFontString(nil, "OVERLAY")
+    local middleFS = frame:CreateFontString(nil, "OVERLAY")
+    local icon = frame:CreateTexture(nil, "ARTWORK", nil, 2)
+    icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    icon:Hide()
     local marker = frame:CreateTexture(nil, "OVERLAY")
     marker:SetColorTexture(1, 1, 1, 1)
     marker:SetWidth(2)
@@ -37,8 +41,11 @@ function Engines.Bar(config)
 
     -- Active countdown state
     local running = false
+    local ticker
     local startTime, totalDuration, safeDuration
     local mode, markerRatio
+    local lastRightUpdate = 0
+    local pendingRightText
 
     local handle = {
         frame = frame
@@ -48,12 +55,14 @@ function Engines.Bar(config)
         if mode == "center" then
             labelFS:Hide()
             rightFS:Hide()
+            middleFS:Hide()
             marker:Hide()
             centerFS:Show()
         else
             centerFS:Hide()
             labelFS:Show()
             rightFS:Show()
+            middleFS:Show()
             if markerRatio then
                 marker:Show()
             else
@@ -77,6 +86,7 @@ function Engines.Bar(config)
             labelFS:SetTextColor(r, g, b, a or 1)
             rightFS:SetTextColor(r, g, b, a or 1)
             centerFS:SetTextColor(r, g, b, a or 1)
+            middleFS:SetTextColor(r, g, b, a or 1)
         end
     end
 
@@ -84,8 +94,24 @@ function Engines.Bar(config)
         labelFS:SetText(text or "")
     end
 
-    function handle:SetRight(text)
+    local function applyRightText(text, now)
         rightFS:SetText(text or "")
+        lastRightUpdate = now or GetTime()
+        pendingRightText = nil
+    end
+
+    function handle:SetRight(text)
+        local interval = math.max(0, tonumber(config.textUpdateInterval) or 0)
+        local now = GetTime()
+        if running and interval > 0 and now - lastRightUpdate < interval then
+            pendingRightText = text or ""
+            return
+        end
+        applyRightText(text, now)
+    end
+
+    function handle:SetMiddle(text)
+        middleFS:SetText(text or "")
     end
 
     local function autoFitCenter()
@@ -138,7 +164,7 @@ function Engines.Bar(config)
         end
     end
 
-    local function onUpdate(_, _)
+    local function onUpdate()
         local now = GetTime()
         local t = now - startTime
         if t >= totalDuration then
@@ -152,8 +178,13 @@ function Engines.Bar(config)
         end
 
         if handle.onTick then
-            -- Allow callers to react per-frame (e.g. TTS, phase swaps)
+            -- Callers use this for countdown text, TTS, and phase changes.
             handle.onTick(t, totalDuration, safeDuration)
+        end
+
+        local textInterval = math.max(0, tonumber(config.textUpdateInterval) or 0)
+        if pendingRightText ~= nil and (textInterval <= 0 or now - lastRightUpdate >= textInterval) then
+            applyRightText(pendingRightText, now)
         end
     end
 
@@ -163,20 +194,33 @@ function Engines.Bar(config)
         safeDuration = opts.safe
         startTime = GetTime() + (opts.lead or 0)
         running = true
+        lastRightUpdate = -math.huge
+        pendingRightText = nil
         if showFill then
             frame:SetValue(1)
         end
         if safeDuration and totalDuration > 0 then
             self:SetMarker((totalDuration - safeDuration) / totalDuration)
         end
-        frame:SetScript("OnUpdate", onUpdate)
+        if ticker then
+            ticker:Cancel()
+        end
+        ticker = C_Timer.NewTicker(
+            math.max(0.1, tonumber(config.updateInterval) or 0.1),
+            onUpdate
+        )
+        onUpdate()
         frame:Show()
     end
 
     function handle:Stop()
         local wasRunning = running
         running = false
-        frame:SetScript("OnUpdate", nil)
+        if ticker then
+            ticker:Cancel()
+            ticker = nil
+        end
+        pendingRightText = nil
         if showFill then
             frame:SetValue(0)
         end
@@ -212,6 +256,19 @@ function Engines.Bar(config)
 
         if c.size and not c.autoSize then
             frame:SetSize(c.size.w or 100, c.size.h or 24)
+        end
+
+        local iconConfig = c.icon or {}
+        local iconSize = math.max(8, tonumber(iconConfig.size) or 24)
+
+        if iconConfig.enabled ~= false and iconConfig.texture then
+            icon:SetTexture(iconConfig.texture)
+            icon:SetSize(iconSize, iconSize)
+            icon:ClearAllPoints()
+            icon:SetPoint("RIGHT", frame, "LEFT", -2, 0)
+            icon:Show()
+        else
+            icon:Hide()
         end
 
         if showFill and c.statusBar then
@@ -257,7 +314,17 @@ function Engines.Bar(config)
         })
 
         local br, bgG, bb, ba = colorTuple(bg.color, 0, 0, 0, 0.6)
-        frame:SetBackdropColor(br, bgG, bb, ba)
+        local backgroundOpacity = math.max(
+            0,
+            math.min(1, tonumber(bg.opacity) or 1)
+        )
+
+        frame:SetBackdropColor(
+            br,
+            bgG,
+            bb,
+            ba * backgroundOpacity
+        )
 
         -- Style every font string whose config is present
         if c.label then
@@ -273,6 +340,11 @@ function Engines.Bar(config)
         if c.center then
             applyFontTo(centerFS, c.center, frame, {
                 justify = c.center.justify or "CENTER"
+            })
+        end
+        if c.middle then
+            applyFontTo(middleFS, c.middle, frame, {
+                justify = "CENTER"
             })
         end
 
@@ -299,7 +371,10 @@ function Engines.Bar(config)
         handle.onStop = nil
         handle:Stop()
         frame:Hide()
-        frame:SetScript("OnUpdate", nil)
+        if ticker then
+            ticker:Cancel()
+            ticker = nil
+        end
         frame:ClearAllPoints()
         frame:SetParent(nil)
         handle.onTick = nil

@@ -68,12 +68,17 @@ if Text and Text.Register then
             rows = {3, 3, 3},
             values = {
                 prism = "lineIndex",
+                bossFrame = "bossFrame",
                 kickIndex = "tokenIndex"
             },
             defaultValues = {
                 prism = 0,
+                bossFrame = 0,
                 kickIndex = 0
-            }
+            },
+            map = function(reminder)
+                reminder.bossFrame = (tonumber(reminder.lineIndex) or 0) + 1
+            end
         }), luraNote({
             key = "dirge",
             sheet = "Dirge",

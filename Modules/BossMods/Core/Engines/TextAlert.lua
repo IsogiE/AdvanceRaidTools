@@ -57,7 +57,12 @@ function Engines.TextAlert(config)
             frame:SetSize(c.size.w or 400, c.size.h or 80)
         end
         local font = c.font or {}
-        applyFontIfChanged(text, fetchFont(), font.size or 28, font.outline or "OUTLINE")
+        applyFontIfChanged(
+            text,
+            fetchFont(font.name),
+            font.size or 28,
+            font.outline or "OUTLINE"
+        )
         if font.color then
             local r, g, b, a = colorTuple(font.color, 1, 1, 1, 1)
             text:SetTextColor(r, g, b, a)

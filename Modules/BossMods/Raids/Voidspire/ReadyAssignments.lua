@@ -10,6 +10,11 @@ if Text and Text.Register then
     }
 
     local BOSS_META = {
+        imperator = {
+            bossKey = "Imperator",
+            bossLabelKey = "BossMods_Imperator",
+            bossOrder = 10
+        },
         vaelgorEzzorak = {
             bossKey = "VaelgorEzzorak",
             bossLabelKey = "BossMods_VaelgorEzzorak",

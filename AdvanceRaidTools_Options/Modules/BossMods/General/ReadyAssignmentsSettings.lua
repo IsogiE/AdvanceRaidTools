@@ -4,7 +4,8 @@ local T = E.Templates
 local OUTLINE_VALUES = {
     [""] = L["None"],
     OUTLINE = L["Outline"],
-    THICKOUTLINE = L["ThickOutline"]
+    THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = "Slug Outline"
 }
 
 local ROW_GAP = 6
@@ -16,7 +17,8 @@ local function borderValues()
     return t
 end
 
-local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
+local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled, options)
+    options = options or {}
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then
         return {}
@@ -119,7 +121,11 @@ local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
-    local unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
+local unlockCtrl
+
+if not options.hideUnlockFrame then
+    local unlockY
+    unlockY, unlockCtrl = T:UnlockController(rightPanel, y, widthPx, {
         tracker = tracker,
         isDisabled = isDisabled,
         onEditModeChanged = function(v)
@@ -127,6 +133,7 @@ local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+end
 
     y = section(y, "Display")
     local duration = slider({
@@ -327,13 +334,18 @@ local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled)
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)
 
-    return {
+        return {
         height = totalHeight,
         Refresh = tracker.refresh,
+
         Release = function()
             textPosHandle.Release()
             visualPosHandle.Release()
-            unlockCtrl:Release()
+
+            if unlockCtrl then
+                unlockCtrl:Release()
+            end
+
             tracker.release()
         end
     }
@@ -341,7 +353,11 @@ end
 
 do
     local BossMods = E:GetModule("BossMods", true)
+
     if BossMods and BossMods.RegisterBossSettingsBuilder then
-        BossMods:RegisterBossSettingsBuilder("ReadyAssignments", buildReadyAssignmentsBody)
+        BossMods:RegisterBossSettingsBuilder(
+            "ReadyAssignments",
+            buildReadyAssignmentsBody
+        )
     end
 end

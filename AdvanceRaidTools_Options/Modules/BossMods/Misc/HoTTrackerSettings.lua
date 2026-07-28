@@ -11,7 +11,8 @@ local SHOW_WHEN_VALUES = {
 local OUTLINE_VALUES = {
     [""] = L["None"],
     OUTLINE = L["Outline"],
-    THICKOUTLINE = L["ThickOutline"]
+    THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = "Slug Outline"
 }
 
 local ANCHOR_VALUES = {

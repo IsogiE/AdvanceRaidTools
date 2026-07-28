@@ -875,6 +875,199 @@ function T:Slider(parent, opts)
 end
 
 -- =============================================================================
+-- Template: RangeSlider
+-- -----------------------------------------------------------------------------
+-- A single horizontal track with independently draggable low and high markers.
+-- opts = {
+--     label = "Label", min = 0, max = 100, step = 1,
+--     low = 0, high = 100,
+--     get = function() return low, high end,
+--     onChange = function(low, high) end,
+--     disabled = bool | function,
+-- }
+-- =============================================================================
+function T:RangeSlider(parent, opts)
+    opts = shallowCopy(opts)
+    local height = opts.height or 40
+    local minimum, maximum = opts.min or 0, opts.max or 100
+    local step = opts.step or 1
+
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetHeight(height)
+
+    local valueFS = newFont(container, 0)
+    E:RegisterAccentText(valueFS)
+    valueFS:SetPoint("TOPRIGHT", 0, 0)
+    valueFS:SetJustifyH("RIGHT")
+
+    local labelFS = newFont(container, 0)
+    labelFS:SetTextColor(unpack(c_text()))
+    labelFS:SetPoint("TOPLEFT", 0, 0)
+    labelFS:SetPoint("TOPRIGHT", valueFS, "TOPLEFT", -4, 0)
+    labelFS:SetJustifyH("LEFT")
+    labelFS:SetWordWrap(false)
+    labelFS:SetText(opts.label or "")
+
+    local track = CreateFrame("Frame", nil, container, "BackdropTemplate")
+    setTemplate(track, "Default")
+    track:SetPoint("TOPLEFT", 0, -16)
+    track:SetPoint("TOPRIGHT", 0, -16)
+    track:SetHeight(H_SLIDER)
+
+    local selection = track:CreateTexture(nil, "ARTWORK")
+    selection:SetColorTexture(1, 1, 1, 0.35)
+    E:RegisterAccentTexture(selection)
+
+    local lowThumb = CreateFrame("Button", nil, track)
+    lowThumb:SetSize(10, H_SLIDER - 4)
+    local lowTexture = lowThumb:CreateTexture(nil, "OVERLAY")
+    lowTexture:SetAllPoints()
+    lowTexture:SetColorTexture(1, 1, 1)
+    E:RegisterAccentTexture(lowTexture)
+
+    local highThumb = CreateFrame("Button", nil, track)
+    highThumb:SetSize(10, H_SLIDER - 4)
+    local highTexture = highThumb:CreateTexture(nil, "OVERLAY")
+    highTexture:SetAllPoints()
+    highTexture:SetColorTexture(1, 1, 1)
+    E:RegisterAccentTexture(highTexture)
+
+    local low, high = minimum, maximum
+    local disabled = false
+
+    local function roundValue(value)
+        value = math.max(minimum, math.min(maximum, tonumber(value) or minimum))
+        if step > 0 then
+            value = minimum + math.floor(((value - minimum) / step) + 0.5) * step
+        end
+        return math.max(minimum, math.min(maximum, value))
+    end
+
+    local function formatValue(value)
+        if type(opts.format) == "function" then
+            local ok, formatted = pcall(opts.format, value)
+            if ok and formatted then return tostring(formatted) end
+        end
+        return step >= 1 and ("%d"):format(value) or ("%.2f"):format(value)
+    end
+
+    local function updateVisuals()
+        valueFS:SetText(formatValue(low) .. " - " .. formatValue(high))
+        local width = track:GetWidth() or 1
+        if width <= 0 then width = 1 end
+        local span = maximum - minimum
+        local lowX = span > 0 and ((low - minimum) / span) * width or 0
+        local highX = span > 0 and ((high - minimum) / span) * width or width
+        lowThumb:ClearAllPoints()
+        lowThumb:SetPoint("CENTER", track, "LEFT", lowX, 0)
+        highThumb:ClearAllPoints()
+        highThumb:SetPoint("CENTER", track, "LEFT", highX, 0)
+        selection:ClearAllPoints()
+        selection:SetPoint("LEFT", track, "LEFT", lowX, 0)
+        selection:SetPoint("RIGHT", track, "LEFT", highX, 0)
+        selection:SetHeight(math.max(1, H_SLIDER - 4))
+    end
+
+    local function setValues(newLow, newHigh, notify)
+        newLow, newHigh = roundValue(newLow), roundValue(newHigh)
+        if newLow > newHigh then newLow, newHigh = newHigh, newLow end
+        local changed = newLow ~= low or newHigh ~= high
+        low, high = newLow, newHigh
+        updateVisuals()
+        if changed and notify then
+            safeCall("RangeSlider.onChange", opts.onChange, low, high)
+        end
+    end
+
+    local function cursorValue()
+        local scale = track:GetEffectiveScale() or 1
+        local cursorX = GetCursorPosition() / scale
+        local left = track:GetLeft() or cursorX
+        local width = math.max(1, track:GetWidth() or 1)
+        return roundValue(minimum + ((cursorX - left) / width) * (maximum - minimum))
+    end
+
+    local function beginDrag(thumb, isLow)
+        if disabled then return end
+        local function updateFromCursor()
+            local value = cursorValue()
+            if isLow then
+                setValues(math.min(value, high), high, true)
+            else
+                setValues(low, math.max(value, low), true)
+            end
+        end
+        if thumb._artDragTicker then
+            thumb._artDragTicker:Cancel()
+        end
+        thumb._artDragTicker = C_Timer.NewTicker(0.1, updateFromCursor)
+        updateFromCursor()
+    end
+
+    local function endDrag(thumb)
+        if thumb._artDragTicker then
+            thumb._artDragTicker:Cancel()
+            thumb._artDragTicker = nil
+        end
+    end
+
+    lowThumb:RegisterForDrag("LeftButton")
+    highThumb:RegisterForDrag("LeftButton")
+    lowThumb:SetScript("OnDragStart", function(self_) beginDrag(self_, true) end)
+    highThumb:SetScript("OnDragStart", function(self_) beginDrag(self_, false) end)
+    lowThumb:SetScript("OnDragStop", endDrag)
+    highThumb:SetScript("OnDragStop", endDrag)
+    track:EnableMouse(true)
+    track:SetScript("OnMouseDown", function(_, button)
+        if button ~= "LeftButton" or disabled then return end
+        local value = cursorValue()
+        if math.abs(value - low) <= math.abs(value - high) then
+            setValues(math.min(value, high), high, true)
+        else
+            setValues(low, math.max(value, low), true)
+        end
+    end)
+    track:SetScript("OnSizeChanged", updateVisuals)
+
+    local function SetDisabled(value)
+        disabled = value and true or false
+        track:EnableMouse(not disabled)
+        lowThumb:EnableMouse(not disabled)
+        highThumb:EnableMouse(not disabled)
+        if disabled then
+            endDrag(lowThumb)
+            endDrag(highThumb)
+            labelFS:SetTextColor(unpack(c_textDim()))
+            valueFS:SetTextColor(unpack(c_textDim()))
+        else
+            labelFS:SetTextColor(unpack(c_text()))
+            valueFS:SetTextColor(unpack(c_accent()))
+        end
+        updateVisuals()
+    end
+
+    setValues(opts.low or minimum, opts.high or maximum, false)
+    SetDisabled(evalMaybeFn(opts.disabled, track))
+    C_Timer.After(0, updateVisuals)
+
+    return {
+        frame = container,
+        height = height,
+        track = track,
+        SetValues = function(newLow, newHigh) setValues(newLow, newHigh, false) end,
+        GetValues = function() return low, high end,
+        SetDisabled = SetDisabled,
+        Refresh = function()
+            if type(opts.get) == "function" then
+                local newLow, newHigh = opts.get()
+                setValues(newLow, newHigh, false)
+            end
+            SetDisabled(evalMaybeFn(opts.disabled, track))
+        end
+    }
+end
+
+-- =============================================================================
 -- Template: ColorSwatch
 -- -----------------------------------------------------------------------------
 -- opts = {

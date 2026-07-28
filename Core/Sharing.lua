@@ -405,11 +405,11 @@ local function shareChatType()
     return "PARTY"
 end
 
-local function sendShareChatMessage(message, chatType)
+local function sendShareChatMessage(message, chatType, target)
     if C_ChatInfo and C_ChatInfo.SendChatMessage then
-        C_ChatInfo.SendChatMessage(message, chatType)
+        C_ChatInfo.SendChatMessage(message, chatType, nil, target)
     else
-        SendChatMessage(message, chatType)
+        SendChatMessage(message, chatType, nil, target)
     end
 end
 
@@ -609,6 +609,9 @@ local function installModuleShareChatFilters()
     addFilter("CHAT_MSG_RAID_LEADER", filterFunc)
     addFilter("CHAT_MSG_INSTANCE_CHAT", filterFunc)
     addFilter("CHAT_MSG_INSTANCE_CHAT_LEADER", filterFunc)
+    addFilter("CHAT_MSG_GUILD", filterFunc)
+    addFilter("CHAT_MSG_WHISPER", filterFunc)
+    addFilter("CHAT_MSG_WHISPER_INFORM", filterFunc)
 end
 
 local function installModuleShareHook()
@@ -742,7 +745,7 @@ function E:DecodeShareString(typeKey, text)
     return data
 end
 
-function E:ShareDataToChat(typeKey, data, label)
+function E:ShareDataToChat(typeKey, data, label, requestedChatType, requestedTarget)
     local cfg = moduleShareTypes[typeKey]
     if not cfg then
         return false, L["SharingUnknownType"] or "Unknown share type."
@@ -751,9 +754,19 @@ function E:ShareDataToChat(typeKey, data, label)
         return false, L["SharingChatLocked"] or "Chat is currently locked."
     end
 
-    local chatType = shareChatType()
+    local chatType = requestedChatType or shareChatType()
+    if chatType == "GUILD" and not IsInGuild() then
+        return false, L["SharingGuildUnavailable"] or "You are not in a guild."
+    end
     if not chatType then
         return false
+    end
+    local chatTarget
+    if chatType == "WHISPER" then
+        chatTarget = E:SafeString(requestedTarget)
+        if not chatTarget or chatTarget == "" then
+            return false
+        end
     end
 
     local Comms = E:GetEnabledModule("Comms")
@@ -772,17 +785,22 @@ function E:ShareDataToChat(typeKey, data, label)
             return
         end
         sentChat = true
-        sendShareChatMessage(chatMessage, chatType)
+        sendShareChatMessage(chatMessage, chatType, chatTarget)
     end
 
     Comms:SendPayload(MODULE_SHARE_COMM_PREFIX, {
         typeKey = typeKey,
         label = linkLabel,
         data = data
-    }, nil, chatType, function(_, bytesSent, bytesToSend)
+    }, chatTarget, chatType, function(_, bytesSent, bytesToSend)
         if bytesSent == bytesToSend then
             sendChatLink()
         end
     end)
+    -- Targeted payloads do not receive an AceComm progress callback through
+    -- the current Comms wrapper, so publish the whisper link explicitly.
+    if chatTarget then
+        sendChatLink()
+    end
     return true
 end

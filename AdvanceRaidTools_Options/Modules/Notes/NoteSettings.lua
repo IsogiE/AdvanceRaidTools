@@ -1200,9 +1200,10 @@ local FONT_OUTLINES = {
     NONE = L["None"],
     OUTLINE = L["Outline"],
     THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = "Slug Outline",
     MONOCHROME = L["Monochrome"]
 }
-local FONT_OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "MONOCHROME"}
+local FONT_OUTLINE_ORDER = {"NONE", "OUTLINE", "THICKOUTLINE", "OUTLINE_SLUG", "MONOCHROME"}
 
 local STRATA_VALUES = {
     BACKGROUND = "Background",

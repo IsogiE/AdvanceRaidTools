@@ -2,7 +2,8 @@ local E, L = unpack(ART)
 
 E:RegisterModuleDefaults("BossMods", {
     enabled = true,
-    activeTab = "Misc"
+    activeTab = "Misc",
+    featureEnabled = {}
 })
 
 local BossMods = E:NewModule("BossMods", "AceEvent-3.0")
@@ -18,14 +19,18 @@ features:SetSortKey(function(fa, fb)
         local ta, tb = raidTabs:Get(fa.tab), raidTabs:Get(fb.tab)
         local ao = ta and ta.order or 1000
         local bo = tb and tb.order or 1000
+
         if ao ~= bo then
             return ao < bo
         end
+
         return (fa.tab or "") < (fb.tab or "")
     end
+
     if fa.order == fb.order then
         return fa.key < fb.key
     end
+
     return fa.order < fb.order
 end)
 
@@ -35,22 +40,33 @@ BossMods.settingsBuilders = {}
 
 function BossMods:RegisterRaidTab(key, opts)
     opts = opts or {}
+
     raidTabs:Register(key, {
         labelKey = opts.labelKey or key,
         order = opts.order or 1000
     })
+
     features:Resort()
     E:SendMessage("ART_BOSSMODS_TABS_CHANGED")
 end
 
 function BossMods:RegisterFeature(key, opts)
     assert(type(opts) == "table", "RegisterFeature: opts required")
-    assert(type(opts.moduleName) == "string" and opts.moduleName ~= "", "RegisterFeature: opts.moduleName required")
+    assert(
+        type(opts.moduleName) == "string" and opts.moduleName ~= "",
+        "RegisterFeature: opts.moduleName required"
+    )
+
     local tab = opts.tab or "Misc"
 
     -- Auto-register unknown tabs so a new boss file doesn't drop
     if not raidTabs:Has(tab) then
-        self:Warn("feature '%s' references unknown tab '%s'; auto-registering", key, tab)
+        self:Warn(
+            "feature '%s' references unknown tab '%s'; auto-registering",
+            key,
+            tab
+        )
+
         self:RegisterRaidTab(tab, {
             labelKey = tab,
             order = 1000
@@ -70,8 +86,15 @@ function BossMods:RegisterFeature(key, opts)
 end
 
 function BossMods:RegisterBossSettingsBuilder(key, fn)
-    assert(type(key) == "string" and key ~= "", "RegisterBossSettingsBuilder: key required")
-    assert(type(fn) == "function", "RegisterBossSettingsBuilder: fn required")
+    assert(
+        type(key) == "string" and key ~= "",
+        "RegisterBossSettingsBuilder: key required"
+    )
+    assert(
+        type(fn) == "function",
+        "RegisterBossSettingsBuilder: fn required"
+    )
+
     self.settingsBuilders[key] = fn
 
     if E.OptionsUI and E.OptionsUI.mainFrame and E.RebuildOptions then
@@ -97,12 +120,26 @@ function BossMods:GetFeature(key)
     return features:Get(key)
 end
 
+
+function BossMods:IsFeatureEnabled(key)
+    self.db.featureEnabled = self.db.featureEnabled or {}
+    return self.db.featureEnabled[key] ~= false
+end
+
+function BossMods:SetFeatureEnabled(key, enabled)
+    self.db.featureEnabled = self.db.featureEnabled or {}
+    self.db.featureEnabled[key] = enabled and true or false
+    E:SendMessage("ART_BOSSMODS_FEATURE_ENABLED_CHANGED", key, enabled and true or false)
+end
+
 function BossMods:GetFeatureModule(key)
-    local f = features:Get(key)
-    if not f then
+    local feature = features:Get(key)
+
+    if not feature then
         return nil
     end
-    return E:GetModule(f.moduleName, true)
+
+    return E:GetModule(feature.moduleName, true)
 end
 
 E:MountMethods(E, {
@@ -118,21 +155,30 @@ BossMods:RegisterRaidTab("Misc", {
     labelKey = "BossMods_Misc",
     order = 10
 })
+
 BossMods:RegisterRaidTab("General", {
     labelKey = "BossMods_General",
     order = 15
 })
+
 BossMods:RegisterRaidTab("Queldanas", {
     labelKey = "BossMods_Queldanas",
     order = 20
 })
+
 BossMods:RegisterRaidTab("Voidspire", {
-    labelKey = "BossMods_Voidspire",
+    labelKey = "BossMods_Season1",
     order = 30
 })
+
 BossMods:RegisterRaidTab("Dreamrift", {
     labelKey = "BossMods_Dreamrift",
     order = 40
+})
+
+BossMods:RegisterRaidTab("VenomousAbyss", {
+    labelKey = "BossMods_VenomousAbyss",
+    order = 50
 })
 
 E:FlushModuleFeatureRegistrations("BossMods")
