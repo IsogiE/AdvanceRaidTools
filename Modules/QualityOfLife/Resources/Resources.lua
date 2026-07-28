@@ -40,8 +40,6 @@ local Resources = E:NewModule("QoL_Resources", "AceEvent-3.0")
 local PRD_CVAR = "nameplateShowSelf"
 local PRD_STATUS_BAR_BACKGROUND_ATLAS = "UI-HUD-CoolDownManager-Bar-BG"
 
-local hooksInstalled = false
-
 local function prd()
     return _G.PersonalResourceDisplayFrame
 end
@@ -546,8 +544,6 @@ function Resources:Apply()
     if roleActive(self.db) then
         enablePRDForART(self)
 
-        self:InstallHooks()
-
         local frame = prd()
         if not frame then
             return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
@@ -567,62 +563,11 @@ function Resources:Apply()
         return
     end
 
-    self:InstallHooks()
     stopResourceTextTicker()
     local frame = prd()
     if frame then
         hidePRDChildren(frame)
     end
-end
-
--- rely on self:IsActive() inside to no-op when disabled
-function Resources:InstallHooks()
-    if hooksInstalled then
-        return
-    end
-    local frame = prd()
-    if not frame then
-        return
-    end
-
-    hooksecurefunc(frame, "SetupHealthBar", function(self_)
-        if not Resources:IsEnabled() then
-            return
-        end
-        if Resources:IsActive() then
-            applyHealthBar(Resources, self_)
-        elseif Resources.db.hideBlizzardPRD then
-            setHealthShown(self_, false)
-            updatePRDLayout(self_)
-        end
-    end)
-
-    hooksecurefunc(frame, "SetupPowerBar", function(self_)
-        if not Resources:IsEnabled() then
-            return
-        end
-        if Resources:IsActive() then
-            applyPowerBar(Resources, self_)
-        elseif Resources.db.hideBlizzardPRD then
-            setPowerShown(self_, false)
-            updatePRDLayout(self_)
-        end
-    end)
-
-    hooksecurefunc(frame, "SetupClassBar", function(self_)
-        if not Resources:IsEnabled() then
-            return
-        end
-        if Resources:IsActive() then
-            applyClassFrame(Resources, self_)
-        elseif Resources.db.hideBlizzardPRD then
-            setClassFrameShown(self_, false)
-            setAltPowerShown(self_, false)
-            updatePRDLayout(self_)
-        end
-    end)
-
-    hooksInstalled = true
 end
 
 -- Lifecycle
