@@ -883,6 +883,7 @@ end
 --     low = 0, high = 100,
 --     get = function() return low, high end,
 --     onChange = function(low, high) end,
+--     onCommit = function(low, high) end, -- mouse released after a drag/click
 --     disabled = bool | function,
 -- }
 -- =============================================================================
@@ -891,6 +892,7 @@ function T:RangeSlider(parent, opts)
     local height = opts.height or 40
     local minimum, maximum = opts.min or 0, opts.max or 100
     local step = opts.step or 1
+    local thumbVisualWidth = 10
 
     local container = CreateFrame("Frame", nil, parent)
     container:SetHeight(height)
@@ -919,16 +921,18 @@ function T:RangeSlider(parent, opts)
     E:RegisterAccentTexture(selection)
 
     local lowThumb = CreateFrame("Button", nil, track)
-    lowThumb:SetSize(10, H_SLIDER - 4)
+    lowThumb:SetSize(22, H_SLIDER + 8)
     local lowTexture = lowThumb:CreateTexture(nil, "OVERLAY")
-    lowTexture:SetAllPoints()
+    lowTexture:SetSize(thumbVisualWidth, H_SLIDER - 4)
+    lowTexture:SetPoint("CENTER")
     lowTexture:SetColorTexture(1, 1, 1)
     E:RegisterAccentTexture(lowTexture)
 
     local highThumb = CreateFrame("Button", nil, track)
-    highThumb:SetSize(10, H_SLIDER - 4)
+    highThumb:SetSize(22, H_SLIDER + 8)
     local highTexture = highThumb:CreateTexture(nil, "OVERLAY")
-    highTexture:SetAllPoints()
+    highTexture:SetSize(thumbVisualWidth, H_SLIDER - 4)
+    highTexture:SetPoint("CENTER")
     highTexture:SetColorTexture(1, 1, 1)
     E:RegisterAccentTexture(highTexture)
 
@@ -955,9 +959,11 @@ function T:RangeSlider(parent, opts)
         valueFS:SetText(formatValue(low) .. " - " .. formatValue(high))
         local width = track:GetWidth() or 1
         if width <= 0 then width = 1 end
+        local inset = thumbVisualWidth / 2
+        local usableWidth = math.max(1, width - thumbVisualWidth)
         local span = maximum - minimum
-        local lowX = span > 0 and ((low - minimum) / span) * width or 0
-        local highX = span > 0 and ((high - minimum) / span) * width or width
+        local lowX = inset + (span > 0 and ((low - minimum) / span) * usableWidth or 0)
+        local highX = inset + (span > 0 and ((high - minimum) / span) * usableWidth or usableWidth)
         lowThumb:ClearAllPoints()
         lowThumb:SetPoint("CENTER", track, "LEFT", lowX, 0)
         highThumb:ClearAllPoints()
@@ -984,12 +990,21 @@ function T:RangeSlider(parent, opts)
         local cursorX = GetCursorPosition() / scale
         local left = track:GetLeft() or cursorX
         local width = math.max(1, track:GetWidth() or 1)
-        return roundValue(minimum + ((cursorX - left) / width) * (maximum - minimum))
+        local inset = thumbVisualWidth / 2
+        local usableWidth = math.max(1, width - thumbVisualWidth)
+        local ratio = math.max(0, math.min(1, (cursorX - left - inset) / usableWidth))
+        return roundValue(minimum + ratio * (maximum - minimum))
     end
 
-    local function beginDrag(thumb, isLow)
+    local endDrag
+    local function beginDrag(owner, isLow)
         if disabled then return end
+        owner._artRangeDragging = true
         local function updateFromCursor()
+            if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then
+                endDrag(owner)
+                return
+            end
             local value = cursorValue()
             if isLow then
                 setValues(math.min(value, high), high, true)
@@ -997,36 +1012,41 @@ function T:RangeSlider(parent, opts)
                 setValues(low, math.max(value, low), true)
             end
         end
-        if thumb._artDragTicker then
-            thumb._artDragTicker:Cancel()
-        end
-        thumb._artDragTicker = C_Timer.NewTicker(0.1, updateFromCursor)
+        owner:SetScript("OnUpdate", updateFromCursor)
         updateFromCursor()
     end
 
-    local function endDrag(thumb)
-        if thumb._artDragTicker then
-            thumb._artDragTicker:Cancel()
-            thumb._artDragTicker = nil
+    endDrag = function(owner)
+        owner:SetScript("OnUpdate", nil)
+        if owner._artRangeDragging then
+            owner._artRangeDragging = nil
+            safeCall("RangeSlider.onCommit", opts.onCommit, low, high)
         end
     end
 
-    lowThumb:RegisterForDrag("LeftButton")
-    highThumb:RegisterForDrag("LeftButton")
-    lowThumb:SetScript("OnDragStart", function(self_) beginDrag(self_, true) end)
-    highThumb:SetScript("OnDragStart", function(self_) beginDrag(self_, false) end)
-    lowThumb:SetScript("OnDragStop", endDrag)
-    highThumb:SetScript("OnDragStop", endDrag)
+    lowThumb:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+    highThumb:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+    lowThumb:SetScript("OnMouseDown", function(self_, button)
+        if button == "LeftButton" then beginDrag(self_, true) end
+    end)
+    highThumb:SetScript("OnMouseDown", function(self_, button)
+        if button == "LeftButton" then beginDrag(self_, false) end
+    end)
+    lowThumb:SetScript("OnMouseUp", endDrag)
+    highThumb:SetScript("OnMouseUp", endDrag)
     track:EnableMouse(true)
-    track:SetScript("OnMouseDown", function(_, button)
+    track:SetScript("OnMouseDown", function(self_, button)
         if button ~= "LeftButton" or disabled then return end
         local value = cursorValue()
         if math.abs(value - low) <= math.abs(value - high) then
             setValues(math.min(value, high), high, true)
+            beginDrag(self_, true)
         else
             setValues(low, math.max(value, low), true)
+            beginDrag(self_, false)
         end
     end)
+    track:SetScript("OnMouseUp", endDrag)
     track:SetScript("OnSizeChanged", updateVisuals)
 
     local function SetDisabled(value)
@@ -1037,6 +1057,7 @@ function T:RangeSlider(parent, opts)
         if disabled then
             endDrag(lowThumb)
             endDrag(highThumb)
+            endDrag(track)
             labelFS:SetTextColor(unpack(c_textDim()))
             valueFS:SetTextColor(unpack(c_textDim()))
         else

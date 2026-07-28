@@ -3,6 +3,7 @@ local E, L = unpack(ART)
 local function printHelp()
     E:Printf(L["SlashHelpHeader"])
     E:Printf("  /art            %s", L["SlashHelpOpen"])
+    E:Printf("  /artmp          %s", L["MythicPlusGrouper_MatchWindowTitle"])
     E:Printf("  /art map        %s", L["SlashHelpMap"])
     E:Printf("  /art pi         %s", L["SlashHelpPI"])
     E:Printf("  /art innervate  %s", L["SlashHelpInnervate"])
@@ -119,6 +120,19 @@ local function toggleNoteDisplay(slotIndex)
 
     local active = not mod:IsSlotActive(slotIndex)
     mod:SetSlotActive(slotIndex, active)
+end
+
+local function openMythicPlusGroupFinder()
+    local mod = E:GetModule("MythicPlusGrouper", true)
+    if not (mod and mod:IsEnabled()) then
+        E:Printf(L["LoadModule"])
+        return
+    end
+    mod.db.showGroupFinder = true
+    if not E:EnsureOptions() then
+        return
+    end
+    E:SendMessage("ART_MYTHIC_PLUS_GROUPER_SHOW_FINDER")
 end
 
 local function resetOptionsWindowPosition()
@@ -273,4 +287,5 @@ end
 function E:RegisterSlashCommands()
     self:RegisterChatCommand("art", handler)
     self:RegisterChatCommand("advanceraidtools", handler)
+    self:RegisterChatCommand("artmp", openMythicPlusGroupFinder)
 end

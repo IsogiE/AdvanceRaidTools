@@ -1,9 +1,11 @@
 local E, L = unpack(ART)
 
 local MODULE_NAME = "MythicPlusGrouper"
-local COMM_PREFIX = "ARTMPG1"
-local RECENT_SECONDS = 1800
-local MIN_WIDTH, MIN_HEIGHT = 260, 100
+local COMM_PREFIX = "ARTMPG2"
+local LEGACY_COMM_PREFIX = "ARTMPG1"
+local SCAN_TIMEOUT_SECONDS = 5
+local MIN_SCAN_INTERVAL = 2
+local MAX_KEYSTONE_LEVEL = 25
 local issecretvalue = issecretvalue or function() return false end
 
 local SEASONS = {
@@ -52,26 +54,16 @@ E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true,
     selectedSeason = "season2",
     interests = {},
-    members = {},
-    showWindow = true,
-    unlocked = false,
-    hideInInstance = false,
     minKeystoneLevel = 1,
-    maxKeystoneLevel = 20,
-    backgroundEnabled = true,
-    borderEnabled = true,
-    backgroundColor = {r = 0, g = 0, b = 0, a = 0.72},
-    borderColor = {r = 0.35, g = 0.35, b = 0.35, a = 1},
-    fontName = "PT Sans Narrow",
-    fontSize = 14,
-    fontOutline = "OUTLINE",
-    textColor = {r = 1, g = 1, b = 1, a = 1},
-    point = "CENTER",
-    relativePoint = "CENTER",
-    x = 360,
-    y = 120,
-    width = 360,
-    height = 190
+    maxKeystoneLevel = MAX_KEYSTONE_LEVEL,
+    timeoutSeconds = 5,
+    showGroupFinder = false,
+    groupFinderWidth = 500,
+    groupFinderHeight = 420,
+    groupFinderPoint = "CENTER",
+    groupFinderRelativePoint = "CENTER",
+    groupFinderX = 0,
+    groupFinderY = 0
 })
 
 local Mod = E:NewModule(MODULE_NAME, "AceEvent-3.0")
@@ -203,8 +195,8 @@ end
 
 function Mod:BuildOwnState()
     local key = self:GetOwnedKeystone()
-    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, 20))
-    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or 20, 1, 20))
+    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, MAX_KEYSTONE_LEVEL))
+    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
     if minimum > maximum then minimum, maximum = maximum, minimum end
     local interests = {}
     for dungeonKey, selected in pairs(self.db.interests or {}) do
@@ -241,8 +233,8 @@ function Mod:SanitizeState(payload, sender)
     if level then level = math.floor(clamp(level, 1, 100)) end
     local minimum = safeNumber(payload.minKeystoneLevel)
     local maximum = safeNumber(payload.maxKeystoneLevel)
-    minimum = math.floor(clamp(minimum or 1, 1, 20))
-    maximum = math.floor(clamp(maximum or 20, 1, 20))
+    minimum = math.floor(clamp(minimum or 1, 1, MAX_KEYSTONE_LEVEL))
+    maximum = math.floor(clamp(maximum or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
     if minimum > maximum then minimum, maximum = maximum, minimum end
     local mapID = safeNumber(payload.mapID)
     if mapID then mapID = math.floor(mapID) end
@@ -274,7 +266,11 @@ function Mod:StoreMember(sender, state)
     local full = normalizeName(sender)
     if not full then return false end
     state.updated = now()
-    self.db.members[full] = state
+    self.members[full] = state
+    if self.scan and self.scan.inProgress and not self.scan.responders[full] then
+        self.scan.responders[full] = true
+        self.scan.received = self.scan.received + 1
+    end
     self:NotifyUpdated()
     return true
 end
@@ -282,7 +278,7 @@ end
 function Mod:StoreOwnState()
     local state = self:BuildOwnState()
     local full = normalizeName(state.character)
-    if full then self.db.members[full] = self:SanitizeState(state, state.character) end
+    if full then self.members[full] = self:SanitizeState(state, state.character) end
     return state
 end
 
@@ -290,45 +286,104 @@ function Mod:GetComms()
     return E:GetEnabledModule("Comms")
 end
 
-function Mod:BroadcastState()
-    if isInsideInstance() then return false end
-    if not IsInGuild() then return false end
+function Mod:SendState(target, requestID)
+    if not target or not requestID then return false end
     local Comms = self:GetComms()
     if not Comms then return false end
-    local state = self:StoreOwnState()
-    Comms:SendPayload(COMM_PREFIX, state, nil, "GUILD")
+    local state = self:BuildOwnState()
+    state.requestID = requestID
+    Comms:SendPayload(COMM_PREFIX, state, target)
+    return true
+end
+
+function Mod:IsScanInProgress()
+    return self.scan and self.scan.inProgress or false
+end
+
+function Mod:GetScanState()
+    return self.scan
+end
+
+function Mod:FinalizeScan()
+    if not self.scan or not self.scan.inProgress then return end
+    if self.scan.timer then
+        self.scan.timer:Cancel()
+        self.scan.timer = nil
+    end
+    self.scan.inProgress = false
+    self.scan.completedAt = now()
+    self:NotifyUpdated()
+end
+
+function Mod:CancelScan()
+    self:FinalizeScan()
+end
+
+function Mod:RequestGuildData()
+    if InCombatLockdown() then return false, "IN_COMBAT" end
+    if isInsideInstance() then return false, "IN_INSTANCE" end
+    if not IsInGuild() then return false, L["SharingGuildUnavailable"] end
+    local Comms = self:GetComms()
+    if not Comms then return false, L["LoadModule"] end
+
+    if GetTime() - (self.lastScanStartedAt or 0) < MIN_SCAN_INTERVAL then
+        return false, "TOO_SOON"
+    end
+    if self.scan and self.scan.timer then self.scan.timer:Cancel() end
+    if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
+    wipe(self.members)
+    self:StoreOwnState()
+
+    local requestID = ("%s:%d:%d"):format(playerFullName(), now(), math.random(1000, 9999))
+    self.scan = {
+        requestID = requestID,
+        inProgress = true,
+        startedAt = now(),
+        completedAt = 0,
+        received = 0,
+        responders = {}
+    }
+    self.lastScanStartedAt = GetTime()
+    Comms:SendPayload(COMM_PREFIX, {kind = "REQUEST", requestID = requestID}, nil, "GUILD")
+    Comms:SendPayload(LEGACY_COMM_PREFIX, {kind = "REQUEST"}, nil, "GUILD")
+    local timeout = math.floor(clamp(self.db.timeoutSeconds or SCAN_TIMEOUT_SECONDS, 3, 30))
+    self.scan.timer = C_Timer.NewTimer(timeout, function()
+        if self:IsEnabled() then self:FinalizeScan() end
+    end)
     self:NotifyUpdated()
     return true
 end
 
-function Mod:RequestGuildData()
-    if isInsideInstance() then return false end
-    if not IsInGuild() then return false, L["SharingGuildUnavailable"] end
-    if C_GuildInfo and C_GuildInfo.GuildRoster then pcall(C_GuildInfo.GuildRoster) end
-    local Comms = self:GetComms()
-    if not Comms then return false, L["LoadModule"] end
-    self:BroadcastState()
-    Comms:SendPayload(COMM_PREFIX, {kind = "REQUEST"}, nil, "GUILD")
-    return true
-end
-
-function Mod:OnCommReceived(_, message, distribution, sender)
+function Mod:OnCommReceived(prefix, message, distribution, sender)
     if isInsideInstance() then return end
-    if distribution ~= "GUILD" then return end
     local Comms = E:GetModule("Comms", true)
     if not Comms then return end
     local payload = Comms:DecodePayload(message)
     if type(payload) ~= "table" then return end
-    if payload.kind == "REQUEST" then
-        if self.requestResponseTimer then
-            return
+    if prefix == LEGACY_COMM_PREFIX then
+        if payload.kind == "STATE" and distribution == "GUILD" and self.scan and self.scan.inProgress then
+            self:StoreMember(sender, payload)
         end
-        self.requestResponseTimer = C_Timer.NewTimer(math.random(2, 12) / 10, function()
-            self.requestResponseTimer = nil
-            if self:IsEnabled() then self:BroadcastState() end
+        return
+    end
+    if payload.kind == "REQUEST" then
+        if distribution ~= "GUILD" then return end
+        local requestID = safeString(payload.requestID)
+        if not requestID or InCombatLockdown() then return end
+        local fullSender = normalizeName(sender)
+        local lastResponse = fullSender and self.lastResponses[fullSender]
+        if lastResponse and GetTime() - lastResponse < 3 then return end
+        if fullSender then self.lastResponses[fullSender] = GetTime() end
+        C_Timer.After(math.random(2, 12) / 10, function()
+            if self:IsEnabled() and not InCombatLockdown() then
+                self:SendState(sender, requestID)
+            end
         end)
     elseif payload.kind == "STATE" then
-        self:StoreMember(sender, payload)
+        if distribution ~= "WHISPER" then return end
+        if self.scan and self.scan.inProgress and safeString(payload.requestID) == self.scan.requestID then
+            self:StoreMember(sender, payload)
+        end
     end
 end
 
@@ -337,6 +392,7 @@ function Mod:RegisterSync()
     local Comms = E:GetModule("Comms", true)
     if Comms and Comms.RegisterProtocol then
         Comms:RegisterProtocol(COMM_PREFIX, self)
+        Comms:RegisterProtocol(LEGACY_COMM_PREFIX, self)
         self.syncRegistered = true
     end
 end
@@ -346,6 +402,7 @@ function Mod:UnregisterSync()
     local Comms = E:GetModule("Comms", true)
     if Comms and Comms.UnregisterProtocol then
         Comms:UnregisterProtocol(COMM_PREFIX)
+        Comms:UnregisterProtocol(LEGACY_COMM_PREFIX)
     end
     self.syncRegistered = nil
 end
@@ -357,27 +414,16 @@ end
 function Mod:SetInterested(dungeonKey, selected)
     if not DUNGEON_BY_KEY[dungeonKey] then return end
     self.db.interests[dungeonKey] = selected and true or nil
-    self:BroadcastState()
     self:NotifyUpdated()
 end
 
 function Mod:SetKeystoneLevelRange(minimum, maximum)
-    minimum = math.floor(clamp(minimum or 1, 1, 20))
-    maximum = math.floor(clamp(maximum or 20, 1, 20))
+    minimum = math.floor(clamp(minimum or 1, 1, MAX_KEYSTONE_LEVEL))
+    maximum = math.floor(clamp(maximum or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
     if minimum > maximum then minimum, maximum = maximum, minimum end
     if self.db.minKeystoneLevel == minimum and self.db.maxKeystoneLevel == maximum then return end
     self.db.minKeystoneLevel = minimum
     self.db.maxKeystoneLevel = maximum
-    self:NotifyUpdated()
-    if self.levelRangeBroadcastTimer then
-        self.levelRangeBroadcastTimer:Cancel()
-    end
-    self.levelRangeBroadcastTimer = C_Timer.NewTimer(0.5, function()
-        self.levelRangeBroadcastTimer = nil
-        if self:IsEnabled() then
-            self:BroadcastState()
-        end
-    end)
 end
 
 function Mod:BuildOnlineGuildMap()
@@ -397,12 +443,7 @@ function Mod:BuildOnlineGuildMap()
 end
 
 function Mod:IsStateVisible(state, onlineMap)
-    if type(state) ~= "table" then return false end
-    local full, short = normalizeName(state.character)
-    if IsInGuild() and (GetNumGuildMembers() or 0) > 0 then
-        return full and (onlineMap[full] or onlineMap[short]) and true or false
-    end
-    return now() - (tonumber(state.updated) or 0) <= RECENT_SECONDS
+    return type(state) == "table"
 end
 
 function Mod:DisplayName(state)
@@ -411,10 +452,10 @@ end
 
 function Mod:GetOwners(dungeonKey)
     local result, onlineMap = {}, self:BuildOnlineGuildMap()
-    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, 20))
-    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or 20, 1, 20))
+    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, MAX_KEYSTONE_LEVEL))
+    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
     if minimum > maximum then minimum, maximum = maximum, minimum end
-    for _, state in pairs(self.db.members or {}) do
+    for _, state in pairs(self.members or {}) do
         if state.dungeonKey == dungeonKey and state.level and state.level >= minimum and state.level <= maximum
             and self:IsStateVisible(state, onlineMap)
         then
@@ -452,14 +493,41 @@ function Mod:GetOwnersText(dungeonKey)
     return table.concat(lines, "\n")
 end
 
+function Mod:GetScanResults()
+    local result = {}
+    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, MAX_KEYSTONE_LEVEL))
+    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
+    if minimum > maximum then minimum, maximum = maximum, minimum end
+    for _, state in pairs(self.members or {}) do
+        local dungeon = state.dungeonKey and DUNGEON_BY_KEY[state.dungeonKey]
+        local inRange = state.level and state.level >= minimum and state.level <= maximum
+        result[#result + 1] = {
+            name = self:DisplayName(state),
+            character = state.character,
+            dungeonName = dungeon and dungeon.name or nil,
+            level = state.level,
+            isMatch = dungeon and inRange and self:IsInterested(state.dungeonKey) or false
+        }
+    end
+    table.sort(result, function(a, b)
+        if a.isMatch ~= b.isMatch then return a.isMatch end
+        if (a.dungeonName or "") ~= (b.dungeonName or "") then
+            return (a.dungeonName or "") < (b.dungeonName or "")
+        end
+        if (a.level or 0) ~= (b.level or 0) then return (a.level or 0) > (b.level or 0) end
+        return a.name:lower() < b.name:lower()
+    end)
+    return result
+end
+
 function Mod:GetInterestedForOwnKey()
     local owned = self:GetOwnedKeystone()
     if not owned or not owned.dungeonKey then return owned, {} end
     local result, onlineMap = {}, self:BuildOnlineGuildMap()
     local me = playerFullName()
-    for _, state in pairs(self.db.members or {}) do
-        local minimum = math.floor(clamp(state.minKeystoneLevel or 1, 1, 20))
-        local maximum = math.floor(clamp(state.maxKeystoneLevel or 20, 1, 20))
+    for _, state in pairs(self.members or {}) do
+        local minimum = math.floor(clamp(state.minKeystoneLevel or 1, 1, MAX_KEYSTONE_LEVEL))
+        local maximum = math.floor(clamp(state.maxKeystoneLevel or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
         if minimum > maximum then minimum, maximum = maximum, minimum end
         if state.interests and state.interests[owned.dungeonKey]
             and owned.level >= minimum and owned.level <= maximum
@@ -478,11 +546,11 @@ end
 
 function Mod:GetInterestedKeystoneOwners()
     local result, onlineMap = {}, self:BuildOnlineGuildMap()
-    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, 20))
-    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or 20, 1, 20))
+    local minimum = math.floor(clamp(self.db.minKeystoneLevel or 1, 1, MAX_KEYSTONE_LEVEL))
+    local maximum = math.floor(clamp(self.db.maxKeystoneLevel or MAX_KEYSTONE_LEVEL, 1, MAX_KEYSTONE_LEVEL))
     if minimum > maximum then minimum, maximum = maximum, minimum end
     local me = playerFullName()
-    for _, state in pairs(self.db.members or {}) do
+    for _, state in pairs(self.members or {}) do
         local dungeon = state.dungeonKey and DUNGEON_BY_KEY[state.dungeonKey]
         if dungeon and self:IsInterested(state.dungeonKey)
             and state.level and state.level >= minimum and state.level <= maximum
@@ -505,26 +573,6 @@ function Mod:GetInterestedKeystoneOwners()
     return result
 end
 
-function Mod:GetWindowText()
-    local _, interested = self:GetInterestedForOwnKey()
-    local owners = self:GetInterestedKeystoneOwners()
-    local lines = {}
-    if #interested > 0 then
-        lines[#lines + 1] = L["MythicPlusGrouper_InterestedPlayers"]
-        for _, player in ipairs(interested) do
-            lines[#lines + 1] = player.name
-        end
-    end
-    if #owners > 0 then
-        if #lines > 0 then lines[#lines + 1] = "" end
-        lines[#lines + 1] = L["MythicPlusGrouper_InterestedKeystoneOwners"]
-        for _, player in ipairs(owners) do
-            lines[#lines + 1] = ("%s  %s +%d"):format(player.name, player.dungeonName, player.level)
-        end
-    end
-    return table.concat(lines, "\n")
-end
-
 function Mod:InvitePlayer(character)
     character = safeString(character)
     if not character then return false end
@@ -539,285 +587,57 @@ function Mod:InvitePlayer(character)
     return false
 end
 
-local function acquireWindowRow(frame, index)
-    frame.rows = frame.rows or {}
-    local row = frame.rows[index]
-    if row then return row end
-    row = CreateFrame("Frame", nil, frame)
-    row:SetHeight(20)
-    local label = row:CreateFontString(nil, "OVERLAY")
-    label:SetPoint("LEFT", 0, 0)
-    label:SetPoint("RIGHT", -70, 0)
-    label:SetJustifyH("LEFT")
-    label:SetWordWrap(false)
-    row.label = label
-    local invite = CreateFrame("Button", nil, row, "BackdropTemplate")
-    E:SetTemplate(invite, "Default")
-    invite:SetSize(62, 20)
-    invite:SetPoint("RIGHT", 0, 0)
-    invite:RegisterForClicks("AnyUp")
-    local inviteText = invite:CreateFontString(nil, "OVERLAY")
-    E:RegisterFontString(inviteText, 0)
-    inviteText:SetPoint("CENTER")
-    inviteText:SetText(L["MythicPlusGrouper_Invite"] or "Invite")
-    invite.label = inviteText
-    invite:SetScript("OnClick", function(button)
-        if button.character then Mod:InvitePlayer(button.character) end
-    end)
-    row.invite = invite
-    frame.rows[index] = row
-    return row
-end
-
-function Mod:RefreshWindowContent(interested, owners)
-    local frame = self.frame
-    if not frame then return end
-    interested = interested or {}
-    owners = owners or {}
-    frame.headers = frame.headers or {}
-    for index = 1, 2 do
-        if not frame.headers[index] then
-            local header = frame:CreateFontString(nil, "OVERLAY")
-            header:SetJustifyH("LEFT")
-            header:SetWordWrap(false)
-            frame.headers[index] = header
-        end
-        frame.headers[index]:Hide()
-    end
-    for _, row in ipairs(frame.rows or {}) do row:Hide() end
-
-    local outline = self.db.fontOutline or "OUTLINE"
-    if outline == "NONE" then outline = "" end
-    local font = E:FetchFont(self.db.fontName)
-    local fontSize = clamp(self.db.fontSize, 8, 40)
-    local color = type(self.db.textColor) == "table" and self.db.textColor or {}
-    local r, g = clamp(color.r or color[1] or 1, 0, 1), clamp(color.g or color[2] or 1, 0, 1)
-    local b, a = clamp(color.b or color[3] or 1, 0, 1), clamp(color.a or color[4] or 1, 0, 1)
-    local y, rowIndex = -8, 0
-
-    local function addSection(headerText, entries, labelBuilder)
-        if #entries == 0 then return end
-        local headerIndex = rowIndex == 0 and 1 or 2
-        local header = frame.headers[headerIndex]
-        E:ApplyFontString(header, font, fontSize, outline)
-        header:SetTextColor(r, g, b, a)
-        header:ClearAllPoints()
-        header:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, y)
-        header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, y)
-        header:SetText(headerText)
-        header:Show()
-        y = y - math.max(20, fontSize + 5)
-        for _, entry in ipairs(entries) do
-            rowIndex = rowIndex + 1
-            local row = acquireWindowRow(frame, rowIndex)
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, y)
-            row:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, y)
-            E:ApplyFontString(row.label, font, fontSize, outline)
-            row.label:SetTextColor(r, g, b, a)
-            row.label:SetText(labelBuilder(entry))
-            row.invite.character = entry.character
-            row.invite:SetEnabled(entry.character and true or false)
-            row:Show()
-            y = y - math.max(20, fontSize + 4)
-        end
-        y = y - 8
-    end
-
-    addSection(L["MythicPlusGrouper_InterestedPlayers"], interested, function(entry)
-        return entry.name
-    end)
-    addSection(L["MythicPlusGrouper_InterestedKeystoneOwners"], owners, function(entry)
-        return ("%s  -  %s +%d"):format(entry.name, entry.dungeonName, entry.level)
-    end)
-end
-
-function Mod:ApplyFrameBackdrop()
-    local frame = self.frame
-    if not frame then return end
-    local background = type(self.db.backgroundColor) == "table" and self.db.backgroundColor or {}
-    local border = type(self.db.borderColor) == "table" and self.db.borderColor or {}
-    if self.db.backgroundEnabled ~= false then
-        frame:SetBackdropColor(clamp(background.r or background[1] or 0, 0, 1),
-            clamp(background.g or background[2] or 0, 0, 1), clamp(background.b or background[3] or 0, 0, 1),
-            clamp(background.a or background[4] or 0.72, 0, 1))
-    else
-        frame:SetBackdropColor(0, 0, 0, 0)
-    end
-    if self.db.borderEnabled ~= false then
-        frame:SetBackdropBorderColor(clamp(border.r or border[1] or 0.35, 0, 1),
-            clamp(border.g or border[2] or 0.35, 0, 1), clamp(border.b or border[3] or 0.35, 0, 1),
-            clamp(border.a or border[4] or 1, 0, 1))
-    else
-        frame:SetBackdropBorderColor(0, 0, 0, 0)
-    end
-end
-
-function Mod:SaveFramePosition()
-    local frame = self.frame
-    if not frame then return end
-    local point, _, relativePoint, x, y = frame:GetPoint(1)
-    self.db.point = point or "CENTER"
-    self.db.relativePoint = relativePoint or self.db.point
-    self.db.x = math.floor((x or 0) + 0.5)
-    self.db.y = math.floor((y or 0) + 0.5)
-    self.db.width = math.floor((frame:GetWidth() or 360) + 0.5)
-    self.db.height = math.floor((frame:GetHeight() or 190) + 0.5)
-end
-
-function Mod:BuildFrame()
-    if self.frame then return self.frame end
-    local frame = CreateFrame("Frame", "ARTMythicPlusGrouperFrame", UIParent, "BackdropTemplate")
-    frame:SetFrameStrata("MEDIUM")
-    frame:SetClampedToScreen(true)
-    frame:SetMovable(true)
-    frame:SetResizable(true)
-    if frame.SetResizeBounds then frame:SetResizeBounds(MIN_WIDTH, MIN_HEIGHT) end
-    E:SetTemplate(frame, "Default")
-    frame:RegisterForDrag("LeftButton")
-    frame:SetScript("OnDragStart", function()
-        if Mod.db.unlocked and not InCombatLockdown() then frame:StartMoving() end
-    end)
-    frame:SetScript("OnDragStop", function()
-        frame:StopMovingOrSizing()
-        Mod:SaveFramePosition()
-    end)
-
-    local grip = CreateFrame("Frame", nil, frame)
-    grip:SetSize(14, 14)
-    grip:SetPoint("BOTTOMRIGHT", -1, 1)
-    grip:EnableMouse(true)
-    local texture = grip:CreateTexture(nil, "OVERLAY")
-    texture:SetAllPoints()
-    texture:SetColorTexture(1, 1, 1, 0.35)
-    grip:SetScript("OnMouseDown", function(_, button)
-        if button == "LeftButton" and Mod.db.unlocked and not InCombatLockdown() then frame:StartSizing("BOTTOMRIGHT") end
-    end)
-    grip:SetScript("OnMouseUp", function()
-        frame:StopMovingOrSizing()
-        Mod:SaveFramePosition()
-        Mod:RefreshFrame()
-    end)
-    frame.grip = grip
-
-    frame:SetPoint(self.db.point or "CENTER", UIParent, self.db.relativePoint or "CENTER", self.db.x or 360, self.db.y or 120)
-    frame:SetSize(clamp(self.db.width, MIN_WIDTH, 1200), clamp(self.db.height, MIN_HEIGHT, 1200))
-    self.frame = frame
-    self:ApplyFrameBackdrop()
-    return frame
-end
-
-function Mod:ApplyFramePosition(allowInInstance)
-    local frame = self:BuildFrame()
-    frame:ClearAllPoints()
-    frame:SetPoint(self.db.point or "CENTER", UIParent, self.db.relativePoint or "CENTER", self.db.x or 360, self.db.y or 120)
-    frame:SetSize(clamp(self.db.width, MIN_WIDTH, 1200), clamp(self.db.height, MIN_HEIGHT, 1200))
-    self:RefreshFrame(allowInInstance)
-end
-
-function Mod:SetUnlocked(value)
-    self.db.unlocked = value and true or false
-    self:RefreshFrame()
-end
-
-function Mod:RefreshFrame(allowInInstance)
-    if not self:IsEnabled() then return end
-    local inInstance = isInsideInstance()
-    if inInstance and self.db.hideInInstance then
-        if self.frame then self.frame:Hide() end
-        return
-    end
-    if inInstance and not allowInInstance then
-        return
-    end
-    local frame = self:BuildFrame()
-    local _, interested = self:GetInterestedForOwnKey()
-    local owners = self:GetInterestedKeystoneOwners()
-    if not self.db.showWindow
-        or (not self.db.unlocked and #interested == 0 and #owners == 0)
-        or (not self.db.unlocked and self.db.hideInInstance and inInstance)
-    then
-        frame:Hide()
-        return
-    end
-    frame:Show()
-    self:ApplyFrameBackdrop()
-    frame:EnableMouse(self.db.unlocked and true or false)
-    if self.db.unlocked then frame.grip:Show() else frame.grip:Hide() end
-    self:RefreshWindowContent(interested, owners)
-end
-
 function Mod:NotifyUpdated()
-    if not isInsideInstance() then self:RefreshFrame() end
     E:SendMessage("ART_MYTHIC_PLUS_GROUPER_UPDATED")
-    if E.RefreshOptions then E:RefreshOptions() end
 end
 
 function Mod:RefreshOwnKey()
     if isInsideInstance() then return end
-    local state = self:BuildOwnState()
-    local signature = table.concat({state.dungeonKey or "", state.mapID or 0, state.level or 0, state.nickname or "",
-        state.minKeystoneLevel or 1, state.maxKeystoneLevel or 20}, ":")
-    self:StoreOwnState()
-    if signature ~= self.lastOwnSignature then
-        self.lastOwnSignature = signature
-        self:BroadcastState()
-    else
+    if self.scan and (self.scan.inProgress or self.scan.completedAt > 0) then
+        self:StoreOwnState()
         self:NotifyUpdated()
     end
 end
 
 function Mod:PLAYER_ENTERING_WORLD()
-    if self.worldTimer then
-        self.worldTimer:Cancel()
-    end
-    self.worldTimer = C_Timer.NewTimer(3, function()
-        self.worldTimer = nil
-        if self:IsEnabled() and not isInsideInstance() then
-            self:RegisterSync()
-            self:RequestGuildData()
-            self:RefreshOwnKey()
-        end
-    end)
+    if not isInsideInstance() then self:RegisterSync() end
 end
 
 function Mod:BAG_UPDATE_DELAYED()
-    if self.bagTimer then
-        self.bagTimer:Cancel()
-    end
-    self.bagTimer = C_Timer.NewTimer(0.5, function()
-        self.bagTimer = nil
+    C_Timer.After(0.5, function()
         if self:IsEnabled() and not isInsideInstance() then self:RefreshOwnKey() end
     end)
 end
 
 function Mod:GUILD_ROSTER_UPDATE()
     if isInsideInstance() then return end
-    self:NotifyUpdated()
+    if self.scan then self:NotifyUpdated() end
 end
 
 function Mod:ZONE_CHANGED_NEW_AREA()
     if isInsideInstance() then
+        self:CancelScan()
         self:UnregisterSync()
-        if self.db.hideInInstance and self.frame then self.frame:Hide() end
         return
     end
     self:RegisterSync()
-    self:RequestGuildData()
-    self:RefreshOwnKey()
 end
 
 function Mod:OnProfileChanged()
     self.db.interests = self.db.interests or {}
-    self.db.members = self.db.members or {}
+    wipe(self.members)
+    self.scan = nil
     self.db.selectedSeason = self:GetSelectedSeason()
-    self:ApplyFramePosition()
-    self:RefreshOwnKey()
+    self:NotifyUpdated()
 end
 
 function Mod:OnEnable()
     self.db.interests = self.db.interests or {}
-    self.db.members = self.db.members or {}
+    -- Window visibility is session-only; size and position remain persistent.
+    self.db.showGroupFinder = false
+    self.members = {}
+    self.lastResponses = {}
+    self.scan = nil
     self.db.selectedSeason = self:GetSelectedSeason()
     if not isInsideInstance() then self:RegisterSync() end
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -826,26 +646,14 @@ function Mod:OnEnable()
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     self:RegisterMessage("ART_NICKNAME_CHANGED", "RefreshOwnKey")
     self:RegisterMessage("ART_PROFILE_CHANGED", "OnProfileChanged")
-    self:RegisterMessage("ART_MEDIA_UPDATED", "RefreshFrame")
-    self:ApplyFramePosition(true)
-    self:RefreshOwnKey()
 end
 
 function Mod:OnDisable()
-    for _, key in ipairs({
-        "requestResponseTimer",
-        "levelRangeBroadcastTimer",
-        "worldTimer",
-        "bagTimer"
-    }) do
-        local timer = self[key]
-        if timer then
-            timer:Cancel()
-            self[key] = nil
-        end
-    end
+    if self.scan and self.scan.timer then self.scan.timer:Cancel() end
     self:UnregisterSync()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
-    if self.frame then self.frame:Hide() end
+    self.scan = nil
+    self.members = nil
+    self.lastResponses = nil
 end

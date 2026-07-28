@@ -30,6 +30,7 @@ local safeCall = P.safeCall
 local evalMaybeFn = P.evalMaybeFn
 local loc = P.loc
 local applyOpaqueTemplate = P.applyOpaqueTemplate
+local setTemplate = P.setTemplate
 
 local function chooseStrata(parent, explicit)
     if explicit then
@@ -139,6 +140,7 @@ local function destroyPopup(popup)
     end
     popup:Hide()
     OPAQUE_PAINT[popup] = nil
+    if E.skinnedFrames then E.skinnedFrames[popup] = nil end
     popup:SetParent(nil)
     popup:ClearAllPoints()
 end
@@ -153,6 +155,11 @@ end
 --     hideOnEscape      = true,
 --     showCloseButton   = true,
 --     movable           = true,
+--     resizable         = false,
+--     themed            = false,              -- use addon backdrop opacity instead of solid popup chrome
+--     resizeBounds      = {minWidth, minHeight, maxWidth, maxHeight},
+--     onMove            = function(popup) end,
+--     onResize          = function(popup, width, height) end,
 --
 --     -- PLACEMENT
 --     parent            = frame,              -- strata/level resolved above
@@ -222,13 +229,20 @@ local function buildPopupFrame(opts)
     f:SetFrameStrata(chooseStrata(parent, opts.strata))
     f:SetFrameLevel(nextLevel(parent))
 
-    applyOpaqueTemplate(f, "backdrop")
+    if opts.themed then
+        setTemplate(f, "Default")
+    else
+        applyOpaqueTemplate(f, "backdrop")
+    end
 
     if opts.movable ~= false then
         f:SetMovable(true)
         f:RegisterForDrag("LeftButton")
         f:SetScript("OnDragStart", f.StartMoving)
-        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:SetScript("OnDragStop", function(self_)
+            self_:StopMovingOrSizing()
+            safeCall("Popup.onMove", opts.onMove, self_)
+        end)
     end
 
     -- Title bar
@@ -237,6 +251,7 @@ local function buildPopupFrame(opts)
     titleBar:SetPoint("TOPLEFT", POPUP_PAD_X, -POPUP_PAD_Y)
     titleBar:SetPoint("TOPRIGHT", -POPUP_PAD_X, -POPUP_PAD_Y)
     titleBar:EnableMouse(true)
+    f._titleBar = titleBar
     if opts.movable ~= false then
         titleBar:RegisterForDrag("LeftButton")
         titleBar:SetScript("OnDragStart", function()
@@ -244,6 +259,7 @@ local function buildPopupFrame(opts)
         end)
         titleBar:SetScript("OnDragStop", function()
             f:StopMovingOrSizing()
+            safeCall("Popup.onMove", opts.onMove, f)
         end)
     end
 
@@ -266,7 +282,7 @@ local function buildPopupFrame(opts)
     if opts.showCloseButton ~= false then
         local closeInst = T:CloseButton(titleBar, {
             size = H_CLOSE_BTN,
-            opaque = true,
+            opaque = not opts.themed,
             tooltip = loc("Close", CLOSE),
             onClick = function()
                 f:_RequestCancel()
@@ -296,6 +312,33 @@ local function buildPopupFrame(opts)
     footer:SetPoint("BOTTOMLEFT", POPUP_PAD_X, POPUP_PAD_Y)
     footer:SetPoint("BOTTOMRIGHT", -POPUP_PAD_X, POPUP_PAD_Y)
     f._footer = footer
+
+    if opts.resizable then
+        f:SetResizable(true)
+        local bounds = opts.resizeBounds or {}
+        if f.SetResizeBounds then
+            f:SetResizeBounds(bounds[1] or POPUP_MIN_W, bounds[2] or 160, bounds[3], bounds[4])
+        elseif f.SetMinResize then
+            f:SetMinResize(bounds[1] or POPUP_MIN_W, bounds[2] or 160)
+        end
+        local grip = CreateFrame("Button", nil, f)
+        grip:SetSize(16, 16)
+        grip:SetPoint("BOTTOMRIGHT", -2, 2)
+        grip:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+        local marker = grip:CreateTexture(nil, "OVERLAY")
+        marker:SetPoint("BOTTOMRIGHT", -1, 1)
+        marker:SetSize(10, 10)
+        marker:SetTexture([[Interface\ChatFrame\UI-ChatIM-SizeGrabber-Up]])
+        marker:SetDesaturated(true)
+        grip:SetScript("OnMouseDown", function(_, button)
+            if button == "LeftButton" and not InCombatLockdown() then f:StartSizing("BOTTOMRIGHT") end
+        end)
+        grip:SetScript("OnMouseUp", function()
+            f:StopMovingOrSizing()
+            safeCall("Popup.onResize", opts.onResize, f, f:GetWidth(), f:GetHeight())
+        end)
+        f._resizeGrip = grip
+    end
 
     f._onAccept = opts.onAccept
     f._onCancel = opts.onCancel
@@ -488,6 +531,7 @@ local function layoutPopup(popup, opts)
     -- Footer buttons
     local specs = normalizeButtons(opts.buttons, opts)
     local prev
+    popup._buttons = {}
     for i = #specs, 1, -1 do
         local spec = specs[i]
         local inst = T:Button(footer, {
@@ -517,8 +561,12 @@ local function layoutPopup(popup, opts)
                 end
             end
         })
-        -- Swap backdrop to opaque so buttons read correctly on opaque
-        applyOpaqueTemplate(inst.frame, "button")
+        if opts.themed then
+            setTemplate(inst.frame, "Default")
+        else
+            -- Swap backdrop to opaque so buttons read correctly on opaque
+            applyOpaqueTemplate(inst.frame, "button")
+        end
         if i == #specs then
             inst.frame:SetPoint("RIGHT", footer, "RIGHT", 0, 0)
         else
@@ -527,6 +575,7 @@ local function layoutPopup(popup, opts)
         if spec.isDefault then
             popup._defaultBtn = inst
         end
+        popup._buttons[i] = inst
         prev = inst.frame
     end
 
@@ -591,6 +640,12 @@ function T:Popup(opts)
     POPUPS_ACTIVE[key] = popup
 
     layoutPopup(popup, opts)
+    if opts.resizable then
+        popup._body:ClearAllPoints()
+        popup._body:SetPoint("TOPLEFT", popup._titleBar, "BOTTOMLEFT", 0, -POPUP_TITLE_GAP)
+        popup._body:SetPoint("TOPRIGHT", popup._titleBar, "BOTTOMRIGHT", 0, -POPUP_TITLE_GAP)
+        popup._body:SetPoint("BOTTOMRIGHT", popup._footer, "TOPRIGHT", 0, POPUP_FOOTER_GAP)
+    end
     positionPopup(popup, opts)
     applyEscapeClose(popup, opts)
 

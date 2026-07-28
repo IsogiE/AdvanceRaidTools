@@ -205,7 +205,10 @@ function T:ScrollBar(parent, scrollFrame, opts)
         end
         local contentH = child:GetHeight() or 0
         local viewportH = scrollFrame:GetHeight() or 0
-        local maxScroll = math.max(0, contentH - viewportH)
+        -- Frame dimensions can briefly disagree by a fraction of a pixel while a
+        -- resizable parent is moving. Treat that as layout noise, not overflow.
+        local overflow = contentH - viewportH
+        local maxScroll = overflow > 2 and overflow or 0
 
         if maxScroll <= 0 then
             bar:Hide()
@@ -918,6 +921,7 @@ function T:ScrollingPanel(parent, opts)
         local usedH = math.abs(y) + topPad
         sf.content:SetHeight(math.max(usedH, sf.scroll:GetHeight() or 0))
         sf.scroll:UpdateScrollChildRect()
+        sf.scrollbar.Refresh()
     end
 
     local function relayout()
