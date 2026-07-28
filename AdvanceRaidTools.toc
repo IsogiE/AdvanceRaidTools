@@ -48,8 +48,6 @@ Modules\InviteTool\InviteTool.lua
 
 Modules\TodoList\TodoList.lua
 
-Modules\OmniumFolio\OmniumFolioReminder.lua
-
 Modules\Currency\Currency.lua
 
 Modules\AddonChecker\AddonChecker.lua

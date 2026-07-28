@@ -42,7 +42,8 @@ E:RegisterModuleDefaults("BossMods_GeneralPack", {
         gateway = true,
         gatewayShardMissing = true,
         chatHealthstone = true,
-        chatSummonStone = true
+        chatSummonStone = true,
+        unspentMotes = true
     }
 })
 
@@ -68,6 +69,10 @@ local ITEM_HEALTHSTONE = 5512
 local ITEM_DEMONIC_HEALTHSTONE = 224464
 local ITEM_DEMONIC_GATEWAY = 188152
 local ICON_GATEWAY_SHARD = 607513
+local OMNIUM_FOLIO_TREE_ID = 1186
+local MOTE_TRAIT_CURRENCY_ID = 4230
+local TOTAL_MOTES = 5
+local OMNIUM_FOLIO_REQUIRED_LEVEL = 90
 
 local CONSUMABLE_SPELL_TYPES = {
     [1259657] = "FEAST",
@@ -112,11 +117,51 @@ local PRIORITY = {
     APPLY_SS = 65,
     CONSUMABLE = 50,
     GATEWAY_MISSING = 38,
-    GATEWAY = 35
+    GATEWAY = 35,
+    UNSPENT_MOTES = 30
 }
 
 local issecretvalue = _G.issecretvalue or function()
     return false
+end
+
+local function readSpentMotes()
+    if not C_Traits
+        or type(C_Traits.GetConfigIDByTreeID) ~= "function"
+        or type(C_Traits.GetTreeCurrencyInfo) ~= "function"
+    then
+        return nil
+    end
+
+    local configID = C_Traits.GetConfigIDByTreeID(OMNIUM_FOLIO_TREE_ID)
+    if configID == nil or issecretvalue(configID) then
+        return nil
+    end
+
+    local currencies = C_Traits.GetTreeCurrencyInfo(configID, OMNIUM_FOLIO_TREE_ID, true)
+    if type(currencies) ~= "table" then
+        return nil
+    end
+
+    for _, currency in ipairs(currencies) do
+        local currencyID = currency and currency.traitCurrencyID
+        if currencyID ~= nil
+            and not issecretvalue(currencyID)
+            and currencyID == MOTE_TRAIT_CURRENCY_ID
+        then
+            local spent = currency.spent
+            if spent == nil or issecretvalue(spent) then
+                return nil
+            end
+
+            spent = tonumber(spent)
+            if spent then
+                return math.max(0, math.floor(spent + 0.5))
+            end
+        end
+    end
+
+    return nil
 end
 
 local function bareName(name)
@@ -653,9 +698,64 @@ function Mod:Recheck()
     self:CheckRepair()
     self:CheckGateway()
     self:CheckGatewayShard()
+    self:CheckOmniumFolio()
     if self:IsEnabled() and not self.editMode and self.alert then
         self:Render()
     end
+end
+
+function Mod:CheckOmniumFolio()
+    if not self:WantAlert("unspentMotes") then
+        self:Clear("unspentMotes")
+        return
+    end
+
+    local levelOK, level = pcall(UnitLevel, "player")
+    if not levelOK
+        or level == nil
+        or issecretvalue(level)
+        or level ~= OMNIUM_FOLIO_REQUIRED_LEVEL
+    then
+        self:Clear("unspentMotes")
+        return
+    end
+
+    local ok, spent = pcall(readSpentMotes)
+    if not ok or spent == nil or spent >= TOTAL_MOTES then
+        self:Clear("unspentMotes")
+        return
+    end
+
+    local remaining = TOTAL_MOTES - spent
+    self:Set("unspentMotes", locFmt("OmniumFolio_UnspentMotes", remaining, spent), PRIORITY.UNSPENT_MOTES)
+end
+
+function Mod:ScheduleOmniumFolioRefresh()
+    if self.omniumFolioRefreshTimer then
+        return
+    end
+
+    self.omniumFolioRefreshTimer = C_Timer.NewTimer(0.2, function()
+        self.omniumFolioRefreshTimer = nil
+        if self:IsEnabled() then
+            self:CheckOmniumFolio()
+        end
+    end)
+end
+
+function Mod:OnPlayerEnteringWorld()
+    self:OnZoneChanged()
+    self:ScheduleOmniumFolioRefresh()
+
+    if self.omniumFolioWorldTimer then
+        self.omniumFolioWorldTimer:Cancel()
+    end
+    self.omniumFolioWorldTimer = C_Timer.NewTimer(3, function()
+        self.omniumFolioWorldTimer = nil
+        if self:IsEnabled() then
+            self:CheckOmniumFolio()
+        end
+    end)
 end
 
 function Mod:CheckPet()
@@ -819,7 +919,7 @@ end
 function Mod:OnEnterCombat()
     self:StopGlow123()
     for key, t in pairs(self.timers) do
-        if key ~= "gateway" then
+        if key ~= "gateway" and key ~= "unspentMotes" then
             if t and t.Cancel then
                 t:Cancel()
             end
@@ -827,7 +927,7 @@ function Mod:OnEnterCombat()
         end
     end
     for key in pairs(self.alerts) do
-        if key ~= "gateway" then
+        if key ~= "gateway" and key ~= "unspentMotes" then
             self.alerts[key] = nil
         end
     end
@@ -1025,8 +1125,13 @@ function Mod:OnEnable()
     self:ApplyVisuals()
     self:ApplyPosition()
 
-    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
     self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
+    self:RegisterEvent("PLAYER_LEVEL_UP", "ScheduleOmniumFolioRefresh")
+    self:RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED", "ScheduleOmniumFolioRefresh")
+    self:RegisterEvent("TRAIT_CONFIG_UPDATED", "ScheduleOmniumFolioRefresh")
+    self:RegisterEvent("TRAIT_CONFIG_LIST_UPDATED", "ScheduleOmniumFolioRefresh")
+    self:RegisterEvent("TRAIT_SYSTEM_INTERACTION_STARTED", "ScheduleOmniumFolioRefresh")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "Recheck")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnEnterCombat")
     self:RegisterEvent("UPDATE_INVENTORY_DURABILITY", "CheckRepair")
@@ -1052,6 +1157,14 @@ end
 
 function Mod:OnDisable()
     self.editMode = false
+    if self.omniumFolioRefreshTimer then
+        self.omniumFolioRefreshTimer:Cancel()
+        self.omniumFolioRefreshTimer = nil
+    end
+    if self.omniumFolioWorldTimer then
+        self.omniumFolioWorldTimer:Cancel()
+        self.omniumFolioWorldTimer = nil
+    end
     self:StopGlow123()
     self:ClearAll()
     if self.alert then
