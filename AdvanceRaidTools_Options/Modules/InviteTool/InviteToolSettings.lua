@@ -84,6 +84,7 @@ local function buildPanel()
                             mod:SetInviteRankSelected(rank, selected)
                         end,
                         disabled = notInGuild,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_GuildRanks"],
                             desc = L["InviteTool_GuildRanksDesc"]
@@ -101,6 +102,7 @@ local function buildPanel()
                             mod:InviteSelectedGuildRanks()
                         end,
                         disabled = notInGuild,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_InviteButton"],
                             desc = L["InviteTool_InviteButtonDesc"]
@@ -130,6 +132,7 @@ local function buildPanel()
                         onChange = function(_, value)
                             mod.db.keywordEnabled = value and true or false
                         end,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_EnableKeywords"],
                             desc = L["InviteTool_EnableKeywordsDesc"]
@@ -152,6 +155,7 @@ local function buildPanel()
                             mod:SetKeywords(value)
                             return mod.db.keywords
                         end,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_Keywords"],
                             desc = L["InviteTool_KeywordsDesc"]
@@ -190,6 +194,7 @@ local function buildPanel()
                         onChange = function(_, value)
                             mod.db.autoAcceptFriends = value and true or false
                         end,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_AutoAcceptFriends"],
                             desc = L["InviteTool_AutoAcceptFriendsDesc"]
@@ -213,6 +218,7 @@ local function buildPanel()
                             end
                         end,
                         disabled = notInGuild,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_AutoAcceptGuild"],
                             desc = L["InviteTool_AutoAcceptGuildDesc"]
@@ -247,6 +253,7 @@ local function buildPanel()
                             end
                         end,
                         disabled = notInGuild,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_EnableAutoPromote"],
                             desc = L["InviteTool_EnableAutoPromoteDesc"]
@@ -270,6 +277,7 @@ local function buildPanel()
                             mod:SetPromoteRankSelected(rank, selected)
                         end,
                         disabled = notInGuild,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_PromoteRanks"],
                             desc = L["InviteTool_PromoteRanksDesc"]
@@ -292,6 +300,7 @@ local function buildPanel()
                             mod:SetPromoteNicknames(value)
                             return mod.db.promoteNicknames
                         end,
+                        tooltipAnchor = "ANCHOR_CURSOR",
                         tooltip = {
                             title = L["InviteTool_PromoteNicknames"],
                             desc = L["InviteTool_PromoteNicknamesDesc"]

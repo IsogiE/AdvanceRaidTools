@@ -47,6 +47,9 @@ local ALERT_TOGGLES = {{
 }, {
     key = "chatSummonStone",
     label = "BossMods_GP_ChatSummonStone"
+}, {
+    key = "unspentMotes",
+    label = "BossMods_GP_UnspentMotes"
 }}
 
 local function borderValues()
