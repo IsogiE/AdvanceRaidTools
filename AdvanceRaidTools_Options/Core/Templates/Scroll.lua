@@ -445,11 +445,11 @@ function T:ScrollFrame(parent, opts)
     scrollbar.frame:SetPoint("BOTTOMRIGHT", outer, "BOTTOMRIGHT", 0, bottomInset)
 
     local minW = opts.minContentWidth
-    local function ApplyAutoWidth()
+    local function ApplyAutoWidth(force)
         if not opts.autoWidth then
             return
         end
-        if optionsResizeActive() then
+        if optionsResizeActive() and not force then
             return
         end
         local w = scroll:GetWidth()

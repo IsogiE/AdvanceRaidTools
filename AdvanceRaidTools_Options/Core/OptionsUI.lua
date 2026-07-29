@@ -131,6 +131,18 @@ local function runRefreshList(list, forceLayout)
     return true
 end
 
+local function runLayoutEntries(list)
+    for _, entry in ipairs(list) do
+        local fn, kind = refreshEntry(entry)
+        if kind == "layout" then
+            local ok, err = pcall(fn)
+            if not ok then
+                geterrorhandler()(err)
+            end
+        end
+    end
+end
+
 function ART_UI:_runResizeFlushers()
     for owner, bucket in pairs(self._resizeHooks) do
         if owner == GLOBAL or owner:IsVisible() then
@@ -1561,7 +1573,7 @@ local function createScrollHost(parentFrame)
     sh.scroll:HookScript("OnSizeChanged", sh.ApplyAutoWidth)
     ART_UI:AddResizeFlusher(sh.ApplyAutoWidth, sh.content)
 
-    return sh.content, DEFAULT_CONTENT_INNER_W, sh.scroll
+    return sh.content, DEFAULT_CONTENT_INNER_W, sh.scroll, sh
 end
 
 -- Panels
@@ -1630,6 +1642,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
 
     local tabDefs = {}
     local tabEntries = {}
+    local tabLayouts = {}
     panel._tabs = {}
 
     for _, entry in ipairs(sortedArgs(group.args)) do
@@ -1640,7 +1653,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             tabContent:Hide()
             ART_UI.refreshDirty[tabContent] = true
 
-            local inner, innerW = createScrollHost(tabContent)
+            local inner, innerW, _, scrollHost = createScrollHost(tabContent)
 
             local tabRefreshers = {}
             ART_UI.panelRefreshers[tabContent] = tabRefreshers
@@ -1653,6 +1666,12 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
                 inner:SetHeight(math.max(1, finalState.endY))
             end)
             ART_UI:PopFlusherOwner()
+
+            tabLayouts[tabContent] = function()
+                scrollHost.ApplyAutoWidth(true)
+                runLayoutEntries(tabRefreshers)
+                scrollHost.SetContentSize(nil, math.max(1, finalState.endY))
+            end
 
             tabDefs[#tabDefs + 1] = {
                 key = tabKey,
@@ -1677,6 +1696,12 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         wrap = group.tabWrap == true,
         rowGap = group.tabRowGap or TAB_GAP,
         autoActivateFirst = false,
+        onLayout = function()
+            local relayout = tabLayouts[panel._activeTabContent]
+            if relayout then
+                relayout()
+            end
+        end,
         onTabChange = function(key, _, oldKey)
             local oldContent = oldKey and tabEntries[oldKey]
             if oldContent then
@@ -1812,9 +1837,17 @@ local function buildMainFrame()
     sidebar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", PAD, PAD)
     sidebar:SetWidth(SIDEBAR_W)
 
-    local navHost = CreateFrame("Frame", nil, sidebar)
-    navHost:SetPoint("TOPLEFT", 4, -4)
-    navHost:SetPoint("BOTTOMRIGHT", -4, 4)
+    local navScroll = T:ScrollFrame(sidebar, {
+        chrome = false,
+        mouseWheelStep = 28,
+        autoWidth = true,
+        scrollbarWidth = 8,
+        scrollbarGap = 2
+    })
+    navScroll.frame:SetPoint("TOPLEFT", 4, -4)
+    navScroll.frame:SetPoint("BOTTOMRIGHT", -4, 4)
+    navScroll.scroll:HookScript("OnSizeChanged", navScroll.ApplyAutoWidth)
+    local navHost = navScroll.content
 
     -- version text
     local titleText = newFont(title, "OVERLAY", 2)
@@ -1869,6 +1902,7 @@ local function buildMainFrame()
     f._title = title
     f._titleText = titleText
     f._navHost = navHost
+    f._navScroll = navScroll
     f._content = content
     f._sidebar = sidebar
     f._resetSize = reset
@@ -1964,6 +1998,8 @@ function ART_UI:Build(rootOptions)
             btn.Refresh()
         end
     end
+    f._navScroll.SetContentSize(nil, math.max(1, y))
+    f._navScroll.ApplyAutoWidth()
 
     -- pck the first category by default
     if cats[1] then

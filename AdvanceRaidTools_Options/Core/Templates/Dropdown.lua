@@ -15,11 +15,6 @@ local evalMaybeFn = P.evalMaybeFn
 local setTemplate = P.setTemplate
 local attachTooltip = P.attachTooltip
 
-local function optionsResizeActive()
-    return E.OptionsUI and E.OptionsUI.IsResizing and
-        E.OptionsUI:IsResizing()
-end
-
 -- =============================================================================
 -- Template: Dropdown
 -- -----------------------------------------------------------------------------
@@ -490,6 +485,7 @@ end
 --     wrap        = false,                                     -- wrap to additional rows
 --     rowGap      = 2,
 --     onTabChange = function(key, button) end,                 -- click handler
+--     onLayout    = function(height, width) end,                -- after wrapping
 --     autoActivateFirst = true,                                -- activate tabs[1] at build time
 -- }
 --
@@ -510,6 +506,7 @@ function T:TabBar(parent, opts)
     local WRAP = opts.wrap and true or false
     local ROW_GAP = opts.rowGap or GAP
     local onTabChange = opts.onTabChange
+    local onLayout = opts.onLayout
 
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetHeight(H)
@@ -553,7 +550,7 @@ function T:TabBar(parent, opts)
     local api
 
     local function restack()
-        if isRestacking or (WRAP and optionsResizeActive()) then
+        if isRestacking then
             return
         end
         isRestacking = true
@@ -589,6 +586,9 @@ function T:TabBar(parent, opts)
             api.height = targetHeight
         end
         isRestacking = false
+        if onLayout then
+            safeCall("TabBar.onLayout", onLayout, targetHeight, availableW)
+        end
     end
 
     local x = 0
