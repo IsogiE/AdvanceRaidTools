@@ -304,6 +304,9 @@ function T:ScrollBar(parent, scrollFrame, opts)
                 refresh()
             end
         end,
+        SetStep = function(value)
+            step = tonumber(value) or step
+        end,
         IsShown = function()
             return bar:IsShown()
         end
@@ -332,6 +335,7 @@ end
 --     scrollbar,               -- the T:ScrollBar instance
 --     ApplyAutoWidth(),
 --     SetContentSize(w, h),
+--     SetMouseWheelStep(pixels),
 --     ScrollTo(y), ScrollToTop(), ScrollToBottom(),
 -- }
 -- =============================================================================
@@ -471,6 +475,13 @@ function T:ScrollFrame(parent, opts)
             content:SetSize(w or content:GetWidth(), h or content:GetHeight())
             scroll:UpdateScrollChildRect()
             scrollbar.Refresh()
+        end,
+        SetMouseWheelStep = function(value)
+            local nextStep = tonumber(value)
+            if nextStep and nextStep > 0 then
+                wheelStep = nextStep
+                scrollbar.SetStep(nextStep)
+            end
         end,
         ScrollTo = function(y)
             scroll:SetVerticalScroll(math.max(0, y or 0))

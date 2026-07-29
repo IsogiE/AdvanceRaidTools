@@ -2,7 +2,7 @@ local E, L = unpack(ART)
 local Data = E.ReadyCheckData
 
 E:RegisterModuleDefaults("QoL_RaidBuffList", {
-    enabled = false,
+    enabled = true,
     scale = 1,
     fontName = "PT Sans Narrow",
     fontSize = 11,
@@ -88,21 +88,24 @@ local COLUMNS = {
         kind = "durability",
         labelKey = "QoL_RaidBuffListDurability",
         texture = 134520,
-        width = 60
+        width = 52
     }
 }
 
-local NAME_WIDTH = 180
-local COLUMN_WIDTH = 46
+local NAME_WIDTH = 130
+local COLUMN_WIDTH = 30
 local TABLE_WIDTH = NAME_WIDTH
 for _, column in ipairs(COLUMNS) do
     column.offset = TABLE_WIDTH
     column.width = column.width or COLUMN_WIDTH
     TABLE_WIDTH = TABLE_WIDTH + column.width
 end
-local FRAME_WIDTH = TABLE_WIDTH + 36
-local FRAME_HEIGHT = 500
-local DEFAULT_ROW_HEIGHT = 19
+local FRAME_WIDTH = TABLE_WIDTH + 34
+local HEADER_HEIGHT = 25
+local HEADER_GAP = 2
+local FRAME_FIXED_HEIGHT = 46 + HEADER_HEIGHT + HEADER_GAP
+local MAX_SCREEN_HEIGHT_RATIO = 0.72
+local DEFAULT_ROW_HEIGHT = 18
 
 local function clamp(value, minimum, maximum)
     value = tonumber(value) or minimum
@@ -146,7 +149,7 @@ end
 local function attachTooltip(region, labelKey)
     region:EnableMouse(true)
     region:SetScript("OnEnter", function(self)
-        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:SetText(text(labelKey))
         for _, line in ipairs(self.tooltipLines or {}) do
             GameTooltip:AddLine(line, nil, nil, nil, true)
@@ -218,10 +221,42 @@ function RaidBuffList:GetRowHeight()
     return math.max(DEFAULT_ROW_HEIGHT, size + 7)
 end
 
-function RaidBuffList:SavePosition()
-    if self.frame then
-        self.db.position = E:GetFramePosition(self.frame, UIParent)
+function RaidBuffList:ResizeForRoster(rosterCount)
+    local frame = self.frame
+    if not frame then
+        return
     end
+
+    local rowHeight = self:GetRowHeight()
+    local scale = clamp(self.db.scale, 0.75, 1.5)
+    local screenHeight = UIParent:GetHeight() or 768
+    local rowSpace = screenHeight * MAX_SCREEN_HEIGHT_RATIO / scale -
+        FRAME_FIXED_HEIGHT
+    local maximumRows = math.max(
+        1,
+        math.floor(rowSpace / rowHeight)
+    )
+    local visibleRows = clamp(rosterCount or 0, 1, maximumRows)
+    frame:SetHeight(
+        FRAME_FIXED_HEIGHT + visibleRows * rowHeight
+    )
+end
+
+function RaidBuffList:SavePosition(position)
+    if not position then
+        if not self.frame then
+            return
+        end
+        position = E:GetFramePosition(self.frame, UIParent)
+    end
+
+    self.db.position = {
+        point = position.point or "CENTER",
+        relPoint = position.relPoint or position.point or "CENTER",
+        x = tonumber(position.x) or 0,
+        y = tonumber(position.y) or 0
+    }
+    self:ApplyPosition()
 end
 
 function RaidBuffList:ApplyPosition()
@@ -284,45 +319,30 @@ function RaidBuffList:CreateRow(index)
     return row
 end
 
-function RaidBuffList:UpdateScrollRange()
-    local frame = self.frame
-    if not frame then
-        return
-    end
-
-    local viewportHeight = frame.scroll:GetHeight() or 1
-    local contentHeight = frame.content:GetHeight() or 1
-    local maximum = math.max(0, contentHeight - viewportHeight)
-    local current = clamp(frame.scroll:GetVerticalScroll(), 0, maximum)
-
-    frame.scrollbar:SetMinMaxValues(0, maximum)
-    frame.scrollbar:SetValue(current)
-    frame.scrollbar:SetShown(maximum > 0)
-
-    local thumbHeight = viewportHeight
-    if contentHeight > 0 then
-        thumbHeight = viewportHeight * viewportHeight / contentHeight
-    end
-    frame.scrollbarThumb:SetHeight(clamp(thumbHeight, 24, viewportHeight))
-end
-
 function RaidBuffList:CreateFrame()
     if self.frame then
         return self.frame
     end
 
+    if not E:EnsureOptions() then
+        return nil
+    end
+    local T = E.Templates
+
     local frame = E:CreateWindowFrame({
         name = "ART_QoL_RaidBuffListFrame",
         width = FRAME_WIDTH,
-        height = FRAME_HEIGHT,
+        height = FRAME_FIXED_HEIGHT + DEFAULT_ROW_HEIGHT,
         strata = "DIALOG",
         template = "Transparent",
         title = text("QoL_RaidBuffList", "Raid Buff List"),
         canMove = function()
-            return not InCombatLockdown()
+            return RaidBuffList:IsUnlocked() and not InCombatLockdown()
         end,
-        onMove = function()
-            RaidBuffList:SavePosition()
+        onMove = function(currentFrame)
+            RaidBuffList:SavePosition(
+                E:GetFramePosition(currentFrame, UIParent)
+            )
         end,
         onClose = function()
             RaidBuffList:HideList()
@@ -335,7 +355,7 @@ function RaidBuffList:CreateFrame()
 
     local headers = CreateFrame("Frame", nil, frame.body)
     headers:SetPoint("TOPLEFT")
-    headers:SetSize(TABLE_WIDTH, 27)
+    headers:SetSize(TABLE_WIDTH, HEADER_HEIGHT)
     frame.headers = headers
 
     local nameHeader = E:CreateFontString(headers, nil, "OVERLAY")
@@ -346,7 +366,7 @@ function RaidBuffList:CreateFrame()
 
     for _, column in ipairs(COLUMNS) do
         local header = CreateFrame("Frame", nil, headers)
-        header:SetSize(column.width, 27)
+        header:SetSize(column.width, HEADER_HEIGHT)
         header:SetPoint(
             "LEFT",
             headers,
@@ -358,64 +378,31 @@ function RaidBuffList:CreateFrame()
 
         local icon = header:CreateTexture(nil, "ARTWORK")
         icon:SetPoint("CENTER")
-        icon:SetSize(20, 20)
+        icon:SetSize(18, 18)
         icon:SetTexture(column.texture)
         icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         header.icon = icon
     end
 
-    local scroll = CreateFrame("ScrollFrame", nil, frame.body)
-    scroll:SetPoint("TOPLEFT", headers, "BOTTOMLEFT", 0, -4)
-    scroll:SetPoint(
-        "BOTTOMRIGHT",
-        frame.body,
+    local list = T:ScrollFrame(frame.body, {
+        chrome = false,
+        minContentWidth = TABLE_WIDTH,
+        mouseWheelStep = self:GetRowHeight() * 2,
+        scrollbarWidth = 10,
+        scrollbarGap = 4
+    })
+    list.frame:SetPoint(
+        "TOPLEFT",
+        headers,
         "BOTTOMLEFT",
-        TABLE_WIDTH,
-        0
+        0,
+        -HEADER_GAP
     )
-    scroll:EnableMouse(true)
-    scroll:EnableMouseWheel(true)
-    frame.scroll = scroll
-
-    local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(TABLE_WIDTH, 1)
-    scroll:SetScrollChild(content)
-    frame.content = content
+    list.frame:SetPoint("BOTTOMRIGHT")
+    frame.list = list
+    frame.scroll = list.scroll
+    frame.content = list.content
     frame.rows = {}
-
-    local scrollbar =
-        CreateFrame("Slider", nil, frame.body, "BackdropTemplate")
-    scrollbar:SetOrientation("VERTICAL")
-    scrollbar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 4, 0)
-    scrollbar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 4, 0)
-    scrollbar:SetWidth(11)
-    scrollbar:SetValueStep(1)
-    if scrollbar.SetObeyStepOnDrag then
-        scrollbar:SetObeyStepOnDrag(false)
-    end
-    E:SetTemplate(scrollbar, "Transparent")
-    scrollbar:SetScript("OnValueChanged", function(_, value)
-        scroll:SetVerticalScroll(value)
-    end)
-    frame.scrollbar = scrollbar
-
-    local thumb = scrollbar:CreateTexture(nil, "OVERLAY")
-    thumb:SetTexture(E.media.blankTex)
-    thumb:SetSize(9, 30)
-    thumb:SetColorTexture(1, 1, 1, 1)
-    E:RegisterAccentTexture(thumb)
-    scrollbar:SetThumbTexture(thumb)
-    frame.scrollbarThumb = thumb
-
-    scroll:SetScript("OnMouseWheel", function(_, delta)
-        local _, maximum = scrollbar:GetMinMaxValues()
-        scrollbar:SetValue(
-            clamp(scrollbar:GetValue() - delta * 38, 0, maximum)
-        )
-    end)
-    scroll:SetScript("OnSizeChanged", function()
-        RaidBuffList:UpdateScrollRange()
-    end)
 
     self.frame = frame
     frame:SetScale(clamp(self.db.scale, 0.75, 1.5))
@@ -452,13 +439,9 @@ function RaidBuffList:ApplyAppearance()
     local outline = normalizedOutline(self.db.fontOutline)
     local r, g, b, a = E:ColorTuple(self.db.textColor, 1, 1, 1, 1)
 
-    E:ApplyFontString(frame.title, font, fontSize + 2, outline)
     E:ApplyFontString(frame.nameHeader, font, fontSize, outline)
     frame:SetTitle(text("QoL_RaidBuffList", "Raid Buff List"))
-    frame.nameHeader:SetText(
-        text("QoL_RaidBuffListGroupPlayer", "Group / Player")
-    )
-    frame.title:SetTextColor(r, g, b, a)
+    frame.nameHeader:SetText(text("Name", "Name"))
     frame.nameHeader:SetTextColor(r, g, b, a)
 
     local accent = E.media.valueColor or {0.09, 0.52, 0.82, 1}
@@ -478,7 +461,7 @@ function RaidBuffList:ApplyAppearance()
             accent[2],
             accent[3],
             self.db.backgroundEnabled == false and 0 or
-                (index % 2 == 0 and 0.055 or 0.018)
+                (index % 2 == 0 and 0.075 or 0.025)
         )
         E:ApplyFontString(row.name, font, fontSize, outline)
         for _, cell in pairs(row.cells) do
@@ -491,6 +474,8 @@ function RaidBuffList:ApplyAppearance()
             )
         end
     end
+    frame.list.SetMouseWheelStep(self:GetRowHeight() * 2)
+    self:ResizeForRoster(self.rosterCount)
 end
 
 function RaidBuffList:StoreDurabilityReport(percent, broken, sender, allowTest)
@@ -581,13 +566,14 @@ function RaidBuffList:RefreshList()
         self:HideList()
         return
     end
-    if not self.localTest and not IsInGroup() then
+    if not self.localTest and not self.unlocked and not IsInGroup() then
         self:HideList()
         return
     end
 
     local roster = Data:GetRoster()
     roster = roster or {}
+    self.rosterCount = #roster
     for index = 1, #roster do
         if not frame.rows[index] then
             self:CreateRow(index)
@@ -650,14 +636,13 @@ function RaidBuffList:RefreshList()
         frame.scroll:GetHeight() or 1,
         #roster * self:GetRowHeight()
     )
-    frame.content:SetHeight(contentHeight)
-    frame.scroll:UpdateScrollChildRect()
-    self:UpdateScrollRange()
+    frame.list.SetContentSize(TABLE_WIDTH, contentHeight)
 end
 
 function RaidBuffList:ShowList(localTest, timeout)
     local isTest = localTest and true or false
-    if InCombatLockdown() or (not isTest and not IsInGroup()) then
+    if InCombatLockdown() or self.unlocked or self:IsTesting() or
+        (not isTest and not IsInGroup()) then
         return
     end
 
@@ -670,11 +655,16 @@ function RaidBuffList:ShowList(localTest, timeout)
         self.hideTimer = nil
     end
 
+    self.unlocked = false
     self.localTest = isTest
     self.durabilityReports = {}
 
     local frame = self:CreateFrame()
-    frame.scrollbar:SetValue(0)
+    if not frame then
+        self.localTest = false
+        return
+    end
+    frame.list.ScrollToTop()
     frame:Show()
     self.listActive = true
     self:SeedLocalDurability()
@@ -698,7 +688,10 @@ function RaidBuffList:ShowList(localTest, timeout)
 end
 
 function RaidBuffList:HideList()
+    local wasUnlocked = self.unlocked
+    local wasTesting = self.localTest
     self.listActive = false
+    self.unlocked = false
     self.localTest = false
     self.durabilityReports = {}
     if self.refreshTimer then
@@ -712,6 +705,9 @@ function RaidBuffList:HideList()
     if self.frame then
         self.frame:Hide()
     end
+    if (wasUnlocked or wasTesting) and E.RefreshOptions then
+        E:RefreshOptions()
+    end
 end
 
 function RaidBuffList:OnReadyCheck(_, _, timeout)
@@ -719,7 +715,7 @@ function RaidBuffList:OnReadyCheck(_, _, timeout)
 end
 
 function RaidBuffList:OnReadyCheckFinished()
-    if self.listActive and not self.localTest then
+    if self.listActive and not self.localTest and not self.unlocked then
         self:HideList()
     end
 end
@@ -736,15 +732,79 @@ function RaidBuffList:ScheduleRefresh(delay)
 end
 
 function RaidBuffList:OnGroupRosterUpdate()
-    if self.listActive and not self.localTest and not IsInGroup() then
+    if self.listActive and not self.localTest and not self.unlocked and
+        not IsInGroup() then
         self:HideList()
         return
     end
     self:ScheduleRefresh()
 end
 
+function RaidBuffList:OnGroupLeft()
+    if self.unlocked or self:IsTesting() then
+        self:ScheduleRefresh()
+    else
+        self:HideList()
+    end
+end
+
+function RaidBuffList:IsUnlocked()
+    return self.unlocked and true or false
+end
+
+function RaidBuffList:IsTesting()
+    return self.listActive and self.localTest and true or false
+end
+
+function RaidBuffList:SetUnlocked(value)
+    value = value and true or false
+    if value == self.unlocked then
+        return
+    end
+
+    if not value then
+        self:HideList()
+        return
+    end
+    if self:IsTesting() or not self:IsEnabled() or InCombatLockdown() then
+        return
+    end
+
+    if self.refreshTimer then
+        self.refreshTimer:Cancel()
+        self.refreshTimer = nil
+    end
+    if self.hideTimer then
+        self.hideTimer:Cancel()
+        self.hideTimer = nil
+    end
+
+    local frame = self:CreateFrame()
+    if not frame then
+        return
+    end
+
+    self.unlocked = true
+    self.localTest = false
+    self.listActive = true
+    self.durabilityReports = {}
+    frame.list.ScrollToTop()
+    frame:Show()
+    self:SeedLocalDurability()
+    self:RefreshList()
+    self:ScheduleRefresh(1)
+end
+
 function RaidBuffList:Test()
+    if self:IsTesting() then
+        self:HideList()
+        return
+    end
+
     self:ShowList(true)
+    if self:IsTesting() and E.RefreshOptions then
+        E:RefreshOptions()
+    end
 end
 
 function RaidBuffList:Refresh()
@@ -757,12 +817,13 @@ function RaidBuffList:Refresh()
 end
 
 function RaidBuffList:OnEnable()
+    self.unlocked = false
     if Durability then
         Durability:Register(self, "OnDurability")
     end
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
-    self:RegisterEvent("GROUP_LEFT", "HideList")
+    self:RegisterEvent("GROUP_LEFT", "OnGroupLeft")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupRosterUpdate")
     self:RegisterEvent("UNIT_AURA", "ScheduleRefresh")
     self:RegisterEvent("UNIT_CONNECTION", "ScheduleRefresh")

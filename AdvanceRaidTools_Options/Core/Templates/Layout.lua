@@ -326,23 +326,27 @@ end
 -- =============================================================================
 -- T:PositionSection(parent, yOffset, widthPx, opts)
 -- opts:
---   anchor              frame to reposition (optional — unlock disabled if nil)
+--   anchor              frame/function returning frame to reposition
+--                       (optional — unlock disabled while nil)
 --   label               shown on the MovableFrame ghost
 --   headerText          overrides the default "Position" header
 --   getPosition         function() -> { point, x, y }   (caller db)
 --   setPosition         function({ point, x, y })       (caller db)
 --   defaultPosition     { point, x, y } for the Reset button
+--   resetPosition       optional function() override for the Reset button
 --   onChanged           fires after setPosition; typically re-applies the
 --                       anchor's SetPoint from db
 --   relativeTo          frame the saved offsets are relative to (default UIParent)
 --   onEditModeChanged   fires when the unlock toggles (bool)
+--   getUnlocked         optional function() -> bool for owner state
+--   setUnlocked         optional function(bool) for owner state
 --   isDisabled          function() -> bool
 --   showOffsets         render compact X/Y sliders above the reset button
 --   hideUnlock          render offsets/reset without an unlock checkbox
 --   offsetMin/offsetMax slider bounds (default ±2000)
 --
--- Returns (newY, handle). handle.Release() releases the MovableFrame, fires
--- onEditModeChanged(false), hides/unparents the section's own widgets.
+-- Returns (newY, handle). The handle exposes SetUnlocked, Refresh, Relayout,
+-- and Release; Release also hides/unparents the section's own widgets.
 -- =============================================================================
 local POSITION_SECTION_HEADER_GAP = 10
 local POSITION_SECTION_ROW_GAP = 6
@@ -500,18 +504,75 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         return false
     end
 
-    local newY = yOffset
-
     local movable
-    if opts.anchor then
-        movable = T:MovableFrame(opts.anchor, {
+    local handle
+    local unlockCheck
+    local posHeader
+    local xStepper
+    local yStepper
+    local resetBtn
+
+    local function refreshOwn()
+        for _, widget in ipairs(own) do
+            if widget.Refresh then
+                widget.Refresh()
+            end
+        end
+    end
+
+    local function readUnlocked()
+        if not opts.getUnlocked then
+            return nil
+        end
+        return opts.getUnlocked() and true or false
+    end
+
+    local function syncUnlocked(value)
+        local target = value and true or false
+        local current = readUnlocked()
+        local setter = opts.setUnlocked or opts.onEditModeChanged
+        if setter and (current == nil or current ~= target) then
+            setter(target)
+        end
+
+        local actual = readUnlocked()
+        if actual ~= nil and movable and movable:IsUnlocked() ~= actual then
+            movable:SetUnlocked(actual)
+        end
+        refreshOwn()
+    end
+
+    local function positionChanged()
+        if opts.onChanged then
+            opts.onChanged()
+        end
+        refreshOwn()
+    end
+
+    local function bindMovable()
+        if movable then
+            return
+        end
+        local anchor = evalMaybeFn(opts.anchor)
+        if not anchor then
+            return
+        end
+        movable = T:MovableFrame(anchor, {
             label = opts.label or "",
             getPosition = opts.getPosition,
             setPosition = opts.setPosition,
             relativeTo = opts.relativeTo,
-            onChanged = opts.onChanged
+            onChanged = positionChanged
         })
+        if handle then
+            handle.movable = movable
+        end
+        if opts.unlockController then
+            opts.unlockController:Attach(movable)
+        end
     end
+
+    bindMovable()
 
     if opts.showOffsets then
         local function readX()
@@ -527,9 +588,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
                 x = math.floor(v),
                 y = pos.y or 0
             })
-            if opts.onChanged then
-                opts.onChanged()
-            end
+            positionChanged()
         end
         local function writeY(v)
             local pos = opts.getPosition()
@@ -538,60 +597,51 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
                 x = pos.x or 0,
                 y = math.floor(v)
             })
-            if opts.onChanged then
-                opts.onChanged()
-            end
+            positionChanged()
         end
 
-        local posHeader = trackOwn(T:Header(parent, {
+        posHeader = trackOwn(T:Header(parent, {
             text = opts.headerText or L["Position"]
         }))
-        newY = newY + T:PlaceFull(parent, posHeader, newY, widthPx) + POSITION_SECTION_HEADER_GAP
 
-        local xStepper = trackOwn(T:NumericStepper(parent, {
+        xStepper = trackOwn(T:NumericStepper(parent, {
             label = L["QoL_XOffset"],
             get = readX,
             set = writeX,
             disabled = isDisabled
         }))
-        local yStepper = trackOwn(T:NumericStepper(parent, {
+        yStepper = trackOwn(T:NumericStepper(parent, {
             label = L["QoL_YOffset"],
             get = readY,
             set = writeY,
             disabled = isDisabled
         }))
-        newY = newY + T:PlaceRow(parent, {xStepper, yStepper}, newY, widthPx) + POSITION_SECTION_ROW_GAP
     end
 
-    local resetBtn = trackOwn(T:LabelAlignedButton(parent, {
+    resetBtn = trackOwn(T:LabelAlignedButton(parent, {
         text = (L["Reset"] .. " " .. L["Position"]) or "Reset Position",
         onClick = function()
-            local def = opts.defaultPosition or {
-                point = "CENTER",
-                x = 0,
-                y = 0
-            }
-            opts.setPosition({
-                point = def.point or "CENTER",
-                x = def.x or 0,
-                y = def.y or 0
-            })
-            if opts.onChanged then
-                opts.onChanged()
+            if opts.resetPosition then
+                opts.resetPosition()
+            else
+                local def = opts.defaultPosition or {
+                    point = "CENTER",
+                    x = 0,
+                    y = 0
+                }
+                opts.setPosition({
+                    point = def.point or "CENTER",
+                    x = def.x or 0,
+                    y = def.y or 0
+                })
             end
+            positionChanged()
         end,
         disabled = isDisabled
     }))
 
-    if opts.hideUnlock then
-        newY = newY + T:PlaceRow(parent, {resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
-    elseif opts.unlockController then
-        if movable then
-            opts.unlockController:Attach(movable)
-        end
-        newY = newY + T:PlaceRow(parent, {resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
-    else
-        local unlockCheck = trackOwn(T:Checkbox(parent, {
+    if not opts.hideUnlock and not opts.unlockController then
+        unlockCheck = trackOwn(T:Checkbox(parent, {
             text = L["BossMods_UnlockFrame"],
             labelTop = true,
             tooltip = {
@@ -605,9 +655,7 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
                 if movable then
                     movable:SetUnlocked(v)
                 end
-                if opts.onEditModeChanged then
-                    opts.onEditModeChanged(v)
-                end
+                syncUnlocked(v)
             end,
             disabled = function()
                 return isDisabled() or not movable
@@ -618,28 +666,69 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
         unlockCheck.Refresh = function()
             if isDisabled() and movable and movable:IsUnlocked() then
                 movable:SetUnlocked(false)
-                if opts.onEditModeChanged then
-                    opts.onEditModeChanged(false)
-                end
+                syncUnlocked(false)
             end
             if origUnlockRefresh then
                 origUnlockRefresh()
             end
         end
 
-        newY = newY + T:PlaceRow(parent, {unlockCheck, resetBtn}, newY, widthPx) + POSITION_SECTION_ROW_GAP
     end
 
-    return newY, {
+    local function relayout(nextWidth)
+        local nextY = yOffset
+        if posHeader then
+            nextY = nextY +
+                T:PlaceFull(parent, posHeader, nextY, nextWidth) +
+                POSITION_SECTION_HEADER_GAP
+            nextY = nextY +
+                T:PlaceRow(
+                    parent,
+                    {xStepper, yStepper},
+                    nextY,
+                    nextWidth
+                ) +
+                POSITION_SECTION_ROW_GAP
+        end
+
+        local lastRow = unlockCheck and {unlockCheck, resetBtn} or {resetBtn}
+        nextY = nextY +
+            T:PlaceRow(parent, lastRow, nextY, nextWidth) +
+            POSITION_SECTION_ROW_GAP
+        return nextY
+    end
+
+    local newY = relayout(widthPx)
+    handle = {
         movable = movable,
         widgets = own,
+        SetUnlocked = function(_, value)
+            bindMovable()
+            if movable then
+                movable:SetUnlocked(value)
+            end
+            syncUnlocked(value)
+        end,
+        Refresh = function()
+            bindMovable()
+            local ownerUnlocked = readUnlocked()
+            if ownerUnlocked ~= nil and movable and
+                movable:IsUnlocked() ~= ownerUnlocked then
+                movable:SetUnlocked(ownerUnlocked)
+            end
+            refreshOwn()
+        end,
+        Relayout = function(_, nextWidth)
+            return relayout(nextWidth)
+        end,
         Release = function()
             if movable and not opts.unlockController then
                 movable:Release()
                 movable = nil
+                handle.movable = nil
             end
-            if opts.onEditModeChanged and not opts.unlockController and not opts.hideUnlock then
-                opts.onEditModeChanged(false)
+            if not opts.unlockController and not opts.hideUnlock then
+                syncUnlocked(false)
             end
             for _, w in ipairs(own) do
                 if w.frame then
@@ -651,6 +740,50 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             wipe(own)
         end
     }
+    return newY, handle
+end
+
+-- Wraps PositionSection for declarative option groups. The wrapper owns the
+-- section's layout/lifecycle while PositionSection still creates every control.
+-- getUnlocked/setUnlocked optionally synchronize a module's preview state.
+function T:PositionSectionWidget(parent, opts)
+    opts = opts or {}
+    local container = CreateFrame("Frame", nil, parent)
+    local height, section = T:PositionSection(
+        container,
+        0,
+        math.max(parent:GetWidth() or 0, 1),
+        opts
+    )
+    container:SetHeight(math.max(height, 1))
+
+    local widget = {
+        frame = container,
+        height = container:GetHeight(),
+        fullWidth = true
+    }
+
+    function widget:SetUnlocked(value)
+        section:SetUnlocked(value)
+    end
+
+    widget.Refresh = section.Refresh
+    widget._relayout = function()
+        local width = container:GetWidth()
+        if width and width > 0 then
+            local nextHeight = math.max(section:Relayout(width), 1)
+            widget.height = nextHeight
+            container:SetHeight(nextHeight)
+        end
+    end
+
+    if opts.lockOnHide ~= false then
+        container:HookScript("OnHide", function()
+            widget:SetUnlocked(false)
+        end)
+    end
+
+    return widget
 end
 
 -- =============================================================================
@@ -812,15 +945,33 @@ function T:MovableFrame(anchor, opts)
     local armed = false
     local priorMovable, priorMouseEnabled
     local priorOnDragStart, priorOnDragStop
+    local deferredDisarmKey =
+        "Options:MovableFrame:Disarm:" .. tostring(anchor)
+    local handle
+
+    local function protectedInCombat()
+        return InCombatLockdown() and anchor.IsProtected and
+            anchor:IsProtected()
+    end
+
+    local function deferDisarm()
+        E:RunWhenOutOfCombat(deferredDisarmKey, function()
+            handle:SetUnlocked(false)
+        end)
+    end
 
     local function onDragStart(self_)
-        if not unlocked then
+        if not unlocked or protectedInCombat() then
             return
         end
         self_:StartMoving()
     end
 
     local function onDragStop(self_)
+        if protectedInCombat() then
+            deferDisarm()
+            return
+        end
         self_:StopMovingOrSizing()
         opts.setPosition(E:GetFramePosition(self_, opts.relativeTo or UIParent))
         if opts.onChanged then
@@ -862,7 +1013,7 @@ function T:MovableFrame(anchor, opts)
         armed = false
     end
 
-    local handle = {
+    handle = {
         frame = anchor
     }
 
@@ -875,12 +1026,21 @@ function T:MovableFrame(anchor, opts)
         if target == unlocked then
             return
         end
+        if protectedInCombat() then
+            if not target and unlocked then
+                deferDisarm()
+            end
+            return false
+        end
+        E:CancelRunWhenOutOfCombat(deferredDisarmKey)
         unlocked = target
         if unlocked then
             arm()
         else
+            anchor:StopMovingOrSizing()
             disarm()
         end
+        return true
     end
 
     function handle:Toggle()
@@ -888,6 +1048,10 @@ function T:MovableFrame(anchor, opts)
     end
 
     function handle:Release()
+        if unlocked and handle:SetUnlocked(false) == false then
+            return
+        end
+        E:CancelRunWhenOutOfCombat(deferredDisarmKey)
         disarm()
         unlocked = false
     end

@@ -140,6 +140,7 @@ function ART_UI:_runResizeFlushers()
             bucket.dirty = true
         end
     end
+    self:CatchUp()
 end
 
 function ART_UI:CatchUp()
@@ -1698,6 +1699,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         tabBar.frame:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -PAD)
         tabBar.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -PAD)
     end
+    ART_UI:AddResizeFlusher(tabBar.Relayout, tabBar.frame)
 
     contentHolder:SetPoint("TOPLEFT", tabBar.frame, "BOTTOMLEFT", 0, -6)
     contentHolder:SetPoint("TOPRIGHT", tabBar.frame, "BOTTOMRIGHT", 0, -6)

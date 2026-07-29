@@ -542,9 +542,14 @@ L["QoL_ReadyCheckFood"] = "Food"
 L["QoL_ReadyCheckFlask"] = "Flask"
 L["QoL_ReadyCheckAugmentRune"] = "Augment Rune"
 L["QoL_ReadyCheckVantusRune"] = "Vantus Rune"
-L["QoL_ReadyCheckPermanentEnchants"] = "Permanent Gear Enchants"
+L["QoL_ReadyCheckPermanentEnchants"] = "Gear Enchants"
+L["QoL_ReadyCheckPermanentEnchantsDesc"] =
+    "Checks if equipped items are enchanted"
+L["QoL_ReadyCheckPermanentEnchantsReady"] = "All gear is enchanted"
+L["QoL_ReadyCheckPermanentEnchantsUnavailable"] =
+    "Enchant info is currently unavailable"
 L["QoL_ReadyCheckMissingPermanentEnchants"] =
-    "Missing permanent enchants:"
+    "Missing Enchants"
 L["QoL_ReadyCheckMainHandTemporaryEnhancement"] =
     "Main-hand Temporary Weapon Enhancement"
 L["QoL_ReadyCheckOffHandTemporaryEnhancement"] =
@@ -573,7 +578,6 @@ L["QoL_RaidBuffListTextColor"] = "Text Color"
 L["QoL_RaidBuffListClassColors"] = "Use Class Colors for Player Names"
 L["QoL_RaidBuffListEnableBackground"] = "Enable Background"
 L["QoL_RaidBuffListEnableBorder"] = "Enable Border"
-L["QoL_RaidBuffListGroupPlayer"] = "Group / Player"
 L["QoL_RaidBuffListDurability"] = "Durability"
 L["QoL_RaidBuffListBrokenItems"] = "Broken items: %d"
 

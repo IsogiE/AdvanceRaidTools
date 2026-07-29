@@ -666,7 +666,7 @@ function E:CreateWindowCloseButton(parent, opts)
             tooltip = tooltip(self)
         end
         if type(tooltip) == "string" and tooltip ~= "" then
-            GameTooltip:SetOwner(self, opts.tooltipAnchor or "ANCHOR_RIGHT")
+            GameTooltip:SetOwner(self, opts.tooltipAnchor or "ANCHOR_CURSOR")
             GameTooltip:SetText(tooltip)
             GameTooltip:Show()
         end

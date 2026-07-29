@@ -24,39 +24,56 @@ local function refresh(mod)
     end
 end
 
+local DEFAULT_POSITION = {
+    point = "CENTER",
+    x = 0,
+    y = 160
+}
+
 local function buildReadyCheckConsumablesTab(mod, isDisabled)
+    local positionWidget
+
     return {
-        unlockFrame = {
+        scale = {
             order = 10,
             width = "1/2",
             build = function(parent)
-                local checkbox = T:Checkbox(parent, {
-                    text = L["BossMods_UnlockFrame"],
+                return T:Slider(parent, {
+                    label = L["Scale"],
+                    min = 0.75,
+                    max = 1.5,
+                    step = 0.05,
+                    value = tonumber(mod.db.scale) or 1,
                     get = function()
-                        return mod:IsUnlocked()
+                        return tonumber(mod.db.scale) or 1
                     end,
-                    onChange = function(_, value)
-                        mod:SetUnlocked(value)
+                    onChange = function(value)
+                        mod.db.scale = value
+                        refresh(mod)
+                    end,
+                    format = function(value)
+                        return ("%d%%"):format(math.floor(value * 100 + 0.5))
                     end,
                     disabled = isDisabled
                 })
-                checkbox.frame:HookScript("OnHide", function()
-                    if mod:IsUnlocked() then
-                        mod:SetUnlocked(false)
-                    end
-                end)
-                return checkbox
             end
         },
 
-        resetPosition = {
+        test = {
             order = 11,
             width = "1/2",
             build = function(parent)
-                return T:Button(parent, {
-                    text = L["QoL_ReadyCheckConsumablesResetPosition"],
+                return T:LabelAlignedButton(parent, {
+                    text = function()
+                        return mod:IsTesting() and "Stop Testing" or L["Test"]
+                    end,
                     onClick = function()
-                        mod:ResetPosition()
+                        if positionWidget then
+                            positionWidget:SetUnlocked(false)
+                        elseif mod:IsUnlocked() then
+                            mod:SetUnlocked(false)
+                        end
+                        mod:Test()
                     end,
                     disabled = isDisabled
                 })
@@ -82,20 +99,6 @@ local function buildReadyCheckConsumablesTab(mod, isDisabled)
                     end,
                     format = function(value)
                         return ("%d px"):format(value)
-                    end,
-                    disabled = isDisabled
-                })
-            end
-        },
-
-        test = {
-            order = 21,
-            width = "1/2",
-            build = function(parent)
-                return T:LabelAlignedButton(parent, {
-                    text = L["Test"],
-                    onClick = function()
-                        mod:Test()
                     end,
                     disabled = isDisabled
                 })
@@ -212,6 +215,38 @@ local function buildReadyCheckConsumablesTab(mod, isDisabled)
                     onCancel = setColor,
                     disabled = isDisabled
                 })
+            end
+        },
+
+        position = {
+            order = 90,
+            width = "full",
+            build = function(parent)
+                positionWidget = T:PositionSectionWidget(parent, {
+                    anchor = function()
+                        return mod.frame or mod:CreateDisplay()
+                    end,
+                    label = L["QoL_ReadyCheckConsumables"],
+                    getPosition = function()
+                        return mod.db.position or DEFAULT_POSITION
+                    end,
+                    setPosition = function(position)
+                        mod:SavePosition(position)
+                    end,
+                    resetPosition = function()
+                        mod:ResetPosition()
+                    end,
+                    defaultPosition = DEFAULT_POSITION,
+                    getUnlocked = function()
+                        return mod:IsUnlocked()
+                    end,
+                    setUnlocked = function(value)
+                        mod:SetUnlocked(value)
+                    end,
+                    isDisabled = isDisabled,
+                    showOffsets = true
+                })
+                return positionWidget
             end
         }
     }

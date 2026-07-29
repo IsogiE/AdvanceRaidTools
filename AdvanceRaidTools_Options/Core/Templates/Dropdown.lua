@@ -15,6 +15,11 @@ local evalMaybeFn = P.evalMaybeFn
 local setTemplate = P.setTemplate
 local attachTooltip = P.attachTooltip
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and
+        E.OptionsUI:IsResizing()
+end
+
 -- =============================================================================
 -- Template: Dropdown
 -- -----------------------------------------------------------------------------
@@ -548,7 +553,7 @@ function T:TabBar(parent, opts)
     local api
 
     local function restack()
-        if isRestacking then
+        if isRestacking or (WRAP and optionsResizeActive()) then
             return
         end
         isRestacking = true

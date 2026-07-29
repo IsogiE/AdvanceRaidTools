@@ -7,7 +7,6 @@ local VISIBILITY_DRIVER = "[combat] hide; show"
 
 local OOC_CREATE_KEY = MODULE_NAME .. ":CreateDisplay"
 local OOC_REFRESH_KEY = MODULE_NAME .. ":Refresh"
-local OOC_UNLOCK_KEY = MODULE_NAME .. ":SetUnlocked"
 local OOC_HIDE_KEY = MODULE_NAME .. ":HideDisplay"
 local OOC_POSITION_KEY = MODULE_NAME .. ":ResetPosition"
 
@@ -19,7 +18,8 @@ local DEFAULT_POSITION = {
 }
 
 E:RegisterModuleDefaults(MODULE_NAME, {
-    enabled = false,
+    enabled = true,
+    scale = 1,
     iconSize = 44,
     fontName = "PT Sans Narrow",
     fontSize = 10,
@@ -210,7 +210,7 @@ local function hasEnchantableOffHand()
 end
 
 local function showButtonTooltip(button)
-    GameTooltip:SetOwner(button, "ANCHOR_TOP")
+    GameTooltip:SetOwner(button, "ANCHOR_CURSOR")
 
     if button.itemID then
         GameTooltip:SetHyperlink(itemLink(button.itemID))
@@ -233,7 +233,17 @@ local function showButtonTooltip(button)
     end
 
     for _, line in ipairs(button.tooltipLines or {}) do
-        GameTooltip:AddLine(line, nil, nil, nil, true)
+        if type(line) == "table" then
+            GameTooltip:AddLine(
+                line.text,
+                line.r,
+                line.g,
+                line.b,
+                line.wrap ~= false
+            )
+        else
+            GameTooltip:AddLine(line, nil, nil, nil, true)
+        end
     end
     GameTooltip:Show()
 end
@@ -256,7 +266,6 @@ end
 function ReadyCheckConsumables:CancelDeferredWork()
     E:CancelRunWhenOutOfCombat(OOC_CREATE_KEY)
     E:CancelRunWhenOutOfCombat(OOC_REFRESH_KEY)
-    E:CancelRunWhenOutOfCombat(OOC_UNLOCK_KEY)
     E:CancelRunWhenOutOfCombat(OOC_HIDE_KEY)
     E:CancelRunWhenOutOfCombat(OOC_POSITION_KEY)
     self.clearActionsOnHide = nil
@@ -287,6 +296,9 @@ function ReadyCheckConsumables:CreateDisplay()
         E:RunWhenOutOfCombat(OOC_CREATE_KEY, function()
             if self:IsEnabled() then
                 self:CreateDisplay()
+                if E.RefreshOptions then
+                    E:RefreshOptions()
+                end
             end
         end)
         return nil
@@ -296,10 +308,10 @@ function ReadyCheckConsumables:CreateDisplay()
         CreateFrame("Frame", FRAME_NAME, UIParent, "SecureHandlerStateTemplate")
     frame:SetFrameStrata("DIALOG")
     frame:SetClampedToScreen(true)
-    frame:SetMovable(true)
     frame:Hide()
     frame.buttons = {}
     self.frame = frame
+    frame:SetScale(clamp(self.db.scale, 0.75, 1.5, 1))
 
     for _, key in ipairs(ICON_ORDER) do
         local info = ICON_INFO[key]
@@ -341,21 +353,7 @@ function ReadyCheckConsumables:CreateDisplay()
     frame.moveOverlay = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     frame.moveOverlay:SetAllPoints()
     frame.moveOverlay:SetFrameLevel(frame:GetFrameLevel() + 20)
-    frame.moveOverlay:EnableMouse(true)
-    frame.moveOverlay:RegisterForDrag("LeftButton")
     E:SetTemplate(frame.moveOverlay, "Transparent")
-
-    frame.moveOverlay:SetScript("OnDragStart", function()
-        if not InCombatLockdown() then
-            frame:StartMoving()
-        end
-    end)
-    frame.moveOverlay:SetScript("OnDragStop", function()
-        if not InCombatLockdown() then
-            frame:StopMovingOrSizing()
-            self:SavePosition()
-        end
-    end)
 
     frame.moveOverlay.text =
         E:CreateFontString(frame.moveOverlay, nil, "OVERLAY", 12)
@@ -372,13 +370,27 @@ function ReadyCheckConsumables:IsUnlocked()
     return self.unlocked and true or false
 end
 
-function ReadyCheckConsumables:SavePosition()
+function ReadyCheckConsumables:IsTesting()
+    return self.displayMode == "test"
+end
+
+function ReadyCheckConsumables:SavePosition(position)
     if not self.frame or InCombatLockdown() then
         return
     end
 
-    self.db.position = E:GetFramePosition(self.frame, UIParent)
+    position =
+        type(position) == "table" and position or
+        E:GetFramePosition(self.frame, UIParent)
+    local point = position.point or "CENTER"
+    self.db.position = {
+        point = point,
+        relPoint = position.relPoint or point,
+        x = tonumber(position.x) or 0,
+        y = tonumber(position.y) or 0
+    }
     self.db.customPosition = true
+    self:ApplySavedPosition()
 end
 
 function ReadyCheckConsumables:ApplySavedPosition()
@@ -388,20 +400,22 @@ function ReadyCheckConsumables:ApplySavedPosition()
 end
 
 function ReadyCheckConsumables:SetUnlocked(value)
-    self.unlocked = value and true or false
-
+    value = value and true or false
     if InCombatLockdown() then
-        E:RunWhenOutOfCombat(OOC_UNLOCK_KEY, function()
-            if not self:IsEnabled() then
-                return
-            end
-            self:SetUnlocked(self.unlocked)
-        end)
+        self.unlocked = false
         return
     end
+    if value and self:IsTesting() then
+        return
+    end
+    self.unlocked = value
 
-    E:CancelRunWhenOutOfCombat(OOC_UNLOCK_KEY)
     if not self.unlocked then
+        if self.frame then
+            for _, key in ipairs(ICON_ORDER) do
+                self.frame.buttons[key]:EnableMouse(true)
+            end
+        end
         self:HideDisplay(false)
         return
     end
@@ -416,6 +430,9 @@ function ReadyCheckConsumables:SetUnlocked(value)
     self.displayMode = "unlock"
     self:ApplySavedPosition()
     self:UpdateDisplay()
+    for _, key in ipairs(ICON_ORDER) do
+        frame.buttons[key]:EnableMouse(false)
+    end
     frame.moveOverlay:Show()
     self:ShowDisplayOutOfCombat()
     self:StartRefreshTimers(self.displaySerial)
@@ -611,12 +628,39 @@ function ReadyCheckConsumables:UpdateDisplay()
             not hasOff and offGroupCount > 1 and "QoL_ReadyCheckChooseItem" or
             nil
 
-    local enchantTooltipLines = {}
-    if permanentDataAvailable and not permanentReady then
-        enchantTooltipLines[1] =
-            E:L("QoL_ReadyCheckMissingPermanentEnchants")
+    local enchantTooltipLines = {
+        {
+            text = E:L(
+                permanentDataAvailable and permanentReady and
+                    "QoL_ReadyCheckPermanentEnchantsReady" or
+                    "QoL_ReadyCheckPermanentEnchantsDesc"
+            ),
+            r = 0.75,
+            g = 0.75,
+            b = 0.75
+        }
+    }
+    if not permanentDataAvailable then
+        enchantTooltipLines[#enchantTooltipLines + 1] = {
+            text = E:L("QoL_ReadyCheckPermanentEnchantsUnavailable"),
+            r = 0.6,
+            g = 0.6,
+            b = 0.6
+        }
+    elseif not permanentReady then
+        enchantTooltipLines[#enchantTooltipLines + 1] = {
+            text = E:L("QoL_ReadyCheckMissingPermanentEnchants"),
+            r = 1,
+            g = 0.3,
+            b = 0.3
+        }
         for _, slotName in ipairs(missingEnchants or {}) do
-            enchantTooltipLines[#enchantTooltipLines + 1] = "• " .. slotName
+            enchantTooltipLines[#enchantTooltipLines + 1] = {
+                text = "• " .. slotName,
+                r = 1,
+                g = 0.82,
+                b = 0.2
+            }
         end
     end
     frame.buttons.gearEnchants.tooltipLines = enchantTooltipLines
@@ -714,6 +758,9 @@ function ReadyCheckConsumables:HideDisplayOutOfCombat(clearActions)
     end
 
     frame.moveOverlay:Hide()
+    for _, key in ipairs(ICON_ORDER) do
+        frame.buttons[key]:EnableMouse(true)
+    end
     frame:Hide()
     if clearActions then
         for _, key in ipairs(ICON_ORDER) do
@@ -721,16 +768,29 @@ function ReadyCheckConsumables:HideDisplayOutOfCombat(clearActions)
         end
     end
     self.displayMode = nil
+    if self.refreshOptionsOnHide then
+        self.refreshOptionsOnHide = nil
+        if E.RefreshOptions then
+            E:RefreshOptions()
+        end
+    end
 end
 
 function ReadyCheckConsumables:HideDisplay(clearActions)
     local shouldClearActions = self.clearActionsOnHide or clearActions
+    local wasTesting = self:IsTesting()
+    self.refreshOptionsOnHide =
+        self.refreshOptionsOnHide or self.unlocked or wasTesting
     self.displaySerial = (self.displaySerial or 0) + 1
     self.unlocked = false
+    self.displayMode = nil
     self:CancelTimers()
     self:CancelDeferredWork()
 
     if InCombatLockdown() then
+        if wasTesting and E.RefreshOptions then
+            E:RefreshOptions()
+        end
         self:QueueHide(shouldClearActions)
     else
         self:HideDisplayOutOfCombat(shouldClearActions)
@@ -771,7 +831,8 @@ function ReadyCheckConsumables:StartReadyCheckTimeout(timeout, serial)
 end
 
 function ReadyCheckConsumables:ShowForReadyCheck(starter, timeout, forceCenter)
-    if InCombatLockdown() or not self:IsEnabled() then
+    if InCombatLockdown() or not self:IsEnabled() or self.unlocked or
+        self:IsTesting() then
         return
     end
 
@@ -783,7 +844,6 @@ function ReadyCheckConsumables:ShowForReadyCheck(starter, timeout, forceCenter)
         return
     end
 
-    self.unlocked = false
     self.displaySerial = (self.displaySerial or 0) + 1
     local serial = self.displaySerial
     self.displayMode = forceCenter and "test" or "readyCheck"
@@ -793,7 +853,9 @@ function ReadyCheckConsumables:ShowForReadyCheck(starter, timeout, forceCenter)
     self:UpdateDisplay()
     self:ShowDisplayOutOfCombat()
     self:StartRefreshTimers(serial)
-    self:StartReadyCheckTimeout(timeout, serial)
+    if not forceCenter then
+        self:StartReadyCheckTimeout(timeout, serial)
+    end
 end
 
 function ReadyCheckConsumables:OnReadyCheck(_, starter, timeout)
@@ -818,7 +880,15 @@ function ReadyCheckConsumables:OnCombatStart()
 end
 
 function ReadyCheckConsumables:Test()
-    self:ShowForReadyCheck(nil, 20, true)
+    if self:IsTesting() then
+        self:HideDisplay(false)
+        return
+    end
+
+    self:ShowForReadyCheck(nil, nil, true)
+    if self:IsTesting() and E.RefreshOptions then
+        E:RefreshOptions()
+    end
 end
 
 function ReadyCheckConsumables:Refresh()
@@ -840,6 +910,7 @@ function ReadyCheckConsumables:Refresh()
     end
     E:SetTemplate(frame.moveOverlay, "Transparent")
     self:ApplyTextAppearance()
+    frame:SetScale(clamp(self.db.scale, 0.75, 1.5, 1))
 
     if self.db.customPosition then
         self:ApplySavedPosition()
@@ -856,6 +927,7 @@ end
 function ReadyCheckConsumables:OnEnable()
     self:CancelDeferredWork()
     self.unlocked = false
+    self.displayMode = nil
 
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")

@@ -24,7 +24,15 @@ local function refresh(mod)
     end
 end
 
+local DEFAULT_POSITION = {
+    point = "CENTER",
+    x = 0,
+    y = 0
+}
+
 local function buildRaidBuffListTab(mod, isDisabled)
+    local positionWidget
+
     return {
         scale = {
             order = 10,
@@ -56,27 +64,21 @@ local function buildRaidBuffListTab(mod, isDisabled)
             width = "1/2",
             build = function(parent)
                 return T:LabelAlignedButton(parent, {
-                    text = L["Test"],
+                    text = function()
+                        return mod:IsTesting() and "Stop Testing" or L["Test"]
+                    end,
                     tooltip = {
                         title = L["Test"],
                         desc = L["QoL_RaidBuffListTestDesc"]
                     },
+                    tooltipAnchor = "ANCHOR_CURSOR",
                     onClick = function()
+                        if positionWidget then
+                            positionWidget:SetUnlocked(false)
+                        elseif mod:IsUnlocked() then
+                            mod:SetUnlocked(false)
+                        end
                         mod:Test()
-                    end,
-                    disabled = isDisabled
-                })
-            end
-        },
-
-        resetPosition = {
-            order = 12,
-            width = "full",
-            build = function(parent)
-                return T:Button(parent, {
-                    text = L["QoL_RaidBuffListResetPosition"],
-                    onClick = function()
-                        mod:ResetPosition()
                     end,
                     disabled = isDisabled
                 })
@@ -257,6 +259,36 @@ local function buildRaidBuffListTab(mod, isDisabled)
                     end,
                     disabled = isDisabled
                 })
+            end
+        },
+
+        position = {
+            order = 90,
+            width = "full",
+            build = function(parent)
+                positionWidget = T:PositionSectionWidget(parent, {
+                    anchor = mod.frame or mod:CreateFrame(),
+                    label = L["QoL_RaidBuffList"],
+                    getPosition = function()
+                        return mod.db.position or DEFAULT_POSITION
+                    end,
+                    setPosition = function(position)
+                        mod:SavePosition(position)
+                    end,
+                    resetPosition = function()
+                        mod:ResetPosition()
+                    end,
+                    defaultPosition = DEFAULT_POSITION,
+                    getUnlocked = function()
+                        return mod:IsUnlocked()
+                    end,
+                    setUnlocked = function(value)
+                        mod:SetUnlocked(value)
+                    end,
+                    isDisabled = isDisabled,
+                    showOffsets = true
+                })
+                return positionWidget
             end
         }
     }
