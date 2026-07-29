@@ -615,6 +615,207 @@ function E:CreateFontString(parent, localeKey, layer, fontSize)
     return fs
 end
 
+local function callWindowCallback(callback, ...)
+    if type(callback) ~= "function" then
+        return
+    end
+
+    local ok, err = pcall(callback, ...)
+    if not ok then
+        geterrorhandler()(err)
+    end
+end
+
+-- Shared chrome for persistent runtime windows. Options-only dialogs should use
+-- E.Templates:Popup; core modules use this shell without loading the Options addon.
+function E:CreateWindowCloseButton(parent, opts)
+    opts = opts or {}
+
+    local button =
+        CreateFrame("Button", nil, parent, "BackdropTemplate")
+    local size = opts.size or 20
+    button:SetSize(size, size)
+    button:RegisterForClicks("AnyUp")
+    E:SetTemplate(button, opts.template or "Default")
+
+    local glyph = E:CreateFontString(
+        button,
+        nil,
+        "OVERLAY",
+        (E.media.normFontSize or 12) + 2
+    )
+    glyph:SetPoint("CENTER", 1, 0)
+    glyph:SetText("X")
+    button.glyph = glyph
+
+    local function repaint()
+        local color = button._artHovered and E.media.valueColor or
+            E.media.borderColor
+        if color then
+            button:SetBackdropBorderColor(unpack(color))
+        end
+    end
+    button.artOnMediaUpdate = repaint
+
+    button:SetScript("OnEnter", function(self)
+        self._artHovered = true
+        repaint()
+
+        local tooltip = opts.tooltip
+        if type(tooltip) == "function" then
+            tooltip = tooltip(self)
+        end
+        if type(tooltip) == "string" and tooltip ~= "" then
+            GameTooltip:SetOwner(self, opts.tooltipAnchor or "ANCHOR_RIGHT")
+            GameTooltip:SetText(tooltip)
+            GameTooltip:Show()
+        end
+    end)
+    button:SetScript("OnLeave", function(self)
+        self._artHovered = false
+        repaint()
+        GameTooltip_Hide()
+    end)
+    button:SetScript("OnHide", function(self)
+        self._artHovered = false
+        repaint()
+        if GameTooltip:IsOwned(self) then
+            GameTooltip_Hide()
+        end
+    end)
+    button:SetScript("OnClick", function(self)
+        GameTooltip_Hide()
+        if opts.onClick then
+            callWindowCallback(opts.onClick, self)
+        elseif parent and parent.Hide then
+            parent:Hide()
+        end
+    end)
+    repaint()
+    return button
+end
+
+function E:CreateWindowFrame(opts)
+    opts = opts or {}
+
+    local parent = opts.parent or UIParent
+    local frame = CreateFrame(
+        "Frame",
+        opts.name,
+        parent,
+        "BackdropTemplate"
+    )
+    frame:SetSize(opts.width or 420, opts.height or 300)
+    frame:SetFrameStrata(opts.strata or "DIALOG")
+    frame:SetToplevel(opts.toplevel ~= false)
+    frame:SetClampedToScreen(opts.clampedToScreen ~= false)
+    frame:EnableMouse(true)
+    E:SetTemplate(frame, opts.template or "Default")
+
+    local paddingX = opts.paddingX or 10
+    local paddingY = opts.paddingY or 8
+    local titleHeight = opts.titleHeight or 24
+    local titleBar = CreateFrame("Frame", nil, frame)
+    titleBar:SetPoint("TOPLEFT", paddingX, -paddingY)
+    titleBar:SetPoint("TOPRIGHT", -paddingX, -paddingY)
+    titleBar:SetHeight(titleHeight)
+    titleBar:EnableMouse(true)
+    frame.titleBar = titleBar
+
+    local title = E:CreateFontString(
+        titleBar,
+        nil,
+        "OVERLAY",
+        (E.media.normFontSize or 12) + 2
+    )
+    title:SetPoint("LEFT")
+    title:SetJustifyH("LEFT")
+    E:RegisterAccentText(title)
+    frame.title = title
+
+    local close
+    if opts.showCloseButton ~= false then
+        close = E:CreateWindowCloseButton(titleBar, {
+            size = opts.closeButtonSize or 20,
+            tooltip = function()
+                return opts.closeTooltip or E:L("Close")
+            end,
+            onClick = function()
+                if opts.onClose then
+                    callWindowCallback(opts.onClose, frame)
+                else
+                    frame:Hide()
+                end
+            end
+        })
+        close:SetPoint("RIGHT")
+        title:SetPoint("RIGHT", close, "LEFT", -6, 0)
+        frame.close = close
+    else
+        title:SetPoint("RIGHT")
+    end
+
+    local separator = titleBar:CreateTexture(nil, "ARTWORK")
+    separator:SetColorTexture(1, 1, 1, 1)
+    separator:SetHeight(1)
+    separator:SetPoint("BOTTOMLEFT", 0, -1)
+    separator:SetPoint("BOTTOMRIGHT", 0, -1)
+    E:RegisterBorderTexture(separator)
+    frame.titleSeparator = separator
+
+    local body = CreateFrame("Frame", nil, frame)
+    body:SetPoint(
+        "TOPLEFT",
+        titleBar,
+        "BOTTOMLEFT",
+        0,
+        -(opts.titleGap or 6)
+    )
+    body:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -paddingX, paddingY)
+    frame.body = body
+
+    local movable = opts.movable ~= false
+    if movable then
+        frame:SetMovable(true)
+        frame:RegisterForDrag("LeftButton")
+        titleBar:RegisterForDrag("LeftButton")
+
+        local function canMove()
+            if type(opts.canMove) ~= "function" then
+                return true
+            end
+            local ok, allowed = pcall(opts.canMove, frame)
+            if not ok then
+                geterrorhandler()(allowed)
+                return false
+            end
+            return allowed ~= false
+        end
+        local function startMoving()
+            if canMove() then
+                frame:StartMoving()
+            end
+        end
+        local function stopMoving()
+            frame:StopMovingOrSizing()
+            callWindowCallback(opts.onMove, frame)
+        end
+
+        frame:SetScript("OnDragStart", startMoving)
+        frame:SetScript("OnDragStop", stopMoving)
+        titleBar:SetScript("OnDragStart", startMoving)
+        titleBar:SetScript("OnDragStop", stopMoving)
+    end
+
+    function frame:SetTitle(value)
+        self.title:SetText(value == nil and "" or tostring(value))
+    end
+
+    frame:SetTitle(opts.title)
+    frame:Hide()
+    return frame
+end
+
 function E:RetranslateFontStrings(root)
     if not root then
         return

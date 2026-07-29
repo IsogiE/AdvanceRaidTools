@@ -8,6 +8,7 @@
 ## Category: Advance
 
 Libs\LibStub\LibStub.lua
+Libs\LibDurability\LibDurability\LibDurability.lua
 Libs\LibDeflate\LibDeflate.lua
 Libs\LibSerialize\LibSerialize.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml

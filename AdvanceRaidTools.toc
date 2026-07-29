@@ -63,5 +63,6 @@ Modules\QualityOfLife\Circle\Circle.lua
 Modules\QualityOfLife\Resources\Resources.lua
 Modules\QualityOfLife\CDMTweaks\CDMTweaks.lua
 Modules\QualityOfLife\WhisperSound\WhisperSound.lua
+Modules\QualityOfLife\ReadyCheck\ReadyCheck.xml
 
 Modules\BossMods\BossMods.xml

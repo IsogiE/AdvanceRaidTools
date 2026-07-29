@@ -1,0 +1,5 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Script file="Core\ReadyCheckData.lua"/>
+    <Script file="ReadyCheckConsumables.lua"/>
+    <Script file="RaidBuffList.lua"/>
+</Ui>

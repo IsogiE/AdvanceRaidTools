@@ -482,6 +482,8 @@ end
 --     minTabW     = 80,
 --     tabPadX     = 16,                                        -- 8px each side
 --     tabGap      = 2,
+--     wrap        = false,                                     -- wrap to additional rows
+--     rowGap      = 2,
 --     onTabChange = function(key, button) end,                 -- click handler
 --     autoActivateFirst = true,                                -- activate tabs[1] at build time
 -- }
@@ -500,6 +502,8 @@ function T:TabBar(parent, opts)
     local MIN_W = opts.minTabW or 80
     local PAD_X = opts.tabPadX or 16
     local GAP = opts.tabGap or 2
+    local WRAP = opts.wrap and true or false
+    local ROW_GAP = opts.rowGap or GAP
     local onTabChange = opts.onTabChange
 
     local frame = CreateFrame("Frame", nil, parent)
@@ -539,16 +543,47 @@ function T:TabBar(parent, opts)
         return true
     end
 
+    local isRestacking = false
+    local lastLayoutWidth
+    local api
+
     local function restack()
+        if isRestacking then
+            return
+        end
+        isRestacking = true
         local xx = 0
+        local yy = 0
+        local rows = 1
+        local availableW = frame:GetWidth() or 0
         for _, t in ipairs(tabs) do
             local textW = measureStringWidth(t.button._label)
             local tabW = math.max(MIN_W, math.ceil(textW) + PAD_X)
+            local widthRowBreak = WRAP and availableW > 0 and xx > 0 and
+                xx + tabW > availableW
+            if widthRowBreak then
+                xx = 0
+                yy = yy + H + ROW_GAP
+                rows = rows + 1
+            end
             t.button:SetWidth(tabW)
             t.button:ClearAllPoints()
-            t.button:SetPoint("LEFT", xx, 0)
+            if WRAP then
+                t.button:SetPoint("TOPLEFT", frame, "TOPLEFT", xx, -yy)
+            else
+                t.button:SetPoint("LEFT", xx, 0)
+            end
             xx = xx + tabW + GAP
         end
+        local targetHeight = rows * H + (rows - 1) * ROW_GAP
+        lastLayoutWidth = availableW
+        if math.abs((frame:GetHeight() or 0) - targetHeight) > 0.5 then
+            frame:SetHeight(targetHeight)
+        end
+        if api then
+            api.height = targetHeight
+        end
+        isRestacking = false
     end
 
     local x = 0
@@ -594,6 +629,14 @@ function T:TabBar(parent, opts)
             end
         end)
     end)
+    if WRAP then
+        frame:HookScript("OnSizeChanged", function(self_, width)
+            if self_:IsShown() and
+                (not lastLayoutWidth or math.abs((width or 0) - lastLayoutWidth) > 0.5) then
+                restack()
+            end
+        end)
+    end
 
     for _, t in ipairs(tabs) do
         paintButton(t.button, false)
@@ -603,9 +646,15 @@ function T:TabBar(parent, opts)
         ActivateTab(tabs[1].key)
     end
 
-    return {
+    C_Timer.After(0, function()
+        if frame:IsShown() then
+            restack()
+        end
+    end)
+
+    api = {
         frame = frame,
-        height = H,
+        height = frame:GetHeight(),
         tabs = tabs,
         buttons = buttons,
         ActivateTab = ActivateTab,
@@ -627,4 +676,5 @@ function T:TabBar(parent, opts)
             end
         end
     }
+    return api
 end

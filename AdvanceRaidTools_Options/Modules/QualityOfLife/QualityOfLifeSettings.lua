@@ -155,6 +155,7 @@ local function buildQualityOfLifePanel()
         type = "group",
         name = L["QualityOfLife"],
         childGroups = "tab",
+        tabWrap = true,
         args = T:MergeArgs({
             intro = {
                 order = 1,

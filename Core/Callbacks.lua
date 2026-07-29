@@ -14,7 +14,8 @@ E.Libs = {
     LDBIcon = LibStub("LibDBIcon-1.0", true),
     LibTranslit = LibStub("LibTranslit-1.0", true),
     LibCustomGlow = LibStub("LibCustomGlow-1.0", true),
-    LibGetFrame = LibStub("LibGetFrame-1.0", true)
+    LibGetFrame = LibStub("LibGetFrame-1.0", true),
+    LibDurability = LibStub("LibDurability", true)
 }
 
 E._deferredHandles = E._deferredHandles or {}

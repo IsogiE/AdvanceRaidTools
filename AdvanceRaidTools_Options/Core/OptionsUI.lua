@@ -1673,6 +1673,8 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         minTabW = TAB_MIN_W,
         tabPadX = TAB_PAD_X,
         tabGap = TAB_GAP,
+        wrap = group.tabWrap == true,
+        rowGap = group.tabRowGap or TAB_GAP,
         autoActivateFirst = false,
         onTabChange = function(key, _, oldKey)
             local oldContent = oldKey and tabEntries[oldKey]

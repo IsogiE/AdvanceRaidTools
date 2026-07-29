@@ -1,0 +1,12 @@
+## Interface: 11508, 11509, 20505, 20506, 30405, 38001, 40402, 50503, 50504, 120100, 120005, 120007
+## Version: v12.0.2
+## Title: Lib: Durability
+## Notes: A library for transmitting and receiving durability information of players in your group.
+## Author: Funkeh
+## X-Category: Library
+## OptionalDeps: LibStub
+## X-License: All Rights Reserved
+
+embeds.xml
+LibDurability\LibDurability.xml
+
