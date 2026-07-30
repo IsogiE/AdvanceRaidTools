@@ -42,6 +42,9 @@ E:RegisterModuleDefaults("BossMods_HoTTracker", {
             outline = "OUTLINE",
             color = {1, 1, 1, 1}
         },
+        cooldown = {
+            reverse = false
+        },
         timer = {
             enabled = true,
             anchor = "BOTTOMRIGHT",

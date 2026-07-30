@@ -505,6 +505,7 @@ function Engines.AuraDisplay(config)
         local opacity = styleCfg.iconOpacity or 1
         local borderCfg = styleCfg.border
         local countCfg = styleCfg.count or {}
+        local cooldownCfg = styleCfg.cooldown or {}
         local timerCfg = styleCfg.timer or {}
 
         updateDisplayBackdrop(styleCfg)
@@ -528,6 +529,9 @@ function Engines.AuraDisplay(config)
                 ic.texture:SetAlpha(opacity)
                 ic.texture:SetVertexColor(1, 1, 1)
 
+                if ic.cooldown.SetReverse then
+                    ic.cooldown:SetReverse(cooldownCfg.reverse and true or false)
+                end
                 if countCfg.enabled ~= false then
                     applyLabelStyle(ic.count, countCfg)
                 end
