@@ -4,6 +4,8 @@ local Data = {}
 E.ReadyCheckData = Data
 
 Data.FOOD_SPELLS = {
+    [1233724] = true,
+    [1285644] = true,
     [308488] = true,
     [308506] = true,
     [308434] = true,
