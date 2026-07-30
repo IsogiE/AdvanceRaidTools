@@ -82,6 +82,17 @@ local function runFlusherList(list)
     end
 end
 
+local function runPanelCallback(panel, key)
+    local fn = panel and panel[key]
+    if not fn then
+        return
+    end
+    local ok, err = pcall(fn)
+    if not ok then
+        geterrorhandler()(err)
+    end
+end
+
 local function addRefresh(list, fn, kind)
     if kind then
         list[#list + 1] = {
@@ -131,18 +142,6 @@ local function runRefreshList(list, forceLayout)
     return true
 end
 
-local function runLayoutEntries(list)
-    for _, entry in ipairs(list) do
-        local fn, kind = refreshEntry(entry)
-        if kind == "layout" then
-            local ok, err = pcall(fn)
-            if not ok then
-                geterrorhandler()(err)
-            end
-        end
-    end
-end
-
 function ART_UI:_runResizeFlushers()
     for owner, bucket in pairs(self._resizeHooks) do
         if owner == GLOBAL or owner:IsVisible() then
@@ -161,6 +160,11 @@ function ART_UI:CatchUp()
             runFlusherList(bucket.list)
             bucket.dirty = false
         end
+    end
+
+    if not self:IsResizing() then
+        local panel = self.panels[self.currentKey]
+        runPanelCallback(panel, "FlushViewportSync")
     end
 end
 
@@ -520,6 +524,7 @@ local function updateOptionsResize(frame)
         frame:SetSize(width, height)
         state.lastW = width
         state.lastH = height
+        state.changed = true
     end
 end
 
@@ -562,6 +567,7 @@ local function startOptionsResize(grip, button)
         startH = frame:GetHeight() or WIN_H,
         lastW = frame:GetWidth() or WIN_W,
         lastH = frame:GetHeight() or WIN_H,
+        changed = false,
         minW = minW,
         minH = minH,
         maxW = maxW,
@@ -593,7 +599,9 @@ local function stopOptionsResize(grip)
     end
     ART_UI:_updateResizeBounds(ART_UI.currentKey)
     saveWindowSize(frame)
-    ART_UI:_runResizeFlushers()
+    if state and state.changed then
+        ART_UI:_runResizeFlushers()
+    end
     restoreResizeBackdrops(frame)
     if ART_UI._queuedScope and not ART_UI._refreshPending then
         ART_UI:QueueRefresh(ART_UI._queuedScope)
@@ -1576,6 +1584,19 @@ local function createScrollHost(parentFrame)
     return sh.content, DEFAULT_CONTENT_INNER_W, sh.scroll, sh
 end
 
+local function addScrollHostFinalizer(scrollHost, finalState, refreshList)
+    local function finalize()
+        -- This is registered after every child layout callback for the host.
+        -- Commit width, height, child rect, scroll range, and the real viewport
+        -- offset as one ordered resize transaction.
+        scrollHost.ApplyAutoWidth()
+        scrollHost.SetContentSize(nil, math.max(1, finalState.endY))
+    end
+    finalize()
+    ART_UI:AddResizeFlusher(finalize)
+    addRefresh(refreshList, finalize, "layout")
+end
+
 -- Panels
 
 local function buildCategoryPanel(parent, key, group, rootRefreshers)
@@ -1591,16 +1612,13 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         contentHolder:SetPoint("TOPLEFT", PAD, -PAD)
         contentHolder:SetPoint("BOTTOMRIGHT", -PAD, PAD)
 
-        local inner, innerW = createScrollHost(contentHolder)
+        local inner, innerW, _, scrollHost = createScrollHost(contentHolder)
         local panelRefreshers = {}
         ART_UI.panelRefreshers[panel] = panelRefreshers
         ART_UI:PushFlusherOwner(inner)
-        local usedY, finalState = buildArgsInto(inner, group.args, {key}, group.handler, 0, innerW, panelRefreshers,
+        local _, finalState = buildArgsInto(inner, group.args, {key}, group.handler, 0, innerW, panelRefreshers,
             rootRefreshers, group.colGap)
-        inner:SetHeight(math.max(1, usedY))
-        ART_UI:AddResizeFlusher(function()
-            inner:SetHeight(math.max(1, finalState.endY))
-        end)
+        addScrollHostFinalizer(scrollHost, finalState, panelRefreshers)
         ART_UI:PopFlusherOwner()
 
         panel._tabs = {}
@@ -1621,6 +1639,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
 
     local HEADER_GAP = 14
     local headerHost
+    local requestViewportSync
 
     if hasHeader then
         headerHost = CreateFrame("Frame", nil, panel)
@@ -1632,9 +1651,17 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         local headerUsedY, headerFinalState = buildArgsInto(headerHost, headerArgs, {key}, group.handler, 0, innerW,
             panelRefreshers, rootRefreshers, group.colGap)
         headerHost:SetHeight(math.max(1, headerUsedY))
-        ART_UI:AddResizeFlusher(function()
-            headerHost:SetHeight(math.max(1, headerFinalState.endY))
-        end)
+        local function finalizeHeader()
+            local targetHeight = math.max(1, headerFinalState.endY)
+            if math.abs((headerHost:GetHeight() or 0) - targetHeight) > 0.5 then
+                headerHost:SetHeight(targetHeight)
+                if requestViewportSync then
+                    requestViewportSync()
+                end
+            end
+        end
+        ART_UI:AddResizeFlusher(finalizeHeader)
+        addRefresh(panelRefreshers, finalizeHeader, "layout")
         ART_UI:PopFlusherOwner()
     end
 
@@ -1642,7 +1669,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
 
     local tabDefs = {}
     local tabEntries = {}
-    local tabLayouts = {}
+    local tabScrollHosts = {}
     panel._tabs = {}
 
     for _, entry in ipairs(sortedArgs(group.args)) do
@@ -1654,24 +1681,16 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
             ART_UI.refreshDirty[tabContent] = true
 
             local inner, innerW, _, scrollHost = createScrollHost(tabContent)
+            tabScrollHosts[tabContent] = scrollHost
 
             local tabRefreshers = {}
             ART_UI.panelRefreshers[tabContent] = tabRefreshers
             local tabGap = tabOpt.colGap or group.colGap
             ART_UI:PushFlusherOwner(inner)
-            local usedY, finalState = buildArgsInto(inner, tabOpt.args, {key, tabKey}, tabOpt.handler or group.handler,
+            local _, finalState = buildArgsInto(inner, tabOpt.args, {key, tabKey}, tabOpt.handler or group.handler,
                 0, innerW, tabRefreshers, rootRefreshers, tabGap)
-            inner:SetHeight(math.max(1, usedY))
-            ART_UI:AddResizeFlusher(function()
-                inner:SetHeight(math.max(1, finalState.endY))
-            end)
+            addScrollHostFinalizer(scrollHost, finalState, tabRefreshers)
             ART_UI:PopFlusherOwner()
-
-            tabLayouts[tabContent] = function()
-                scrollHost.ApplyAutoWidth(true)
-                runLayoutEntries(tabRefreshers)
-                scrollHost.SetContentSize(nil, math.max(1, finalState.endY))
-            end
 
             tabDefs[#tabDefs + 1] = {
                 key = tabKey,
@@ -1687,6 +1706,40 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         end
     end
 
+    local viewportSyncPending = false
+    local viewportSyncRequested = false
+
+    local function syncVisibleScroll()
+        -- The content holder follows the tab bar through its anchors. A new
+        -- tab row only invalidates the ScrollFrame's cached viewport.
+        local scrollHost = tabScrollHosts[panel._activeTabContent]
+        if scrollHost then
+            scrollHost.SyncViewport()
+        end
+    end
+
+    panel.FlushViewportSync = function()
+        if not viewportSyncRequested then
+            return
+        end
+        viewportSyncRequested = false
+        syncVisibleScroll()
+    end
+
+    requestViewportSync = function()
+        viewportSyncRequested = true
+        if viewportSyncPending then
+            return
+        end
+        viewportSyncPending = true
+        C_Timer.After(0, function()
+            viewportSyncPending = false
+            if viewportSyncRequested and panel:IsVisible() and not ART_UI:IsResizing() then
+                panel.FlushViewportSync()
+            end
+        end)
+    end
+
     local tabBar = T:TabBar(panel, {
         tabs = tabDefs,
         height = TAB_H,
@@ -1696,12 +1749,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         wrap = group.tabWrap == true,
         rowGap = group.tabRowGap or TAB_GAP,
         autoActivateFirst = false,
-        onLayout = function()
-            local relayout = tabLayouts[panel._activeTabContent]
-            if relayout then
-                relayout()
-            end
-        end,
+        onHeightChanged = requestViewportSync,
         onTabChange = function(key, _, oldKey)
             local oldContent = oldKey and tabEntries[oldKey]
             if oldContent then
@@ -1713,6 +1761,7 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
                 content:Show()
             end
             panel._activeTabContent = content
+            requestViewportSync()
             ART_UI:CatchUp()
             ART_UI:RefreshPanel(panel, false)
         end
@@ -1724,6 +1773,9 @@ local function buildCategoryPanel(parent, key, group, rootRefreshers)
         tabBar.frame:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -PAD)
         tabBar.frame:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -PAD, -PAD)
     end
+    -- Wrapping changes the bar's height, so commit its final row geometry
+    -- before the content holder takes an anchor from the bar's bottom edge.
+    tabBar.Relayout()
     ART_UI:AddResizeFlusher(tabBar.Relayout, tabBar.frame)
 
     contentHolder:SetPoint("TOPLEFT", tabBar.frame, "BOTTOMLEFT", 0, -6)
@@ -2233,6 +2285,9 @@ function ART_UI:Show()
     self.mainFrame:Show()
     -- refresh on open to re-sync values
     self:RefreshCurrent()
+    -- Also recover a resize that ended because the window was hidden before
+    -- the resize grip received its mouse-up event.
+    self:_runResizeFlushers()
     C_Timer.After(0, function()
         if self.mainFrame then
             self:CatchUp()

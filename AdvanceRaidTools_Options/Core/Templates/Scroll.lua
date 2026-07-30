@@ -89,6 +89,7 @@ function T:ScrollBar(parent, scrollFrame, opts)
     local MIN_THUMB_H = 20 -- don't let the thumb disappear on very long content
 
     local isSyncing = false
+    local isRefreshing = false
     local suppressed = false
 
     local thumbHit = CreateFrame("Button", nil, bar)
@@ -191,7 +192,7 @@ function T:ScrollBar(parent, scrollFrame, opts)
         layoutThumbHit()
     end
 
-    local function refresh()
+    local function refreshImpl()
         if suppressed then
             bar:Hide()
             scrollFrame:SetVerticalScroll(0)
@@ -203,6 +204,7 @@ function T:ScrollBar(parent, scrollFrame, opts)
             bar:Hide()
             return
         end
+        scrollFrame:UpdateScrollChildRect()
         local contentH = child:GetHeight() or 0
         local viewportH = scrollFrame:GetHeight() or 0
         -- Frame dimensions can briefly disagree by a fraction of a pixel while a
@@ -211,8 +213,12 @@ function T:ScrollBar(parent, scrollFrame, opts)
         local maxScroll = overflow > 2 and overflow or 0
 
         if maxScroll <= 0 then
-            bar:Hide()
+            isSyncing = true
+            slider:SetMinMaxValues(0, 1)
+            slider:SetValue(0)
             scrollFrame:SetVerticalScroll(0)
+            isSyncing = false
+            bar:Hide()
             return
         end
         bar:Show()
@@ -226,16 +232,30 @@ function T:ScrollBar(parent, scrollFrame, opts)
             slider:SetThumbTexture(thumb)
         end
 
+        local offset = math.max(0, math.min(scrollFrame:GetVerticalScroll() or 0, maxScroll))
         isSyncing = true
         slider:SetMinMaxValues(0, maxScroll)
-        slider:SetValue(math.min(scrollFrame:GetVerticalScroll() or 0, maxScroll))
+        slider:SetValue(offset)
+        scrollFrame:SetVerticalScroll(offset)
         isSyncing = false
         updateHitRect()
     end
 
+    local function refresh()
+        if isRefreshing then
+            return
+        end
+        isRefreshing = true
+        local ok, err = pcall(refreshImpl)
+        isRefreshing = false
+        if not ok then
+            geterrorhandler()(err)
+        end
+    end
+
     local refreshPending = false
     local function scheduleRefresh()
-        if suppressed then
+        if suppressed or isRefreshing then
             return
         end
         if optionsResizeActive() then
@@ -246,8 +266,12 @@ function T:ScrollBar(parent, scrollFrame, opts)
         end
         refreshPending = true
         C_Timer.After(0, function()
-            refreshPending = false
+            if optionsResizeActive() then
+                refreshPending = false
+                return
+            end
             refresh()
+            refreshPending = false
         end)
     end
 
@@ -335,6 +359,7 @@ end
 --     scrollbar,               -- the T:ScrollBar instance
 --     ApplyAutoWidth(),
 --     SetContentSize(w, h),
+--     SyncViewport(),           -- refresh child rect/range without relayout
 --     SetMouseWheelStep(pixels),
 --     ScrollTo(y), ScrollToTop(), ScrollToBottom(),
 -- }
@@ -445,11 +470,11 @@ function T:ScrollFrame(parent, opts)
     scrollbar.frame:SetPoint("BOTTOMRIGHT", outer, "BOTTOMRIGHT", 0, bottomInset)
 
     local minW = opts.minContentWidth
-    local function ApplyAutoWidth(force)
+    local function ApplyAutoWidth()
         if not opts.autoWidth then
             return
         end
-        if optionsResizeActive() and not force then
+        if optionsResizeActive() then
             return
         end
         local w = scroll:GetWidth()
@@ -476,6 +501,7 @@ function T:ScrollFrame(parent, opts)
             scroll:UpdateScrollChildRect()
             scrollbar.Refresh()
         end,
+        SyncViewport = scrollbar.Refresh,
         SetMouseWheelStep = function(value)
             local nextStep = tonumber(value)
             if nextStep and nextStep > 0 then

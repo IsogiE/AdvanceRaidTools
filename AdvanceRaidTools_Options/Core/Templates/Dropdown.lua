@@ -15,6 +15,11 @@ local evalMaybeFn = P.evalMaybeFn
 local setTemplate = P.setTemplate
 local attachTooltip = P.attachTooltip
 
+local function optionsResizeActive()
+    return E.OptionsUI and E.OptionsUI.IsResizing and
+        E.OptionsUI:IsResizing()
+end
+
 -- =============================================================================
 -- Template: Dropdown
 -- -----------------------------------------------------------------------------
@@ -485,7 +490,7 @@ end
 --     wrap        = false,                                     -- wrap to additional rows
 --     rowGap      = 2,
 --     onTabChange = function(key, button) end,                 -- click handler
---     onLayout    = function(height, width) end,                -- after wrapping
+--     onHeightChanged = function(height, oldHeight, rows) end, -- row count changed
 --     autoActivateFirst = true,                                -- activate tabs[1] at build time
 -- }
 --
@@ -494,6 +499,7 @@ end
 --     ActivateTab(key)     -- programmatically select a tab (fires onTabChange)
 --     GetActiveKey()       -- key of currently active tab
 --     SetTabLabel(key, s)  -- change a tab's label (also resizes the button)
+--     Relayout()           -- synchronously finalize rows after anchoring
 --     ReapplyHighlight()   -- re-apply accent/bg colors after media changes
 -- }
 -- =============================================================================
@@ -506,7 +512,7 @@ function T:TabBar(parent, opts)
     local WRAP = opts.wrap and true or false
     local ROW_GAP = opts.rowGap or GAP
     local onTabChange = opts.onTabChange
-    local onLayout = opts.onLayout
+    local onHeightChanged = opts.onHeightChanged
 
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetHeight(H)
@@ -514,6 +520,7 @@ function T:TabBar(parent, opts)
     local buttons = {}
     local tabs = {}
     local activeKey
+    local restack
 
     local function paintButton(btn, active)
         if active then
@@ -527,6 +534,9 @@ function T:TabBar(parent, opts)
     end
 
     local function ActivateTab(key)
+        if restack then
+            restack()
+        end
         if activeKey == key then
             return false
         end
@@ -547,17 +557,41 @@ function T:TabBar(parent, opts)
 
     local isRestacking = false
     local lastLayoutWidth
+    local lastNotifiedHeight = H
+    local layoutDirty = true
     local api
 
-    local function restack()
+    restack = function()
         if isRestacking then
-            return
+            layoutDirty = true
+            return false
         end
+
+        -- The options window can emit an OnSizeChanged event for every pixel
+        -- while its resize grip is moving. Remember that the rows are stale,
+        -- then commit their geometry once the resize transaction finishes.
+        if WRAP and optionsResizeActive() then
+            layoutDirty = true
+            return false
+        end
+
+        local availableW = frame:GetWidth() or 0
+        if WRAP and availableW <= 0 then
+            layoutDirty = true
+            return false
+        end
+
+        local widthUnchanged = lastLayoutWidth and
+            math.abs(availableW - lastLayoutWidth) <= 0.5
+        if not layoutDirty and (not WRAP or widthUnchanged) then
+            return true
+        end
+
         isRestacking = true
+        layoutDirty = false
         local xx = 0
         local yy = 0
         local rows = 1
-        local availableW = frame:GetWidth() or 0
         for _, t in ipairs(tabs) do
             local textW = measureStringWidth(t.button._label)
             local tabW = math.max(MIN_W, math.ceil(textW) + PAD_X)
@@ -579,16 +613,26 @@ function T:TabBar(parent, opts)
         end
         local targetHeight = rows * H + (rows - 1) * ROW_GAP
         lastLayoutWidth = availableW
-        if math.abs((frame:GetHeight() or 0) - targetHeight) > 0.5 then
+        local oldHeight = frame:GetHeight() or 0
+        local heightChanged = math.abs(oldHeight - targetHeight) > 0.5
+        if heightChanged then
             frame:SetHeight(targetHeight)
         end
         if api then
             api.height = targetHeight
         end
         isRestacking = false
-        if onLayout then
-            safeCall("TabBar.onLayout", onLayout, targetHeight, availableW)
+        if layoutDirty then
+            return restack()
         end
+        if math.abs(lastNotifiedHeight - targetHeight) > 0.5 then
+            local previousHeight = lastNotifiedHeight
+            lastNotifiedHeight = targetHeight
+            if onHeightChanged then
+                safeCall("TabBar.onHeightChanged", onHeightChanged, targetHeight, previousHeight, rows)
+            end
+        end
+        return true
     end
 
     local x = 0
@@ -627,18 +671,17 @@ function T:TabBar(parent, opts)
         }
     end
 
-    frame:HookScript("OnShow", function(self_)
-        C_Timer.After(0, function()
-            if self_:IsShown() then
-                restack()
-            end
-        end)
+    frame:HookScript("OnShow", function()
+        restack()
     end)
     if WRAP then
         frame:HookScript("OnSizeChanged", function(self_, width)
-            if self_:IsShown() and
-                (not lastLayoutWidth or math.abs((width or 0) - lastLayoutWidth) > 0.5) then
-                restack()
+            if not lastLayoutWidth or
+                math.abs((width or 0) - lastLayoutWidth) > 0.5 then
+                layoutDirty = true
+                if self_:IsVisible() then
+                    restack()
+                end
             end
         end)
     end
@@ -650,12 +693,6 @@ function T:TabBar(parent, opts)
     if opts.autoActivateFirst ~= false and tabs[1] then
         ActivateTab(tabs[1].key)
     end
-
-    C_Timer.After(0, function()
-        if frame:IsShown() then
-            restack()
-        end
-    end)
 
     api = {
         frame = frame,
@@ -671,7 +708,16 @@ function T:TabBar(parent, opts)
             if not btn then
                 return
             end
-            btn._label:SetText(tostring(text or ""))
+            local nextText = tostring(text or "")
+            if btn._label:GetText() ~= nextText then
+                btn._label:SetText(nextText)
+            end
+            local nextWidth = math.max(MIN_W, math.ceil(measureStringWidth(btn._label)) + PAD_X)
+            if not layoutDirty and
+                math.abs((btn:GetWidth() or 0) - nextWidth) <= 0.5 then
+                return
+            end
+            layoutDirty = true
             restack()
         end,
         Relayout = restack,
