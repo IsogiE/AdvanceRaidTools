@@ -146,9 +146,17 @@ local function isUnitInspectable(unit)
     return visibleOK and not E:IsSecret(visible) and visible == true
 end
 
+local function isUnitConnected(unit)
+    local connectedOK, connected = pcall(UnitIsConnected, unit)
+    return connectedOK and not E:IsSecret(connected) and connected == true
+end
+
 local function attachTooltip(region, labelKey)
     region:EnableMouse(true)
     region:SetScript("OnEnter", function(self)
+        if self.tooltipEnabled == false then
+            return
+        end
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:SetText(text(labelKey))
         for _, line in ipairs(self.tooltipLines or {}) do
@@ -157,20 +165,6 @@ local function attachTooltip(region, labelKey)
         GameTooltip:Show()
     end)
     region:SetScript("OnLeave", GameTooltip_Hide)
-end
-
-local function setReadyState(cell, value, available)
-    cell.tooltipLines = nil
-    cell.value:Hide()
-    if not available then
-        cell.icon:Hide()
-        return
-    end
-
-    cell.icon:Show()
-    cell.icon:SetAtlas(value and READY_ATLAS or NOT_READY_ATLAS, false)
-    cell.icon:SetDesaturated(false)
-    cell.icon:SetAlpha(1)
 end
 
 local function colorComponents(color, fallbackR, fallbackG, fallbackB)
@@ -182,8 +176,31 @@ local function colorComponents(color, fallbackR, fallbackG, fallbackB)
     return fallbackR, fallbackG, fallbackB
 end
 
+local function setReadyState(cell, value, available, connected)
+    cell.tooltipLines = nil
+    cell.tooltipEnabled = available and true or false
+    cell.value:Hide()
+    if not available then
+        cell.icon:Hide()
+        if connected then
+            local r, g, b =
+                colorComponents(_G.GRAY_FONT_COLOR, 0.5, 0.5, 0.5)
+            cell.value:SetText("–")
+            cell.value:SetTextColor(r, g, b, 1)
+            cell.value:Show()
+        end
+        return
+    end
+
+    cell.icon:Show()
+    cell.icon:SetAtlas(value and READY_ATLAS or NOT_READY_ATLAS, false)
+    cell.icon:SetDesaturated(false)
+    cell.icon:SetAlpha(1)
+end
+
 local function setDurabilityState(cell, report)
     cell.tooltipLines = nil
+    cell.tooltipEnabled = report and true or false
 
     if not report then
         cell.value:Hide()
@@ -250,25 +267,22 @@ function RaidBuffList:SavePosition(position)
         position = E:GetFramePosition(self.frame, UIParent)
     end
 
-    self.db.position = {
-        point = position.point or "CENTER",
-        relPoint = position.relPoint or position.point or "CENTER",
-        x = tonumber(position.x) or 0,
-        y = tonumber(position.y) or 0
-    }
+    self.db.position.point = position.point or "CENTER"
+    self.db.position.relPoint = nil
+    self.db.position.x = tonumber(position.x) or 0
+    self.db.position.y = tonumber(position.y) or 0
     self:ApplyPosition()
 end
 
 function RaidBuffList:ApplyPosition()
     if self.frame then
-        E:ApplyFramePosition(self.frame, self.db.position, UIParent)
+        E:ApplyFramePosition(self.frame, self.db.position)
     end
 end
 
 function RaidBuffList:ResetPosition()
     self.db.position = {
         point = "CENTER",
-        relPoint = "CENTER",
         x = 0,
         y = 0
     }
@@ -288,6 +302,7 @@ function RaidBuffList:CreateRow(index)
     row.name:SetWidth(NAME_WIDTH - 10)
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
+    frame:RegisterDragRegion(row)
 
     row.cells = {}
     for _, column in ipairs(COLUMNS) do
@@ -301,6 +316,7 @@ function RaidBuffList:CreateRow(index)
         )
         cell:SetWidth(column.width)
         attachTooltip(cell, column.labelKey)
+        frame:RegisterDragRegion(cell)
 
         cell.icon = cell:CreateTexture(nil, "ARTWORK")
         cell.icon:SetPoint("CENTER")
@@ -337,7 +353,7 @@ function RaidBuffList:CreateFrame()
         template = "Transparent",
         title = text("QoL_RaidBuffList", "Raid Buff List"),
         canMove = function()
-            return RaidBuffList:IsUnlocked() and not InCombatLockdown()
+            return not InCombatLockdown()
         end,
         onMove = function(currentFrame)
             RaidBuffList:SavePosition(
@@ -352,11 +368,28 @@ function RaidBuffList:CreateFrame()
     frame.artOnMediaUpdate = function()
         RaidBuffList:ApplyAppearance()
     end
+    function frame:RegisterDragRegion(region)
+        region:EnableMouse(true)
+        region:RegisterForDrag("LeftButton")
+        region:SetScript("OnDragStart", function()
+            if not InCombatLockdown() then
+                frame:StartMoving()
+            end
+        end)
+        region:SetScript("OnDragStop", function()
+            frame:StopMovingOrSizing()
+            RaidBuffList:SavePosition(
+                E:GetFramePosition(frame, UIParent)
+            )
+        end)
+    end
+    frame:RegisterDragRegion(frame.body)
 
     local headers = CreateFrame("Frame", nil, frame.body)
     headers:SetPoint("TOPLEFT")
     headers:SetSize(TABLE_WIDTH, HEADER_HEIGHT)
     frame.headers = headers
+    frame:RegisterDragRegion(headers)
 
     local nameHeader = E:CreateFontString(headers, nil, "OVERLAY")
     nameHeader:SetPoint("LEFT", 5, 0)
@@ -375,6 +408,7 @@ function RaidBuffList:CreateFrame()
             0
         )
         attachTooltip(header, column.labelKey)
+        frame:RegisterDragRegion(header)
 
         local icon = header:CreateTexture(nil, "ARTWORK")
         icon:SetPoint("CENTER")
@@ -403,6 +437,9 @@ function RaidBuffList:CreateFrame()
     frame.scroll = list.scroll
     frame.content = list.content
     frame.rows = {}
+    frame:RegisterDragRegion(list.frame)
+    frame:RegisterDragRegion(list.scroll)
+    frame:RegisterDragRegion(list.content)
 
     self.frame = frame
     frame:SetScale(clamp(self.db.scale, 0.75, 1.5))
@@ -588,20 +625,15 @@ function RaidBuffList:RefreshList()
         local row = frame.rows[index]
         row:Show()
 
+        local connected = isUnitConnected(member.unit)
         local r, g, b = textR, textG, textB
         if self.db.useClassColors ~= false then
             r, g, b = E:ClassColorRGB(member.class)
         end
-        if IsInRaid() then
-            row.name:SetText(
-                ("%d. %s"):format(
-                    member.subgroup or 1,
-                    member.shortName or "?"
-                )
-            )
-        else
-            row.name:SetText(member.shortName or "?")
+        if not connected then
+            r, g, b = colorComponents(_G.GRAY_FONT_COLOR, 0.5, 0.5, 0.5)
         end
+        row.name:SetText(member.shortName or "?")
         row.name:SetTextColor(r, g, b)
 
         local scan, available
@@ -622,7 +654,8 @@ function RaidBuffList:RefreshList()
                 setReadyState(
                     cell,
                     scan[column.key],
-                    available
+                    available,
+                    connected
                 )
             end
         end
