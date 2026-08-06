@@ -16,10 +16,10 @@ local BOSS_FEATURES = {
     { featureKey = "VoidspireVaelgorEzzorak", bossKey = "VaelgorEzzorak" },
     { featureKey = "VoidspireVanguard", bossKey = "Vanguard" },
     { featureKey = "VoidspireAlleria", bossKey = "Alleria" },
-    { featureKey = "VoidspireChimaerus", bossKey = "Chimaerus" },
-    { featureKey = "VoidspireBeloren", bossKey = "Beloren" },
-    { featureKey = "VoidspireLura", bossKey = "Lura" },
-    { featureKey = "VoidspireRotmire", bossKey = "Rotmire" }
+    { featureKey = "DreamriftChimaerus", bossKey = "Chimaerus" },
+    { featureKey = "QueldanasBeloren", bossKey = "Beloren" },
+    { featureKey = "QueldanasLura", bossKey = "Lura" },
+    { featureKey = "SporefallRotmire", bossKey = "Rotmire" }
 }
 
 local ROW_GAP = 6
@@ -77,9 +77,16 @@ local SOUND_CHANNEL_SORTING = {
 -------------------------------------------------------------------------------
 
 local function getBossData(bossKey)
-    for _, boss in ipairs(E.VoidspireAbilityData or {}) do
-        if boss.bossKey == bossKey then
-            return boss
+    for _, source in ipairs({
+        E.VoidspireAbilityData,
+        E.DreamriftAbilityData,
+        E.QueldanasAbilityData,
+        E.SporefallAbilityData
+    }) do
+        for _, boss in ipairs(source or {}) do
+            if boss.bossKey == bossKey then
+                return boss
+            end
         end
     end
 end
@@ -1478,7 +1485,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 end
 
 -------------------------------------------------------------------------------
--- Register Ability Alerts for every Voidspire boss
+-- Register Ability Alerts for every boss served by the compatibility module.
 -------------------------------------------------------------------------------
 
 local function createBossBuilder(bossKey)
