@@ -1062,13 +1062,26 @@ bar.frame:SetPoint(
 
     bar:Hide()
 
+    bar.onFrame = function(elapsed, total)
+        if bar.postHitStageActive then
+            bar:SetValue(math.max(0, math.min(1, elapsed / total)))
+        elseif bar.beamBarActive then
+            if elapsed < 4 then
+                bar:SetValue(math.max(0, math.min(1, elapsed / 4)))
+            else
+                local beamRemaining = math.max(0, 18 - elapsed)
+
+                bar:SetValue(math.max(0, math.min(1, beamRemaining / 14)))
+            end
+        end
+    end
+
     bar.onTick = function(elapsed, total)
         local remaining = math.max(0, total - elapsed)
 
         bar:SetRight(("%.1f"):format(remaining))
 
         if bar.postHitStageActive then
-            bar:SetValue(math.max(0, math.min(1, elapsed / total)))
             bar:SetRight(("%.1f"):format(math.min(total, elapsed)))
         end
 
@@ -1147,12 +1160,10 @@ bar.frame:SetPoint(
 
         if bar.beamBarActive then
             if elapsed < 4 then
-                bar:SetValue(math.max(0, math.min(1, elapsed / 4)))
                 bar:SetRight(("%.1f"):format(elapsed))
             else
                 local beamRemaining = math.max(0, 18 - elapsed)
 
-                bar:SetValue(math.max(0, math.min(1, beamRemaining / 14)))
                 bar:SetRight(("%.1f"):format(beamRemaining))
             end
         end

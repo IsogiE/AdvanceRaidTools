@@ -711,13 +711,18 @@ bar.frame:SetPoint(
 
     bar:Hide()
 
+    bar.onFrame = function(elapsed, total)
+        if bar.postHitStageActive then
+            bar:SetValue(math.max(0, math.min(1, elapsed / total)))
+        end
+    end
+
     bar.onTick = function(elapsed, total)
         local remaining = math.max(0, total - elapsed)
 
         bar:SetRight(("%.1f"):format(remaining))
 
         if bar.postHitStageActive then
-            bar:SetValue(math.max(0, math.min(1, elapsed / total)))
             bar:SetRight(("%.1f"):format(math.min(total, elapsed)))
         end
     end
