@@ -43,6 +43,7 @@ E:RegisterModuleDefaults("BossMods_HoTTracker", {
             color = {1, 1, 1, 1}
         },
         cooldown = {
+            hideSwipe = false,
             reverse = false
         },
         timer = {
@@ -172,8 +173,7 @@ local function buildEngineConfig(mod)
         parent = UIParent,
         spec = {
             spells = CLASS_SPELLS[class] or {},
-            filter = "HELPFUL|PLAYER",
-            combatFilter = "HELPFUL"
+            filter = "HELPFUL|PLAYER"
         },
         layout = db.layout,
         visibility = {

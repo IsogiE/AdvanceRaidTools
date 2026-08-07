@@ -216,6 +216,17 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     -- Icon
     y = section(rightPanel, y, widthPx, "Icon")
 
+    local hideSwipe = checkbox({
+        text = L["BossMods_HoTTrackerSwipe"],
+        labelTop = true,
+        get = function()
+            return mod.db.style.cooldown and mod.db.style.cooldown.hideSwipe or false
+        end,
+        onChange = function(v)
+            mod.db.style.cooldown = mod.db.style.cooldown or {}
+            mod.db.style.cooldown.hideSwipe = v
+        end
+    })
     local reverseSwipe = checkbox({
         text = L["BossMods_HoTTrackerReverseSwipe"],
         labelTop = true,
@@ -227,7 +238,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.cooldown.reverse = v
         end
     })
-    y = row(rightPanel, y, widthPx, {reverseSwipe})
+    y = row(rightPanel, y, widthPx, {hideSwipe, reverseSwipe})
 
     local sizeSlider = slider({
         label = (L["Icon"] .. " " .. L["Size"]),

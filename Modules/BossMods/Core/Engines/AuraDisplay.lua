@@ -10,13 +10,14 @@ local fetchBorder = Shared.FetchBorder
 local colorTuple = Shared.ColorTuple
 local applyFontIfChanged = Shared.ApplyFontIfChanged
 local isSecret = Shared.IsSecret
-local isKnownUnitToken = Shared.IsKnownUnitToken
 local getPlayerSpecID = Shared.GetPlayerSpecID
 local defaultGroupUnits = Shared.DefaultGroupUnits
 
 local ICON_TEX_COORD = {0.08, 0.92, 0.08, 0.92}
 local FALLBACK_ICON = 134400
 local TICKER_INTERVAL = 0.1
+local AURA_SCAN_INTERVAL = 0.2
+local AURA_RESYNC_INTERVAL = 1
 
 function Engines.AuraDisplay(config)
     assert(type(config) == "table", "Engines.AuraDisplay: config required")
@@ -27,11 +28,12 @@ function Engines.AuraDisplay(config)
         active = false,
         editMode = false,
         inCombat = false,
-        lastResync = 0,
+        lastAuraScan = 0,
+        aurasDirty = true,
         auraData = {},
+        trackedSpells = {},
         displayEntries = {},
         entriesByKey = {},
-        unitAuraCache = {},
         ticker = nil,
         config = config,
         lastSpellsRef = nil,
@@ -60,8 +62,8 @@ function Engines.AuraDisplay(config)
     local icons = {}
 
     local function getUnits()
-        if type(config.getUnits) == "function" then
-            local ok, result = pcall(config.getUnits)
+        if type(state.config.getUnits) == "function" then
+            local ok, result = pcall(state.config.getUnits)
             if ok and type(result) == "table" then
                 return result
             end
@@ -87,6 +89,10 @@ function Engines.AuraDisplay(config)
         return true
     end
 
+    local function getAuraFilter()
+        return (state.config.spec and state.config.spec.filter) or "HELPFUL|PLAYER"
+    end
+
     local function isKeyEnabled(key)
         local v = state.config.visibility
         if not v or not v.enabledKeys then
@@ -99,26 +105,15 @@ function Engines.AuraDisplay(config)
         return ek and true or false
     end
 
-    -- Aura payload is filtered to our tracked spells
+    -- Aura payload is filtered to our tracked spells and the player's casts.
     local function extractAura(aura)
         if isSecret(aura) or type(aura) ~= "table" then
-            return
-        end
-        local iid = aura.auraInstanceID
-        if isSecret(iid) or type(iid) ~= "number" then
             return
         end
 
         local fromPlayer = aura.isFromPlayerOrPlayerPet
         if isSecret(fromPlayer) or not fromPlayer then
             return
-        end
-
-        local source = aura.sourceUnit
-        if not isSecret(source) and source ~= nil then
-            if not isKnownUnitToken(source) or not UnitIsUnit(source, "player") then
-                return
-            end
         end
 
         local sid = aura.spellId
@@ -142,144 +137,134 @@ function Engines.AuraDisplay(config)
             duration = 0
         end
 
-        return iid, sid, expiry, duration
+        return sid, expiry, duration
     end
 
-    local function resyncUnit(unit, combatSafe)
-        if isSecret(unit) or type(unit) ~= "string" then
-            return
+    local function resetAuraCounts()
+        for _, data in pairs(state.auraData) do
+            data.count = 0
+            data.minExpiry = math.huge
+            data.maxExpiry = 0
+            data.minDuration = 0
+            data.available = true
         end
-        if not UnitExists(unit) then
-            state.unitAuraCache[unit] = nil
+    end
+
+    local function resetReadableAuraCounts()
+        for _, data in pairs(state.auraData) do
+            if data.available then
+                data.count = 0
+                data.minExpiry = math.huge
+                data.maxExpiry = 0
+                data.minDuration = 0
+            end
+        end
+    end
+
+    local function isSpellAuraSecret(spellID)
+        if not C_Secrets or type(C_Secrets.ShouldSpellAuraBeSecret) ~= "function" then
+            return false
+        end
+        local ok, secret = pcall(C_Secrets.ShouldSpellAuraBeSecret, spellID)
+        return not ok or isSecret(secret) or secret == true
+    end
+
+    local function addAura(aura, now, seen)
+        local sid, expiry, duration = extractAura(aura)
+        if not sid or seen[sid] or (expiry ~= 0 and expiry < now) then
             return
         end
 
-        local nextCache = {}
-        local enumerated = false
-        if combatSafe and C_UnitAuras.GetUnitAuraInstanceIDs then
-            local filter = (state.config.spec and state.config.spec.combatFilter) or "HELPFUL"
-            local ok, ids = pcall(C_UnitAuras.GetUnitAuraInstanceIDs, unit, filter)
-            if ok and not isSecret(ids) and type(ids) == "table" then
-                enumerated = true
-                for _, iid in ipairs(ids) do
-                    if not isSecret(iid) and type(iid) == "number" then
-                        local auraOK, aura = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, unit, iid)
-                        if auraOK then
-                            local aiid, sid, expiry, duration = extractAura(aura)
-                            if aiid then
-                                nextCache[aiid] = {
-                                    spellId = sid,
-                                    expirationTime = expiry,
-                                    duration = duration
-                                }
-                            end
-                        end
-                    end
+        local data = state.auraData[sid]
+        if not data or not data.available then
+            return
+        end
+
+        -- A tracked spell can only count once per unit. This makes the count
+        -- immune to duplicate API records and caps single-aura trackers at the
+        -- number of current group units.
+        seen[sid] = true
+        data.count = data.count + 1
+        if expiry > 0 and expiry < data.minExpiry then
+            data.minExpiry = expiry
+            data.minDuration = duration
+        end
+        if expiry > data.maxExpiry then
+            data.maxExpiry = expiry
+        end
+    end
+
+    local function scanWithBulkAPI(units, now)
+        if not C_UnitAuras or type(C_UnitAuras.GetUnitAuras) ~= "function" then
+            return false
+        end
+
+        local filter = getAuraFilter()
+        for _, unit in ipairs(units) do
+            if UnitExists(unit) then
+                local ok, auras = pcall(C_UnitAuras.GetUnitAuras, unit, filter)
+                if not ok or isSecret(auras) or type(auras) ~= "table" then
+                    return false
                 end
-            end
-        elseif C_UnitAuras.GetUnitAuras then
-            local filter = (state.config.spec and state.config.spec.filter) or "HELPFUL|PLAYER"
-            local ok, auras = pcall(C_UnitAuras.GetUnitAuras, unit, filter)
-            if ok and not isSecret(auras) and type(auras) == "table" then
-                enumerated = true
+
+                local seen = {}
                 for _, aura in ipairs(auras) do
-                    local aiid, sid, expiry, duration = extractAura(aura)
-                    if aiid then
-                        nextCache[aiid] = {
-                            spellId = sid,
-                            expirationTime = expiry,
-                            duration = duration
-                        }
-                    end
+                    addAura(aura, now, seen)
                 end
             end
         end
-
-        -- In 12.1 an aura collection may be secret. Preserve event-fed cache
-        -- data when enumeration is unavailable instead of clearing it.
-        if enumerated then
-            state.unitAuraCache[unit] = nextCache
-        else
-            state.unitAuraCache[unit] = state.unitAuraCache[unit] or {}
-        end
+        return true
     end
 
-    local function resyncAll()
-        local currentUnits = {}
-        for _, unit in ipairs(getUnits()) do
-            if not isSecret(unit) and type(unit) == "string" then
-                currentUnits[unit] = true
-            end
-            resyncUnit(unit, state.inCombat)
+    local function findAuraBySpellID(unit, spell)
+        local getBySpellID = C_UnitAuras and C_UnitAuras.GetUnitAuraBySpellID
+        if type(getBySpellID) ~= "function" then
+            return nil, false
         end
-        for unit in pairs(state.unitAuraCache) do
-            if not currentUnits[unit] then
-                state.unitAuraCache[unit] = nil
+
+        local ok, aura = pcall(getBySpellID, unit, spell.id)
+        if not ok or isSecret(aura) then
+            return nil, false
+        end
+        if aura == nil then
+            return nil, true
+        end
+
+        local sid = extractAura(aura)
+        if sid == spell.id then
+            return aura, true
+        end
+
+        -- Another healer's copy can be the first spell-ID match. The name
+        -- lookup honors the configured filter and can still find our copy.
+        local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spell.id)
+        local getByName = C_UnitAuras.GetAuraDataBySpellName
+        if info and info.name and type(getByName) == "function" then
+            local nameOK, playerAura = pcall(getByName, unit, info.name, getAuraFilter())
+            if not nameOK or isSecret(playerAura) then
+                return nil, false
+            end
+            local playerSID = extractAura(playerAura)
+            if playerSID == spell.id then
+                return playerAura, true
             end
         end
+        return nil, true
     end
 
-    local function handleUnitAuraEvent(unit, info)
-        if isSecret(unit) or type(unit) ~= "string" or isSecret(info) then
-            return
-        end
-        local isFullUpdate = info and info.isFullUpdate
-        if isSecret(isFullUpdate) then
-            isFullUpdate = nil
-        end
-        if info == nil or isFullUpdate == true then
-            resyncUnit(unit, state.inCombat)
-            return
-        end
-        local cache = state.unitAuraCache[unit]
-        if not cache then
-            return
-        end
-
-        local removedIDs = info.removedAuraInstanceIDs
-        if not isSecret(removedIDs) and type(removedIDs) == "table" then
-            for _, iid in ipairs(removedIDs) do
-                if not isSecret(iid) and type(iid) == "number" then
-                    cache[iid] = nil
-                end
-            end
-        end
-        local addedAuras = info.addedAuras
-        if not isSecret(addedAuras) and type(addedAuras) == "table" then
-            for _, aura in ipairs(addedAuras) do
-                local fresh = not isSecret(aura) and type(aura) == "table" and aura or nil
-                local iid = fresh and fresh.auraInstanceID
-                if not isSecret(iid) and type(iid) == "number" then
-                    if fresh then
-                        local aiid, sid, expiry, duration = extractAura(fresh)
-                        if aiid then
-                            cache[iid] = {
-                                spellId = sid,
-                                expirationTime = expiry,
-                                duration = duration
-                            }
+    local function scanWithSpellAPI(units, now)
+        for _, unit in ipairs(units) do
+            if UnitExists(unit) then
+                local seen = {}
+                for _, spell in ipairs(state.trackedSpells) do
+                    local data = state.auraData[spell.id]
+                    if data and data.available then
+                        local aura, readable = findAuraBySpellID(unit, spell)
+                        if readable then
+                            addAura(aura, now, seen)
+                        else
+                            data.available = false
                         end
-                    end
-                end
-            end
-        end
-        local updatedIDs = info.updatedAuraInstanceIDs
-        if not isSecret(updatedIDs) and type(updatedIDs) == "table" then
-            for _, iid in ipairs(updatedIDs) do
-                if not isSecret(iid) and type(iid) == "number" then
-                    local ok, aura = pcall(C_UnitAuras.GetAuraDataByAuraInstanceID, unit, iid)
-                    local aiid, sid, expiry, duration
-                    if ok then
-                        aiid, sid, expiry, duration = extractAura(aura)
-                    end
-                    if aiid then
-                        cache[aiid] = {
-                            spellId = sid,
-                            expirationTime = expiry,
-                            duration = duration
-                        }
-                    else
-                        cache[iid] = nil
                     end
                 end
             end
@@ -287,46 +272,44 @@ function Engines.AuraDisplay(config)
     end
 
     local function scanGroupAuras()
-        for sid in pairs(state.auraData) do
-            local d = state.auraData[sid]
-            d.count, d.minExpiry, d.maxExpiry, d.minDuration = 0, math.huge, 0, 0
+        local now = GetTime()
+        local elapsed = now - state.lastAuraScan
+        if elapsed < AURA_SCAN_INTERVAL or (not state.aurasDirty and elapsed < AURA_RESYNC_INTERVAL) then
+            return
         end
 
-        local now = GetTime()
-        for _, cache in pairs(state.unitAuraCache) do
-            local toRemove
-            for iid, e in pairs(cache) do
-                local sid = e.spellId
-                local expiry = e.expirationTime or 0
-                if expiry == 0 or expiry < now or not state.auraData[sid] then
-                    toRemove = toRemove or {}
-                    toRemove[#toRemove + 1] = iid
-                else
-                    local d = state.auraData[sid]
-                    d.count = d.count + 1
-                    if expiry < d.minExpiry then
-                        d.minExpiry = expiry
-                        d.minDuration = e.duration or 0
-                    end
-                    if expiry > d.maxExpiry then
-                        d.maxExpiry = expiry
-                    end
-                end
+        state.aurasDirty = false
+        state.lastAuraScan = now
+        resetAuraCounts()
+
+        local hasReadableSpell = false
+        for sid, data in pairs(state.auraData) do
+            if isSpellAuraSecret(sid) then
+                data.available = false
+            else
+                hasReadableSpell = true
             end
-            if toRemove then
-                for _, iid in ipairs(toRemove) do
-                    cache[iid] = nil
-                end
-            end
+        end
+        if not hasReadableSpell then
+            return
+        end
+
+        local units = getUnits()
+        if not scanWithBulkAPI(units, now) then
+            -- 12.1 blocks bulk/index/instance aura access while auras are
+            -- restricted. Spell-ID lookups remain legal for non-secret auras.
+            resetReadableAuraCounts()
+            scanWithSpellAPI(units, now)
         end
     end
 
     local function rebuildTrackedSpells()
         wipe(state.auraData)
+        wipe(state.trackedSpells)
         wipe(state.displayEntries)
         wipe(state.entriesByKey)
-        wipe(state.unitAuraCache)
         state.layoutDirty = true
+        state.aurasDirty = true
 
         local spells = state.config.spec and state.config.spec.spells or {}
         local spec = getPlayerSpecID()
@@ -343,11 +326,13 @@ function Engines.AuraDisplay(config)
             end
 
             if validSpec then
+                state.trackedSpells[#state.trackedSpells + 1] = spell
                 state.auraData[spell.id] = {
                     count = 0,
                     minExpiry = math.huge,
                     maxExpiry = 0,
-                    minDuration = 0
+                    minDuration = 0,
+                    available = true
                 }
 
                 if spell.hidden then
@@ -532,6 +517,9 @@ function Engines.AuraDisplay(config)
                 if ic.cooldown.SetReverse then
                     ic.cooldown:SetReverse(cooldownCfg.reverse and true or false)
                 end
+                if ic.cooldown.SetDrawSwipe then
+                    ic.cooldown:SetDrawSwipe(not cooldownCfg.hideSwipe)
+                end
                 if countCfg.enabled ~= false then
                     applyLabelStyle(ic.count, countCfg)
                 end
@@ -598,9 +586,13 @@ function Engines.AuraDisplay(config)
             local entry = ic and ic._entry
             if entry then
                 local totalCount, minExpiry, minDuration = 0, math.huge, 0
+                local dataAvailable = true
                 for _, sid in ipairs(entry.spellIDs) do
                     local d = state.auraData[sid]
                     if d then
+                        if not d.available then
+                            dataAvailable = false
+                        end
                         totalCount = totalCount + d.count
                         if d.minExpiry < minExpiry then
                             minExpiry = d.minExpiry
@@ -609,14 +601,14 @@ function Engines.AuraDisplay(config)
                     end
                 end
 
-                local desat = totalCount == 0 and not state.editMode
+                local desat = dataAvailable and totalCount == 0 and not state.editMode
                 if ic._desat ~= desat then
                     ic.texture:SetDesaturated(desat)
                     ic._desat = desat
                 end
 
                 if countEnabled then
-                    local txt = tostring(state.editMode and 1 or totalCount)
+                    local txt = state.editMode and "1" or (dataAvailable and tostring(totalCount) or "?")
                     if ic._countText ~= txt then
                         ic.count:SetText(txt)
                         ic._countText = txt
@@ -628,7 +620,7 @@ function Engines.AuraDisplay(config)
                     ic.count:Hide()
                 end
 
-                if timerEnabled and (totalCount > 0 or state.editMode) then
+                if timerEnabled and (state.editMode or (dataAvailable and totalCount > 0)) then
                     local txt = state.editMode and "9.9" or formatTime(minExpiry - now, decimals)
                     if ic._timerText ~= txt then
                         ic.timer:SetText(txt)
@@ -642,7 +634,7 @@ function Engines.AuraDisplay(config)
                 end
 
                 local cdStart, cdDur = 0, 0
-                if totalCount > 0 and minExpiry ~= math.huge and minDuration > 0 then
+                if dataAvailable and totalCount > 0 and minExpiry ~= math.huge and minDuration > 0 then
                     cdStart, cdDur = minExpiry - minDuration, minDuration
                 elseif state.editMode then
                     cdStart, cdDur = now - 5, 10
@@ -695,34 +687,22 @@ function Engines.AuraDisplay(config)
 
     -- event handlers
 
-    callbacks:RegisterEvent("UNIT_AURA", function(_, unit, info)
-        if not state.active then
-            return
-        end
-        if isSecret(unit) or type(unit) ~= "string" or isSecret(info) then
-            return
-        end
-        local isFullUpdate = info and info.isFullUpdate
-        if isSecret(isFullUpdate) then
-            isFullUpdate = nil
-        end
-        if isKnownUnitToken(unit) and UnitIsUnit(unit, "player") then
-            unit = "player"
-        end
-        if state.unitAuraCache[unit] or info == nil or isFullUpdate == true then
-            handleUnitAuraEvent(unit, info)
+    callbacks:RegisterEvent("UNIT_AURA", function()
+        if state.active then
+            -- Do not inspect the event payload: it becomes fully secret in
+            -- 12.1. The event is only a signal to perform an authoritative scan.
+            state.aurasDirty = true
         end
     end)
 
     callbacks:RegisterEvent("PLAYER_REGEN_DISABLED", function()
         state.inCombat = true
-        state.lastResync = GetTime()
+        state.aurasDirty = true
     end)
 
     callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", function()
         state.inCombat = false
-        state.lastResync = GetTime()
-        resyncAll()
+        state.aurasDirty = true
     end)
 
     local function onSpecOrWorld()
@@ -730,27 +710,14 @@ function Engines.AuraDisplay(config)
             return
         end
         rebuildTrackedSpells()
-        resyncAll()
     end
 
     callbacks:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", onSpecOrWorld)
     callbacks:RegisterEvent("PLAYER_ENTERING_WORLD", onSpecOrWorld)
 
     callbacks:RegisterEvent("GROUP_ROSTER_UPDATE", function()
-        if not state.active then
-            return
-        end
-        local current = {}
-        for _, unit in ipairs(getUnits()) do
-            current[unit] = true
-            if not state.unitAuraCache[unit] then
-                resyncUnit(unit, state.inCombat)
-            end
-        end
-        for unit in pairs(state.unitAuraCache) do
-            if not current[unit] then
-                state.unitAuraCache[unit] = nil
-            end
+        if state.active then
+            state.aurasDirty = true
         end
     end)
 
@@ -768,10 +735,10 @@ function Engines.AuraDisplay(config)
         state.active = v
         if v then
             state.inCombat = UnitAffectingCombat and UnitAffectingCombat("player") or false
-            state.lastResync = GetTime()
+            state.lastAuraScan = 0
+            state.aurasDirty = true
             state.layoutDirty = true
             rebuildTrackedSpells()
-            resyncAll()
             startTicker()
         else
             stopTicker()
@@ -782,7 +749,6 @@ function Engines.AuraDisplay(config)
                 end
             end
             display:Hide()
-            wipe(state.unitAuraCache)
         end
     end
 
@@ -806,7 +772,8 @@ function Engines.AuraDisplay(config)
 
         if rebuildNeeded and state.active then
             rebuildTrackedSpells()
-            resyncAll()
+        elseif state.active then
+            state.aurasDirty = true
         end
 
         state.layoutDirty = true
@@ -831,7 +798,7 @@ function Engines.AuraDisplay(config)
         wipe(state.auraData)
         wipe(state.displayEntries)
         wipe(state.entriesByKey)
-        wipe(state.unitAuraCache)
+        wipe(state.trackedSpells)
         state.active = false
     end
 
