@@ -836,11 +836,9 @@ L["BossMods_BressSwipe"] = "Cooldown Swipe"
 
 -- BossMods: HoTTracker
 L["BossMods_HoTTracker"] = "Healer HoTs"
-L["BossMods_HoTTrackerDesc"] = "Counts the hots you have out on people"
+L["BossMods_HoTTrackerDesc"] = "Shows how many of your HoTs are active across the group"
 L["BossMods_ShowWhen"] = "Show When"
 L["BossMods_IconSpacing"] = "Icon Spacing"
-L["BossMods_HoTTrackerSwipe"] = "Remove Cooldown Swipe"
-L["BossMods_HoTTrackerReverseSwipe"] = "Reverse Cooldown Swipe"
 L["BossMods_TrackedSpells"] = "Tracked Spells"
 L["BossMods_NoTrackedSpellsForClass"] = "No tracked spells for your class"
 

@@ -9,15 +9,35 @@ local fetchFont = Shared.FetchFont
 local fetchBorder = Shared.FetchBorder
 local colorTuple = Shared.ColorTuple
 local applyFontIfChanged = Shared.ApplyFontIfChanged
-local isSecret = Shared.IsSecret
 local getPlayerSpecID = Shared.GetPlayerSpecID
-local defaultGroupUnits = Shared.DefaultGroupUnits
 
 local ICON_TEX_COORD = {0.08, 0.92, 0.08, 0.92}
 local FALLBACK_ICON = 134400
-local TICKER_INTERVAL = 0.1
-local AURA_SCAN_INTERVAL = 0.2
-local AURA_RESYNC_INTERVAL = 1
+local MAX_GROUP_UNITS = 40
+local COUNTER_ELEMENT_WIDTH = 2
+local COUNTER_UPDATE_INTERVAL = 0.1
+
+local function areAurasRestricted()
+    if not C_Secrets or type(C_Secrets.ShouldAurasBeSecret) ~= "function" then
+        return false
+    end
+
+    local ok, restricted = pcall(C_Secrets.ShouldAurasBeSecret)
+    return not ok or restricted == true
+end
+
+local function loadAuraContainer()
+    if not C_AddOns or type(C_AddOns.LoadAddOn) ~= "function" then
+        return false
+    end
+    if not C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") then
+        local ok = pcall(C_AddOns.LoadAddOn, "Blizzard_AuraContainer")
+        if not ok then
+            return false
+        end
+    end
+    return C_AddOns.IsAddOnLoaded("Blizzard_AuraContainer") == true
+end
 
 function Engines.AuraDisplay(config)
     assert(type(config) == "table", "Engines.AuraDisplay: config required")
@@ -28,27 +48,21 @@ function Engines.AuraDisplay(config)
         active = false,
         editMode = false,
         inCombat = false,
-        lastAuraScan = 0,
-        aurasDirty = true,
-        auraData = {},
+        config = config,
         trackedSpells = {},
         displayEntries = {},
         entriesByKey = {},
-        ticker = nil,
-        config = config,
-        lastSpellsRef = nil,
+        icons = {},
+        counterSlots = {},
+        counterTrackers = {},
+        pendingSecureRefresh = false,
         bgApplied = false,
-        layoutDirty = true,
-        shownCount = 0
+        counterElapsed = 0
     }
 
     local callbacks = E:NewCallbackHandle()
-
-    local layoutCfg = config.layout or {}
-    local anchorSize = layoutCfg.anchorSize or {
-        w = 200,
-        h = 44
-    }
+    local layoutConfig = config.layout or {}
+    local anchorSize = layoutConfig.anchorSize or {w = 200, h = 44}
 
     local anchor = CreateFrame("Frame", nil, config.parent)
     anchor:SetSize(anchorSize.w, anchorSize.h)
@@ -59,7 +73,15 @@ function Engines.AuraDisplay(config)
     display:SetFrameStrata("MEDIUM")
     display:Hide()
 
-    local icons = {}
+    local iconLayer = CreateFrame("Frame", nil, display)
+    iconLayer:SetAllPoints(display)
+    iconLayer:SetFrameLevel(display:GetFrameLevel() + 10)
+
+    -- These hidden containers encode the total aura count in their combined
+    -- width. Their protected aura state is never inspected by addon Lua.
+    local counterLayer = CreateFrame("Frame", nil, display, "DisableUntrustedLayoutScriptsTemplate")
+    counterLayer:SetAllPoints(display)
+    counterLayer:SetAlpha(0)
 
     local function getUnits()
         if type(state.config.getUnits) == "function" then
@@ -68,740 +90,576 @@ function Engines.AuraDisplay(config)
                 return result
             end
         end
-        return defaultGroupUnits()
+
+        -- Do not size this list from GetNumGroupMembers(). That API counts
+        -- players, while follower-dungeon NPCs still occupy party unit tokens.
+        -- Invalid unit tokens simply produce empty AuraContainers, so covering
+        -- the complete Blizzard token range is both stable and exact.
+        local units = {}
+        if IsInRaid and IsInRaid() then
+            for index = 1, MAX_GROUP_UNITS do
+                units[index] = "raid" .. index
+            end
+        else
+            units[1] = "player"
+            for index = 1, 4 do
+                units[index + 1] = "party" .. index
+            end
+        end
+        return units
     end
 
     local function shouldShow()
         if state.editMode then
             return true
         end
-        local v = state.config.visibility or {}
-        local sw = v.showWhen or "always"
-        if sw == "never" then
+
+        local visibility = state.config.visibility or {}
+        local showWhen = visibility.showWhen or "always"
+        if showWhen == "never" then
             return false
-        end
-        if sw == "combat" then
+        elseif showWhen == "combat" then
             return state.inCombat
-        end
-        if sw == "nocombat" then
+        elseif showWhen == "nocombat" then
             return not state.inCombat
         end
         return true
     end
 
-    local function getAuraFilter()
-        return (state.config.spec and state.config.spec.filter) or "HELPFUL|PLAYER"
-    end
-
     local function isKeyEnabled(key)
-        local v = state.config.visibility
-        if not v or not v.enabledKeys then
+        local visibility = state.config.visibility
+        if not visibility or not visibility.enabledKeys then
             return true
         end
-        local ek = v.enabledKeys[key]
-        if ek == nil then
+
+        local enabled = visibility.enabledKeys[key]
+        if enabled == nil then
             return true
         end
-        return ek and true or false
+        return enabled == true
     end
 
-    -- Aura payload is filtered to our tracked spells and the player's casts.
-    local function extractAura(aura)
-        if isSecret(aura) or type(aura) ~= "table" then
-            return
+    local function isSpellValidForSpec(spell, specID)
+        if not spell.specIDs then
+            return true
         end
-
-        local fromPlayer = aura.isFromPlayerOrPlayerPet
-        if isSecret(fromPlayer) or not fromPlayer then
-            return
-        end
-
-        local sid = aura.spellId
-        if isSecret(sid) or type(sid) ~= "number" then
-            return
-        end
-        if not state.auraData[sid] then
-            return
-        end
-
-        local expiry = aura.expirationTime
-        if isSecret(expiry) or type(expiry) ~= "number" then
-            expiry = 0
-        end
-        if expiry ~= 0 and expiry < GetTime() then
-            return
-        end
-
-        local duration = aura.duration
-        if isSecret(duration) or type(duration) ~= "number" then
-            duration = 0
-        end
-
-        return sid, expiry, duration
-    end
-
-    local function resetAuraCounts()
-        for _, data in pairs(state.auraData) do
-            data.count = 0
-            data.minExpiry = math.huge
-            data.maxExpiry = 0
-            data.minDuration = 0
-            data.available = true
-        end
-    end
-
-    local function resetReadableAuraCounts()
-        for _, data in pairs(state.auraData) do
-            if data.available then
-                data.count = 0
-                data.minExpiry = math.huge
-                data.maxExpiry = 0
-                data.minDuration = 0
-            end
-        end
-    end
-
-    local function isSpellAuraSecret(spellID)
-        if not C_Secrets or type(C_Secrets.ShouldSpellAuraBeSecret) ~= "function" then
+        if not specID then
             return false
         end
-        local ok, secret = pcall(C_Secrets.ShouldSpellAuraBeSecret, spellID)
-        return not ok or isSecret(secret) or secret == true
-    end
-
-    local function addAura(aura, now, seen)
-        local sid, expiry, duration = extractAura(aura)
-        if not sid or seen[sid] or (expiry ~= 0 and expiry < now) then
-            return
-        end
-
-        local data = state.auraData[sid]
-        if not data or not data.available then
-            return
-        end
-
-        -- A tracked spell can only count once per unit. This makes the count
-        -- immune to duplicate API records and caps single-aura trackers at the
-        -- number of current group units.
-        seen[sid] = true
-        data.count = data.count + 1
-        if expiry > 0 and expiry < data.minExpiry then
-            data.minExpiry = expiry
-            data.minDuration = duration
-        end
-        if expiry > data.maxExpiry then
-            data.maxExpiry = expiry
-        end
-    end
-
-    local function scanWithBulkAPI(units, now)
-        if not C_UnitAuras or type(C_UnitAuras.GetUnitAuras) ~= "function" then
-            return false
-        end
-
-        local filter = getAuraFilter()
-        for _, unit in ipairs(units) do
-            if UnitExists(unit) then
-                local ok, auras = pcall(C_UnitAuras.GetUnitAuras, unit, filter)
-                if not ok or isSecret(auras) or type(auras) ~= "table" then
-                    return false
-                end
-
-                local seen = {}
-                for _, aura in ipairs(auras) do
-                    addAura(aura, now, seen)
-                end
+        for _, validSpecID in ipairs(spell.specIDs) do
+            if validSpecID == specID then
+                return true
             end
         end
-        return true
+        return false
     end
 
-    local function findAuraBySpellID(unit, spell)
-        local getBySpellID = C_UnitAuras and C_UnitAuras.GetUnitAuraBySpellID
-        if type(getBySpellID) ~= "function" then
-            return nil, false
-        end
-
-        local ok, aura = pcall(getBySpellID, unit, spell.id)
-        if not ok or isSecret(aura) then
-            return nil, false
-        end
-        if aura == nil then
-            return nil, true
-        end
-
-        local sid = extractAura(aura)
-        if sid == spell.id then
-            return aura, true
-        end
-
-        -- Another healer's copy can be the first spell-ID match. The name
-        -- lookup honors the configured filter and can still find our copy.
-        local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spell.id)
-        local getByName = C_UnitAuras.GetAuraDataBySpellName
-        if info and info.name and type(getByName) == "function" then
-            local nameOK, playerAura = pcall(getByName, unit, info.name, getAuraFilter())
-            if not nameOK or isSecret(playerAura) then
-                return nil, false
-            end
-            local playerSID = extractAura(playerAura)
-            if playerSID == spell.id then
-                return playerAura, true
+    local function appendSpellID(entry, spellID)
+        for _, existingID in ipairs(entry.spellIDs) do
+            if existingID == spellID then
+                return
             end
         end
-        return nil, true
-    end
-
-    local function scanWithSpellAPI(units, now)
-        for _, unit in ipairs(units) do
-            if UnitExists(unit) then
-                local seen = {}
-                for _, spell in ipairs(state.trackedSpells) do
-                    local data = state.auraData[spell.id]
-                    if data and data.available then
-                        local aura, readable = findAuraBySpellID(unit, spell)
-                        if readable then
-                            addAura(aura, now, seen)
-                        else
-                            data.available = false
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    local function scanGroupAuras()
-        local now = GetTime()
-        local elapsed = now - state.lastAuraScan
-        if elapsed < AURA_SCAN_INTERVAL or (not state.aurasDirty and elapsed < AURA_RESYNC_INTERVAL) then
-            return
-        end
-
-        state.aurasDirty = false
-        state.lastAuraScan = now
-        resetAuraCounts()
-
-        local hasReadableSpell = false
-        for sid, data in pairs(state.auraData) do
-            if isSpellAuraSecret(sid) then
-                data.available = false
-            else
-                hasReadableSpell = true
-            end
-        end
-        if not hasReadableSpell then
-            return
-        end
-
-        local units = getUnits()
-        if not scanWithBulkAPI(units, now) then
-            -- 12.1 blocks bulk/index/instance aura access while auras are
-            -- restricted. Spell-ID lookups remain legal for non-secret auras.
-            resetReadableAuraCounts()
-            scanWithSpellAPI(units, now)
-        end
+        entry.spellIDs[#entry.spellIDs + 1] = spellID
     end
 
     local function rebuildTrackedSpells()
-        wipe(state.auraData)
         wipe(state.trackedSpells)
         wipe(state.displayEntries)
         wipe(state.entriesByKey)
-        state.layoutDirty = true
-        state.aurasDirty = true
 
         local spells = state.config.spec and state.config.spec.spells or {}
-        local spec = getPlayerSpecID()
+        local specID = getPlayerSpecID()
+
+        -- Create the visible entries first so hidden spell variants work even
+        -- if a future spell table lists them before their visible counterpart.
+        for _, spell in ipairs(spells) do
+            if not spell.hidden and isSpellValidForSpec(spell, specID) and isKeyEnabled(spell.key) then
+                local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spell.id)
+                local entry = {
+                    key = spell.key,
+                    label = spell.name,
+                    color = spell.color,
+                    texID = info and info.iconID or FALLBACK_ICON,
+                    spellIDs = {}
+                }
+                state.entriesByKey[spell.key] = entry
+                state.displayEntries[#state.displayEntries + 1] = entry
+            end
+        end
 
         for _, spell in ipairs(spells) do
-            local validSpec = not spell.specIDs
-            if not validSpec and spec then
-                for _, sid in ipairs(spell.specIDs) do
-                    if sid == spec then
-                        validSpec = true;
-                        break
-                    end
-                end
-            end
-
-            if validSpec then
-                state.trackedSpells[#state.trackedSpells + 1] = spell
-                state.auraData[spell.id] = {
-                    count = 0,
-                    minExpiry = math.huge,
-                    maxExpiry = 0,
-                    minDuration = 0,
-                    available = true
-                }
-
-                if spell.hidden then
-                    local entry = state.entriesByKey[spell.key]
-                    if entry then
-                        entry.spellIDs[#entry.spellIDs + 1] = spell.id
-                    end
-                else
-                    local info = C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spell.id)
-                    local entry = {
-                        key = spell.key,
-                        label = spell.name,
-                        color = spell.color,
-                        texID = info and info.iconID or FALLBACK_ICON,
-                        spellIDs = {spell.id}
-                    }
-                    state.displayEntries[#state.displayEntries + 1] = entry
-                    state.entriesByKey[spell.key] = entry
+            if isSpellValidForSpec(spell, specID) and isKeyEnabled(spell.key) then
+                local entry = state.entriesByKey[spell.key]
+                if entry then
+                    state.trackedSpells[#state.trackedSpells + 1] = spell
+                    appendSpellID(entry, spell.id)
                 end
             end
         end
     end
 
-    local function formatTime(remaining, decimals)
-        if remaining <= 0 or remaining == math.huge then
-            return ""
-        end
-        if remaining >= 60 then
-            return ("%dm"):format(math.ceil(remaining / 60))
-        end
-        if decimals == 0 then
-            return ("%d"):format(math.floor(remaining))
-        end
-        if decimals == 2 then
-            return ("%.2f"):format(remaining)
-        end
-        return ("%.1f"):format(remaining)
-    end
-
-    local function getOrCreateIcon(index)
-        if icons[index] then
-            return icons[index]
-        end
-
-        local f = CreateFrame("Frame", nil, display, "BackdropTemplate")
-        f:SetFrameStrata("MEDIUM")
-
-        f.texture = f:CreateTexture(nil, "ARTWORK")
-        f.texture:SetAllPoints()
-        f.texture:SetTexCoord(unpack(ICON_TEX_COORD))
-
-        f.cooldown = CreateFrame("Cooldown", nil, f, "CooldownFrameTemplate")
-        f.cooldown:SetAllPoints(f)
-        f.cooldown:SetFrameLevel(f:GetFrameLevel() + 1)
-        f.cooldown:SetDrawBling(false)
-        f.cooldown:SetDrawEdge(false)
-        f.cooldown:SetHideCountdownNumbers(true)
-        if f.cooldown.SetSwipeColor then
-            f.cooldown:SetSwipeColor(0, 0, 0, 0.55)
-        end
-
-        local textHolder = CreateFrame("Frame", nil, f)
-        textHolder:SetAllPoints(f)
-        textHolder:SetFrameLevel(f:GetFrameLevel() + 10)
-
-        f.count = textHolder:CreateFontString(nil, "OVERLAY")
-        f.count:SetPoint("TOPLEFT", f, "TOPLEFT", 1, -1)
-        f.timer = textHolder:CreateFontString(nil, "OVERLAY")
-        f.timer:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
-
-        f.border = CreateFrame("Frame", nil, display, "BackdropTemplate")
-        f.border:SetFrameStrata("MEDIUM")
-        f.border:SetFrameLevel(f:GetFrameLevel())
-        f.border:Hide()
-        f.borderApplied = false
-
-        icons[index] = f
-        return f
-    end
-
-    local function applyLabelStyle(fs, style)
-        applyFontIfChanged(fs, fetchFont(), style.size or 11, style.outline or "OUTLINE")
+    local function applyLabelStyle(fontString, parent, style)
+        applyFontIfChanged(fontString, fetchFont(), style.size or 11, style.outline or "OUTLINE")
         local r, g, b, a = colorTuple(style.color, 1, 1, 1, 1)
-        fs:SetTextColor(r, g, b, a)
-        fs:ClearAllPoints()
-        fs:SetPoint(style.anchor or "TOPLEFT", fs:GetParent(), style.anchor or "TOPLEFT", style.offsetX or 0,
-            style.offsetY or 0)
+        fontString:SetTextColor(r, g, b, a)
+        fontString:ClearAllPoints()
+        local point = style.anchor or "TOPLEFT"
+        fontString:SetPoint(point, parent, point, style.offsetX or 0, style.offsetY or 0)
     end
 
-    local function updateIconBorder(ic, borderCfg)
-        if not borderCfg or not borderCfg.enabled then
-            E:ApplyOuterBorder(ic, {
-                enabled = false
-            })
-            ic.border:Hide()
-            ic.borderApplied = false
+    local function updateIconBorder(icon, borderConfig)
+        if not borderConfig or not borderConfig.enabled then
+            E:ApplyOuterBorder(icon, {enabled = false})
             return
         end
-        local edgeTex = fetchBorder(borderCfg.texture)
-        local edgeSize = math.min(borderCfg.size or 12, 16)
-        if edgeSize <= 0 then
-            E:ApplyOuterBorder(ic, {
-                enabled = false
-            })
-            ic.border:Hide()
-            ic.borderApplied = false
+
+        local edgeTexture = fetchBorder(borderConfig.texture)
+        local edgeSize = math.min(borderConfig.size or 12, 16)
+        if not edgeTexture or edgeSize <= 0 then
+            E:ApplyOuterBorder(icon, {enabled = false})
             return
         end
-        ic.border:Hide()
-        local r, g, b, a = colorTuple(borderCfg.color, 0, 0, 0, 1)
-        E:ApplyOuterBorder(ic, {
+
+        local r, g, b, a = colorTuple(borderConfig.color, 0, 0, 0, 1)
+        E:ApplyOuterBorder(icon, {
             enabled = true,
-            edgeFile = edgeTex,
+            edgeFile = edgeTexture,
             edgeSize = edgeSize,
             r = r,
             g = g,
             b = b,
-            a = a * (borderCfg.opacity or 1)
+            a = a * (borderConfig.opacity or 1)
         })
-        ic.borderApplied = true
     end
 
-    local function updateDisplayBackdrop(styleCfg)
-        local bg = styleCfg and styleCfg.background
-
-        if not bg or not bg.enabled then
+    local function updateDisplayBackdrop()
+        local background = (state.config.style or {}).background
+        if not background or not background.enabled then
             if state.bgApplied then
                 display:SetBackdrop(nil)
                 state.bgApplied = false
             end
             return
         end
+
         if not state.bgApplied then
             display:SetBackdrop({
                 bgFile = WHITE,
-                insets = {
-                    left = 0,
-                    right = 0,
-                    top = 0,
-                    bottom = 0
-                }
+                insets = {left = 0, right = 0, top = 0, bottom = 0}
             })
             state.bgApplied = true
         end
-        local r, g, b = colorTuple(bg.color, 0, 0, 0, 1)
-        display:SetBackdropColor(r, g, b, bg.opacity or 0.5)
+        local r, g, b = colorTuple(background.color, 0, 0, 0, 1)
+        display:SetBackdropColor(r, g, b, background.opacity or 0.5)
     end
 
-    -- Applies static icon layout
-    local function applyLayout()
-        local styleCfg = state.config.style or {}
+    local function getOrCreateIcon(index)
+        if state.icons[index] then
+            return state.icons[index]
+        end
+
+        local icon = CreateFrame(
+            "Frame",
+            nil,
+            iconLayer,
+            "BackdropTemplate,DisableUntrustedLayoutScriptsTemplate"
+        )
+        icon:SetFrameLevel(iconLayer:GetFrameLevel() + 1)
+
+        icon.texture = icon:CreateTexture(nil, "ARTWORK")
+        icon.texture:SetAllPoints(icon)
+        icon.texture:SetTexCoord(unpack(ICON_TEX_COORD))
+
+        local overlay = CreateFrame("Frame", nil, icon, "DisableUntrustedLayoutScriptsTemplate")
+        overlay:SetAllPoints(icon)
+        overlay:SetFrameLevel(icon:GetFrameLevel() + 3)
+        -- Give the label a valid font immediately. Some layout branches
+        -- clear their text before the configured font style is applied.
+        icon.count = overlay:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+
+        state.icons[index] = icon
+        return icon
+    end
+
+    local function applyIconLayout()
+        local style = state.config.style or {}
         local layout = state.config.layout or {}
         local iconSize = layout.iconSize or 36
         local iconPad = layout.iconPad or 4
-        local opacity = styleCfg.iconOpacity or 1
-        local borderCfg = styleCfg.border
-        local countCfg = styleCfg.count or {}
-        local cooldownCfg = styleCfg.cooldown or {}
-        local timerCfg = styleCfg.timer or {}
+        local countStyle = style.count or {}
 
-        updateDisplayBackdrop(styleCfg)
+        updateDisplayBackdrop()
 
-        local shown = 0
-        for _, entry in ipairs(state.displayEntries) do
-            if isKeyEnabled(entry.key) then
-                shown = shown + 1
-                local ic = getOrCreateIcon(shown)
-                ic._entry = entry
-
-                ic:SetSize(iconSize, iconSize)
-                ic:ClearAllPoints()
-                if shown == 1 then
-                    ic:SetPoint("TOPLEFT", display, "TOPLEFT", 0, 0)
-                else
-                    ic:SetPoint("LEFT", icons[shown - 1], "RIGHT", iconPad, 0)
-                end
-
-                ic.texture:SetTexture(entry.texID)
-                ic.texture:SetAlpha(opacity)
-                ic.texture:SetVertexColor(1, 1, 1)
-
-                if ic.cooldown.SetReverse then
-                    ic.cooldown:SetReverse(cooldownCfg.reverse and true or false)
-                end
-                if ic.cooldown.SetDrawSwipe then
-                    ic.cooldown:SetDrawSwipe(not cooldownCfg.hideSwipe)
-                end
-                if countCfg.enabled ~= false then
-                    applyLabelStyle(ic.count, countCfg)
-                end
-                if timerCfg.enabled ~= false then
-                    applyLabelStyle(ic.timer, timerCfg)
-                end
-                updateIconBorder(ic, borderCfg)
+        for index, entry in ipairs(state.displayEntries) do
+            local icon = getOrCreateIcon(index)
+            icon:SetSize(iconSize, iconSize)
+            icon:ClearAllPoints()
+            if index == 1 then
+                icon:SetPoint("TOPLEFT", iconLayer, "TOPLEFT", 0, 0)
+            else
+                icon:SetPoint("LEFT", state.icons[index - 1], "RIGHT", iconPad, 0)
             end
+
+            icon.texture:SetTexture(entry.texID)
+            icon.texture:SetTexCoord(unpack(ICON_TEX_COORD))
+            icon.texture:SetAlpha(style.iconOpacity or 1)
+            icon.texture:SetDesaturated(false)
+
+            applyLabelStyle(icon.count, icon, countStyle)
+            icon.count:SetText(state.editMode and "1" or "0")
+            icon.count:Show()
+
+            updateIconBorder(icon, style.border)
+            icon:Show()
         end
 
-        for i = shown + 1, #icons do
-            icons[i]:Hide()
-            if icons[i].border then
-                icons[i].border:Hide()
-            end
-            icons[i]._entry = nil
+        for index = #state.displayEntries + 1, #state.icons do
+            state.icons[index]:Hide()
         end
 
-        state.shownCount = shown
-
-        if shown > 0 or state.editMode then
-            local visible = math.max(shown, state.editMode and 1 or 0)
-            local targetW = visible * iconSize + math.max(0, visible - 1) * iconPad
-            local targetH = iconSize
-            anchor:SetSize(targetW, targetH)
-            display:SetAllPoints(anchor)
+        local visibleCount = math.max(#state.displayEntries, state.editMode and 1 or 0)
+        if visibleCount > 0 then
+            anchor:SetSize(visibleCount * iconSize + math.max(visibleCount - 1, 0) * iconPad, iconSize)
+        else
+            anchor:SetSize(iconSize, iconSize)
         end
     end
 
-    local function updateIcons()
-        if not state.active or not shouldShow() then
-            for i = 1, state.shownCount do
-                local ic = icons[i]
-                if ic then
-                    ic:Hide()
-                    if ic.border then
-                        ic.border:Hide()
-                    end
+    local function configureCounterButton(button)
+        button:SetSize(COUNTER_ELEMENT_WIDTH, 1)
+        button:SetCollapsesLayout(true)
+        if button.SetIgnoringChildrenForBounds then
+            button:SetIgnoringChildrenForBounds(true)
+        end
+        if button.SetMouseClickEnabled then
+            button:SetMouseClickEnabled(false)
+        end
+        button:SetMouseMotionEnabled(false)
+    end
+
+    local function createCounterSlot(index)
+        local anchorFrame = CreateFrame("Frame", nil, counterLayer, "DisableUntrustedLayoutScriptsTemplate")
+        anchorFrame:SetSize(1, 1)
+
+        local container = CreateFrame(
+            "AuraContainer",
+            nil,
+            counterLayer,
+            "CustomAuraContainerTemplate,DisableUntrustedLayoutScriptsTemplate"
+        )
+        container:SetSize(1, 1)
+        container:SetPoint("TOPLEFT", anchorFrame, "TOPLEFT", 0, 0)
+        container:SetUnit("player")
+        container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
+        container:SetFlowLayoutAnchorPoint("TOPLEFT")
+        container:SetFlowLayoutGrowthDirection(AnchorUtil.FlowDirection.Right, AnchorUtil.FlowDirection.Down)
+        container:SetFlowLayoutMaximumLineSize(math.huge)
+
+        local groupKey = "ART_HoTCounter" .. index
+        container:AddAuraGroup(groupKey, "HELPFUL|PLAYER", {
+            maxFrameCount = 1,
+            sortMethod = AuraContainerSortMethod.AuraInstanceIDOnly,
+            sortDirection = AuraContainerSortDirection.Normal,
+            candidateFilters = {
+                includeSpellIDs = {[FALLBACK_ICON] = true},
+                isFromPlayerOrPlayerPet = true
+            },
+            initializeFrame = configureCounterButton,
+            layout = {
+                elementWidth = COUNTER_ELEMENT_WIDTH,
+                elementHeight = 1,
+                elementSpacing = 0,
+                lineSpacing = 0
+            }
+        })
+
+        container:SetEnabled(false)
+        container:Hide()
+
+        local slot = {
+            anchor = anchorFrame,
+            container = container,
+            groupKey = groupKey,
+            unit = "player",
+            spellID = nil,
+            assigned = false
+        }
+        state.counterSlots[index] = slot
+        return slot
+    end
+
+    local function ensureCounterSlots(requiredCount)
+        if #state.counterSlots >= requiredCount then
+            return true
+        end
+        if areAurasRestricted() or not loadAuraContainer() then
+            state.pendingSecureRefresh = true
+            return false
+        end
+
+        for index = #state.counterSlots + 1, requiredCount do
+            local ok = pcall(createCounterSlot, index)
+            if not ok then
+                state.pendingSecureRefresh = true
+                return false
+            end
+        end
+        return true
+    end
+
+    local function getOrCreateCounterTracker(index)
+        if state.counterTrackers[index] then
+            return state.counterTrackers[index]
+        end
+
+        local root = CreateFrame("Frame", nil, counterLayer, "DisableUntrustedLayoutScriptsTemplate")
+        root:SetSize(1, 1)
+        root:SetPoint("TOPLEFT", counterLayer, "TOPLEFT", 0, -(index - 1) * 2)
+
+        local extent = CreateFrame("Frame", nil, counterLayer, "DisableUntrustedLayoutScriptsTemplate")
+        extent:SetHeight(1)
+
+        local tracker = {
+            root = root,
+            extent = extent,
+            countText = nil,
+            slotCount = 0
+        }
+        state.counterTrackers[index] = tracker
+        return tracker
+    end
+
+    local function setCounterSlot(slot, unit, spellID, relativeFrame, firstInTracker)
+        if slot.unit ~= unit then
+            slot.container:SetUnit(unit)
+            slot.unit = unit
+        end
+        if slot.spellID ~= spellID then
+            slot.container:SetAuraGroupCandidateFilters(slot.groupKey, {
+                includeSpellIDs = {[spellID] = true},
+                isFromPlayerOrPlayerPet = true
+            })
+            slot.spellID = spellID
+        end
+
+        slot.anchor:ClearAllPoints()
+        if firstInTracker then
+            slot.anchor:SetPoint("TOPLEFT", relativeFrame, "TOPLEFT", 0, 0)
+        else
+            slot.anchor:SetPoint("TOPLEFT", relativeFrame, "TOPRIGHT", 0, 0)
+        end
+        slot.assigned = true
+        local enabled = state.active and not state.editMode
+        slot.container:SetEnabled(enabled)
+        slot.container:SetShown(enabled)
+    end
+
+    local function refreshSecureCounters()
+        if areAurasRestricted() or not loadAuraContainer() then
+            state.pendingSecureRefresh = true
+            return false
+        end
+
+        local units = getUnits()
+        local unitCount = math.min(#units, MAX_GROUP_UNITS)
+        local requiredCount = 0
+        for _, entry in ipairs(state.displayEntries) do
+            requiredCount = requiredCount + unitCount * #entry.spellIDs
+        end
+
+        if not ensureCounterSlots(requiredCount) then
+            return false
+        end
+
+        for _, slot in ipairs(state.counterSlots) do
+            slot.assigned = false
+        end
+
+        local slotIndex = 0
+        for entryIndex, entry in ipairs(state.displayEntries) do
+            local tracker = getOrCreateCounterTracker(entryIndex)
+            tracker.countText = state.icons[entryIndex] and state.icons[entryIndex].count or nil
+            tracker.slotCount = 0
+
+            local previousFrame = tracker.root
+            for unitIndex = 1, unitCount do
+                local unit = units[unitIndex]
+                for _, spellID in ipairs(entry.spellIDs) do
+                    slotIndex = slotIndex + 1
+                    tracker.slotCount = tracker.slotCount + 1
+                    local slot = state.counterSlots[slotIndex]
+                    setCounterSlot(
+                        slot,
+                        unit,
+                        spellID,
+                        previousFrame,
+                        tracker.slotCount == 1
+                    )
+                    previousFrame = slot.container
                 end
             end
-            if not state.editMode then
-                display:Hide()
+
+            tracker.extent:ClearAllPoints()
+            tracker.extent:SetPoint("LEFT", tracker.root, "LEFT", tracker.slotCount, 0)
+            tracker.extent:SetPoint("RIGHT", previousFrame, "RIGHT", 0, 0)
+            tracker.extent:SetHeight(1)
+        end
+
+        for index = #state.displayEntries + 1, #state.counterTrackers do
+            local tracker = state.counterTrackers[index]
+            tracker.countText = nil
+            tracker.slotCount = 0
+            tracker.extent:ClearAllPoints()
+            tracker.extent:SetSize(1, 1)
+        end
+
+        for _, slot in ipairs(state.counterSlots) do
+            if not slot.assigned then
+                slot.container:SetEnabled(false)
+                slot.container:Hide()
+                slot.anchor:ClearAllPoints()
             end
+        end
+
+        state.pendingSecureRefresh = false
+        return true
+    end
+
+    local function updateSecretCounts()
+        if not state.active or state.editMode then
             return
         end
 
-        scanGroupAuras()
-
-        if state.layoutDirty then
-            applyLayout()
-            state.layoutDirty = false
-        end
-
-        local styleCfg = state.config.style or {}
-        local countEnabled = (styleCfg.count or {}).enabled ~= false
-        local timerCfg = styleCfg.timer or {}
-        local timerEnabled = timerCfg.enabled ~= false
-        local decimals = timerCfg.decimals or 1
-        local now = GetTime()
-        local shown = state.shownCount
-
-        for i = 1, shown do
-            local ic = icons[i]
-            local entry = ic and ic._entry
-            if entry then
-                local totalCount, minExpiry, minDuration = 0, math.huge, 0
-                local dataAvailable = true
-                for _, sid in ipairs(entry.spellIDs) do
-                    local d = state.auraData[sid]
-                    if d then
-                        if not d.available then
-                            dataAvailable = false
-                        end
-                        totalCount = totalCount + d.count
-                        if d.minExpiry < minExpiry then
-                            minExpiry = d.minExpiry
-                            minDuration = d.minDuration
-                        end
-                    end
-                end
-
-                local desat = dataAvailable and totalCount == 0 and not state.editMode
-                if ic._desat ~= desat then
-                    ic.texture:SetDesaturated(desat)
-                    ic._desat = desat
-                end
-
-                if countEnabled then
-                    local txt = state.editMode and "1" or (dataAvailable and tostring(totalCount) or "?")
-                    if ic._countText ~= txt then
-                        ic.count:SetText(txt)
-                        ic._countText = txt
-                    end
-                    if not ic.count:IsShown() then
-                        ic.count:Show()
-                    end
-                elseif ic.count:IsShown() then
-                    ic.count:Hide()
-                end
-
-                if timerEnabled and (state.editMode or (dataAvailable and totalCount > 0)) then
-                    local txt = state.editMode and "9.9" or formatTime(minExpiry - now, decimals)
-                    if ic._timerText ~= txt then
-                        ic.timer:SetText(txt)
-                        ic._timerText = txt
-                    end
-                    if not ic.timer:IsShown() then
-                        ic.timer:Show()
-                    end
-                elseif ic.timer:IsShown() then
-                    ic.timer:Hide()
-                end
-
-                local cdStart, cdDur = 0, 0
-                if dataAvailable and totalCount > 0 and minExpiry ~= math.huge and minDuration > 0 then
-                    cdStart, cdDur = minExpiry - minDuration, minDuration
-                elseif state.editMode then
-                    cdStart, cdDur = now - 5, 10
-                end
-                if ic._cdStart ~= cdStart or ic._cdDur ~= cdDur then
-                    ic.cooldown:SetCooldown(cdStart, cdDur)
-                    ic._cdStart, ic._cdDur = cdStart, cdDur
-                end
-                if cdDur > 0 then
-                    if not ic.cooldown:IsShown() then
-                        ic.cooldown:Show()
-                    end
-                elseif ic.cooldown:IsShown() then
-                    ic.cooldown:Hide()
-                end
-
-                if not ic:IsShown() then
-                    ic:Show()
-                end
+        for index = 1, #state.displayEntries do
+            local tracker = state.counterTrackers[index]
+            if tracker and tracker.countText and tracker.slotCount > 0 then
+                -- GetWidth() is secret while AuraContainers are restricted.
+                -- SetFormattedText explicitly accepts secret arguments, so the
+                -- value is displayed without becoming readable to addon Lua.
+                -- Anchored dimensions can carry sub-pixel floating point
+                -- error (for example 4.999999 for five active slots). Round
+                -- to the nearest whole slot instead of truncating with %d.
+                pcall(tracker.countText.SetFormattedText, tracker.countText, "%.0f", tracker.extent:GetWidth())
             end
-        end
-
-        if shown > 0 or state.editMode then
-            if not display:IsShown() then
-                display:Show()
-            end
-        elseif display:IsShown() then
-            display:Hide()
         end
     end
 
-    local function startTicker()
-        if state.ticker then
-            state.ticker:Cancel()
+    local counterUpdater = CreateFrame("Frame")
+    counterUpdater:SetScript("OnUpdate", function(_, elapsed)
+        state.counterElapsed = state.counterElapsed + elapsed
+        if state.counterElapsed < COUNTER_UPDATE_INTERVAL then
+            return
         end
-        state.ticker = C_Timer.NewTicker(TICKER_INTERVAL, function()
-            -- gate on state.active so a stale tick after SetActive(false) is a no-op
-            if state.active then
-                updateIcons()
-            end
-        end)
-    end
-
-    local function stopTicker()
-        if state.ticker then
-            state.ticker:Cancel()
-            state.ticker = nil
-        end
-    end
-
-    -- event handlers
-
-    callbacks:RegisterEvent("UNIT_AURA", function()
-        if state.active then
-            -- Do not inspect the event payload: it becomes fully secret in
-            -- 12.1. The event is only a signal to perform an authoritative scan.
-            state.aurasDirty = true
-        end
+        state.counterElapsed = 0
+        updateSecretCounts()
     end)
+
+    local function applyVisibility()
+        display:SetShown(state.active and shouldShow() and #state.displayEntries > 0)
+        for _, slot in ipairs(state.counterSlots) do
+            local enabled = state.active and not state.editMode and slot.assigned
+            pcall(slot.container.SetEnabled, slot.container, enabled)
+            pcall(slot.container.SetShown, slot.container, enabled)
+        end
+    end
+
+    local function refreshDisplay()
+        rebuildTrackedSpells()
+        applyIconLayout()
+        refreshSecureCounters()
+        applyVisibility()
+        updateSecretCounts()
+    end
 
     callbacks:RegisterEvent("PLAYER_REGEN_DISABLED", function()
         state.inCombat = true
-        state.aurasDirty = true
+        applyVisibility()
     end)
 
     callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", function()
         state.inCombat = false
-        state.aurasDirty = true
+        if state.pendingSecureRefresh then
+            refreshDisplay()
+        else
+            applyVisibility()
+        end
     end)
 
-    local function onSpecOrWorld()
-        if not state.active then
-            return
+    callbacks:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED", function(_, _, restrictionState)
+        if restrictionState == Enum.AddOnRestrictionState.Inactive and state.pendingSecureRefresh then
+            C_Timer.After(0, function()
+                if state.active and not areAurasRestricted() then
+                    refreshDisplay()
+                end
+            end)
         end
-        rebuildTrackedSpells()
-    end
+    end)
 
-    callbacks:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", onSpecOrWorld)
-    callbacks:RegisterEvent("PLAYER_ENTERING_WORLD", onSpecOrWorld)
+    callbacks:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED", function(_, unit)
+        if unit == nil or unit == "player" then
+            refreshDisplay()
+        end
+    end)
+
+    callbacks:RegisterEvent("PLAYER_ENTERING_WORLD", refreshDisplay)
 
     callbacks:RegisterEvent("GROUP_ROSTER_UPDATE", function()
-        if state.active then
-            state.aurasDirty = true
+        if not areAurasRestricted() then
+            refreshSecureCounters()
+            updateSecretCounts()
+        else
+            state.pendingSecureRefresh = true
         end
     end)
 
-    -- handle said events
+    local handle = {frame = anchor}
 
-    local handle = {
-        frame = anchor
-    }
-
-    function handle:SetActive(v)
-        v = v and true or false
-        if state.active == v then
+    function handle:SetActive(value)
+        value = value == true
+        if state.active == value then
             return
         end
-        state.active = v
-        if v then
+
+        state.active = value
+        if value then
             state.inCombat = UnitAffectingCombat and UnitAffectingCombat("player") or false
-            state.lastAuraScan = 0
-            state.aurasDirty = true
-            state.layoutDirty = true
-            rebuildTrackedSpells()
-            startTicker()
+            refreshDisplay()
         else
-            stopTicker()
-            for _, ic in ipairs(icons) do
-                ic:Hide()
-                if ic.border then
-                    ic.border:Hide()
-                end
-            end
-            display:Hide()
+            state.editMode = false
+            applyIconLayout()
+            applyVisibility()
         end
     end
 
-    function handle:SetEditMode(v)
-        state.editMode = v and true or false
-        state.layoutDirty = true
-        if state.active then
-            updateIcons()
-        end
+    function handle:SetEditMode(value)
+        state.editMode = value == true
+        applyIconLayout()
+        applyVisibility()
+        updateSecretCounts()
     end
 
-    -- Apply replaces the stored config
     function handle:Apply(newConfig)
         if type(newConfig) == "table" then
             state.config = newConfig
         end
-
-        local specCfg = state.config.spec or {}
-        local rebuildNeeded = state.lastSpellsRef ~= specCfg.spells
-        state.lastSpellsRef = specCfg.spells
-
-        if rebuildNeeded and state.active then
-            rebuildTrackedSpells()
-        elseif state.active then
-            state.aurasDirty = true
-        end
-
-        state.layoutDirty = true
-        if state.active then
-            updateIcons()
-        end
+        refreshDisplay()
     end
 
     function handle:Release()
-        stopTicker()
-        callbacks:UnregisterAllEvents()
-        for _, ic in ipairs(icons) do
-            ic:Hide()
-            ic:SetParent(nil)
-        end
-        wipe(icons)
-        display:Hide()
-        display:SetParent(nil)
-        anchor:Hide()
-        anchor:ClearAllPoints()
-        anchor:SetParent(nil)
-        wipe(state.auraData)
-        wipe(state.displayEntries)
-        wipe(state.entriesByKey)
-        wipe(state.trackedSpells)
         state.active = false
+        state.editMode = false
+        applyVisibility()
+        callbacks:UnregisterAllEvents()
+        counterUpdater:SetScript("OnUpdate", nil)
+        display:Hide()
+        anchor:Hide()
     end
 
-    handle:Apply()
+    rebuildTrackedSpells()
+    applyIconLayout()
+    refreshSecureCounters()
+    applyVisibility()
+
     return handle
 end
