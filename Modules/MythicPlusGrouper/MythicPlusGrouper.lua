@@ -9,20 +9,6 @@ local MAX_KEYSTONE_LEVEL = 25
 local issecretvalue = issecretvalue or function() return false end
 
 local SEASONS = {
-    season1 = {
-        key = "season1",
-        name = "Season 1",
-        dungeons = {
-            {key = "magisters_terrace", name = "Magister's Terrace"},
-            {key = "maisara_caverns", name = "Maisara Caverns"},
-            {key = "nexus_point_xenas", name = "Nexus-Point Xenas"},
-            {key = "windrunner_spire", name = "Windrunner Spire"},
-            {key = "algethar_academy", name = "Algeth'ar Academy"},
-            {key = "pit_of_saron", name = "Pit of Saron"},
-            {key = "seat_triumvirate", name = "Seat of the Triumvirate"},
-            {key = "skyreach", name = "Skyreach"}
-        }
-    },
     season2 = {
         key = "season2",
         name = "Season 2",
@@ -39,7 +25,7 @@ local SEASONS = {
     }
 }
 
-local SEASON_ORDER = {"season1", "season2"}
+local SEASON_ORDER = {"season2"}
 local DUNGEONS, DUNGEON_BY_KEY = {}, {}
 for _, seasonKey in ipairs(SEASON_ORDER) do
     local season = SEASONS[seasonKey]
