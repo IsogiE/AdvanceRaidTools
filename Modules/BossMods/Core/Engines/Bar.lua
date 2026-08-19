@@ -43,6 +43,7 @@ function Engines.Bar(config)
     local running = false
     local startTime, totalDuration, safeDuration
     local mode, markerRatio
+    local lastTickUpdate = 0
     local lastRightUpdate = 0
     local pendingRightText
 
@@ -176,8 +177,22 @@ function Engines.Bar(config)
             frame:SetValue(remaining / totalDuration)
         end
 
-        if handle.onTick then
+        -- Custom progress modes (for example, fill-up bars) also need to run at
+        -- frame rate, but should not force text/mechanic work to do the same.
+        if handle.onFrame then
+            handle.onFrame(t, totalDuration, safeDuration)
+        end
+
+        local updateInterval = math.max(
+            0,
+            tonumber(config.updateInterval) or 0.1
+        )
+        if handle.onTick
+            and (updateInterval <= 0
+                or now - lastTickUpdate >= updateInterval)
+        then
             -- Callers use this for countdown text, TTS, and phase changes.
+            lastTickUpdate = now
             handle.onTick(t, totalDuration, safeDuration)
         end
 
@@ -193,6 +208,7 @@ function Engines.Bar(config)
         safeDuration = opts.safe
         startTime = GetTime() + (opts.lead or 0)
         running = true
+        lastTickUpdate = -math.huge
         lastRightUpdate = -math.huge
         pendingRightText = nil
         if showFill then
@@ -201,6 +217,9 @@ function Engines.Bar(config)
         if safeDuration and totalDuration > 0 then
             self:SetMarker((totalDuration - safeDuration) / totalDuration)
         end
+        -- Drive visual progress from rendered frames. A timer updates at most ten
+        -- times per second by default and can be delayed further during combat,
+        -- which makes short boss bars visibly jump between values.
         frame:SetScript("OnUpdate", onUpdate)
         onUpdate()
         frame:Show()
@@ -363,6 +382,7 @@ function Engines.Bar(config)
         frame:Hide()
         frame:ClearAllPoints()
         frame:SetParent(nil)
+        handle.onFrame = nil
         handle.onTick = nil
     end
 

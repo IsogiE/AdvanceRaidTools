@@ -505,6 +505,6 @@ E:RegisterBossModFeature("VoidspireDefaultAlertAppearance", {
 E:RegisterBossModFeature("VenomousAbyssDefaultAlertAppearance", {
     tab = "VenomousAbyss",
     order = 1,
-    labelKey = "BossMods_VenomousDefaultAlertAppearance",
+    labelKey = "BossMods_DefaultAlertAppearance",
     moduleName = MODULE_NAME
 })

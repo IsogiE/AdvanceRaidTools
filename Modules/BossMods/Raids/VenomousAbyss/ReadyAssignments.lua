@@ -578,27 +578,12 @@ end
 -------------------------------------------------------------------------------
 -- Combat Tools features
 -------------------------------------------------------------------------------
-E:RegisterBossModFeature("VenomousAbyssNymrissa", {
-    tab = "VenomousAbyss",
-    order = 7,
-    labelKey = "BossMods_Nymrissa",
-    descKey = "BossMods_NymrissaDesc",
-    moduleName = "BossMods_AssignmentReminders"
-})
-
 E:RegisterBossModFeature("VenomousAbyssNekzali", {
     tab = "VenomousAbyss",
     order = 10,
     labelKey = "BossMods_Nekzali",
     descKey = "BossMods_NekzaliDesc",
     moduleName = "BossMods_AssignmentReminders"
-})
-
-E:RegisterBossModFeature("VenomousAbyssAlertTypeGrouper", {
-    tab = "VenomousAbyss",
-    order = 5,
-    labelKey = "BossMods_AlertTypeGrouper",
-    moduleName = "BossMods_VenomousAbyssAbilityAlerts"
 })
 
 E:RegisterBossModFeature("VenomousAbyssEntombedSentinels", {

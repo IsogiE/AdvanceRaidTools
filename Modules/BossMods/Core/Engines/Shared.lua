@@ -167,19 +167,20 @@ function Shared.GetPlayerSpecID()
 end
 
 function Shared.DefaultGroupUnits()
-    local units = {"player"}
     local n = GetNumGroupMembers() or 0
     if IsInRaid() then
+        -- raid1..N already includes the player; avoid UnitIsUnit because unit
+        -- comparisons can be secret while 12.1 restrictions are active.
+        local units = {}
         for i = 1, n do
-            local u = "raid" .. i
-            if not UnitIsUnit(u, "player") then
-                units[#units + 1] = u
-            end
+            units[#units + 1] = "raid" .. i
         end
-    else
-        for i = 1, n - 1 do
-            units[#units + 1] = "party" .. i
-        end
+        return units
+    end
+
+    local units = {"player"}
+    for i = 1, n - 1 do
+        units[#units + 1] = "party" .. i
     end
     return units
 end

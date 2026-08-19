@@ -27,12 +27,6 @@ local ANCHOR_VALUES = {
     BOTTOMRIGHT = L["BottomRight"]
 }
 
-local DECIMALS_VALUES = {
-    [0] = "1",
-    [1] = "1.1",
-    [2] = "1.11"
-}
-
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
@@ -155,7 +149,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
     })
     y = unlockY
 
-    -- Enables (bundled near the top)
+    -- Appearance toggles (bundled near the top)
     local enableBg = checkbox({
         text = (L["Enable"] .. " " .. L["Background"]),
         labelTop = true,
@@ -176,27 +170,7 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
             mod.db.style.border.enabled = v
         end
     })
-    local enableCount = checkbox({
-        text = (L["Show"] .. " " .. L["Count"]),
-        labelTop = true,
-        get = function()
-            return mod.db.style.count.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.count.enabled = v
-        end
-    })
-    local enableTimer = checkbox({
-        text = (L["Show"] .. " " .. L["Timer"]),
-        labelTop = true,
-        get = function()
-            return mod.db.style.timer.enabled
-        end,
-        onChange = function(v)
-            mod.db.style.timer.enabled = v
-        end
-    })
-    y = row(rightPanel, y, widthPx, {enableBg, enableBorder, enableCount, enableTimer})
+    y = row(rightPanel, y, widthPx, {enableBg, enableBorder})
 
     -- Visibility
     y = section(rightPanel, y, widthPx, "Visibility")
@@ -215,19 +189,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
 
     -- Icon
     y = section(rightPanel, y, widthPx, "Icon")
-
-    local reverseSwipe = checkbox({
-        text = L["BossMods_HoTTrackerReverseSwipe"],
-        labelTop = true,
-        get = function()
-            return mod.db.style.cooldown and mod.db.style.cooldown.reverse and true or false
-        end,
-        onChange = function(v)
-            mod.db.style.cooldown = mod.db.style.cooldown or {}
-            mod.db.style.cooldown.reverse = v
-        end
-    })
-    y = row(rightPanel, y, widthPx, {reverseSwipe})
 
     local sizeSlider = slider({
         label = (L["Icon"] .. " " .. L["Size"]),
@@ -426,95 +387,6 @@ local function buildHoTTrackerBody(rightPanel, mod, isDisabled)
         end
     })
     y = row(rightPanel, y, widthPx, {countColor})
-
-    -- Timer
-    y = section(rightPanel, y, widthPx, "Timer")
-
-    local timerAnchor = dropdown({
-        label = L["Anchor"],
-        values = ANCHOR_VALUES,
-        get = function()
-            return mod.db.style.timer.anchor
-        end,
-        onChange = function(v)
-            mod.db.style.timer.anchor = v
-        end
-    })
-    y = row(rightPanel, y, widthPx, {timerAnchor})
-
-    local timerOx = slider({
-        label = L["OffsetX"],
-        min = -30,
-        max = 30,
-        step = 1,
-        value = function()
-            return mod.db.style.timer.offsetX
-        end,
-        onChange = function(v)
-            mod.db.style.timer.offsetX = math.floor(v)
-        end
-    })
-    local timerOy = slider({
-        label = L["OffsetY"],
-        min = -30,
-        max = 30,
-        step = 1,
-        value = function()
-            return mod.db.style.timer.offsetY
-        end,
-        onChange = function(v)
-            mod.db.style.timer.offsetY = math.floor(v)
-        end
-    })
-    y = row(rightPanel, y, widthPx, {timerOx, timerOy})
-
-    local timerSize = slider({
-        label = (L["Font"] .. " " .. L["Size"]),
-        min = 7,
-        max = 24,
-        step = 1,
-        value = function()
-            return mod.db.style.timer.size
-        end,
-        onChange = function(v)
-            mod.db.style.timer.size = math.floor(v)
-        end
-    })
-    local timerOutline = dropdown({
-        label = L["Outline"],
-        values = OUTLINE_VALUES,
-        get = function()
-            return mod.db.style.timer.outline
-        end,
-        onChange = function(v)
-            mod.db.style.timer.outline = v
-        end
-    })
-    y = row(rightPanel, y, widthPx, {timerSize, timerOutline})
-
-    local timerColor = color({
-        label = (L["Timer"] .. " " .. L["Color"]),
-        hasAlpha = true,
-        get = function()
-            return mod.db.style.timer.color
-        end,
-        onChange = function(r, g, b, a)
-            mod.db.style.timer.color = {r, g, b, a}
-        end
-    })
-    y = row(rightPanel, y, widthPx, {timerColor})
-
-    local timerDecimals = dropdown({
-        label = L["Decimals"],
-        values = DECIMALS_VALUES,
-        get = function()
-            return mod.db.style.timer.decimals
-        end,
-        onChange = function(v)
-            mod.db.style.timer.decimals = v
-        end
-    })
-    y = row(rightPanel, y, widthPx, {timerDecimals})
 
     -- Tracked Spells
     y = section(rightPanel, y, widthPx, "BossMods_TrackedSpells")
