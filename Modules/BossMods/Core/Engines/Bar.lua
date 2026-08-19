@@ -43,9 +43,6 @@ function Engines.Bar(config)
     local running = false
     local startTime, totalDuration, safeDuration
     local mode, markerRatio
-    local lastTickUpdate = 0
-    local lastRightUpdate = 0
-    local pendingRightText
 
     local handle = {
         frame = frame
@@ -94,20 +91,8 @@ function Engines.Bar(config)
         labelFS:SetText(text or "")
     end
 
-    local function applyRightText(text, now)
-        rightFS:SetText(text or "")
-        lastRightUpdate = now or GetTime()
-        pendingRightText = nil
-    end
-
     function handle:SetRight(text)
-        local interval = math.max(0, tonumber(config.textUpdateInterval) or 0)
-        local now = GetTime()
-        if running and interval > 0 and now - lastRightUpdate < interval then
-            pendingRightText = text or ""
-            return
-        end
-        applyRightText(text, now)
+        rightFS:SetText(text or "")
     end
 
     function handle:SetMiddle(text)
@@ -172,33 +157,29 @@ function Engines.Bar(config)
             return
         end
 
+        local progress
         if showFill then
-            local remaining = totalDuration - t
-            frame:SetValue(remaining / totalDuration)
+            progress = (totalDuration - t) / totalDuration
         end
 
-        -- Custom progress modes (for example, fill-up bars) also need to run at
-        -- frame rate, but should not force text/mechanic work to do the same.
+        -- Custom progress modes return their visual value on every rendered
+        -- frame. The engine remains the only writer to the status bar.
         if handle.onFrame then
-            handle.onFrame(t, totalDuration, safeDuration)
+            local customProgress =
+                handle.onFrame(t, totalDuration, safeDuration)
+
+            if customProgress ~= nil then
+                progress = customProgress
+            end
         end
 
-        local updateInterval = math.max(
-            0,
-            tonumber(config.updateInterval) or 0.1
-        )
-        if handle.onTick
-            and (updateInterval <= 0
-                or now - lastTickUpdate >= updateInterval)
-        then
+        if showFill and progress ~= nil then
+            frame:SetValue(math.max(0, math.min(1, progress)))
+        end
+
+        if handle.onTick then
             -- Callers use this for countdown text, TTS, and phase changes.
-            lastTickUpdate = now
             handle.onTick(t, totalDuration, safeDuration)
-        end
-
-        local textInterval = math.max(0, tonumber(config.textUpdateInterval) or 0)
-        if pendingRightText ~= nil and (textInterval <= 0 or now - lastRightUpdate >= textInterval) then
-            applyRightText(pendingRightText, now)
         end
     end
 
@@ -208,9 +189,6 @@ function Engines.Bar(config)
         safeDuration = opts.safe
         startTime = GetTime() + (opts.lead or 0)
         running = true
-        lastTickUpdate = -math.huge
-        lastRightUpdate = -math.huge
-        pendingRightText = nil
         if showFill then
             frame:SetValue(1)
         end
@@ -229,7 +207,6 @@ function Engines.Bar(config)
         local wasRunning = running
         running = false
         frame:SetScript("OnUpdate", nil)
-        pendingRightText = nil
         if showFill then
             frame:SetValue(0)
         end

@@ -705,7 +705,6 @@ local function buildBarConfig(settings, ability)
         parent = UIParent,
         showFill = true,
         strata = "HIGH",
-        textUpdateInterval = 0.1,
 
         size = {
             w = tonumber(settings.width) or 300,
@@ -832,15 +831,13 @@ bar.frame:SetPoint(
 
     bar.onFrame = function(elapsed, total)
         if bar.postHitStageActive then
-            bar:SetValue(math.max(0, math.min(1, elapsed / total)))
+            return elapsed / total
         elseif bar.beamBarActive then
             if elapsed < 4 then
-                bar:SetValue(math.max(0, math.min(1, elapsed / 4)))
-            else
-                local beamRemaining = math.max(0, 18 - elapsed)
-
-                bar:SetValue(math.max(0, math.min(1, beamRemaining / 14)))
+                return elapsed / 4
             end
+
+            return math.max(0, 18 - elapsed) / 14
         end
     end
 
