@@ -458,13 +458,8 @@ function Engines.PrivateAuraList(config)
             auraIndex = auraIndex,
             parent = anchorFrame,
             isContainer = false,
-            -- 12.1 renamed this field; keep both keys so the same build works
-            -- on 12.0.7 and 12.1 without version-specific code.
             showCountdownFrame = true,
-            showCooldownFrame = true,
-            showCooldownEdge = false,
             showCountdownNumbers = showDurationText(),
-            showDispelIcon = false,
             iconInfo = {
                 iconWidth = anchorSize,
                 iconHeight = anchorSize,

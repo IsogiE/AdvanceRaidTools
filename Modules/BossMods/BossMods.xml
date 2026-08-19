@@ -13,19 +13,15 @@
     <Script file="Core\Engines\RaidMap.lua"/>
     <Script file="Core\BigWigs.lua"/>
     <Script file="Core\Alerts.lua"/>
-    <Script file="Core\AbilityAlerts.lua"/>
     <Script file="Core\NoteBlock.lua"/>
     <Script file="Core\ReadyAssignmentText.lua"/>
     <Script file="Core\ReadyAssignments.lua"/>
 
-    <Script file="Raids\Queldanas\AbilityData.lua"/>
     <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
     <Script file="Raids\Voidspire\AbilityData.lua"/>
-    <Script file="Raids\Voidspire\ReadyAssignments.lua"/>
-    <Script file="Raids\Dreamrift\AbilityData.lua"/>
-    <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
-    <Script file="Raids\Sporefall\AbilityData.lua"/>
     <Script file="Raids\Voidspire\AbilityAlerts.lua"/>
+    <Script file="Raids\Voidspire\ReadyAssignments.lua"/>
+    <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
 
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlerts.lua"/>
@@ -42,6 +38,8 @@
     <Script file="General\CustomBars.lua"/>
     <Script file="General\PrivateAuraList.lua"/>
     <Script file="General\WhisperKickAlert.lua"/>
+    <Script file="General\BossResourceBar.lua"/>
+    <Script file="General\SszorakSurgeIcons.lua"/>
 
     <Script file="Raids\Queldanas\Feather.lua"/>
     <Script file="Raids\Queldanas\Quasar.lua"/>

@@ -76,6 +76,66 @@ E.VoidspireAbilityData = {
             { spellID = 1243743, name = "Interrupting Tremor", defaultBarColor = "00FF41", defaultBarEnabled = true, castTimeAdjustment = 5, order = 70 },
         },
     },
+    {
+        bossKey = "Chimaerus",
+        bossName = "Chimaerus",
+        bossOrder = 70,
+        abilities = {
+            { spellID = 1264756, name = "Rift Madness (Mythic)", defaultBarColor = "FF7400", defaultBarEnabled = true, order = 10 },
+            { spellID = 1245396, name = "Consume (Adds)", defaultBarColor = "FF0011", defaultBarEnabled = true, order = 20 },
+            { spellID = 1245406, name = "Ravenous Dive (Return to Stage 1)", defaultBarColor = "FF0011", defaultBarEnabled = true, order = 30 },
+            { spellID = 1262289, name = "Alndust Upheaval (Soak)", defaultBarColor = "FF7400", defaultBarEnabled = true, order = 40 },
+            { spellID = 1272726, name = "Rending Tear (Frontal Cone)", defaultBarColor = "0094FF", defaultBarEnabled = true, order = 50 },
+        },
+    },
+    {
+        bossKey = "Beloren",
+        bossName = "Belo'ren",
+        bossOrder = 80,
+        abilities = {
+            { spellID = 1242515, name = "Voidlight Convergence (Color Swaps)", defaultBarColor = "FF0011", defaultBarEnabled = true, postHitStages = { stages = { { duration = 6, text = "Voidlight Convergence" } } }, order = 10 },
+            { spellID = 1241282, name = "Embers of Belo'ren", defaultBarColor = "00FF41", defaultBarEnabled = false, order = 20 },
+            { spellID = 1241292, name = "Light/Void Dive", defaultBarColor = "FF7400", defaultBarEnabled = true, order = 30 },
+            { spellID = 1242981, name = "Radiant Echoes", defaultBarColor = "FF009B", defaultBarEnabled = true, order = 40 },
+            { spellID = 1260763, name = "Guardian's Edict", defaultBarColor = "001FFF", defaultBarEnabled = false, order = 50 },
+            { spellID = 1244344, name = "Eternal Burns", defaultBarColor = "00FFC3", defaultBarEnabled = true, order = 60 },
+            { spellID = 1242260, name = "Infused Quills", defaultBarColor = "FF7400", defaultBarEnabled = true, order = 70 },
+            { spellID = 1246709, name = "Death Drop", defaultBarColor = "FF0011", defaultBarEnabled = true, order = 80 },
+        },
+    },
+    {
+        bossKey = "Lura",
+        bossName = "Midnight Falls",
+        bossOrder = 90,
+        abilities = {
+            { spellID = 1253915, name = "Heaven's Glaives", defaultBarColor = "00FFDD", defaultBarEnabled = true, castTimeAdjustment = 3, order = 10 },
+            { spellID = 1249620, name = "Death's Dirge", defaultBarColor = "6B00FF", defaultBarEnabled = false, order = 30 },
+            { spellID = 1267049, name = "Heaven's Lance (Tank)", defaultBarColor = "001FFF", defaultBarEnabled = false, order = 60 },
+            { spellID = 1284931, name = "Termination Prism (Mythic)", defaultBarColor = "00FF41", defaultBarEnabled = true, castTimeAdjustment = 3, order = 80 },
+            { spellID = 1282441, name = "Starsplinter (Intermission)", shortName = "Starsplinter", defaultBarColor = "FF0011", defaultBarEnabled = true, postHitStages = { stages = { { duration = 3, text = "Starsplinter" } } }, order = 90 },
+            { spellID = 1285510, triggerSpellID = 1282441, name = "Starsplinter (Phase 4)", shortName = "Starsplinter", order = 95 },
+            { spellID = 1284525, name = "Galvanize (Stage 2)", defaultBarColor = "FF7400", defaultBarEnabled = true, postHitStages = { stages = { { duration = 6, text = "Galvanize" } } }, order = 110 },
+            { spellID = 1282412, name = "Core Harvest (Stage 2)", defaultBarColor = "FF0011", defaultBarEnabled = true, castTimeAdjustment = 2.5, order = 120 },
+            { spellID = 1281194, name = "Dark Meltdown (Stage 2 Knockback)", defaultBarColor = "C400FF", defaultBarEnabled = true, castTimeAdjustment = 8, order = 130 },
+            { spellID = 1250898, name = "The Dark Archangel (Stage 3)", defaultBarColor = "FF0011", defaultBarEnabled = false, order = 140 },
+            { spellID = 1266388, name = "Dark Constellation (Stage 3)", defaultBarColor = "FF0011", defaultBarEnabled = false, order = 150 },
+            { spellID = 1266897, name = "Light Siphon (Stage 3)", defaultBarColor = "FF7400", defaultBarEnabled = false, order = 160 },
+            { spellID = 1273158, name = "Death's Requiem (Mythic)", defaultBarColor = "0084FF", defaultBarEnabled = false, order = 170 },
+            { spellID = 1276525, name = "Heaven & Hell (Mythic)", defaultBarColor = "FF0011", defaultBarEnabled = true, postHitStages = { stages = { { duration = 10, text = "MOVE" } } }, order = 180 },
+        },
+    },
+    {
+        bossKey = "Rotmire",
+        bossName = "Rotmire",
+        bossOrder = 100,
+        abilities = {
+            { spellID = 1221622, name = "Awaken Fungi", defaultBarColor = "00FF41", defaultBarEnabled = true, castTimeAdjustment = 2, order = 10 },
+            { spellID = 1221637, name = "Fungal Bloom", defaultBarColor = "FF0011", defaultBarEnabled = true, castTimeAdjustment = 6, postHitStages = { stages = { { duration = 16, text = "DoT" } } }, order = 20 },
+            { spellID = 1222088, name = "Festering Vines", defaultBarColor = "00FFC3", defaultBarEnabled = true, castTimeAdjustment = 2, order = 30 },
+            { spellID = 1221787, name = "Bursting Pustules", defaultBarColor = "FF0011", defaultBarEnabled = true, castTimeAdjustment = 2, order = 40 },
+            { spellID = 1221781, name = "Putrid Fist (Tank)", defaultBarColor = "001FFF", defaultBarEnabled = false, order = 50 },
+        },
+    },
 }
 
 -------------------------------------------------------------------------------
@@ -84,8 +144,17 @@ E.VoidspireAbilityData = {
 -- The boss names and ordering are read directly from AbilityData above.
 -------------------------------------------------------------------------------
 
-E:RegisterAbilityAlertData(
-    "Voidspire",
-    "BossMods_VoidspireAbilityAlerts",
-    E.VoidspireAbilityData
-)
+for _, boss in ipairs(E.VoidspireAbilityData or {}) do
+    E:RegisterBossModFeature(
+        "Voidspire" .. boss.bossKey,
+        {
+            tab = "Voidspire",
+            order = boss.bossOrder or 100,
+
+            -- Use bossName directly as the display text.
+            labelKey = boss.bossName or boss.bossKey,
+
+            moduleName = "BossMods_VoidspireAbilityAlerts"
+        }
+    )
+end

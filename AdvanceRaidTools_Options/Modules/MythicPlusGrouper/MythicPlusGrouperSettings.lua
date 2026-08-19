@@ -225,6 +225,7 @@ updateGroupFinder = function(forceOpen)
             local tabs
             tabs = T:TabBar(body, {
                 tabs = {
+                    {key = "season1", label = L["MythicPlusGrouper_Season1"]},
                     {key = "season2", label = L["MythicPlusGrouper_Season2"]}
                 },
                 autoActivateFirst = false,
@@ -371,6 +372,7 @@ local function buildPanel()
             build = function(parent)
                 local tabs = T:TabBar(parent, {
                     tabs = {
+                        {key = "season1", label = L["MythicPlusGrouper_Season1"]},
                         {key = "season2", label = L["MythicPlusGrouper_Season2"]}
                     },
                     autoActivateFirst = false,

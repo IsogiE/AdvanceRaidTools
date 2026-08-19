@@ -377,6 +377,7 @@ L["TodoList_RaidUnavailable"] = "You are not in a raid."
 L["TodoList_NoRecentWhisper"] = "No recent whisper was found."
 L["SharingGuildUnavailable"] = "You are not in a guild."
 L["MythicPlusGrouper_Desc"] = "Mark the Mythic+ dungeons you want to run, then run a scan to find Keystones reported by online guild members"
+L["MythicPlusGrouper_Season1"] = "Season 1"
 L["MythicPlusGrouper_Season2"] = "Season 2"
 L["MythicPlusGrouper_InterestHeader"] = "Keystones I Want to Run"
 L["MythicPlusGrouper_Request"] = "Request guild Keystones"
@@ -835,9 +836,10 @@ L["BossMods_BressSwipe"] = "Cooldown Swipe"
 
 -- BossMods: HoTTracker
 L["BossMods_HoTTracker"] = "Healer HoTs"
-L["BossMods_HoTTrackerDesc"] = "Shows how many of your HoTs are active across the group"
+L["BossMods_HoTTrackerDesc"] = "Counts the hots you have out on people"
 L["BossMods_ShowWhen"] = "Show When"
 L["BossMods_IconSpacing"] = "Icon Spacing"
+L["BossMods_HoTTrackerReverseSwipe"] = "Reverse Cooldown Swipe"
 L["BossMods_TrackedSpells"] = "Tracked Spells"
 L["BossMods_NoTrackedSpellsForClass"] = "No tracked spells for your class"
 
@@ -958,6 +960,8 @@ L["BossMods_NoteGodFarKicks"] = "God Far Kicks"
 -- BossMods: Venomous Abyss
 L["BossMods_Nekzali"] = "Nek'zali the Soulcoiler"
 L["BossMods_NekzaliDesc"] = "Ready-check assignments for Nek'zali the Soulcoiler"
+L["BossMods_Nymrissa"] = "|cff55aaffNymrissa Wavecaller|r"
+L["BossMods_NymrissaDesc"] = "Ability alerts for Nymrissa Wavecaller"
 L["BossMods_NoteFocusFarAdd"] = "Focus Far Add"
 
 L["BossMods_EntombedSentinels"] = "Entombed Sentinels"
@@ -1014,6 +1018,12 @@ L["Updater_Title"] = "New ART update available"
 L["Updater_Body"] = "Download now, or else :)"
 
 L["BossMods_DefaultAlertAppearance"] = "Default Alert Appearance"
+L["BossMods_VenomousDefaultAlertAppearance"] = "|cffff7400Default Alert Appearance|r"
+L["BossMods_AlertTypeGrouper"] = "|cffff7400Alert Type Grouper|r"
+L["BossMods_BossResourceBar"] = "Boss Resource Bar"
+L["BossMods_BossResourceBarDesc"] = "Display configurable boss-frame resource bars for selected encounters and difficulties."
+L["BossMods_SszorakSurgeIcons"] = "Sszorak Surge Icons"
+L["BossMods_SszorakSurgeIconsDesc"] = "Send and display four-icon Sszorak surge sequences using raid markers."
 
 -- Omnium Folio
 L["OmniumFolio_UnspentMotes"] = "Unspent Motes of Omnial Inquiry: %d (%d/5 used)"

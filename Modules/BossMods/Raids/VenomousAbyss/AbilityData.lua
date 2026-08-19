@@ -2,6 +2,73 @@ local E = unpack(ART)
 
 E.VenomousAbyssAbilityData = {
     ---------------------------------------------------------------------------
+    -- Nymrissa Wavecaller
+    ---------------------------------------------------------------------------
+    {
+        bossKey = "Nymrissa",
+        bossName = "Nymrissa Wavecaller",
+        bossOrder = 5,
+        encounterID = 3379,
+
+        abilities = {
+            {
+                spellID = 1257717,
+                name = "Alluring Bubble (Phase Start)",
+                order = 10,
+            },
+
+            {
+                spellID = 1257608,
+                name = "Frost Barrage (Orb Drops)",
+                defaultBarColor = "00FFC3",
+                order = 20,
+            },
+
+            {
+                spellID = 1258668,
+                name = "Swirling Whirlpools (Tornadoes)",
+                defaultBarColor = "FF009B",
+                order = 30,
+            },
+
+            {
+                spellID = 1260837,
+                name = "Abyssal Rain (Rot Increase)",
+                defaultBarColor = "FF7400",
+                order = 40,
+                castTimeAdjustment = 2,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    stages = {
+                        { duration = 4, text = "Abyssal Rain" },
+                    },
+                },
+            },
+
+            {
+                spellID = 1282937,
+                name = "Iceblade Flurry (Tank Hit)",
+                defaultBarColor = "00FF41",
+                order = 50,
+            },
+
+            {
+                spellID = 12686562,
+                name = "Water Jet (Tank Frontal)",
+                defaultBarColor = "00FF41",
+                order = 60,
+                castTimeAdjustment = 3,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    stages = {
+                        { duration = 5, text = "Water Jet" },
+                    },
+                },
+            },
+        },
+    },
+
+    ---------------------------------------------------------------------------
     -- Nek'zali
     ---------------------------------------------------------------------------
     {
@@ -18,7 +85,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1284103,
+                spellID = 1292036,
+                legacySpellID = 1284103,
                 name = "Possession Barrage (Tank Debuff + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 20,
@@ -42,7 +110,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1289855,
+                spellID = 1305421,
+                legacySpellID = 1289855,
                 name = "Hungering Pyre (Soak)",
                 defaultBarColor = "FF7400",
                 order = 50,
@@ -73,7 +142,8 @@ E.VenomousAbyssAbilityData = {
 
         abilities = {
             {
-                spellID = 1284606,
+                spellID = 1284588,
+                legacySpellID = 1284606,
                 name = "Vitrolic Stasis (Intermission)",
                 defaultBarColor = "FF7400",
                 order = 10,
@@ -156,14 +226,16 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1296061,
+                spellID = 1291759,
+                legacySpellID = 1296061,
                 name = "Shell Spin (Frontal)",
                 defaultBarColor = "FFF90F",
                 order = 20,
             },
 
             {
-                spellID = 1296025,
+                spellID = 1290711,
+                legacySpellID = 1296025,
                 name = "Blink Nova (Teleport + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 30,
@@ -192,7 +264,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1297625,
+                spellID = 1296249,
+                legacySpellID = 1297625,
                 name = "Explosive Surprise (Bomb)",
                 defaultBarColor = "FF7400",
                 order = 60,
@@ -277,7 +350,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1285419,
+                spellID = 1285425,
+                legacySpellID = 1285419,
                 name = "Raging Crosswinds (Knockbacks)",
                 order = 20,
                 embeddedMechanicDefaultEnabled = true,
@@ -471,43 +545,51 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = -1283489,
-                triggerSpellIDs = { 1283489, 1299267 },
-                kind = "guillotineSequence",
-                name = "Guillotine Hit/Explode Bar",
-                defaultBarColor = "FF7400",
-                shortName = "Guillotine Hit/Explode",
+                spellID = 1282281,
+                name = "Venomfang (DoT)",
                 order = 45,
             },
 
             {
-                spellID = 1286620,
+                spellID = -1283489,
+                triggerSpellIDs = { 1283489, 1299266 },
+                kind = "guillotineSequence",
+                name = "Guillotine Hit/Explode Bar",
+                defaultBarColor = "FF7400",
+                shortName = "Guillotine Hit/Explode",
+                order = 50,
+            },
+
+            {
+                spellID = 1286573,
+                legacySpellID = 1286620,
                 name = "Soul Sever (Frontal)",
                 defaultBarColor = "FFF90F",
-                order = 50,
+                order = 60,
                 castTimeAdjustment = 4,
                 countdownTargetChoice = true,
             },
 
             {
-                spellID = 1285643,
+                spellID = 1289900,
+                legacySpellID = 1285643,
                 name = "Dreadmarch (Mind Control)",
                 defaultBarColor = "7400FF",
-                order = 60,
+                order = 70,
             },
 
             {
                 spellID = 1286918,
                 name = "Eternal Nightfall (Shield + Raid Damage)",
                 defaultBarColor = "FF0011",
-                order = 70,
+                order = 80,
             },
 
             {
                 spellID = 1286895,
                 name = "Gloombomb (Bombs)",
                 defaultBarColor = "00FFC3",
-                order = 80,
+                order = 90,
                 castTimeAdjustment = 2,
                 embeddedMechanicDefaultEnabled = true,
                 legacyMergedSpellID = -1286895,
@@ -522,30 +604,31 @@ E.VenomousAbyssAbilityData = {
                 spellID = 1286441,
                 name = "Spiritcackle (Interrupt Adds)",
                 defaultBarColor = "00FF41",
-                order = 90,
+                order = 100,
             },
 
             {
                 spellID = 1307279,
                 name = "Blighted Sever (Frontal)",
                 defaultBarColor = "FFF90F",
-                order = 100,
+                order = 110,
                 castTimeAdjustment = 3,
                 countdownTargetChoice = true,
             },
 
             {
-                spellID = 1299267,
+                spellID = 1299266,
+                legacySpellID = 1299267,
                 name = "Grim Guillotine (Soak)",
                 defaultBarColor = "FF7400",
-                order = 110,
+                order = 120,
             },
 
             {
                 spellID = 1298381,
                 name = "Defilement of the Crucible (Healing Absorb)",
                 defaultBarColor = "FF0011",
-                order = 120,
+                order = 130,
                 embeddedMechanicDefaultEnabled = true,
                 legacyMergedSpellID = -1298381,
                 postHitStages = {
@@ -559,7 +642,7 @@ E.VenomousAbyssAbilityData = {
                 spellID = 1283832,
                 name = "Axegrinder (Dodge)",
                 defaultBarColor = "E7FF00",
-                order = 130,
+                order = 140,
                 castTimeAdjustment = 2,
             },
         },
@@ -574,14 +657,64 @@ E.VenomousAbyssAbilityData = {
 
         abilities = {
             {
-                spellID = 676767,
-                name = "Ula'tek Placeholder",
+                spellID = 1292999,
+                name = "Submerge (Boss Dive)",
                 order = 10,
             },
             {
-                spellID = 1310738,
-                name = "Toxic Womb",
+                spellID = 1292188,
+                name = "Caustic Waves (waves)",
                 order = 20,
+            },
+            {
+                spellID = 1300751,
+                name = "Call of the Serpent (Adds from ceiling)",
+                order = 30,
+            },
+            {
+                spellID = 1298367,
+                name = "Mother's Wrath (Tank Hit)",
+                order = 40,
+            },
+            {
+                spellID = 1298559,
+                name = "Gore Rattle",
+                order = 50,
+            },
+            {
+                spellID = 1296301,
+                name = "Mephitic Thrash (Circle + Knock)",
+                order = 60,
+            },
+            {
+                spellID = 1300530,
+                name = "Spectral Coils (Soaks?)",
+                order = 70,
+            },
+            {
+                spellID = 1286860,
+                name = "Rage of the Shackled (Swirlies?)",
+                order = 80,
+            },
+            {
+                spellID = 1302982,
+                name = "Virulent Spit (Swirlies?)",
+                order = 90,
+            },
+            {
+                spellID = 1301510,
+                name = "Circling Prey (Platform Break)",
+                order = 100,
+            },
+            {
+                spellID = 1295905,
+                name = "Serpent's Bite (Debuff)",
+                order = 110,
+            },
+            {
+                spellID = 1286905,
+                name = "Fury Unleashed (Enrage)",
+                order = 120,
             },
         },
     },

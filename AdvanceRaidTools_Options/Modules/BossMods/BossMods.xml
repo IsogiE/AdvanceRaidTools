@@ -12,10 +12,13 @@
     <Script file="Raids\VenomousAbyss\ReadyAssignmentsSettings.lua"/>
     <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\AlertTypeGrouperSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>
     <Script file="General\WhisperKickAlertSettings.lua"/>
+    <Script file="General\BossResourceBarSettings.lua"/>
+    <Script file="General\SszorakSurgeIconsSettings.lua"/>
 
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>
     <Script file="Raids\Queldanas\QuasarSettings.lua"/>

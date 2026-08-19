@@ -16,10 +16,10 @@ local BOSS_FEATURES = {
     { featureKey = "VoidspireVaelgorEzzorak", bossKey = "VaelgorEzzorak" },
     { featureKey = "VoidspireVanguard", bossKey = "Vanguard" },
     { featureKey = "VoidspireAlleria", bossKey = "Alleria" },
-    { featureKey = "DreamriftChimaerus", bossKey = "Chimaerus" },
-    { featureKey = "QueldanasBeloren", bossKey = "Beloren" },
-    { featureKey = "QueldanasLura", bossKey = "Lura" },
-    { featureKey = "SporefallRotmire", bossKey = "Rotmire" }
+    { featureKey = "VoidspireChimaerus", bossKey = "Chimaerus" },
+    { featureKey = "VoidspireBeloren", bossKey = "Beloren" },
+    { featureKey = "VoidspireLura", bossKey = "Lura" },
+    { featureKey = "VoidspireRotmire", bossKey = "Rotmire" }
 }
 
 local ROW_GAP = 6
@@ -77,16 +77,9 @@ local SOUND_CHANNEL_SORTING = {
 -------------------------------------------------------------------------------
 
 local function getBossData(bossKey)
-    for _, source in ipairs({
-        E.VoidspireAbilityData,
-        E.DreamriftAbilityData,
-        E.QueldanasAbilityData,
-        E.SporefallAbilityData
-    }) do
-        for _, boss in ipairs(source or {}) do
-            if boss.bossKey == bossKey then
-                return boss
-            end
+    for _, boss in ipairs(E.VoidspireAbilityData or {}) do
+        if boss.bossKey == bossKey then
+            return boss
         end
     end
 end
@@ -319,6 +312,22 @@ settings.text.font.outline =
     if settings.audio.countdown == nil then
         settings.audio.countdown = false
     end
+
+    settings.barEndAudio = type(settings.barEndAudio) == "table"
+        and settings.barEndAudio
+        or {}
+
+    if settings.barEndAudio.enabled == nil then
+        settings.barEndAudio.enabled = false
+    end
+
+    settings.barEndAudio.mode = settings.barEndAudio.mode == "sound"
+        and "sound"
+        or "tts"
+    settings.barEndAudio.sound = settings.barEndAudio.sound or "None"
+    settings.barEndAudio.channel = settings.barEndAudio.channel or "Master"
+    settings.barEndAudio.ttsText = settings.barEndAudio.ttsText or "{spell}"
+    settings.barEndAudio.voiceID = tonumber(settings.barEndAudio.voiceID) or 0
 
     return settings
 end
@@ -1448,6 +1457,190 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         end
     end
 
+
+    if selectedAbility then
+        local ability = selectedAbility
+        local settings = ensureAbilitySettings(
+            abilityMod,
+            tonumber(ability.spellID)
+        )
+
+        if settings.audio and settings.audio.enabled then
+        local enableBarEndAudio = rebuildCheckbox({
+            text = "Enable additional audio when bar reaches 0",
+            labelTop = true,
+
+            get = function()
+                return settings.barEndAudio.enabled
+            end,
+
+            onChange = function(value)
+                settings.barEndAudio.enabled = value
+            end,
+
+            disabled = function()
+                return isDisabled()
+                    or not settings.enabled
+                    or not settings.bar
+                    or not settings.bar.enabled
+            end
+        })
+
+        y = full(y, enableBarEndAudio)
+
+        if settings.barEndAudio.enabled then
+            local barEndAudioMode = dropdown({
+                label = "Audio type",
+                values = AUDIO_MODE_VALUES,
+                sorting = AUDIO_MODE_SORTING,
+
+                get = function()
+                    return settings.barEndAudio.mode
+                end,
+
+                onChange = function(value)
+                    settings.barEndAudio.mode = value
+
+                    if rebuildCurrentPage then
+                        C_Timer.After(0, rebuildCurrentPage)
+                    end
+                end,
+
+                disabled = function()
+                    return isDisabled()
+                        or not settings.enabled
+                        or not settings.bar.enabled
+                        or not settings.barEndAudio.enabled
+                end
+            })
+
+            y = full(y, barEndAudioMode)
+
+            if settings.barEndAudio.mode == "tts" then
+                local barEndTTSText = editBox({
+                    label = "Text to Speech message",
+
+                    get = function()
+                        return settings.barEndAudio.ttsText
+                    end,
+
+                    onChange = function(value)
+                        settings.barEndAudio.ttsText = value
+                    end,
+
+                    disabled = function()
+                        return isDisabled()
+                            or not settings.enabled
+                            or not settings.bar.enabled
+                            or not settings.barEndAudio.enabled
+                    end
+                })
+
+                local barEndVoiceID = dropdown({
+                    label = "TTS voice",
+
+                    values = function()
+                        return E:GetModule("BossMods")
+                            .Alerts:GetTTSVoices()
+                    end,
+
+                    get = function()
+                        return settings.barEndAudio.voiceID or 0
+                    end,
+
+                    onChange = function(value)
+                        settings.barEndAudio.voiceID = tonumber(value) or 0
+
+                        E:GetModule("BossMods")
+                            .Alerts:SpeakTTS({
+                                text = "Voice test",
+                                voiceID = settings.barEndAudio.voiceID
+                            })
+                    end,
+
+                    disabled = function()
+                        return isDisabled()
+                            or not settings.enabled
+                            or not settings.bar.enabled
+                            or not settings.barEndAudio.enabled
+                    end
+                })
+
+                y = row(y, {
+                    barEndTTSText,
+                    barEndVoiceID
+                })
+            else
+                local barEndSoundName = dropdown({
+                    label = "Sound file",
+
+                    values = function()
+                        return E:GetModule("BossMods")
+                            .Alerts:GetSoundOptions()
+                    end,
+
+                    get = function()
+                        return settings.barEndAudio.sound
+                    end,
+
+                    onChange = function(value)
+                        settings.barEndAudio.sound = value
+                    end,
+
+                    playSample = function(value)
+                        E:GetModule("BossMods")
+                            .Alerts:PlaySound({
+                                name = value,
+                                channel = settings.barEndAudio.channel or "Master"
+                            })
+                    end,
+
+                    disabled = function()
+                        return isDisabled()
+                            or not settings.enabled
+                            or not settings.bar.enabled
+                            or not settings.barEndAudio.enabled
+                    end
+                })
+
+                local barEndSoundChannel = dropdown({
+                    label = "Sound channel",
+                    values = SOUND_CHANNEL_VALUES,
+                    sorting = SOUND_CHANNEL_SORTING,
+
+                    get = function()
+                        return settings.barEndAudio.channel
+                    end,
+
+                    onChange = function(value)
+                        settings.barEndAudio.channel = value
+                    end,
+
+                    disabled = function()
+                        return isDisabled()
+                            or not settings.enabled
+                            or not settings.bar.enabled
+                            or not settings.barEndAudio.enabled
+                    end
+                })
+
+                y = row(y, {
+                    barEndSoundName,
+                    barEndSoundChannel
+                })
+            end
+
+            y = full(y, track(T:Description(rightPanel, {
+                text = "This additional audio plays when the enabled bar reaches 0. "
+                    .. "The existing audio settings above are unchanged. "
+                    .. "Variable: {spell} is replaced by the ability name.",
+                sizeDelta = 0
+            })))
+        end
+        end
+
+    end
+
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)
 
@@ -1485,7 +1678,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 end
 
 -------------------------------------------------------------------------------
--- Register Ability Alerts for every boss served by the compatibility module.
+-- Register Ability Alerts for every Voidspire boss
 -------------------------------------------------------------------------------
 
 local function createBossBuilder(bossKey)

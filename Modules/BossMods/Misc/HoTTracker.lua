@@ -34,12 +34,26 @@ E:RegisterModuleDefaults("BossMods_HoTTracker", {
             opacity = 1.0
         },
         count = {
+            enabled = true,
             anchor = "TOPLEFT",
             offsetX = 1,
             offsetY = -1,
             size = 11,
             outline = "OUTLINE",
             color = {1, 1, 1, 1}
+        },
+        cooldown = {
+            reverse = false
+        },
+        timer = {
+            enabled = true,
+            anchor = "BOTTOMRIGHT",
+            offsetX = -1,
+            offsetY = 1,
+            size = 10,
+            outline = "OUTLINE",
+            color = {1, 0.8, 0, 1},
+            decimals = 1
         }
     }
 })
@@ -157,7 +171,9 @@ local function buildEngineConfig(mod)
     return {
         parent = UIParent,
         spec = {
-            spells = CLASS_SPELLS[class] or {}
+            spells = CLASS_SPELLS[class] or {},
+            filter = "HELPFUL|PLAYER",
+            combatFilter = "HELPFUL"
         },
         layout = db.layout,
         visibility = {

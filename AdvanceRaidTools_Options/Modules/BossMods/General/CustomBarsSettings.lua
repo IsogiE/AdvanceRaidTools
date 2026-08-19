@@ -44,9 +44,6 @@ local function abilityValues()
         end
     end
     addRaid("Voidspire", E.VoidspireAbilityData)
-    addRaid("Dreamrift", E.DreamriftAbilityData)
-    addRaid("Quel'Danas", E.QueldanasAbilityData)
-    addRaid("Sporefall", E.SporefallAbilityData)
     addRaid("Venomous Abyss", E.VenomousAbyssAbilityData)
     table.sort(sorting, function(a, b) return values[a] < values[b] end)
     return values, sorting
