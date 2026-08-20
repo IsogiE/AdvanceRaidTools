@@ -555,6 +555,18 @@ function Engines.AuraDisplay(config)
         updateSecretCounts()
     end)
 
+    callbacks:RegisterEvent("UNIT_AURA", function(_, unit)
+        if not state.active or state.editMode then
+            return
+        end
+
+        for _, slot in ipairs(state.counterSlots) do
+            if slot.assigned and slot.unit == unit then
+                slot.container:UpdateAllAuras()
+            end
+        end
+    end)
+
     local function applyVisibility()
         display:SetShown(state.active and shouldShow() and #state.displayEntries > 0)
         for _, slot in ipairs(state.counterSlots) do
