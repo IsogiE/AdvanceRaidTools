@@ -34,7 +34,6 @@ E:RegisterModuleDefaults("BossMods_SszorakMarkers", {
 
 local ENCOUNTER_ID = 3420
 local INSTANCE_ID = 3004
-local MYTHIC_DIFFICULTY = 16
 local SPELL_HOWLING_MAELSTROM = 1285732
 local NOTE_TAG = "sszwinds"
 local MAX_SELECTIONS = 3
@@ -87,8 +86,8 @@ local function applyBackdrop(frame, bgAlpha, border)
 end
 
 local function currentLocationIsSupported()
-    local _, _, difficultyID, _, _, _, _, mapID = GetInstanceInfo()
-    return mapID == INSTANCE_ID and difficultyID == MYTHIC_DIFFICULTY
+    local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
+    return mapID == INSTANCE_ID
 end
 
 function SszorakMarkers:EnsureFrames()
