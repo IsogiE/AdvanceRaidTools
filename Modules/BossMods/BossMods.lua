@@ -181,4 +181,9 @@ BossMods:RegisterRaidTab("VenomousAbyss", {
     order = 50
 })
 
+BossMods:RegisterRaidTab("AbyssCustom", {
+    labelKey = "BossMods_AbyssCustom",
+    order = 60
+})
+
 E:FlushModuleFeatureRegistrations("BossMods")

@@ -235,6 +235,30 @@ AR({
     textKey = "BossMods_AR_TextSSZSoak2"
 })
 
+AR({
+    boss = BOSS_META.sszorak,
+
+    key = "venomousAbyssSSZWindCaller",
+    sheet = "VenomousAbyssSszorakWindMarkers",
+
+    labelKey = "BossMods_SszorakMarkers",
+    itemLabelKey = "BossMods_NoteSSZWindCaller",
+
+    tab = "VenomousAbyss",
+    order = 52,
+
+    type = "sszorakWindCaller",
+    moduleName = "BossMods_SszorakMarkers",
+    tag = "sszwinds",
+    hashtagMultiline = false,
+    textKey = "BossMods_AR_TextSSZWindCaller",
+    priority = 80,
+    note = {
+        tag = "sszwinds",
+        template = "#sszwinds Player1 Player2 Player3"
+    }
+})
+
 ---------------------------------------------------------------------------
 -- The Twin Fangs: kick-position parser
 ---------------------------------------------------------------------------
@@ -529,7 +553,8 @@ AR({
         order = 50,
 
         entries = {
-            "VenomousAbyssSszorakSoaks"
+            "VenomousAbyssSszorakSoaks",
+            "VenomousAbyssSszorakWindMarkers"
         }
     })
 

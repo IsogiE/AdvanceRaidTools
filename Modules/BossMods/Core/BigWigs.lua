@@ -14,13 +14,25 @@ local subscriberOrder = {}
 local nextToken = 1
 local hooked = false
 
-local function dispatch(_, _, key, text, time)
+local function dispatchStartBar(_, _, key, text, time)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and (not sub.spellKeys or sub.spellKeys[key]) then
             local ok, err = pcall(sub.onStartBar, key, text, time)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed: %s", sub.owner, tostring(err))
+            end
+        end
+    end
+end
+
+local function dispatchStopBar(_, _, text)
+    for i = 1, #subscriberOrder do
+        local sub = subscribers[subscriberOrder[i]]
+        if sub and sub.onStopBar then
+            local ok, err = pcall(sub.onStopBar, text)
+            if not ok then
+                E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed stopping a bar: %s", sub.owner, tostring(err))
             end
         end
     end
@@ -34,7 +46,8 @@ local function ensureHook()
         E:ChannelDebug(DEBUG_CHANNEL, "BigWigsLoader not present; subscription dormant")
         return
     end
-    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartBar", dispatch)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartBar", dispatchStartBar)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopBar", dispatchStopBar)
     hooked = true
 end
 
@@ -47,6 +60,7 @@ local function maybeUnhook()
     end
     if BigWigsLoader then
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartBar")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopBar")
     end
     hooked = false
 end
@@ -62,6 +76,7 @@ function BW:Subscribe(opts)
     local sub = {
         owner = opts.owner,
         onStartBar = opts.onStartBar,
+        onStopBar = type(opts.onStopBar) == "function" and opts.onStopBar or nil,
         spellKeys = nil
     }
     if opts.spellKeys then

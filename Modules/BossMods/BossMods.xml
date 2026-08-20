@@ -30,6 +30,7 @@
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlerts.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
+    <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
 
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
