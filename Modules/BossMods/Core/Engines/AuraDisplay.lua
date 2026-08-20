@@ -450,9 +450,6 @@ function Engines.AuraDisplay(config)
             slot.anchor:SetPoint("TOPLEFT", relativeFrame, "TOPRIGHT", 0, 0)
         end
         slot.assigned = true
-        local enabled = state.active and not state.editMode
-        slot.container:SetEnabled(enabled)
-        slot.container:SetShown(enabled)
     end
 
     local function refreshSecureCounters()
@@ -473,6 +470,8 @@ function Engines.AuraDisplay(config)
         end
 
         for _, slot in ipairs(state.counterSlots) do
+            pcall(slot.container.SetEnabled, slot.container, false)
+            pcall(slot.container.Hide, slot.container)
             slot.assigned = false
         end
 
@@ -555,24 +554,26 @@ function Engines.AuraDisplay(config)
         updateSecretCounts()
     end)
 
-    callbacks:RegisterEvent("UNIT_AURA", function(_, unit)
-        if not state.active or state.editMode then
-            return
-        end
-
-        for _, slot in ipairs(state.counterSlots) do
-            if slot.assigned and slot.unit == unit then
-                slot.container:UpdateAllAuras()
-            end
-        end
-    end)
-
     local function applyVisibility()
-        display:SetShown(state.active and shouldShow() and #state.displayEntries > 0)
-        for _, slot in ipairs(state.counterSlots) do
-            local enabled = state.active and not state.editMode and slot.assigned
-            pcall(slot.container.SetEnabled, slot.container, enabled)
-            pcall(slot.container.SetShown, slot.container, enabled)
+        local displayEnabled = state.active and shouldShow() and #state.displayEntries > 0
+        if displayEnabled then
+            display:Show()
+            for _, slot in ipairs(state.counterSlots) do
+                local enabled = not state.editMode and slot.assigned
+                if enabled then
+                    pcall(slot.container.Show, slot.container)
+                    pcall(slot.container.SetEnabled, slot.container, true)
+                else
+                    pcall(slot.container.SetEnabled, slot.container, false)
+                    pcall(slot.container.Hide, slot.container)
+                end
+            end
+        else
+            for _, slot in ipairs(state.counterSlots) do
+                pcall(slot.container.SetEnabled, slot.container, false)
+                pcall(slot.container.Hide, slot.container)
+            end
+            display:Hide()
         end
     end
 
@@ -619,6 +620,7 @@ function Engines.AuraDisplay(config)
     callbacks:RegisterEvent("GROUP_ROSTER_UPDATE", function()
         if not areAurasRestricted() then
             refreshSecureCounters()
+            applyVisibility()
             updateSecretCounts()
         else
             state.pendingSecureRefresh = true
