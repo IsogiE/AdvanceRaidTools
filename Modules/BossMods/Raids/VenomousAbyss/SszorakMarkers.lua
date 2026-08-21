@@ -38,15 +38,18 @@ local SPELL_HOWLING_MAELSTROM = 1285732
 local NOTE_TAG = "sszwinds"
 local MAX_SELECTIONS = 3
 local RESET_FALLBACK_OFFSET = 0.25
+local POST_WIND_DISPLAY_SECONDS = 10
+local STOP_BAR_END_TOLERANCE = 1
 
--- Star, Circle, Diamond, Moon, Square, Cross.
+-- Buttons keep their own visual marker while announcing the opposite marker.
+-- Star <-> Moon, Circle (orange) <-> Square, Diamond <-> Cross.
 local MARKERS = {
-    {id = 1, fileID = 137001, name = "Star"},
-    {id = 2, fileID = 137002, name = "Circle"},
-    {id = 3, fileID = 137003, name = "Diamond"},
-    {id = 5, fileID = 137005, name = "Moon"},
-    {id = 6, fileID = 137006, name = "Square"},
-    {id = 7, fileID = 137007, name = "Cross"}
+    {id = 1, oppositeID = 5, fileID = 137001, name = "Star"},
+    {id = 2, oppositeID = 6, fileID = 137002, name = "Circle"},
+    {id = 3, oppositeID = 7, fileID = 137003, name = "Diamond"},
+    {id = 5, oppositeID = 1, fileID = 137005, name = "Moon"},
+    {id = 6, oppositeID = 2, fileID = 137006, name = "Square"},
+    {id = 7, oppositeID = 3, fileID = 137007, name = "Cross"}
 }
 
 local KEYBIND_NAMES = {}
@@ -56,6 +59,7 @@ for i, marker in ipairs(MARKERS) do
 end
 
 local RAID_MARKER_TEXTURE = [[Interface\TargetingFrame\UI-RaidTargetingIcon_%d]]
+local RAID_MARKER_MARKUP = [[|TInterface\TargetingFrame\UI-RaidTargetingIcon_%s:36:36|t]]
 local WHITE = [[Interface\Buttons\WHITE8x8]]
 
 local SszorakMarkers = E:NewModule("BossMods_SszorakMarkers", "AceEvent-3.0", "AceTimer-3.0")
@@ -119,7 +123,7 @@ function SszorakMarkers:EnsureFrames()
         button:SetSize(40, 40)
         button:SetPoint("LEFT", buttonAnchor, "LEFT", (i - 1) * 45, 0)
         button:SetAttribute("type1", "macro")
-        button:SetAttribute("macrotext1", "/raid " .. marker.fileID)
+        button:SetAttribute("macrotext1", "/raid " .. marker.oppositeID)
         button:RegisterForClicks("AnyUp", "AnyDown")
         button:SetFrameStrata("MEDIUM")
         button:SetFrameLevel(5)
@@ -285,19 +289,55 @@ function SszorakMarkers:UpdateDisplay()
     end
 end
 
-function SszorakMarkers:CancelResetTimer()
-    if self.resetTimer then
-        self:CancelTimer(self.resetTimer)
-        self.resetTimer = nil
+function SszorakMarkers:CancelMaelstromTimers()
+    for _, timer in pairs(self.barEndTimers or {}) do
+        self:CancelTimer(timer)
     end
+    for _, timer in pairs(self.barResetTimers or {}) do
+        self:CancelTimer(timer)
+    end
+    self.barEndTimers = {}
+    self.barResetTimers = {}
 end
 
 function SszorakMarkers:ResetSelection()
-    self:CancelResetTimer()
     self.totalFilled = 0
-    self.selectionGeneration = self.selectionGeneration + 1
-    self.activeMaelstromBarText = nil
+    self.selectionBarGeneration = nil
     self:UpdateDisplay()
+end
+
+function SszorakMarkers:SchedulePostWindReset(generation)
+    if not generation then
+        return
+    end
+
+    local existing = self.barResetTimers[generation]
+    if existing then
+        self:CancelTimer(existing)
+    end
+
+    self.barResetTimers[generation] = self:ScheduleTimer(function()
+        self.barResetTimers[generation] = nil
+        if self.encounterActive and self.selectionBarGeneration == generation then
+            self:ResetSelection()
+        end
+    end, POST_WIND_DISPLAY_SECONDS)
+end
+
+function SszorakMarkers:FinishMaelstromBar(generation)
+    local endTimer = self.barEndTimers[generation]
+    if endTimer then
+        self:CancelTimer(endTimer)
+        self.barEndTimers[generation] = nil
+    end
+
+    if self.activeMaelstromGeneration == generation then
+        self.activeMaelstromBarText = nil
+        self.activeMaelstromGeneration = nil
+        self.activeMaelstromEndsAt = nil
+    end
+
+    self:SchedulePostWindReset(generation)
 end
 
 function SszorakMarkers:CheckNoteAuthorization()
@@ -318,22 +358,26 @@ function SszorakMarkers:CheckNoteAuthorization()
 end
 
 function SszorakMarkers:OnChatMsg(_, msg)
-    if not self.encounterActive or self.totalFilled >= MAX_SELECTIONS then
+    if not self.encounterActive then
         return
     end
 
+    local barGeneration = self.activeMaelstromGeneration or self.maelstromGeneration
+    if self.totalFilled > 0 and self.selectionBarGeneration ~= barGeneration then
+        self:ResetSelection()
+    end
+    if self.totalFilled >= MAX_SELECTIONS then
+        return
+    end
+
+    if self.totalFilled == 0 then
+        self.selectionBarGeneration = barGeneration
+    end
     self.totalFilled = self.totalFilled + 1
     local pos = self.totalFilled
-    local generation = self.selectionGeneration
     self:UpdateDisplay()
-
-    C_Timer.After(0, function()
-        if not self.encounterActive or self.selectionGeneration ~= generation then
-            return
-        end
-        self.frames.barDisplays[pos]:SetFormattedText("|T%s:36:36|t", msg)
-        self.frames.barDisplays[pos]:Show()
-    end)
+    self.frames.barDisplays[pos]:SetFormattedText(RAID_MARKER_MARKUP, msg)
+    self.frames.barDisplays[pos]:Show()
 end
 
 function SszorakMarkers:StartChatListener()
@@ -354,24 +398,38 @@ function SszorakMarkers:OnBigWigsStartBar(key, text, time)
         return
     end
 
-    self:CancelResetTimer()
+    self.maelstromGeneration = self.maelstromGeneration + 1
+    local generation = self.maelstromGeneration
+    if self.totalFilled > 0 and self.selectionBarGeneration == 0 then
+        self.selectionBarGeneration = generation
+    end
     self.activeMaelstromBarText = text
-    local expectedText = text
-    self.resetTimer = self:ScheduleTimer(function()
-        self.resetTimer = nil
-        if self.encounterActive and self.activeMaelstromBarText == expectedText then
-            self:ResetSelection()
+    self.activeMaelstromGeneration = generation
+    self.activeMaelstromEndsAt = GetTime() + time
+    self.barEndTimers[generation] = self:ScheduleTimer(function()
+        self.barEndTimers[generation] = nil
+        if self.encounterActive then
+            self:FinishMaelstromBar(generation)
         end
     end, time + RESET_FALLBACK_OFFSET)
 end
 
 function SszorakMarkers:OnBigWigsStopBar(text)
-    if not self.encounterActive or not self.activeMaelstromBarText then
+    if not self.encounterActive
+        or not self.activeMaelstromGeneration
+        or not self.activeMaelstromBarText
+    then
         return
     end
-    if text == self.activeMaelstromBarText then
-        self:ResetSelection()
+    if text ~= self.activeMaelstromBarText then
+        return
     end
+    if self.activeMaelstromEndsAt
+        and GetTime() + STOP_BAR_END_TOLERANCE < self.activeMaelstromEndsAt
+    then
+        return
+    end
+    self:FinishMaelstromBar(self.activeMaelstromGeneration)
 end
 
 function SszorakMarkers:HookBigWigs()
@@ -402,6 +460,11 @@ function SszorakMarkers:OnEncounterStart(_, encounterID)
         return
     end
     self.encounterActive = true
+    self:CancelMaelstromTimers()
+    self.maelstromGeneration = 0
+    self.activeMaelstromBarText = nil
+    self.activeMaelstromGeneration = nil
+    self.activeMaelstromEndsAt = nil
     self:StartChatListener()
     self:ResetSelection()
     self:ApplyVisibility()
@@ -413,6 +476,10 @@ function SszorakMarkers:OnEncounterEnd(_, encounterID)
     end
     self.encounterActive = false
     self:StopChatListener()
+    self:CancelMaelstromTimers()
+    self.activeMaelstromBarText = nil
+    self.activeMaelstromGeneration = nil
+    self.activeMaelstromEndsAt = nil
     self:ResetSelection()
     self:ApplyVisibility()
 end
@@ -542,7 +609,9 @@ function SszorakMarkers:OnInitialize()
     self.editMode = false
     self.editVisible = {}
     self.totalFilled = 0
-    self.selectionGeneration = 0
+    self.maelstromGeneration = 0
+    self.barEndTimers = {}
+    self.barResetTimers = {}
 
     if not InCombatLockdown() then
         self:EnsureFrames()
@@ -582,6 +651,10 @@ function SszorakMarkers:OnDisable()
     self.encounterActive = false
     self.editMode = false
     self.editVisible = {}
+    self:CancelMaelstromTimers()
+    self.activeMaelstromBarText = nil
+    self.activeMaelstromGeneration = nil
+    self.activeMaelstromEndsAt = nil
     self:ResetSelection()
 
     if self.noteParseTimer then
