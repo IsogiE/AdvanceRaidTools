@@ -18,7 +18,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1284103,
+                spellID = 1292036,
+                legacySpellID = 1284103,
                 name = "Possession Barrage (Tank Debuff + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 20,
@@ -42,7 +43,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1289855,
+                spellID = 1305421,
+                legacySpellID = 1289855,
                 name = "Hungering Pyre (Soak)",
                 defaultBarColor = "FF7400",
                 order = 50,
@@ -73,7 +75,8 @@ E.VenomousAbyssAbilityData = {
 
         abilities = {
             {
-                spellID = 1284606,
+                spellID = 1284588,
+                legacySpellID = 1284606,
                 name = "Vitrolic Stasis (Intermission)",
                 defaultBarColor = "FF7400",
                 order = 10,
@@ -92,7 +95,6 @@ E.VenomousAbyssAbilityData = {
                 name = "Venom Coagulation (Green Add)",
                 defaultBarColor = "00FF41",
                 order = 30,
-                castTimeAdjustment = 2,
             },
 
             {
@@ -156,14 +158,16 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1296061,
+                spellID = 1291759,
+                legacySpellID = 1296061,
                 name = "Shell Spin (Frontal)",
                 defaultBarColor = "FFF90F",
                 order = 20,
             },
 
             {
-                spellID = 1296025,
+                spellID = 1290711,
+                legacySpellID = 1296025,
                 name = "Blink Nova (Teleport + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 30,
@@ -171,7 +175,7 @@ E.VenomousAbyssAbilityData = {
                 legacyMergedSpellID = -1296025,
                 postHitStages = {
                     stages = {
-                        { duration = 6, text = "Teleport" },
+                        { duration = 7, text = "Teleport" },
                     },
                 },
             },
@@ -181,6 +185,12 @@ E.VenomousAbyssAbilityData = {
                 name = "Frostfire Volley (Damage)",
                 defaultBarColor = "FF7400",
                 order = 40,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    stages = {
+                        { duration = 8, text = "Frostfire Volley" },
+                    },
+                },
             },
 
             {
@@ -192,7 +202,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1297625,
+                spellID = 1296249,
+                legacySpellID = 1297625,
                 name = "Explosive Surprise (Bomb)",
                 defaultBarColor = "FF7400",
                 order = 60,
@@ -232,7 +243,7 @@ E.VenomousAbyssAbilityData = {
                 legacyMergedSpellID = -1281907,
                 postHitStages = {
                     stages = {
-                        { duration = 8, text = "Waves" },
+                        { duration = 6, text = "Waves" },
                     },
                 },
             },
@@ -277,7 +288,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1285419,
+                spellID = 1285425,
+                legacySpellID = 1285419,
                 name = "Raging Crosswinds (Knockbacks)",
                 order = 20,
                 embeddedMechanicDefaultEnabled = true,
@@ -390,6 +402,7 @@ E.VenomousAbyssAbilityData = {
                 name = "Beam Bar",
                 defaultBarColor = "FFF90F",
                 shortName = "Beam",
+                ignoreTriggerDuration = 18,
                 order = 65,
             },
 
@@ -471,17 +484,24 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = -1283489,
-                triggerSpellIDs = { 1283489, 1299267 },
-                kind = "guillotineSequence",
-                name = "Guillotine Hit/Explode Bar",
-                defaultBarColor = "FF7400",
-                shortName = "Guillotine Hit/Explode",
+                spellID = 1282281,
+                name = "Venomfang (DoT)",
                 order = 45,
             },
 
             {
-                spellID = 1286620,
+                spellID = -1283489,
+                triggerSpellIDs = { 1283489, 1299266 },
+                kind = "guillotineSequence",
+                name = "Guillotine Hit/Explode Bar",
+                defaultBarColor = "FF7400",
+                shortName = "Guillotine Hit/Explode",
+                order = 47,
+            },
+
+            {
+                spellID = 1286573,
+                legacySpellID = 1286620,
                 name = "Soul Sever (Frontal)",
                 defaultBarColor = "FFF90F",
                 order = 50,
@@ -490,7 +510,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1285643,
+                spellID = 1289900,
+                legacySpellID = 1285643,
                 name = "Dreadmarch (Mind Control)",
                 defaultBarColor = "7400FF",
                 order = 60,
@@ -535,7 +556,8 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
-                spellID = 1299267,
+                spellID = 1299266,
+                legacySpellID = 1299267,
                 name = "Grim Guillotine (Soak)",
                 defaultBarColor = "FF7400",
                 order = 110,
@@ -574,14 +596,76 @@ E.VenomousAbyssAbilityData = {
 
         abilities = {
             {
-                spellID = 676767,
-                name = "Ula'tek Placeholder",
+                spellID = 1292999,
+                name = "Submerge (Boss Dive)",
+                defaultBarEnabled = false,
                 order = 10,
             },
             {
-                spellID = 1310738,
-                name = "Toxic Womb",
+                spellID = 1292188,
+                name = "Caustic Waves (Waves)",
+                defaultBarEnabled = false,
                 order = 20,
+            },
+            {
+                spellID = 1300751,
+                name = "Call of the Serpent (Adds from ceiling)",
+                defaultBarEnabled = false,
+                order = 30,
+            },
+            {
+                spellID = 1298367,
+                name = "Mother's Wrath (Tank Hit)",
+                defaultBarEnabled = false,
+                order = 40,
+            },
+            {
+                spellID = 1298559,
+                name = "Gore Rattle",
+                defaultBarEnabled = false,
+                order = 50,
+            },
+            {
+                spellID = 1296301,
+                name = "Mephitic Thrash (Circle + Knock)",
+                defaultBarEnabled = false,
+                order = 60,
+            },
+            {
+                spellID = 1300530,
+                name = "Spectral Coils (Soaks)",
+                defaultBarEnabled = false,
+                order = 70,
+            },
+            {
+                spellID = 1286860,
+                name = "Rage of the Shackled (Swirlies)",
+                defaultBarEnabled = false,
+                order = 80,
+            },
+            {
+                spellID = 1302982,
+                name = "Virulent Spit (Swirlies)",
+                defaultBarEnabled = false,
+                order = 90,
+            },
+            {
+                spellID = 1301510,
+                name = "Circling Prey (Platform Break)",
+                defaultBarEnabled = false,
+                order = 100,
+            },
+            {
+                spellID = 1295905,
+                name = "Serpent's Bite (Debuff)",
+                defaultBarEnabled = false,
+                order = 110,
+            },
+            {
+                spellID = 1286905,
+                name = "Fury Unleashed (Enrage)",
+                defaultBarEnabled = false,
+                order = 120,
             },
         },
     },

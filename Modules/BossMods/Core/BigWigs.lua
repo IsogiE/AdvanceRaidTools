@@ -38,6 +38,18 @@ local function dispatchStopBar(_, _, text)
     end
 end
 
+local function dispatchStage(_, _, module, stage)
+    for i = 1, #subscriberOrder do
+        local sub = subscribers[subscriberOrder[i]]
+        if sub and sub.onStage then
+            local ok, err = pcall(sub.onStage, module, stage)
+            if not ok then
+                E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed changing stage: %s", sub.owner, tostring(err))
+            end
+        end
+    end
+end
+
 local function ensureHook()
     if hooked then
         return
@@ -48,6 +60,7 @@ local function ensureHook()
     end
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartBar", dispatchStartBar)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopBar", dispatchStopBar)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_SetStage", dispatchStage)
     hooked = true
 end
 
@@ -61,6 +74,7 @@ local function maybeUnhook()
     if BigWigsLoader then
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartBar")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopBar")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_SetStage")
     end
     hooked = false
 end
@@ -77,6 +91,7 @@ function BW:Subscribe(opts)
         owner = opts.owner,
         onStartBar = opts.onStartBar,
         onStopBar = type(opts.onStopBar) == "function" and opts.onStopBar or nil,
+        onStage = type(opts.onStage) == "function" and opts.onStage or nil,
         spellKeys = nil
     }
     if opts.spellKeys then
