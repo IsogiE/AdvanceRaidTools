@@ -328,8 +328,12 @@ function AbilityAlerts:BuildAbilityLookup()
                     legacyMergedSpellID = tonumber(
                         ability.legacyMergedSpellID
                     ),
+                    legacySpellID = tonumber(ability.legacySpellID),
                     postHitStages = ability.postHitStages,
                     mechanic = ability.mechanic,
+                    ignoreTriggerDuration = tonumber(
+                        ability.ignoreTriggerDuration
+                    ),
                     defaultBarColor = ability.defaultBarColor,
                     defaultBarEnabled = ability.defaultBarEnabled,
 
@@ -374,6 +378,16 @@ function AbilityAlerts:EnsureCustomBarDefaults()
             local settings =
                 self.db.abilities[spellID]
                 or self.db.abilities[tostring(spellID)]
+
+            if not settings and ability.legacySpellID then
+                settings =
+                    self.db.abilities[ability.legacySpellID]
+                    or self.db.abilities[tostring(ability.legacySpellID)]
+
+                if settings then
+                    self.db.abilities[spellID] = settings
+                end
+            end
 
             if not settings then
                 settings = {}
@@ -2754,7 +2768,7 @@ function AbilityAlerts:StartGuillotineSequenceBar(
         return
     end
 
-    local totalDuration = 11
+    local totalDuration = 12
     local startDelay = testMode and 0 or duration
     local markerSettings = settings.guillotineSequence or {}
     local token = self:CreateCustomTriggerToken()
@@ -2776,7 +2790,7 @@ function AbilityAlerts:StartGuillotineSequenceBar(
                 bar,
                 {
                     { time = 5, text = "Hit" },
-                    { time = 11, text = "Explode" }
+                    { time = 12, text = "Explode" }
                 },
                 totalDuration,
                 ability.spellID,
@@ -2797,6 +2811,17 @@ function AbilityAlerts:StartBeamBar(ability, duration, testMode)
 
     if not settings
         or not settings.bar or not settings.bar.enabled
+    then
+        return
+    end
+
+    local ignoredDuration = tonumber(ability.ignoreTriggerDuration)
+    local triggerDuration = tonumber(duration)
+
+    if not testMode
+        and ignoredDuration
+        and triggerDuration
+        and math.abs(triggerDuration - ignoredDuration) < 0.05
     then
         return
     end
@@ -3152,6 +3177,13 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
             )
         end
     end
+end
+
+function AbilityAlerts:OnBigWigsStage()
+    -- A new BigWigs stage invalidates timers from the previous encounter
+    -- phase. Clear ART's delayed work at the same boundary so a stopped
+    -- phase-one timer cannot create an alert during a later phase.
+    self:ResetAlerts()
 end
 
 
@@ -4058,7 +4090,11 @@ function AbilityAlerts:OnEnable()
                     text,
                     duration
                 )
-            end
+            end,
+
+            onStage = function()
+                self:OnBigWigsStage()
+            end,
         })
 
     self:RegisterEvent("ENCOUNTER_START")
