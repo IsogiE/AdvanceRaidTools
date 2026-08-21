@@ -113,13 +113,17 @@ end
 local function ensureAbilitySettings(mod, spellID)
     mod.db.abilities = mod.db.abilities or {}
 
-    local settings =
-        mod.db.abilities[spellID]
-        or mod.db.abilities[tostring(spellID)]
+    local settings = mod:GetAbilitySettings(spellID)
 
     if not settings then
+        local storageKey = mod:GetAbilityStorageKey(spellID)
+
+        if not storageKey then
+            return nil
+        end
+
         settings = {}
-        mod.db.abilities[spellID] = settings
+        mod.db.abilities[storageKey] = settings
     end
 
     -- The individual bar, text and audio toggles are the alert switches.
@@ -173,8 +177,9 @@ local function ensureAbilitySettings(mod, spellID)
     settings.bar.delayBy =
         tonumber(settings.bar.delayBy) or 0
 
-    settings.bar.text =
-        settings.bar.text or "{spell}"
+    if settings.bar.text == nil or settings.bar.text == "{spell}" then
+        settings.bar.text = ""
+    end
 settings.bar.width =
     tonumber(settings.bar.width) or 300
 
@@ -941,7 +946,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             y = row(y, { barSeconds, barDelay })
 
             local barText = editBox({
-                label = "Bar text",
+                label = "Custom bar name (blank uses ability name)",
                 get = function() return settings.bar.text end,
                 onChange = function(value) settings.bar.text = value end,
                 disabled = function() return isDisabled() or not settings.enabled end

@@ -114,13 +114,17 @@ end
 local function ensureAbilitySettings(mod, spellID)
     mod.db.abilities = mod.db.abilities or {}
 
-    local settings =
-        mod.db.abilities[spellID]
-        or mod.db.abilities[tostring(spellID)]
+    local settings = mod:GetAbilitySettings(spellID)
 
     if not settings then
+        local storageKey = mod:GetAbilityStorageKey(spellID)
+
+        if not storageKey then
+            return nil
+        end
+
         settings = {}
-        mod.db.abilities[spellID] = settings
+        mod.db.abilities[storageKey] = settings
     end
 
     -- The individual bar, text and audio toggles are the alert switches.
@@ -173,8 +177,9 @@ local function ensureAbilitySettings(mod, spellID)
     settings.bar.delayBy =
         tonumber(settings.bar.delayBy) or 0
 
-    settings.bar.text =
-        settings.bar.text or "{spell}"
+    if settings.bar.text == nil or settings.bar.text == "{spell}" then
+        settings.bar.text = ""
+    end
 settings.bar.width =
     tonumber(settings.bar.width) or 300
 
@@ -831,7 +836,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.mightyThudHitsInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.mightyThudHitsInitialized = true
@@ -839,7 +844,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
             if not settings.mightyThudContinuousBarInitialized then
                 if settings.bar.text == "{spell} {hit}" then
-                    settings.bar.text = "{spell}"
+                    settings.bar.text = ""
                 end
 
                 settings.mightyThudContinuousBarInitialized = true
@@ -871,7 +876,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.ravenousFeastHitsInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.ravenousFeastHitsInitialized = true
@@ -903,7 +908,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.mushroomTossJumpInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.mushroomTossJumpInitialized = true
@@ -932,7 +937,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.latestPickupInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.latestPickupInitialized = true
@@ -955,7 +960,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.howlingMaelstromInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.howlingMaelstromInitialized = true
@@ -985,7 +990,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             )
 
             if not settings.guillotineSequenceInitialized then
-                settings.bar.text = "{spell}"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.guillotineSequenceInitialized = true
@@ -994,7 +999,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         if ability.kind == "beamBar" then
             if not settings.beamBarInitialized then
-                settings.bar.text = "Beam"
+                settings.bar.text = ""
                 settings.text.enabled = false
                 settings.audio.enabled = false
                 settings.beamBarInitialized = true
@@ -1642,7 +1647,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 and ability.kind ~= "beamBar"
             then
                 local barText = editBox({
-                    label = "Bar text",
+                    label = "Custom bar name (blank uses ability name)",
                     get = function() return settings.bar.text end,
                     onChange = function(value) settings.bar.text = value end,
                     disabled = function() return isDisabled() or not settings.enabled end
@@ -1653,8 +1658,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 if ability.kind == "mightyThudHits" then
                     y = full(y, track(T:Description(rightPanel, {
                         text =
-                            "Variables: {spell} is replaced by the ability name. "
-                            .. "The bar duration is the cast time, first hit delay and two hit intervals combined. "
+                            "The bar duration is the cast time, first hit delay and two hit intervals combined. "
                             .. "Three markers show hit 1, hit 2 and hit 3. "
                             .. "Your #LEThud1, #LEThud2 or #LEThud3 note assignment highlights the matching marker in green with SOAK text. "
                             .. "Test alert starts the full bar immediately.",

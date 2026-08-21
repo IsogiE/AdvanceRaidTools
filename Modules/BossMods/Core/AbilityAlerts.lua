@@ -123,71 +123,10 @@ local defaults = config.defaults or {
 
     bossDefaults = {},
 
-    abilities = {
-        [config.defaultAbilitySpellID or 1296092] = {
-            enabled = true,
-
-bar = {
-    enabled = false,
-    unattached = false,
-    secondsBefore = 5,
-    delayBy = 0,
-    text = "{spell}",
-
-    width = 300,
-    height = 24,
-
-    fillColor = {
-        0.20,
-        0.60,
-        1.00,
-        1.00
-    },
-
-    backgroundColor = {
-        0.00,
-        0.00,
-        0.00,
-        1.00
-    },
-
-    backgroundOpacity = 0.30,
-
-    font = {
-        name = "Friz Quadrata TT",
-        size = 14,
-        outline = "OUTLINE"
-    }
-},
-
-text = {
-    enabled = false,
-    unattached = false,
-    secondsBefore = 7,
-    delayBy = 0,
-    message = "{spell} in {time}",
-    countdown = true,
-
-    font = {
-        name = "Friz Quadrata TT",
-        size = 34,
-        outline = "THICKOUTLINE"
-    }
-},
-
-            audio = {
-                enabled = false,
-                secondsBefore = 3,
-                delayBy = 0,
-                mode = "tts",
-                sound = "None",
-                channel = "Master",
-                ttsText = "{spell} in {time}",
-                voiceID = 0,
-                countdown = false
-            }
-        }
-    }
+    -- Ability settings are created from the registered ability data. Keeping
+    -- a spell ID in the defaults would reintroduce a spell-keyed entry through
+    -- AceDB even after the profile has migrated to stable ability keys.
+    abilities = {}
 }
 
 for key, value in pairs(config.extraDefaults or {}) do
@@ -207,6 +146,7 @@ E:SetModuleParent(MODULE_NAME, "BossMods")
 local BossMods
 
 AbilityAlerts.abilitiesBySpellID = {}
+AbilityAlerts.abilitiesBySettingsKey = {}
 AbilityAlerts.triggeredAbilitiesBySpellID = {}
 AbilityAlerts.alertTokens = {}
 AbilityAlerts.postHitLifecycleToken = 0
@@ -234,6 +174,16 @@ local function replaceVariables(message, ability, remaining, timeText)
     )
 
     return message
+end
+
+local function getBarText(settings)
+    local text = settings and settings.text
+
+    if type(text) ~= "string" or text:match("^%s*$") then
+        return "{spell}"
+    end
+
+    return text
 end
 
 local function getSeconds(value, fallback)
@@ -272,6 +222,7 @@ end
 
 function AbilityAlerts:BuildAbilityLookup()
     wipe(self.abilitiesBySpellID)
+    wipe(self.abilitiesBySettingsKey)
     wipe(self.triggeredAbilitiesBySpellID)
 
     for _, boss in ipairs(config.getAbilityData() or {}) do
@@ -309,8 +260,31 @@ function AbilityAlerts:BuildAbilityLookup()
                     end
                 end
 
+                local featureKey = boss.featureKey
+                    or (boss.raidKey or config.featurePrefix or "")
+                        .. boss.bossKey
+                -- The short name is the logical alert identity; display-only
+                -- parentheticals and spell ID corrections must not reset it.
+                -- Set settingsKey explicitly when one boss has two alerts with
+                -- the same short name or when the logical name itself changes.
+                local abilitySettingsKey = ability.settingsKey or shortName
+
+                assert(
+                    type(abilitySettingsKey) == "string"
+                        and abilitySettingsKey ~= "",
+                    "Ability settingsKey must be a non-empty string"
+                )
+
+                local settingsKey = featureKey .. "/" .. abilitySettingsKey
+
+                assert(
+                    not self.abilitiesBySettingsKey[settingsKey],
+                    "Duplicate ability settings key: " .. settingsKey
+                )
+
                 local entry = {
                     spellID = spellID,
+                    settingsKey = settingsKey,
                     name = fullName,
                     shortName = shortName,
                     order = ability.order or 100,
@@ -325,10 +299,6 @@ function AbilityAlerts:BuildAbilityLookup()
                         ability.countdownTargetChoice == true,
                     embeddedMechanicDefaultEnabled =
                         ability.embeddedMechanicDefaultEnabled == true,
-                    legacyMergedSpellID = tonumber(
-                        ability.legacyMergedSpellID
-                    ),
-                    legacySpellID = tonumber(ability.legacySpellID),
                     postHitStages = ability.postHitStages,
                     mechanic = ability.mechanic,
                     ignoreTriggerDuration = tonumber(
@@ -341,12 +311,11 @@ function AbilityAlerts:BuildAbilityLookup()
                     bossName = boss.bossName,
                     bossOrder = boss.bossOrder or 100,
                     raidKey = boss.raidKey or config.featurePrefix,
-                    featureKey = boss.featureKey
-                        or (boss.raidKey or config.featurePrefix or "")
-                            .. boss.bossKey
+                    featureKey = featureKey
                 }
 
                 self.abilitiesBySpellID[spellID] = entry
+                self.abilitiesBySettingsKey[settingsKey] = entry
 
                 for _, triggerSpellID in ipairs(entry.triggerSpellIDs) do
                     local triggered = self.triggeredAbilitiesBySpellID[triggerSpellID]
@@ -361,11 +330,102 @@ function AbilityAlerts:BuildAbilityLookup()
     end
 end
 
+local function storedValue(store, key)
+    if type(store) ~= "table" then
+        return nil
+    end
+
+    return rawget(store, key) or rawget(store, tostring(key))
+end
+
+local function moveStoredValue(store, oldKey, newKey)
+    if type(store) ~= "table" then
+        return
+    end
+
+    local value = storedValue(store, oldKey)
+
+    if rawget(store, newKey) == nil and value ~= nil then
+        store[newKey] = value
+    end
+
+    store[oldKey] = nil
+    store[tostring(oldKey)] = nil
+end
+
+function AbilityAlerts:MigrateAbilitySettingsStorage()
+    if not self.db or self.db.abilitySettingsStorageVersion == 1 then
+        return
+    end
+
+    self.db.abilities = self.db.abilities or {}
+    self.db.barPositions = self.db.barPositions or {}
+    self.db.textPositions = self.db.textPositions or {}
+
+    local stores = {
+        self.db.abilities,
+        self.db.barPositions,
+        self.db.textPositions
+    }
+
+    -- Every current spell-keyed value can be moved without an alias. Spell IDs
+    -- remain runtime trigger identifiers and are never used as storage keys
+    -- after this migration.
+    for spellID, ability in pairs(self.abilitiesBySpellID) do
+        for _, store in ipairs(stores) do
+            moveStoredValue(store, spellID, ability.settingsKey)
+        end
+    end
+
+    local migration = config.abilitySettingsMigration or {}
+
+    -- These aliases only read profiles created before stable ability keys.
+    -- They are not registered as spell triggers, so they cannot cause alerts.
+    for oldSpellID, currentSpellID in pairs(migration.aliases or {}) do
+        local ability = self:GetAbility(currentSpellID)
+
+        if ability then
+            for _, store in ipairs(stores) do
+                moveStoredValue(store, oldSpellID, ability.settingsKey)
+            end
+        end
+    end
+
+    -- Some old versions stored an embedded follow-up mechanic as a separate
+    -- synthetic ability. Preserve only its enabled state in the owning ability.
+    for oldSpellID, currentSpellID in pairs(migration.merged or {}) do
+        local ability = self:GetAbility(currentSpellID)
+        local oldSettings = storedValue(self.db.abilities, oldSpellID)
+
+        if ability and oldSettings then
+            local settings = self.db.abilities[ability.settingsKey]
+
+            if not settings then
+                settings = {}
+                self.db.abilities[ability.settingsKey] = settings
+            end
+
+            if oldSettings.bar and oldSettings.bar.enabled == true then
+                settings.bar = settings.bar or {}
+                settings.bar.enabled = true
+            end
+        end
+
+        for _, store in ipairs(stores) do
+            store[oldSpellID] = nil
+            store[tostring(oldSpellID)] = nil
+        end
+    end
+
+    self.db.abilitySettingsStorageVersion = 1
+end
+
 function AbilityAlerts:EnsureCustomBarDefaults()
     if not self.db then
         return
     end
 
+    self:MigrateAbilitySettingsStorage()
     self.db.abilities = self.db.abilities or {}
     local enableAllBarsMigration =
         config.enableAllBarsMigrationField ~= nil
@@ -373,48 +433,17 @@ function AbilityAlerts:EnsureCustomBarDefaults()
     local presetVersionField = config.presetVersionField
         or "abilityAlertBarPresetVersion"
 
-    for spellID, ability in pairs(self.abilitiesBySpellID) do
+    for _, ability in pairs(self.abilitiesBySpellID) do
         do
-            local settings =
-                self.db.abilities[spellID]
-                or self.db.abilities[tostring(spellID)]
-
-            if not settings and ability.legacySpellID then
-                settings =
-                    self.db.abilities[ability.legacySpellID]
-                    or self.db.abilities[tostring(ability.legacySpellID)]
-
-                if settings then
-                    self.db.abilities[spellID] = settings
-                end
-            end
+            local settings = self.db.abilities[ability.settingsKey]
 
             if not settings then
                 settings = {}
-                self.db.abilities[spellID] = settings
+                self.db.abilities[ability.settingsKey] = settings
             end
 
             settings.enabled = true
             settings.bar = settings.bar or {}
-
-            if ability.legacyMergedSpellID
-                and not settings.embeddedMechanicMergeMigrated
-            then
-                local legacySettings =
-                    self.db.abilities[ability.legacyMergedSpellID]
-                    or self.db.abilities[
-                        tostring(ability.legacyMergedSpellID)
-                    ]
-
-                if legacySettings
-                    and legacySettings.bar
-                    and legacySettings.bar.enabled == true
-                then
-                    settings.bar.enabled = true
-                end
-
-                settings.embeddedMechanicMergeMigrated = true
-            end
 
             if enableAllBarsMigration then
                 settings.bar.enabled = true
@@ -444,23 +473,10 @@ function AbilityAlerts:EnsureCustomBarDefaults()
                 settings.bar.enabled = true
             end
 
-            if settings.bar.text == nil then
-                settings.bar.text = ability.mechanic
-                    and ability.mechanic.text
-                    or "{spell}"
-            end
-
-            if ability.mechanic then
-                local definitionKey = tostring(ability.kind)
-                    .. ":" .. tostring(ability.name)
-
-                if settings.mechanicDefinitionKey ~= definitionKey then
-                    if ability.mechanic.text then
-                        settings.bar.text = ability.mechanic.text
-                    end
-
-                    settings.mechanicDefinitionKey = definitionKey
-                end
+            if settings.bar.text == nil
+                or settings.bar.text == "{spell}"
+            then
+                settings.bar.text = ""
             end
         end
     end
@@ -475,17 +491,31 @@ function AbilityAlerts:GetAbility(spellID)
 end
 
 function AbilityAlerts:GetAbilitySettings(spellID)
-    if not self.db or not self.db.abilities then
+    if not self.db then
         return nil
     end
 
-    spellID = tonumber(spellID)
+    self:MigrateAbilitySettingsStorage()
 
-    local settings = self.db.abilities[spellID]
-        or self.db.abilities[tostring(spellID)]
+    if not self.db.abilities then
+        return nil
+    end
+
+    local ability = self:GetAbility(spellID)
+
+    if not ability then
+        return nil
+    end
+
+    local settings = self.db.abilities[ability.settingsKey]
 
     ensureDifficultySettings(settings)
     return settings
+end
+
+function AbilityAlerts:GetAbilityStorageKey(spellID)
+    local ability = self:GetAbility(spellID)
+    return ability and ability.settingsKey or nil
 end
 
 function AbilityAlerts:GetBossDefaults(bossKey)
@@ -1041,7 +1071,7 @@ function AbilityAlerts:StartBar(ability, settings, durationOverride, hitNumber)
 
     bar:SetMode("label")
     bar:SetLabel(
-        replaceVariables(settings.text, {
+        replaceVariables(getBarText(settings), {
             name = ability.name,
             shortName = ability.shortName,
             hitNumber = hitNumber
@@ -2926,7 +2956,7 @@ function AbilityAlerts:StartFollowupBar(ability, duration, testMode)
             self:StartBar(ability, settings.bar, barDuration)
             local bar = self:EnsureBar(ability.spellID)
             bar:SetLabel(replaceVariables(
-                settings.bar.text or mechanic.text,
+                getBarText(settings.bar),
                 ability,
                 barDuration
             ))
@@ -3036,7 +3066,7 @@ function AbilityAlerts:StartMarkerSequenceBar(
 
             local bar = self:EnsureBar(ability.spellID)
             bar:SetLabel(replaceVariables(
-                settings.bar.text or mechanic.text,
+                getBarText(settings.bar),
                 ability,
                 barDuration
             ))
@@ -3192,14 +3222,17 @@ end
 -------------------------------------------------------------------------------
 
 function AbilityAlerts:GetBarPosition(spellID)
-    spellID = tonumber(spellID)
+    self:MigrateAbilitySettingsStorage()
+    local settingsKey = self:GetAbilityStorageKey(spellID)
+
+    if not settingsKey then
+        return nil
+    end
 
     self.db.barPositions =
         self.db.barPositions or {}
 
-    local position =
-        self.db.barPositions[spellID]
-        or self.db.barPositions[tostring(spellID)]
+    local position = self.db.barPositions[settingsKey]
 
     if not position then
         local fallback = self.db.barPosition or {}
@@ -3210,7 +3243,7 @@ function AbilityAlerts:GetBarPosition(spellID)
             y = fallback.y or 220
         }
 
-        self.db.barPositions[spellID] = position
+        self.db.barPositions[settingsKey] = position
     end
 
     position.point = normalizeAnchorPoint(position.point)
@@ -3221,14 +3254,17 @@ function AbilityAlerts:GetBarPosition(spellID)
 end
 
 function AbilityAlerts:GetTextPosition(spellID)
-    spellID = tonumber(spellID)
+    self:MigrateAbilitySettingsStorage()
+    local settingsKey = self:GetAbilityStorageKey(spellID)
+
+    if not settingsKey then
+        return nil
+    end
 
     self.db.textPositions =
         self.db.textPositions or {}
 
-    local position =
-        self.db.textPositions[spellID]
-        or self.db.textPositions[tostring(spellID)]
+    local position = self.db.textPositions[settingsKey]
 
     if not position then
         local fallback = self.db.textPosition or {}
@@ -3239,7 +3275,7 @@ function AbilityAlerts:GetTextPosition(spellID)
             y = fallback.y or 120
         }
 
-        self.db.textPositions[spellID] = position
+        self.db.textPositions[settingsKey] = position
     end
 
     position.point = normalizeAnchorPoint(position.point)
@@ -3490,16 +3526,18 @@ function AbilityAlerts:SaveBarPosition(
     spellID,
     position
 )
+    self:MigrateAbilitySettingsStorage()
     spellID = tonumber(spellID)
+    local settingsKey = self:GetAbilityStorageKey(spellID)
 
-    if not spellID then
+    if not spellID or not settingsKey then
         return
     end
 
     self.db.barPositions =
         self.db.barPositions or {}
 
-    self.db.barPositions[spellID] = {
+    self.db.barPositions[settingsKey] = {
         point =
             normalizeAnchorPoint(position and position.point),
 
@@ -3523,16 +3561,18 @@ function AbilityAlerts:SaveTextPosition(
     spellID,
     position
 )
+    self:MigrateAbilitySettingsStorage()
     spellID = tonumber(spellID)
+    local settingsKey = self:GetAbilityStorageKey(spellID)
 
-    if not spellID then
+    if not spellID or not settingsKey then
         return
     end
 
     self.db.textPositions =
         self.db.textPositions or {}
 
-    self.db.textPositions[spellID] = {
+    self.db.textPositions[settingsKey] = {
         point =
             normalizeAnchorPoint(position and position.point),
 
@@ -4047,12 +4087,14 @@ function AbilityAlerts:OnInitialize()
     end
 
     self:BuildAbilityLookup()
+    self:MigrateAbilitySettingsStorage()
 end
 
 function AbilityAlerts:OnEnable()
     BossMods = BossMods or E:GetModule("BossMods")
 
     self:BuildAbilityLookup()
+    self:MigrateAbilitySettingsStorage()
     self:EnsureCustomBarDefaults()
 
     local spellKeySet = {}

@@ -81,7 +81,6 @@ E:CreateAbilityAlertsModule({
     moduleName = "BossMods_VoidspireAbilityAlerts",
     featurePrefix = "Voidspire",
     getAbilityData = getSeasonAbilityData,
-    defaultAbilitySpellID = 1249262,
     presetVersionField = "voidspireBarPresetVersion",
     enableKindBarsWhenUnset = true,
     legacyFeatureKeys = LEGACY_FEATURE_KEYS,

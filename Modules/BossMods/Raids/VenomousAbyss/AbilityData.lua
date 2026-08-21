@@ -19,7 +19,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1292036,
-                legacySpellID = 1284103,
+                settingsKey = "possessionBarrage",
                 name = "Possession Barrage (Tank Debuff + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 20,
@@ -44,7 +44,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1305421,
-                legacySpellID = 1289855,
+                settingsKey = "hungeringPyre",
                 name = "Hungering Pyre (Soak)",
                 defaultBarColor = "FF7400",
                 order = 50,
@@ -76,7 +76,7 @@ E.VenomousAbyssAbilityData = {
         abilities = {
             {
                 spellID = 1284588,
-                legacySpellID = 1284606,
+                settingsKey = "vitrolicStasis",
                 name = "Vitrolic Stasis (Intermission)",
                 defaultBarColor = "FF7400",
                 order = 10,
@@ -112,7 +112,6 @@ E.VenomousAbyssAbilityData = {
                 order = 60,
                 castTimeAdjustment = 1,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1288232,
                 postHitStages = {
                     stages = {
                         { duration = 8, text = "Soak" },
@@ -159,7 +158,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1291759,
-                legacySpellID = 1296061,
+                settingsKey = "shellSpin",
                 name = "Shell Spin (Frontal)",
                 defaultBarColor = "FFF90F",
                 order = 20,
@@ -167,12 +166,11 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1290711,
-                legacySpellID = 1296025,
+                settingsKey = "blinkNova",
                 name = "Blink Nova (Teleport + Raid Damage)",
                 defaultBarColor = "FF0011",
                 order = 30,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1296025,
                 postHitStages = {
                     stages = {
                         { duration = 7, text = "Teleport" },
@@ -203,7 +201,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1296249,
-                legacySpellID = 1297625,
+                settingsKey = "explosiveSurprise",
                 name = "Explosive Surprise (Bomb)",
                 defaultBarColor = "FF7400",
                 order = 60,
@@ -240,7 +238,6 @@ E.VenomousAbyssAbilityData = {
                 defaultBarColor = "00FFC3",
                 order = 20,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1281907,
                 postHitStages = {
                     stages = {
                         { duration = 6, text = "Waves" },
@@ -255,7 +252,6 @@ E.VenomousAbyssAbilityData = {
                 order = 30,
                 castTimeAdjustment = 5,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1282525,
                 postHitStages = {
                     stages = {
                         { duration = 7, text = "Soaks" },
@@ -289,11 +285,10 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1285425,
-                legacySpellID = 1285419,
+                settingsKey = "ragingCrosswinds",
                 name = "Raging Crosswinds (Knockbacks)",
                 order = 20,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1285419,
                 postHitStages = {
                     stages = {
                         { duration = 8, text = "Knock" },
@@ -443,7 +438,6 @@ E.VenomousAbyssAbilityData = {
                 defaultBarColor = "FF0011",
                 order = 10,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1282487,
                 postHitStages = {
                     stages = {
                         { duration = 7, text = "Fangs of the Crucible" },
@@ -501,7 +495,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1286573,
-                legacySpellID = 1286620,
+                settingsKey = "soulSever",
                 name = "Soul Sever (Frontal)",
                 defaultBarColor = "FFF90F",
                 order = 50,
@@ -511,7 +505,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1289900,
-                legacySpellID = 1285643,
+                settingsKey = "dreadmarch",
                 name = "Dreadmarch (Mind Control)",
                 defaultBarColor = "7400FF",
                 order = 60,
@@ -531,7 +525,6 @@ E.VenomousAbyssAbilityData = {
                 order = 80,
                 castTimeAdjustment = 2,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1286895,
                 postHitStages = {
                     stages = {
                         { duration = 5, text = "Bomb hits" },
@@ -557,7 +550,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1299266,
-                legacySpellID = 1299267,
+                settingsKey = "grimGuillotine",
                 name = "Grim Guillotine (Soak)",
                 defaultBarColor = "FF7400",
                 order = 110,
@@ -569,7 +562,6 @@ E.VenomousAbyssAbilityData = {
                 defaultBarColor = "FF0011",
                 order = 120,
                 embeddedMechanicDefaultEnabled = true,
-                legacyMergedSpellID = -1298381,
                 postHitStages = {
                     stages = {
                         { duration = 7, text = "Defilement of the Crucible" },

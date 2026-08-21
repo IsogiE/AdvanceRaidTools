@@ -25,10 +25,10 @@
     <Script file="Raids\Dreamrift\AbilityData.lua"/>
     <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
     <Script file="Raids\Sporefall\AbilityData.lua"/>
-    <Script file="Raids\Voidspire\AbilityAlerts.lua"/>
+    <Script file="Raids\Voidspire\AbilityAlertConfig.lua"/>
 
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
-    <Script file="Raids\VenomousAbyss\AbilityAlerts.lua"/>
+    <Script file="Raids\VenomousAbyss\AbilityAlertConfig.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
 

@@ -294,7 +294,30 @@ E:CreateAbilityAlertsModule({
     getAbilityData = function()
         return E.VenomousAbyssAbilityData or {}
     end,
-    defaultAbilitySpellID = 1296092,
+    abilitySettingsMigration = {
+        aliases = {
+            [1284103] = 1292036,
+            [1289855] = 1305421,
+            [1284606] = 1284588,
+            [1296061] = 1291759,
+            [1296025] = 1290711,
+            [1297625] = 1296249,
+            [1285419] = 1285425,
+            [1286620] = 1286573,
+            [1285643] = 1289900,
+            [1299267] = 1299266
+        },
+        merged = {
+            [-1288232] = 1288232,
+            [-1296025] = 1290711,
+            [-1281907] = 1281907,
+            [-1282525] = 1282525,
+            [-1285419] = 1285425,
+            [-1282487] = 1282487,
+            [-1286895] = 1286895,
+            [-1298381] = 1298381
+        }
+    },
     extraDefaults = {
         entombedAssignmentFilteringEnabled = true
     },
