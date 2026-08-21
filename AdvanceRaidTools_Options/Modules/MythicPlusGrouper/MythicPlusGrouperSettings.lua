@@ -8,7 +8,6 @@ end
 
 local updateGroupFinder
 local groupFinderPanel
-local groupFinderSeason
 local MythicPlusGrouperEvents = E:NewCallbackHandle()
 local function queueRefresh()
     if E.OptionsUI and E.OptionsUI.QueueRefresh then
@@ -17,11 +16,6 @@ local function queueRefresh()
     if updateGroupFinder then updateGroupFinder(false) end
 end
 MythicPlusGrouperEvents:RegisterMessage("ART_MYTHIC_PLUS_GROUPER_UPDATED", queueRefresh)
-MythicPlusGrouperEvents:RegisterMessage("ART_MEDIA_UPDATED", function()
-    if groupFinderPanel and groupFinderPanel.tabs then
-        groupFinderPanel.tabs.ReapplyHighlight()
-    end
-end)
 
 local function scanStatus(mod)
     local state = mod:GetScanState()
@@ -149,14 +143,8 @@ local function refreshGroupFinderControls(mod)
     if groupFinderPanel.status then
         groupFinderPanel.status.SetText(groupFinderStatus(mod))
     end
-    if groupFinderPanel.tabs then
-        groupFinderPanel.tabs.ActivateTab(groupFinderSeason or mod:GetSelectedSeason())
-        groupFinderPanel.tabs.ReapplyHighlight()
-    end
     for _, entry in ipairs(groupFinderPanel.interests or {}) do
-        local visible = entry.season == (groupFinderSeason or mod:GetSelectedSeason())
-        entry.checkbox.frame:SetShown(visible)
-        if visible then entry.checkbox.Refresh() end
+        entry.checkbox.Refresh()
     end
     if groupFinderPanel.results then
         groupFinderPanel.results.SetItems(function() return getMatchItems(mod) end)
@@ -188,8 +176,6 @@ updateGroupFinder = function(forceOpen)
         return
     end
     if not forceOpen then return end
-    groupFinderSeason = groupFinderSeason or mod:GetSelectedSeason()
-
     local popup
     popup = T:Popup({
         key = "MythicPlusGrouperMatches",
@@ -222,62 +208,57 @@ updateGroupFinder = function(forceOpen)
             status.frame:SetPoint("TOPLEFT", 0, info.offsetY)
             status.frame:SetPoint("TOPRIGHT", 0, info.offsetY)
 
-            local tabs
-            tabs = T:TabBar(body, {
-                tabs = {
-                    {key = "season2", label = L["MythicPlusGrouper_Season2"]}
-                },
-                autoActivateFirst = false,
-                onTabChange = function(seasonKey)
-                    groupFinderSeason = seasonKey
-                    if groupFinderPanel then
-                        local visibleIndex = 0
-                        for _, entry in ipairs(groupFinderPanel.interests or {}) do
-                            local visible = entry.season == seasonKey
-                            entry.checkbox.frame:SetShown(visible)
-                            if visible then
-                                visibleIndex = visibleIndex + 1
-                                entry.checkbox.frame:ClearAllPoints()
-                                local column = (visibleIndex - 1) % 2
-                                local row = math.floor((visibleIndex - 1) / 2)
-                                if column == 0 then
-                                    entry.checkbox.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -72 - row * 22)
-                                    entry.checkbox.frame:SetPoint("TOPRIGHT", body, "TOP", -4, -72 - row * 22)
-                                else
-                                    entry.checkbox.frame:SetPoint("TOPLEFT", body, "TOP", 4, -72 - row * 22)
-                                    entry.checkbox.frame:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, -72 - row * 22)
-                                end
-                                entry.checkbox.Refresh()
-                            end
-                        end
-                    end
-                end
-            })
-            tabs.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -24)
-            tabs.frame:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, -24)
-
             local interestLabel = T:Label(body, {
                 text = L["MythicPlusGrouper_InterestHeader"],
                 height = 18
             })
-            interestLabel.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -52)
+            interestLabel.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -24)
 
             local interests = {}
-            for _, season in ipairs(mod:GetSeasons()) do
-                for _, dungeon in ipairs(season.dungeons) do
-                    local dungeonKey = dungeon.key
-                    local checkbox = T:Checkbox(body, {
-                        text = dungeon.name,
-                        width = 196,
-                        get = function() return mod:IsInterested(dungeonKey) end,
-                        onChange = function(_, value) mod:SetInterested(dungeonKey, value) end
-                    })
-                    checkbox.frame:Hide()
-                    interests[#interests + 1] = {
-                        season = season.key,
-                        checkbox = checkbox
-                    }
+            for index, dungeon in ipairs(mod:GetDungeons()) do
+                local dungeonKey = dungeon.key
+                local checkbox = T:Checkbox(body, {
+                    text = dungeon.name,
+                    width = 196,
+                    get = function() return mod:IsInterested(dungeonKey) end,
+                    onChange = function(_, value) mod:SetInterested(dungeonKey, value) end
+                })
+                local column = (index - 1) % 2
+                local row = math.floor((index - 1) / 2)
+
+                if column == 0 then
+                    checkbox.frame:SetPoint(
+                        "TOPLEFT",
+                        body,
+                        "TOPLEFT",
+                        0,
+                        -44 - row * 22
+                    )
+                    checkbox.frame:SetPoint(
+                        "TOPRIGHT",
+                        body,
+                        "TOP",
+                        -4,
+                        -44 - row * 22
+                    )
+                else
+                    checkbox.frame:SetPoint(
+                        "TOPLEFT",
+                        body,
+                        "TOP",
+                        4,
+                        -44 - row * 22
+                    )
+                    checkbox.frame:SetPoint(
+                        "TOPRIGHT",
+                        body,
+                        "TOPRIGHT",
+                        0,
+                        -44 - row * 22
+                    )
                 end
+
+                interests[#interests + 1] = {checkbox = checkbox}
             end
 
             local timeout = T:Slider(body, {
@@ -292,8 +273,8 @@ updateGroupFinder = function(forceOpen)
                 get = function() return mod.db.timeoutSeconds or 5 end,
                 onChange = function(value) mod.db.timeoutSeconds = value end
             })
-            timeout.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -160)
-            timeout.frame:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, -160)
+            timeout.frame:SetPoint("TOPLEFT", body, "TOPLEFT", 0, -132)
+            timeout.frame:SetPoint("TOPRIGHT", body, "TOPRIGHT", 0, -132)
 
             local panel = T:ScrollingPanel(body, {
                 height = 150,
@@ -305,18 +286,16 @@ updateGroupFinder = function(forceOpen)
                 items = function() return getMatchItems(mod) end
             })
             panel.frame:ClearAllPoints()
-            panel.frame:SetPoint("TOPLEFT", 0, -206)
-            panel.frame:SetPoint("TOPRIGHT", 0, -206)
+            panel.frame:SetPoint("TOPLEFT", 0, -178)
+            panel.frame:SetPoint("TOPRIGHT", 0, -178)
             panel.frame:SetPoint("BOTTOMLEFT", 0, 0)
             panel.frame:SetPoint("BOTTOMRIGHT", 0, 0)
             groupFinderPanel = {
                 status = status,
-                tabs = tabs,
                 interests = interests,
                 results = panel,
                 _relayout = panel._relayout
             }
-            tabs.ActivateTab(groupFinderSeason)
             return 150
         end,
         buttons = {
@@ -365,23 +344,6 @@ local function buildPanel()
                 return T:Description(parent, {text = L["MythicPlusGrouper_Desc"], sizeDelta = 1})
             end
         },
-        seasonTabs = {
-            order = 5,
-            width = "full",
-            build = function(parent)
-                local tabs = T:TabBar(parent, {
-                    tabs = {
-                        {key = "season2", label = L["MythicPlusGrouper_Season2"]}
-                    },
-                    autoActivateFirst = false,
-                    onTabChange = function(seasonKey)
-                        if mod:SetSelectedSeason(seasonKey) then E:RefreshOptions() end
-                    end
-                })
-                tabs.ActivateTab(mod:GetSelectedSeason())
-                return tabs
-            end
-        },
         interestHeader = {
             order = 10,
             width = "full",
@@ -391,23 +353,19 @@ local function buildPanel()
         }
     }
 
-    for _, season in ipairs(mod:GetSeasons()) do
-        local seasonKey = season.key
-        for index, dungeon in ipairs(season.dungeons) do
-            local dungeonKey, dungeonName = dungeon.key, dungeon.name
-            args["dungeon_" .. dungeonKey] = {
-                order = 10 + index,
-                width = "1/2",
-                hidden = function() return mod:GetSelectedSeason() ~= seasonKey end,
-                build = function(parent)
-                    return T:Checkbox(parent, {
-                        text = dungeonName,
-                        get = function() return mod:IsInterested(dungeonKey) end,
-                        onChange = function(_, value) mod:SetInterested(dungeonKey, value) end
-                    })
-                end
-            }
-        end
+    for index, dungeon in ipairs(mod:GetDungeons()) do
+        local dungeonKey, dungeonName = dungeon.key, dungeon.name
+        args["dungeon_" .. dungeonKey] = {
+            order = 10 + index,
+            width = "1/2",
+            build = function(parent)
+                return T:Checkbox(parent, {
+                    text = dungeonName,
+                    get = function() return mod:IsInterested(dungeonKey) end,
+                    onChange = function(_, value) mod:SetInterested(dungeonKey, value) end
+                })
+            end
+        }
     end
 
     args.refresh = {

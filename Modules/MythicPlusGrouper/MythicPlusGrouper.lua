@@ -8,37 +8,24 @@ local MIN_SCAN_INTERVAL = 2
 local MAX_KEYSTONE_LEVEL = 25
 local issecretvalue = issecretvalue or function() return false end
 
-local SEASONS = {
-    season2 = {
-        key = "season2",
-        name = "Season 2",
-        dungeons = {
-            {key = "alter_fangs", name = "Alter of Fangs", aliases = {"Alter of Fangs", "Altar of Fangs"}},
-            {key = "den_nalorakk", name = "Den of Nalorakk"},
-            {key = "murder_row", name = "Murder Row"},
-            {key = "blinding_vale", name = "The Blinding Vale"},
-            {key = "voidscar_arena", name = "Voidscar Arena"},
-            {key = "kings_rest", name = "Kings' Rest"},
-            {key = "ruby_life_pools", name = "Ruby Life Pools"},
-            {key = "temple_sethraliss", name = "Temple of Sethraliss"}
-        }
-    }
+local DUNGEONS = {
+    {key = "alter_fangs", name = "Alter of Fangs", aliases = {"Alter of Fangs", "Altar of Fangs"}},
+    {key = "den_nalorakk", name = "Den of Nalorakk"},
+    {key = "murder_row", name = "Murder Row"},
+    {key = "blinding_vale", name = "The Blinding Vale"},
+    {key = "voidscar_arena", name = "Voidscar Arena"},
+    {key = "kings_rest", name = "Kings' Rest"},
+    {key = "ruby_life_pools", name = "Ruby Life Pools"},
+    {key = "temple_sethraliss", name = "Temple of Sethraliss"}
 }
 
-local SEASON_ORDER = {"season2"}
-local DUNGEONS, DUNGEON_BY_KEY = {}, {}
-for _, seasonKey in ipairs(SEASON_ORDER) do
-    local season = SEASONS[seasonKey]
-    for _, dungeon in ipairs(season.dungeons) do
-        dungeon.season = seasonKey
-        DUNGEONS[#DUNGEONS + 1] = dungeon
-        DUNGEON_BY_KEY[dungeon.key] = dungeon
-    end
+local DUNGEON_BY_KEY = {}
+for _, dungeon in ipairs(DUNGEONS) do
+    DUNGEON_BY_KEY[dungeon.key] = dungeon
 end
 
 E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true,
-    selectedSeason = "season2",
     interests = {},
     minKeystoneLevel = 1,
     maxKeystoneLevel = MAX_KEYSTONE_LEVEL,
@@ -109,25 +96,6 @@ end
 
 function Mod:GetDungeons()
     return DUNGEONS
-end
-
-function Mod:GetSeasons()
-    local result = {}
-    for _, seasonKey in ipairs(SEASON_ORDER) do
-        result[#result + 1] = SEASONS[seasonKey]
-    end
-    return result
-end
-
-function Mod:GetSelectedSeason()
-    return SEASONS[self.db.selectedSeason] and self.db.selectedSeason or "season2"
-end
-
-function Mod:SetSelectedSeason(seasonKey)
-    if not SEASONS[seasonKey] then return false end
-    if self.db.selectedSeason == seasonKey then return false end
-    self.db.selectedSeason = seasonKey
-    return true
 end
 
 function Mod:MatchDungeonName(name)
@@ -613,7 +581,6 @@ function Mod:OnProfileChanged()
     self.db.interests = self.db.interests or {}
     wipe(self.members)
     self.scan = nil
-    self.db.selectedSeason = self:GetSelectedSeason()
     self:NotifyUpdated()
 end
 
@@ -624,7 +591,6 @@ function Mod:OnEnable()
     self.members = {}
     self.lastResponses = {}
     self.scan = nil
-    self.db.selectedSeason = self:GetSelectedSeason()
     if not isInsideInstance() then self:RegisterSync() end
     self:RegisterEvent("PLAYER_ENTERING_WORLD")
     self:RegisterEvent("BAG_UPDATE_DELAYED")
