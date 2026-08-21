@@ -31,6 +31,14 @@ local READY_ATLAS =
     _G.READY_CHECK_READY_TEXTURE_RAID or "UI-LFG-ReadyMark-Raid"
 local NOT_READY_ATLAS =
     _G.READY_CHECK_NOT_READY_TEXTURE_RAID or "UI-LFG-DeclineMark-Raid"
+local WAITING_ATLAS =
+    _G.READY_CHECK_WAITING_TEXTURE_RAID or "UI-LFG-PendingMark-Raid"
+
+local READY_CHECK_ATLASES = {
+    ready = READY_ATLAS,
+    notready = NOT_READY_ATLAS,
+    waiting = WAITING_ATLAS
+}
 
 local COLUMNS = {
     {
@@ -106,6 +114,11 @@ local HEADER_GAP = 2
 local FRAME_FIXED_HEIGHT = 46 + HEADER_HEIGHT + HEADER_GAP
 local MAX_SCREEN_HEIGHT_RATIO = 0.72
 local DEFAULT_ROW_HEIGHT = 18
+local READY_CHECK_ICON_SIZE = 15
+local NAME_LEFT_PADDING = 5
+local NAME_ICON_GAP = 3
+local NAME_TEXT_OFFSET = NAME_LEFT_PADDING + READY_CHECK_ICON_SIZE +
+    NAME_ICON_GAP
 
 local function clamp(value, minimum, maximum)
     value = tonumber(value) or minimum
@@ -196,6 +209,27 @@ local function setReadyState(cell, value, available, connected)
     cell.icon:SetAtlas(value and READY_ATLAS or NOT_READY_ATLAS, false)
     cell.icon:SetDesaturated(false)
     cell.icon:SetAlpha(1)
+end
+
+local function setReadyCheckStatus(icon, unit)
+    local status
+    if type(GetReadyCheckStatus) == "function" then
+        local ok, value = pcall(GetReadyCheckStatus, unit)
+        if ok and not E:IsSecret(value) then
+            status = value
+        end
+    end
+
+    local atlas = READY_CHECK_ATLASES[status]
+    if not atlas then
+        icon:Hide()
+        return
+    end
+
+    icon:SetAtlas(atlas, false)
+    icon:SetDesaturated(false)
+    icon:SetAlpha(1)
+    icon:Show()
 end
 
 local function setDurabilityState(cell, report)
@@ -297,9 +331,14 @@ function RaidBuffList:CreateRow(index)
     row.highlight = row:CreateTexture(nil, "BACKGROUND")
     row.highlight:SetAllPoints()
 
+    row.readyCheck = row:CreateTexture(nil, "ARTWORK")
+    row.readyCheck:SetPoint("LEFT", NAME_LEFT_PADDING, 0)
+    row.readyCheck:SetSize(READY_CHECK_ICON_SIZE, READY_CHECK_ICON_SIZE)
+    row.readyCheck:Hide()
+
     row.name = E:CreateFontString(row, nil, "ARTWORK")
-    row.name:SetPoint("LEFT", 5, 0)
-    row.name:SetWidth(NAME_WIDTH - 10)
+    row.name:SetPoint("LEFT", NAME_TEXT_OFFSET, 0)
+    row.name:SetWidth(NAME_WIDTH - NAME_TEXT_OFFSET - NAME_LEFT_PADDING)
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
     frame:RegisterDragRegion(row)
@@ -392,8 +431,8 @@ function RaidBuffList:CreateFrame()
     frame:RegisterDragRegion(headers)
 
     local nameHeader = E:CreateFontString(headers, nil, "OVERLAY")
-    nameHeader:SetPoint("LEFT", 5, 0)
-    nameHeader:SetWidth(NAME_WIDTH - 10)
+    nameHeader:SetPoint("LEFT", NAME_TEXT_OFFSET, 0)
+    nameHeader:SetWidth(NAME_WIDTH - NAME_TEXT_OFFSET - NAME_LEFT_PADDING)
     nameHeader:SetJustifyH("LEFT")
     frame.nameHeader = nameHeader
 
@@ -635,6 +674,7 @@ function RaidBuffList:RefreshList()
         end
         row.name:SetText(member.shortName or "?")
         row.name:SetTextColor(r, g, b)
+        setReadyCheckStatus(row.readyCheck, member.unit)
 
         local scan, available
         if isUnitInspectable(member.unit) then
@@ -753,6 +793,14 @@ function RaidBuffList:OnReadyCheckFinished()
     end
 end
 
+function RaidBuffList:OnReadyCheckConfirm()
+    if self.refreshTimer then
+        self.refreshTimer:Cancel()
+        self.refreshTimer = nil
+    end
+    self:ScheduleRefresh(0)
+end
+
 function RaidBuffList:ScheduleRefresh(delay)
     if InCombatLockdown() or not self.listActive or self.refreshTimer then
         return
@@ -855,6 +903,7 @@ function RaidBuffList:OnEnable()
         Durability:Register(self, "OnDurability")
     end
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
+    self:RegisterEvent("READY_CHECK_CONFIRM", "OnReadyCheckConfirm")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
     self:RegisterEvent("GROUP_LEFT", "OnGroupLeft")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupRosterUpdate")
