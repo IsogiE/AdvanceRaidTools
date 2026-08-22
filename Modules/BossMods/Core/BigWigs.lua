@@ -38,7 +38,7 @@ local function dispatchStopBar(_, _, text)
     end
 end
 
-local function dispatchStage(_, _, module, stage)
+local function dispatchStage(_, module, stage)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and sub.onStage then
