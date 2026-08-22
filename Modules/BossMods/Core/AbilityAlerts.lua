@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 
 function E:RegisterAbilityAlertData(raidKey, moduleName, data, tabKey)
     assert(type(raidKey) == "string" and raidKey ~= "", "raidKey required")
@@ -152,6 +152,7 @@ AbilityAlerts.alertTokens = {}
 AbilityAlerts.postHitLifecycleToken = 0
 AbilityAlerts.bars = {}
 AbilityAlerts.textAlerts = {}
+AbilityAlerts.managedBars = {}
 
 -------------------------------------------------------------------------------
 -- Helper functions
@@ -831,6 +832,48 @@ local function buildBarConfig(settings, ability)
     }
 end
 
+-- Encounter-specific bars can share the normal ability-bar renderer and group
+-- without pretending to be a spell-triggered ability.
+function AbilityAlerts:EnsureManagedBar(key, bossKey, order, overrides)
+    assert(type(key) == "string" and key ~= "", "managed bar key required")
+
+    local entry = self.managedBars[key]
+    local appearance = self:GetBossDefaults(bossKey or "Unknown").bar
+    local barConfig = buildBarConfig(appearance, nil)
+
+    for option, value in pairs(overrides or {}) do
+        barConfig[option] = value
+    end
+
+    if not entry then
+        entry = {
+            key = key,
+            bar = BossMods.Engines.Bar(barConfig)
+        }
+        self.managedBars[key] = entry
+    else
+        entry.bar:Apply(barConfig)
+    end
+
+    entry.bossKey = bossKey
+    entry.order = tonumber(order) or 100
+    entry.height = tonumber(appearance and appearance.height) or 24
+    entry.overrides = overrides
+
+    return entry.bar
+end
+
+function AbilityAlerts:RefreshManagedBars()
+    for key, entry in pairs(self.managedBars) do
+        self:EnsureManagedBar(
+            key,
+            entry.bossKey,
+            entry.order,
+            entry.overrides
+        )
+    end
+end
+
 function AbilityAlerts:EnsureBar(spellID)
     spellID = tonumber(spellID)
 
@@ -933,11 +976,11 @@ bar.frame:SetPoint(
             if elapsed < markerTime then
                 bar:SetRight(("%.1f"):format(timeToMarker))
                 bar:SetColor(0.10, 0.90, 0.20, 1)
-                bar:SetLabel("Safe To Pickup")
+                bar:SetLabel(L["BossMods_AA_SafeToPickup"])
             else
                 bar:SetRight("")
                 bar:SetColor(0.90, 0.10, 0.10, 1)
-                bar:SetLabel("NOT SAFE TO PICKUP")
+                bar:SetLabel(L["BossMods_AA_NotSafeToPickup"])
             end
         end
 
@@ -1149,7 +1192,7 @@ function AbilityAlerts:PositionAssignedSoakTexts(
             )
         end
 
-        text:SetText("SOAK")
+        text:SetText(L["BossMods_AA_Soak"])
         text:SetSize(80, size + 8)
         text:ClearAllPoints()
         text:SetPoint(
@@ -1517,7 +1560,9 @@ function AbilityAlerts:PositionHowlingMaelstromMarkers(bar)
             )
         end
 
-        label:SetText(window.text or ("WIND " .. index))
+        label:SetText(
+            window.text or L["BossMods_AA_Wind"]:format(index)
+        )
         label:SetTextColor(1, 1, 1, 1)
         label:SetSize(markerWidth, height)
         label:ClearAllPoints()
@@ -2341,7 +2386,10 @@ function AbilityAlerts:HandleStandardAbility(ability, duration)
                     self:SetTimelineMarkers(
                         bar,
                         {
-                            { time = secondsBefore, text = "Cast" },
+                            {
+                                time = secondsBefore,
+                                text = L["BossMods_AA_Cast"]
+                            },
                         },
                         totalDuration,
                         spellID,
@@ -2558,7 +2606,7 @@ function AbilityAlerts:StartLatestPickupBar(
                 bar.latestPickupActive = true
                 bar.latestPickupMarkerTime = markerTime
                 bar:SetRight(("%.1f"):format(markerTime))
-                bar:SetLabel("Safe To Pickup")
+                bar:SetLabel(L["BossMods_AA_SafeToPickup"])
                 bar:SetColor(0.10, 0.90, 0.20, 1)
 
                 self:SetLatestPickupMarker(
@@ -2679,8 +2727,11 @@ function AbilityAlerts:StartMushroomTossJumpBar(ability, duration, testMode)
                     baitDuration
                 )
 
-                bar:SetLabel("BAIT")
-                self:PlayMushroomTossCue(settings, "BAIT")
+                bar:SetLabel(L["BossMods_AA_Bait"])
+                self:PlayMushroomTossCue(
+                    settings,
+                    L["BossMods_AA_Bait"]
+                )
             end
         )
     end
@@ -2707,7 +2758,7 @@ function AbilityAlerts:StartMushroomTossJumpBar(ability, duration, testMode)
                 )
 
                 bar.mushroomTossJumpActive = true
-                bar:SetLabel("JUMP")
+                bar:SetLabel(L["BossMods_AA_Jump"])
                 bar:SetColor(0.90, 0.10, 0.10, 1)
 
                 self:SetMushroomTossJumpMarker(
@@ -2725,7 +2776,10 @@ function AbilityAlerts:StartMushroomTossJumpBar(ability, duration, testMode)
             jumpStart + jumpWindowStart,
             token,
             function()
-                self:PlayMushroomTossCue(settings, "JUMP")
+                self:PlayMushroomTossCue(
+                    settings,
+                    L["BossMods_AA_Jump"]
+                )
             end
         )
     end
@@ -2769,9 +2823,21 @@ function AbilityAlerts:StartHowlingMaelstromWindBar(
             self:SetHowlingMaelstromMarkers(
                 bar,
                 {
-                    { start = 5.5, finish = 13.5, text = "WIND 1" },
-                    { start = 14.5, finish = 22.5, text = "WIND 2" },
-                    { start = 23.5, finish = 31.5, text = "WIND 3" }
+                    {
+                        start = 5.5,
+                        finish = 13.5,
+                        text = L["BossMods_AA_Wind"]:format(1)
+                    },
+                    {
+                        start = 14.5,
+                        finish = 22.5,
+                        text = L["BossMods_AA_Wind"]:format(2)
+                    },
+                    {
+                        start = 23.5,
+                        finish = 31.5,
+                        text = L["BossMods_AA_Wind"]:format(3)
+                    }
                 },
                 totalDuration,
                 ability.spellID,
@@ -2819,8 +2885,8 @@ function AbilityAlerts:StartGuillotineSequenceBar(
             self:SetGuillotineSequenceMarkers(
                 bar,
                 {
-                    { time = 5, text = "Hit" },
-                    { time = 12, text = "Explode" }
+                    { time = 5, text = L["BossMods_AA_Hit"] },
+                    { time = 12, text = L["BossMods_AA_Explode"] }
                 },
                 totalDuration,
                 ability.spellID,
@@ -2870,7 +2936,7 @@ function AbilityAlerts:StartBeamBar(ability, duration, testMode)
             local bar = self:EnsureBar(ability.spellID)
 
             bar.beamBarActive = true
-            bar:SetLabel("Beam")
+            bar:SetLabel(L["BossMods_AA_Beam"])
             bar:SetRight("0.0")
             bar:SetValue(0)
         end
@@ -3209,11 +3275,15 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
     end
 end
 
-function AbilityAlerts:OnBigWigsStage()
+function AbilityAlerts:OnBigWigsStage(module, stage)
     -- A new BigWigs stage invalidates timers from the previous encounter
     -- phase. Clear ART's delayed work at the same boundary so a stopped
     -- phase-one timer cannot create an alert during a later phase.
     self:ResetAlerts()
+
+    if config.onBigWigsStage then
+        config.onBigWigsStage(self, module, stage)
+    end
 end
 
 
@@ -3419,6 +3489,40 @@ function AbilityAlerts:ApplyPositions()
         barOffset =
             barOffset
             + barHeight
+            + (barGroup.spacing or 4)
+    end
+
+    local managedBars = {}
+
+    for _, entry in pairs(self.managedBars) do
+        if entry.bar and entry.bar:IsRunning() then
+            managedBars[#managedBars + 1] = entry
+        end
+    end
+
+    table.sort(managedBars, function(a, b)
+        if a.order ~= b.order then
+            return a.order < b.order
+        end
+
+        return a.key < b.key
+    end)
+
+    for _, entry in ipairs(managedBars) do
+        local bar = entry.bar
+
+        bar.frame:ClearAllPoints()
+        bar.frame:SetPoint(
+            normalizeAnchorPoint(barGroup.point),
+            UIParent,
+            "CENTER",
+            barGroup.x or 0,
+            (barGroup.y or 80) + barOffset * barDirection
+        )
+        updateAnchorPointMarker(bar.frame, barGroup.point)
+
+        barOffset = barOffset
+            + (entry.height or 24)
             + (barGroup.spacing or 4)
     end
 
@@ -3944,7 +4048,10 @@ function AbilityAlerts:TestAbility(spellID)
 
                     self:SetTimelineMarkers(
                         bar,
-                        {{ time = secondsBefore, text = "Cast" }},
+                        {{
+                            time = secondsBefore,
+                            text = L["BossMods_AA_Cast"]
+                        }},
                         totalDuration,
                         spellID,
                         tonumber(markerSettings.markerThickness) or 5,
@@ -4066,13 +4173,31 @@ function AbilityAlerts:ResetAlerts()
     end
 end
 
+function AbilityAlerts:OnConfiguredEvent(event, ...)
+    local handler = config.events and config.events[event]
+
+    if handler then
+        handler(self, event, ...)
+    end
+end
+
+function AbilityAlerts:OnConfiguredFeatureEnabledChanged(message, ...)
+    if config.onFeatureEnabledChanged then
+        config.onFeatureEnabledChanged(self, message, ...)
+    end
+end
+
 function AbilityAlerts:ENCOUNTER_END()
     self:ResetEncounterTracking()
     self:ResetAlerts()
 end
 
-function AbilityAlerts:ENCOUNTER_START()
+function AbilityAlerts:ENCOUNTER_START(_, encounterID, ...)
     self:ResetEncounterTracking()
+
+    if config.onEncounterStart then
+        config.onEncounterStart(self, encounterID, ...)
+    end
 end
 
 -------------------------------------------------------------------------------
@@ -4134,13 +4259,31 @@ function AbilityAlerts:OnEnable()
                 )
             end,
 
-            onStage = function()
-                self:OnBigWigsStage()
+            onStage = function(module, stage)
+                self:OnBigWigsStage(module, stage)
             end,
         })
 
     self:RegisterEvent("ENCOUNTER_START")
     self:RegisterEvent("ENCOUNTER_END")
+
+    for event in pairs(config.events or {}) do
+        if event ~= "ENCOUNTER_START" and event ~= "ENCOUNTER_END" then
+            self:RegisterEvent(event, "OnConfiguredEvent")
+        end
+    end
+
+    if config.refresh then
+        self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
+        self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
+    end
+
+    if config.onFeatureEnabledChanged then
+        self:RegisterMessage(
+            "ART_BOSSMODS_FEATURE_ENABLED_CHANGED",
+            "OnConfiguredFeatureEnabledChanged"
+        )
+    end
 end
 
 function AbilityAlerts:OnDisable()
@@ -4150,11 +4293,14 @@ function AbilityAlerts:OnDisable()
     end
 
     self:UnregisterAllEvents()
+    self:UnregisterAllMessages()
     self:ResetEncounterTracking()
     self:ResetAlerts()
 end
 
 function AbilityAlerts:Refresh()
+    self:RefreshManagedBars()
+
 for spellID, bar in pairs(self.bars) do
     local abilitySettings =
         self:GetAbilitySettings(spellID)
@@ -4275,6 +4421,10 @@ end
         alert:Apply(
             buildTextConfig(textAppearance)
         )
+    end
+
+    if config.refresh then
+        config.refresh(self)
     end
 
     self:ApplyPositions()

@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 
 local issecretvalue = issecretvalue or function() return false end
 
@@ -7,6 +7,17 @@ local ROUSE_THE_BROOD_SPELL_ID = 1308356
 local RAVENOUS_FEAST_SPELL_ID = 1290516
 local VENOM_COAGULATION_SPELL_ID = 1284251
 local UNSTABLE_MIASMA_SPELL_ID = 1288232
+
+local ULATEK_ENCOUNTER_ID = 3492
+local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
+local ULATEK_CHECK_DURATION = 35
+local ULATEK_BAR_ORDER = 130
+local ULATEK_UNIT_REFRESH_INTERVAL = 0.1
+local ULATEK_EMPTY_GRACE = 0.2
+local ULATEK_BOSS_UNITS = {"boss2", "boss3"}
+
+local bossMods
+local shared
 
 local ENTOMBED_HIDDEN_CASTS = {
     green = {
@@ -138,7 +149,8 @@ local function getAbilityAssignment(ability)
                 "LEThud" .. hit,
                 { hashtagMultiline = true }
             ) then
-                assignments[#assignments + 1] = "Soak Thud " .. hit
+                assignments[#assignments + 1] =
+                    L["BossMods_VA_Assignment_SoakThud"]:format(hit)
             end
         end
     elseif spellID == ROUSE_THE_BROOD_SPELL_ID then
@@ -151,9 +163,11 @@ local function getAbilityAssignment(ability)
             )
 
             if position then
-                local order = position == 1 and "First" or "Second"
+                local localeKey = position == 1
+                    and "BossMods_VA_Assignment_KickAddFirst"
+                    or "BossMods_VA_Assignment_KickAddSecond"
                 assignments[#assignments + 1] =
-                    "Kick Add " .. addNumber .. " " .. order
+                    L[localeKey]:format(addNumber)
             end
         end
     else
@@ -161,7 +175,8 @@ local function getAbilityAssignment(ability)
 
         for hit = 1, 3 do
             if hits and hits[hit] then
-                assignments[#assignments + 1] = "Soak Hit " .. hit
+                assignments[#assignments + 1] =
+                    L["BossMods_VA_Assignment_SoakHit"]:format(hit)
             end
         end
     end
@@ -234,6 +249,231 @@ local function getEntombedAssignment()
     end
 end
 
+local reconcileUlatekUnits
+
+local function ensureUlatekBars(self)
+    self.ulatekShriekerBars = self.ulatekShriekerBars or {}
+
+    for row = 1, 2 do
+        local bar = self:EnsureManagedBar(
+            "ulatekShrieker" .. row,
+            "Ulatek",
+            ULATEK_BAR_ORDER + row,
+            {manualFill = true}
+        )
+
+        if not self.ulatekShriekerBars[row] then
+            bar.onFrame = function()
+                shared.PaintUnitHealth(bar.frame, bar.unit)
+            end
+
+            bar.onTick = function(elapsed, total)
+                local remaining = math.max(0, total - elapsed)
+                bar:SetRight(("%.1f"):format(remaining))
+                bar:SetMarker(remaining / total)
+            end
+
+            bar.onStop = function()
+                bar.unit = nil
+                bar:SetMarker(nil)
+                shared.PaintUnitHealth(bar.frame, nil)
+                bar:Hide()
+                self:ApplyPositions()
+            end
+
+            self.ulatekShriekerBars[row] = bar
+        end
+    end
+end
+
+local function isUlatekBarEnabled(self)
+    return self.db.ulatekShriekerBarEnabled ~= false
+        and bossMods:IsFeatureEnabled(ULATEK_FEATURE_KEY)
+end
+
+local function updateUlatekFinalPhase(self)
+    if self.ulatekFinalPhase then
+        return true
+    end
+
+    local stage = tonumber(self.ulatekBigWigsStage)
+
+    -- BigWigs reaches stage 2 when boss1 first becomes untargetable. Its
+    -- return is the final phase; latch it because Ula'tek can Submerge later.
+    if stage and stage >= 2
+        and UnitExists("boss1")
+        and UnitCanAttack("player", "boss1")
+    then
+        self.ulatekFinalPhase = true
+    end
+
+    return self.ulatekFinalPhase
+end
+
+local function onUlatekBigWigsStage(self, module, stage)
+    if not self.ulatekEncounterActive
+        or not module
+        or module.moduleName ~= "Ula'tek"
+    then
+        return
+    end
+
+    self.ulatekBigWigsStage = tonumber(stage)
+
+    if self.ulatekBigWigsStage
+        and self.ulatekBigWigsStage >= 3
+    then
+        self.ulatekFinalPhase = true
+    end
+end
+
+local function stopUlatekWave(self)
+    self.ulatekWaveActive = false
+    self.ulatekWaveStartTime = nil
+    self.ulatekEmptySince = nil
+
+    if self.ulatekWaveTicker then
+        self.ulatekWaveTicker:Cancel()
+        self.ulatekWaveTicker = nil
+    end
+
+    for _, bar in ipairs(self.ulatekShriekerBars or {}) do
+        if bar:IsRunning() then
+            bar:Stop()
+        else
+            bar.unit = nil
+            shared.PaintUnitHealth(bar.frame, nil)
+            bar:Hide()
+        end
+    end
+end
+
+reconcileUlatekUnits = function(self)
+    if not self.ulatekWaveActive then
+        return
+    end
+
+    local units = {}
+
+    for _, unit in ipairs(ULATEK_BOSS_UNITS) do
+        if UnitExists(unit) then
+            units[#units + 1] = unit
+        end
+    end
+
+    if #units == 0 then
+        local now = GetTime()
+        self.ulatekEmptySince = self.ulatekEmptySince or now
+
+        if now - self.ulatekEmptySince >= ULATEK_EMPTY_GRACE then
+            stopUlatekWave(self)
+        end
+
+        return
+    end
+
+    self.ulatekEmptySince = nil
+    local now = GetTime()
+    local startedBar = false
+
+    for row, bar in ipairs(self.ulatekShriekerBars) do
+        local unit = units[row]
+
+        if unit then
+            bar.unit = unit
+            bar:SetMode("label")
+            bar:SetLabel(L["BossMods_UlatekBrightscaleShrieker"])
+            bar:SetMiddle("")
+
+            if not bar:IsRunning()
+                and now - self.ulatekWaveStartTime < ULATEK_CHECK_DURATION
+            then
+                bar:Start({
+                    total = ULATEK_CHECK_DURATION,
+                    lead = self.ulatekWaveStartTime - now
+                })
+                startedBar = true
+            end
+        elseif bar:IsRunning() then
+            bar:Stop()
+        else
+            bar.unit = nil
+            bar:Hide()
+        end
+    end
+
+    if startedBar then
+        self:ApplyPositions()
+    end
+end
+
+local function startUlatekWave(self)
+    if not isUlatekBarEnabled(self) then
+        return
+    end
+
+    if self.ulatekWaveActive then
+        reconcileUlatekUnits(self)
+        return
+    end
+
+    ensureUlatekBars(self)
+
+    self.ulatekWaveActive = true
+    self.ulatekWaveStartTime = GetTime()
+    self.ulatekEmptySince = nil
+
+    -- Keep reconciling after the 35-second bars expire. This holds the wave
+    -- lock until surviving Shriekers disappear, so a later cast cannot rearm.
+    self.ulatekWaveTicker = C_Timer.NewTicker(
+        ULATEK_UNIT_REFRESH_INTERVAL,
+        function()
+            reconcileUlatekUnits(self)
+        end
+    )
+
+    reconcileUlatekUnits(self)
+end
+
+local function onUlatekSpellcastStart(self, _, unit)
+    -- In the final phase only Shriekers occupy boss2/boss3. Deliberately use
+    -- the unit event alone: cast and NPC IDs are restricted in 12.1.
+    if not self.ulatekEncounterActive
+        or unit ~= "boss2" and unit ~= "boss3"
+    then
+        return
+    end
+
+    if UnitExists(unit) and updateUlatekFinalPhase(self) then
+        startUlatekWave(self)
+    end
+end
+
+local function initializeEncounterBars(self, currentBossMods)
+    bossMods = currentBossMods
+    shared = bossMods.Engines.Shared
+end
+
+local function onEncounterStart(self, encounterID)
+    if encounterID == ULATEK_ENCOUNTER_ID then
+        self.ulatekEncounterActive = true
+        self.ulatekFinalPhase = false
+        self.ulatekBigWigsStage = 1
+    end
+end
+
+local function refreshEncounterBars(self)
+    if not isUlatekBarEnabled(self) then
+        stopUlatekWave(self)
+    end
+end
+
+local function onFeatureEnabledChanged(self, _, key, enabled)
+    if key == ULATEK_FEATURE_KEY and not enabled then
+        stopUlatekWave(self)
+    end
+end
+
 local function resetEncounterTracking(self)
     self.entombedCastCounts = self.entombedCastCounts or {}
     self.entombedLastCast = self.entombedLastCast or {}
@@ -241,6 +481,10 @@ local function resetEncounterTracking(self)
     wipe(self.entombedLastCast)
     self.entombedAssignment = nil
     self.entombedAssignmentResolved = false
+    self.ulatekEncounterActive = false
+    self.ulatekFinalPhase = false
+    self.ulatekBigWigsStage = nil
+    stopUlatekWave(self)
 end
 
 local function shouldSuppressCast(self, spellID)
@@ -291,6 +535,14 @@ end
 E:CreateAbilityAlertsModule({
     moduleName = "BossMods_VenomousAbyssAbilityAlerts",
     featurePrefix = "VenomousAbyss",
+    initialize = initializeEncounterBars,
+    events = {
+        UNIT_SPELLCAST_START = onUlatekSpellcastStart
+    },
+    onBigWigsStage = onUlatekBigWigsStage,
+    onEncounterStart = onEncounterStart,
+    onFeatureEnabledChanged = onFeatureEnabledChanged,
+    refresh = refreshEncounterBars,
     getAbilityData = function()
         return E.VenomousAbyssAbilityData or {}
     end,
@@ -319,7 +571,8 @@ E:CreateAbilityAlertsModule({
         }
     },
     extraDefaults = {
-        entombedAssignmentFilteringEnabled = true
+        entombedAssignmentFilteringEnabled = true,
+        ulatekShriekerBarEnabled = true
     },
     presetVersionField = "venomousBarPresetVersion",
     enableAllBarsMigrationField = "enableAllVenomousBarsMigration",

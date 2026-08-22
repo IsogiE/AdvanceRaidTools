@@ -145,6 +145,21 @@ function Shared.IsSecret(v)
     return E:IsSecret(v)
 end
 
+function Shared.PaintUnitHealth(statusBar, unit)
+    if not statusBar then
+        return
+    end
+
+    if not unit or not UnitExists(unit) then
+        statusBar:SetMinMaxValues(0, 1)
+        statusBar:SetValue(0)
+        return
+    end
+
+    statusBar:SetMinMaxValues(0, UnitHealthMax(unit))
+    statusBar:SetValue(UnitHealth(unit))
+end
+
 function Shared.IsKnownUnitToken(unit)
     if type(unit) ~= "string" then
         return false

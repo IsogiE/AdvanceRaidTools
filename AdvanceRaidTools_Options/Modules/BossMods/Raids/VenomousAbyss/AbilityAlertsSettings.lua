@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 local T = E.Templates
 
 local BossMods = E:GetModule("BossMods", true)
@@ -23,10 +23,10 @@ local BOSS_FEATURES = {
 local ROW_GAP = 6
 local HEADER_GAP = 10
 local OUTLINE_VALUES = {
-    [""] = "None",
-    OUTLINE = "Outline",
-    THICKOUTLINE = "Thick Outline",
-    OUTLINE_SLUG = "Slug Outline"
+    [""] = L["BossMods_AAOptions_None"],
+    OUTLINE = L["BossMods_AAOptions_Outline"],
+    THICKOUTLINE = L["BossMods_AAOptions_ThickOutline"],
+    OUTLINE_SLUG = L["BossMods_AAOptions_SlugOutline"]
 }
 
 local OUTLINE_SORTING = {
@@ -45,8 +45,8 @@ local function statusBarValues()
 end
 
 local AUDIO_MODE_VALUES = {
-    tts = "Text to Speech",
-    sound = "Sound file"
+    tts = L["BossMods_AAOptions_TextToSpeech"],
+    sound = L["BossMods_AAOptions_SoundFile"]
 }
 
 local AUDIO_MODE_SORTING = {
@@ -55,8 +55,8 @@ local AUDIO_MODE_SORTING = {
 }
 
 local COUNTDOWN_TARGET_VALUES = {
-    hit = "Countdown to hit",
-    cast = "Countdown to start cast"
+    hit = L["BossMods_AAOptions_CountdownToHit"],
+    cast = L["BossMods_AAOptions_CountdownToStartCast"]
 }
 
 local COUNTDOWN_TARGET_SORTING = {
@@ -65,11 +65,11 @@ local COUNTDOWN_TARGET_SORTING = {
 }
 
 local SOUND_CHANNEL_VALUES = {
-    Master = "Master",
-    SFX = "Sound Effects",
-    Music = "Music",
-    Ambience = "Ambience",
-    Dialog = "Dialog"
+    Master = L["BossMods_AAOptions_Master"],
+    SFX = L["BossMods_AAOptions_SoundEffects"],
+    Music = L["BossMods_AAOptions_Music"],
+    Ambience = L["BossMods_AAOptions_Ambience"],
+    Dialog = L["BossMods_AAOptions_Dialog"]
 }
 
 local SOUND_CHANNEL_SORTING = {
@@ -275,7 +275,8 @@ settings.bar.font.outline =
         tonumber(settings.text.delayBy) or 0
 
     settings.text.message =
-        settings.text.message or "{spell} in {time}"
+        settings.text.message
+        or L["BossMods_AAOptions_DefaultCountdownMessage"]
 settings.text.font =
     settings.text.font or {}
 
@@ -316,7 +317,8 @@ settings.text.font.outline =
         settings.audio.channel or "Master"
 
     settings.audio.ttsText =
-        settings.audio.ttsText or "{spell} in {time}"
+        settings.audio.ttsText
+        or L["BossMods_AAOptions_DefaultCountdownMessage"]
 
     settings.audio.voiceID =
         tonumber(settings.audio.voiceID) or 0
@@ -606,7 +608,8 @@ end
         thicknessOptions = thicknessOptions or {}
 
         local markerThickness = slider({
-            label = thicknessOptions.label or "Marker thickness",
+            label = thicknessOptions.label
+                or L["BossMods_AAOptions_MarkerThickness"],
             min = thicknessOptions.min or 1,
             max = thicknessOptions.max or 30,
             step = thicknessOptions.step or 1,
@@ -622,7 +625,7 @@ end
         })
 
         local markerColor = color({
-            label = "Marker color",
+            label = L["BossMods_AAOptions_MarkerColor"],
             get = function()
                 return markerSettings.markerColor
             end,
@@ -640,14 +643,11 @@ end
     local unlockCtrl
 
     y = full(y, track(T:Header(rightPanel, {
-        text = "Ability Alerts"
+        text = L["BossMods_AAOptions_Title"]
     })))
 
     y = full(y, track(T:Description(rightPanel, {
-        text =
-            "Create configurable alerts based on BigWigs boss timers. "
-            .. "Seconds before controls the countdown length. "
-            .. "Delay by moves the entire alert later.",
+        text = L["BossMods_AAOptions_Description"],
         sizeDelta = 1
     })))
     local abilityValues = {}
@@ -708,7 +708,7 @@ end
     end
 
 local abilityPicker = track(T:Dropdown(rightPanel, {
-    label = "Select ability",
+    label = L["BossMods_AAOptions_SelectAbility"],
     values = abilityValues,
     sorting = abilitySorting,
 
@@ -732,7 +732,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
     y = full(y, abilityPicker)
 
-    y = section(y, "Position")
+    y = section(y, L["BossMods_AAOptions_Position"])
 
     if bossKey == "EntombedSentinels" then
         if abilityMod.db.entombedAssignmentFilteringEnabled == nil then
@@ -740,8 +740,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         end
 
         local assignmentFiltering = checkbox({
-            text = "Hide alerts using assignments",
-            tooltip = "Mythic uses raid groups 1-2 as Green and groups 3-4 as Red. Normal and Heroic use #ESGreen/#ESRed from the note.",
+            text = L["BossMods_AAOptions_HideAssignmentAlerts"],
+            tooltip = L["BossMods_AAOptions_HideAssignmentAlertsTooltip"],
             labelTop = true,
             get = function()
                 return abilityMod.db.entombedAssignmentFilteringEnabled
@@ -759,10 +759,9 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
     end
 
     local testAllAlerts = button({
-        text = "Test all alerts",
+        text = L["BossMods_AAOptions_TestAllAlerts"],
 
-        tooltip =
-            "Tests all enabled alerts for every ability on this boss at the same time.",
+        tooltip = L["BossMods_AAOptions_TestAllAlertsTooltip"],
 
         onClick = function()
             for _, ability in ipairs(bossData.abilities or {}) do
@@ -785,6 +784,32 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
     })
 
     y = full(y, testAllAlerts)
+
+    if bossKey == "Ulatek" then
+        if abilityMod and abilityMod.db then
+            y = section(
+                y,
+                L["BossMods_UlatekBrightscaleShrieker"]
+            )
+
+            y = full(y, checkbox({
+                text = L["BossMods_UlatekShriekerBarEnable"],
+                labelTop = true,
+                get = function()
+                    return abilityMod.db.ulatekShriekerBarEnabled ~= false
+                end,
+                onChange = function(value)
+                    abilityMod.db.ulatekShriekerBarEnabled = value
+                    abilityMod:Refresh()
+                end
+            }))
+
+            y = full(y, track(T:Description(rightPanel, {
+                text = L["BossMods_UlatekShriekerBarDesc"],
+                sizeDelta = 0
+            })))
+        end
+    end
 
     ---------------------------------------------------------------------------
     -- Abilities
@@ -947,7 +972,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 settings.audio.secondsBefore = 0
                 settings.audio.delayBy = 0
                 settings.audio.countdown = false
-                settings.audio.ttsText = "Not safe to pickup"
+                settings.audio.ttsText =
+                    L["BossMods_AAOptions_NotSafeToPickupTTS"]
                 settings.latestPickupAudioInitialized = true
             end
         end
@@ -1032,11 +1058,11 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         y = section(y, ability.name or tostring(spellID))
 
-        y = section(y, "Active difficulties")
+        y = section(y, L["BossMods_AAOptions_ActiveDifficulties"])
 
         y = row(y, {
             checkbox({
-                text = "Normal",
+                text = L["BossMods_AAOptions_Normal"],
                 labelTop = true,
                 get = function() return settings.difficulties.normal end,
                 onChange = function(value)
@@ -1044,7 +1070,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 end
             }),
             checkbox({
-                text = "Heroic",
+                text = L["BossMods_AAOptions_Heroic"],
                 labelTop = true,
                 get = function() return settings.difficulties.heroic end,
                 onChange = function(value)
@@ -1052,7 +1078,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 end
             }),
             checkbox({
-                text = "Mythic",
+                text = L["BossMods_AAOptions_Mythic"],
                 labelTop = true,
                 get = function() return settings.difficulties.mythic end,
                 onChange = function(value)
@@ -1097,23 +1123,23 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         end
 
         local testAlert = button({
-            text = "Test alert",
+            text = L["BossMods_AAOptions_TestAlert"],
 
             tooltip = ability.kind == "mightyThudHits"
-                and "Starts the full Mighty Thud bar immediately, including all three hit markers."
+                and L["BossMods_AAOptions_TestMightyThudTooltip"]
                 or ability.kind == "ravenousFeastHits"
-                and "Starts the full Ravenous Feast bar immediately, including your note-assignment highlight."
+                and L["BossMods_AAOptions_TestRavenousFeastTooltip"]
                 or ability.kind == "mushroomTossJump"
-                and "Tests the enabled BAIT and JUMP bars, skipping the 20-second gap."
+                and L["BossMods_AAOptions_TestMushroomTossTooltip"]
                 or ability.kind == "latestPickup"
-                and "Tests the Latest Pickup bar and any enabled marker-relative audio immediately."
+                and L["BossMods_AAOptions_TestLatestPickupTooltip"]
                 or ability.kind == "howlingMaelstromWinds"
-                and "Starts the complete 31.5-second WIND bar immediately."
+                and L["BossMods_AAOptions_TestHowlingMaelstromTooltip"]
                 or ability.kind == "guillotineSequence"
-                and "Starts the complete 11-second Hit/Explode bar immediately."
+                and L["BossMods_AAOptions_TestGuillotineTooltip"]
                 or ability.kind == "beamBar"
-                and "Starts the complete 18-second Beam bar immediately."
-                or "Tests the currently enabled bar, text and audio settings.",
+                and L["BossMods_AAOptions_TestBeamTooltip"]
+                or L["BossMods_AAOptions_TestAlertTooltip"],
 
             onClick = function()
                 abilityMod:TestAbility(spellID)
@@ -1129,11 +1155,11 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         if tonumber(ability.castTimeAdjustment)
             and tonumber(ability.castTimeAdjustment) > 0
         then
-            y = section(y, "Timing")
+            y = section(y, L["BossMods_AAOptions_Timing"])
 
             if ability.countdownTargetChoice then
                 local countdownTarget = dropdown({
-                    label = "Countdown target",
+                    label = L["BossMods_AAOptions_CountdownTarget"],
                     values = COUNTDOWN_TARGET_VALUES,
                     sorting = COUNTDOWN_TARGET_SORTING,
                     get = function()
@@ -1151,7 +1177,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = full(y, countdownTarget)
             else
                 local removeCastAdjustment = checkbox({
-                    text = "Remove Cast Time Adjustments",
+                    text = L["BossMods_AAOptions_RemoveCastTimeAdjustments"],
                     labelTop = true,
                     get = function()
                         return settings.removeCastTimeAdjustment == true
@@ -1168,10 +1194,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             end
 
             y = full(y, track(T:Description(rightPanel, {
-                text = "By default, the alert includes the "
-                    .. tostring(ability.castTimeAdjustment)
-                    .. " second cast time after the BigWigs event. "
-                    .. "Removing the adjustment makes it count down to the BigWigs event instead.",
+                text = L["BossMods_AAOptions_CastTimeAdjustmentDescription"]
+                    :format(tostring(ability.castTimeAdjustment)),
                 sizeDelta = 0
             })))
         end
@@ -1180,10 +1204,10 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         -- Bar
         -----------------------------------------------------------------------
 
-        y = section(y, "Bar")
+        y = section(y, L["BossMods_AAOptions_Bar"])
 
         local enableBar = rebuildCheckbox({
-            text = "Enable bar",
+            text = L["BossMods_AAOptions_EnableBar"],
             labelTop = true,
             get = function() return settings.bar.enabled end,
             onChange = function(value) settings.bar.enabled = value end,
@@ -1196,7 +1220,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         if settings.bar.enabled then
             local barFillColor = color({
-                label = "Bar color",
+                label = L["BossMods_AAOptions_BarColor"],
                 get = function() return settings.bar.fillColor end,
                 onChange = function(r, g, b, a)
                     settings.bar.fillColor = {r, g, b, a}
@@ -1213,7 +1237,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             y = full(y, barFillColor)
 
             local unattachBar = rebuildCheckbox({
-                text = "Unattach from bar group anchor",
+                text = L["BossMods_AAOptions_UnattachBar"],
                 labelTop = true,
 
                 get = function()
@@ -1245,14 +1269,15 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     disabled = function()
                         return isDisabled() or not settings.enabled
                     end,
-                    xInputLabel = "Bar X value",
-                    yInputLabel = "Bar Y value"
+                    xInputLabel = L["BossMods_AAOptions_BarXValue"],
+                    yInputLabel = L["BossMods_AAOptions_BarYValue"]
                 })
             end
 
             if ability.kind == "mightyThudHits" then
                 local castTime = slider({
-                    label = "Cast time", min = 0, max = 20, step = 0.1,
+                    label = L["BossMods_AAOptions_CastTime"],
+                    min = 0, max = 20, step = 0.1,
                     get = function() return settings.sequence.castTime end,
                     onChange = function(value)
                         settings.sequence.castTime =
@@ -1262,7 +1287,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 })
 
                 local firstHitDelay = slider({
-                    label = "First hit delay", min = 0.1, max = 5, step = 0.1,
+                    label = L["BossMods_AAOptions_FirstHitDelay"],
+                    min = 0.1, max = 5, step = 0.1,
                     get = function() return settings.sequence.firstHitDelay end,
                     onChange = function(value)
                         settings.sequence.firstHitDelay =
@@ -1274,7 +1300,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = row(y, { castTime, firstHitDelay })
 
                 local hitInterval = slider({
-                    label = "Time between hits", min = 0.1, max = 5, step = 0.1,
+                    label = L["BossMods_AAOptions_TimeBetweenHits"],
+                    min = 0.1, max = 5, step = 0.1,
                     get = function() return settings.sequence.hitInterval end,
                     onChange = function(value)
                         settings.sequence.hitInterval =
@@ -1288,7 +1315,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.mightyThud,
                     {
-                        label = "Marker thickness (pixels)",
+                        label = L["BossMods_AAOptions_MarkerThicknessPixels"],
                         min = 1,
                         max = 30,
                         step = 1
@@ -1299,7 +1326,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 local soakTextSize = slider({
-                    label = "SOAK text size", min = 8, max = 40,
+                    label = L["BossMods_AAOptions_SoakTextSize"],
+                    min = 8, max = 40,
                     get = function()
                         return settings.mightyThud.soakTextSize
                     end,
@@ -1313,7 +1341,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 })
 
                 local soakTextOffsetY = slider({
-                    label = "SOAK text vertical offset",
+                    label = L["BossMods_AAOptions_SoakTextVerticalOffset"],
                     min = -30,
                     max = 30,
                     get = function()
@@ -1334,7 +1362,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.ravenousFeast,
                     {
-                        label = "Marker thickness (pixels)",
+                        label = L["BossMods_AAOptions_MarkerThicknessPixels"],
                         min = 1,
                         max = 30,
                         step = 1
@@ -1345,7 +1373,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 local soakTextSize = slider({
-                    label = "SOAK text size", min = 8, max = 40,
+                    label = L["BossMods_AAOptions_SoakTextSize"],
+                    min = 8, max = 40,
                     get = function()
                         return settings.ravenousFeast.soakTextSize
                     end,
@@ -1359,7 +1388,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 })
 
                 local soakTextOffsetY = slider({
-                    label = "SOAK text vertical offset",
+                    label = L["BossMods_AAOptions_SoakTextVerticalOffset"],
                     min = -30,
                     max = 30,
                     get = function()
@@ -1377,14 +1406,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = row(y, { soakTextSize, soakTextOffsetY })
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "The bar lasts 7 seconds. Markers show hits at 4, 5.5 and 7 seconds. "
-                        .. "Your #TFFeast1, #TFFeast2 or #TFFeast3 assignment is highlighted in green with SOAK text.",
+                    text = L["BossMods_AAOptions_RavenousFeastDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "mushroomTossJump" then
                 local enableBaitBar = checkbox({
-                    text = "Enable BAIT bar",
+                    text = L["BossMods_AAOptions_EnableBaitBar"],
                     labelTop = true,
                     get = function()
                         return settings.mushroomToss.baitEnabled
@@ -1398,7 +1425,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 })
 
                 local enableJumpBar = checkbox({
-                    text = "Enable JUMP bar",
+                    text = L["BossMods_AAOptions_EnableJumpBar"],
                     labelTop = true,
                     get = function()
                         return settings.mushroomToss.jumpEnabled
@@ -1417,7 +1444,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.mushroomToss,
                     {
-                        label = "Marker thickness (seconds)",
+                        label = L["BossMods_AAOptions_MarkerThicknessSeconds"],
                         min = 0.1,
                         max = 3,
                         step = 0.1
@@ -1428,16 +1455,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "The BAIT bar lasts 7 seconds. After a 20-second gap, "
-                        .. "the JUMP bar lasts 5 seconds. It is red for 3 seconds, "
-                        .. "then shows a full-height marker centered on the fourth second. "
-                        .. "The default marker thickness is 1 second and its default color is green.",
+                    text = L["BossMods_AAOptions_MushroomTossDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "latestPickup" then
                 local markerOffset = slider({
-                    label = "Marker offset",
+                    label = L["BossMods_AAOptions_MarkerOffset"],
                     min = -0.9,
                     max = 0.9,
                     step = 0.1,
@@ -1459,7 +1482,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.latestPickup,
                     {
-                        label = "Marker thickness (pixels)",
+                        label = L["BossMods_AAOptions_MarkerThicknessPixels"],
                         min = 1,
                         max = 30,
                         step = 1
@@ -1470,15 +1493,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "Default is 6 second before sever hitting being marked as not same. "
-                        .. "If you want it to be less than 6 seconds, you can adjust it by dragging the slider to the right. "
-                        .. "If you want it to be more than 6 seconds you can slide the bar to the left",
+                    text = L["BossMods_AAOptions_LatestPickupDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "howlingMaelstromWinds" then
                 local windMarkerColor = color({
-                    label = "WIND marker color",
+                    label = L["BossMods_AAOptions_WindMarkerColor"],
                     get = function()
                         return settings.howlingMaelstrom.markerColor
                     end,
@@ -1493,10 +1513,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = full(y, windMarkerColor)
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "The bar starts with 4 seconds remaining on the BigWigs timer and lasts 31.5 seconds. "
-                        .. "WIND 1 covers 5.5-13.5 seconds, WIND 2 covers 14.5-22.5 seconds, "
-                        .. "and WIND 3 covers 23.5-31.5 seconds. The number always counts down to the next WIND.",
+                    text = L["BossMods_AAOptions_HowlingMaelstromDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "guillotineSequence" then
@@ -1504,7 +1521,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.guillotineSequence,
                     {
-                        label = "Marker thickness (pixels)",
+                        label = L["BossMods_AAOptions_MarkerThicknessPixels"],
                         min = 1,
                         max = 30,
                         step = 1
@@ -1515,7 +1532,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 local markerTextOffsetY = slider({
-                    label = "Hit/Explode text vertical offset",
+                    label = L["BossMods_AAOptions_HitExplodeTextVerticalOffset"],
                     min = -30,
                     max = 30,
                     step = 1,
@@ -1534,17 +1551,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = full(y, markerTextOffsetY)
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "The bar starts when the Guillotine or Grim Guillotine BigWigs timer reaches 0. "
-                        .. "It counts down 5 seconds to Hit, then resets and counts down 6 seconds to Explode at the end of the bar.",
+                    text = L["BossMods_AAOptions_GuillotineDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "beamBar" then
                 y = full(y, track(T:Description(rightPanel, {
-                    text =
-                        "The bar starts when the Vile Flood BigWigs timer reaches 0. "
-                        .. "It fills while the timer counts from 0 to 4, then empties while counting from 14 to 0. "
-                        .. "The bar displays Beam throughout both phases.",
+                    text = L["BossMods_AAOptions_BeamDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "followupBar" then
@@ -1552,18 +1564,19 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 local startOffset = tonumber(mechanic.startOffset) or 0
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text = "This bar starts "
-                        .. (startOffset > 0
-                            and (startOffset .. " seconds after ")
-                            or "when ")
-                        .. "the BigWigs timer reaches 0 and lasts "
-                        .. tostring(mechanic.duration or 0)
-                        .. " seconds.",
+                    text = startOffset > 0
+                        and L["BossMods_AAOptions_FollowupBarAfterDescription"]
+                            :format(
+                                tostring(startOffset),
+                                tostring(mechanic.duration or 0)
+                            )
+                        or L["BossMods_AAOptions_FollowupBarWhenDescription"]
+                            :format(tostring(mechanic.duration or 0)),
                     sizeDelta = 0
                 })))
             elseif ability.kind == "stagedFollowupBars" then
                 y = full(y, track(T:Description(rightPanel, {
-                    text = "After the adjusted Unstable Miasma hit, an 8-second Soak bar is followed by a 6-second Pool drop bar.",
+                    text = L["BossMods_AAOptions_StagedFollowupDescription"],
                     sizeDelta = 0
                 })))
             elseif ability.kind == "markerSequence" then
@@ -1571,7 +1584,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     y,
                     settings.timelineMarkers,
                     {
-                        label = "Marker thickness (pixels)",
+                        label = L["BossMods_AAOptions_MarkerThicknessPixels"],
                         min = 1,
                         max = 30,
                         step = 1
@@ -1582,19 +1595,21 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 )
 
                 y = full(y, track(T:Description(rightPanel, {
-                    text = "The 6-second bar starts when Stir The Depths reaches 0 and has markers at 0, 2, 4 and 6 seconds.",
+                    text = L["BossMods_AAOptions_MarkerSequenceDescription"],
                     sizeDelta = 0
                 })))
             else
                 local barSeconds = slider({
-                    label = "Seconds before", min = 1, max = 30,
+                    label = L["BossMods_AAOptions_SecondsBefore"],
+                    min = 1, max = 30,
                     get = function() return settings.bar.secondsBefore end,
                     onChange = function(value) settings.bar.secondsBefore = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local barDelay = slider({
-                    label = "Delay by", min = 0, max = 30,
+                    label = L["BossMods_AAOptions_DelayBy"],
+                    min = 0, max = 30,
                     get = function() return settings.bar.delayBy end,
                     onChange = function(value) settings.bar.delayBy = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
@@ -1607,7 +1622,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                         y,
                         settings.castWindow,
                         {
-                            label = "Cast marker thickness (pixels)",
+                            label = L["BossMods_AAOptions_CastMarkerThicknessPixels"],
                             min = 1,
                             max = 30,
                             step = 1
@@ -1625,16 +1640,23 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                         ability.postHitStages.stages or {}
                     ) do
                         stageDescriptions[#stageDescriptions + 1] =
-                            tostring(stage.text or "Stage")
-                            .. " for "
-                            .. tostring(stage.duration or 0)
-                            .. " seconds"
+                            L["BossMods_AAOptions_StageDuration"]:format(
+                                tostring(
+                                    stage.text
+                                    or L["BossMods_AAOptions_Stage"]
+                                ),
+                                tostring(stage.duration or 0)
+                            )
                     end
 
                     y = full(y, track(T:Description(rightPanel, {
-                        text = "When the countdown reaches 0, the same bar continues with "
-                            .. table.concat(stageDescriptions, " and then ")
-                            .. ". Each follow-up bar counts up from 0, while its text alert counts down.",
+                        text = L["BossMods_AAOptions_PostHitStagesDescription"]
+                            :format(
+                                table.concat(
+                                    stageDescriptions,
+                                    L["BossMods_AAOptions_AndThen"]
+                                )
+                            ),
                         sizeDelta = 0
                     })))
                 end
@@ -1647,7 +1669,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 and ability.kind ~= "beamBar"
             then
                 local barText = editBox({
-                    label = "Custom bar name (blank uses ability name)",
+                    label = L["BossMods_AAOptions_CustomBarName"],
                     get = function() return settings.bar.text end,
                     onChange = function(value) settings.bar.text = value end,
                     disabled = function() return isDisabled() or not settings.enabled end
@@ -1657,18 +1679,14 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
                 if ability.kind == "mightyThudHits" then
                     y = full(y, track(T:Description(rightPanel, {
-                        text =
-                            "The bar duration is the cast time, first hit delay and two hit intervals combined. "
-                            .. "Three markers show hit 1, hit 2 and hit 3. "
-                            .. "Your #LEThud1, #LEThud2 or #LEThud3 note assignment highlights the matching marker in green with SOAK text. "
-                            .. "Test alert starts the full bar immediately.",
+                        text = L["BossMods_AAOptions_MightyThudDescription"],
                         sizeDelta = 0
                     })))
                 end
             end
 
             local overrideBarAppearance = rebuildCheckbox({
-                text = "Override default bar appearance",
+                text = L["BossMods_AAOptions_OverrideBarAppearance"],
                 labelTop = true,
                 get = function() return settings.bar.overrideAppearance end,
                 onChange = function(value)
@@ -1692,21 +1710,23 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
             if settings.bar.overrideAppearance then
                 local barWidth = slider({
-                    label = "Bar width", min = 100, max = 800, step = 5,
+                    label = L["BossMods_AAOptions_BarWidth"],
+                    min = 100, max = 800, step = 5,
                     get = function() return settings.bar.width end,
                     onChange = function(value) settings.bar.width = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local barHeight = slider({
-                    label = "Bar height", min = 10, max = 80,
+                    label = L["BossMods_AAOptions_BarHeight"],
+                    min = 10, max = 80,
                     get = function() return settings.bar.height end,
                     onChange = function(value) settings.bar.height = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local barTexture = dropdown({
-                    label = "Bar texture",
+                    label = L["BossMods_AAOptions_BarTexture"],
                     values = statusBarValues,
                     get = function() return settings.bar.texture end,
                     onChange = function(value) settings.bar.texture = value end,
@@ -1717,7 +1737,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
                 if ability.kind == nil then
                     local barIconEnabled = checkbox({
-                        text = "Enable ability icon",
+                        text = L["BossMods_AAOptions_EnableAbilityIcon"],
                         labelTop = true,
                         get = function() return settings.bar.iconEnabled ~= false end,
                         onChange = function(value) settings.bar.iconEnabled = value end,
@@ -1725,7 +1745,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     })
 
                     local barIconSize = slider({
-                        label = "Icon size", min = 8, max = 80,
+                        label = L["BossMods_AAOptions_IconSize"],
+                        min = 8, max = 80,
                         get = function() return settings.bar.iconSize end,
                         onChange = function(value) settings.bar.iconSize = math.floor(value) end,
                         disabled = function()
@@ -1739,7 +1760,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 end
 
                 local barBackgroundColor = color({
-                    label = "Background color",
+                    label = L["BossMods_AAOptions_BackgroundColor"],
                     get = function() return settings.bar.backgroundColor end,
                     onChange = function(r, g, b, a) settings.bar.backgroundColor = {r, g, b, a} end,
                     disabled = function() return isDisabled() or not settings.enabled end
@@ -1748,21 +1769,22 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 y = full(y, barBackgroundColor)
 
                 local barFont = dropdown({
-                    label = "Font", values = fontValues,
+                    label = L["BossMods_AAOptions_Font"], values = fontValues,
                     get = function() return settings.bar.font.name end,
                     onChange = function(value) settings.bar.font.name = value end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local barFontSize = slider({
-                    label = "Font size", min = 8, max = 40,
+                    label = L["BossMods_AAOptions_FontSize"],
+                    min = 8, max = 40,
                     get = function() return settings.bar.font.size end,
                     onChange = function(value) settings.bar.font.size = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local barFontOutline = dropdown({
-                    label = "Font outline",
+                    label = L["BossMods_AAOptions_FontOutline"],
                     values = OUTLINE_VALUES,
                     sorting = OUTLINE_SORTING,
                     get = function() return settings.bar.font.outline end,
@@ -1775,10 +1797,10 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         end
 
         if ability.kind == "mushroomTossJump" then
-            y = section(y, "Audio")
+            y = section(y, L["BossMods_AAOptions_Audio"])
 
             local enableMushroomTTS = checkbox({
-                text = "Enable BAIT/JUMP TTS",
+                text = L["BossMods_AAOptions_EnableBaitJumpTTS"],
                 labelTop = true,
                 get = function()
                     return settings.mushroomToss.ttsEnabled
@@ -1801,7 +1823,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
             if settings.mushroomToss.ttsEnabled then
                 local mushroomVoice = dropdown({
-                    label = "TTS voice",
+                    label = L["BossMods_AAOptions_TTSVoice"],
                     values = function()
                         return E:GetModule("BossMods")
                             .Alerts:GetTTSVoices()
@@ -1815,7 +1837,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
                         E:GetModule("BossMods")
                             .Alerts:SpeakTTS({
-                                text = "Jump",
+                                text = L["BossMods_AAOptions_JumpVoiceSample"],
                                 voiceID = settings.mushroomToss.voiceID
                             })
                     end,
@@ -1843,10 +1865,10 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             -- Text
             -------------------------------------------------------------------
 
-        y = section(y, "Text")
+        y = section(y, L["BossMods_AAOptions_Text"])
 
         local enableText = rebuildCheckbox({
-            text = "Enable text",
+            text = L["BossMods_AAOptions_EnableText"],
             labelTop = true,
             get = function() return settings.text.enabled end,
             onChange = function(value) settings.text.enabled = value end,
@@ -1859,7 +1881,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         if settings.text.enabled then
             local unattachText = rebuildCheckbox({
-                text = "Unattach from text group anchor",
+                text = L["BossMods_AAOptions_UnattachText"],
                 labelTop = true,
 
                 get = function()
@@ -1891,20 +1913,22 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     disabled = function()
                         return isDisabled() or not settings.enabled
                     end,
-                    xInputLabel = "Text X value",
-                    yInputLabel = "Text Y value"
+                    xInputLabel = L["BossMods_AAOptions_TextXValue"],
+                    yInputLabel = L["BossMods_AAOptions_TextYValue"]
                 })
             end
 
             local textSeconds = slider({
-                label = "Seconds before", min = 1, max = 30,
+                label = L["BossMods_AAOptions_SecondsBefore"],
+                min = 1, max = 30,
                 get = function() return settings.text.secondsBefore end,
                 onChange = function(value) settings.text.secondsBefore = math.floor(value) end,
                 disabled = function() return isDisabled() or not settings.enabled end
             })
 
             local textDelay = slider({
-                label = "Delay by", min = 0, max = 30,
+                label = L["BossMods_AAOptions_DelayBy"],
+                min = 0, max = 30,
                 get = function() return settings.text.delayBy end,
                 onChange = function(value) settings.text.delayBy = math.floor(value) end,
                 disabled = function() return isDisabled() or not settings.enabled end
@@ -1913,7 +1937,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             y = row(y, { textSeconds, textDelay })
 
             local showOneDecimal = checkbox({
-                text = "Show one decimal",
+                text = L["BossMods_AAOptions_ShowOneDecimal"],
                 labelTop = true,
                 get = function()
                     return settings.text.showOneDecimal ~= false
@@ -1929,7 +1953,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             y = full(y, showOneDecimal)
 
             local textMessage = editBox({
-                label = "Text message",
+                label = L["BossMods_AAOptions_TextMessage"],
                 get = function() return settings.text.message end,
                 onChange = function(value) settings.text.message = value end,
                 disabled = function() return isDisabled() or not settings.enabled end
@@ -1938,7 +1962,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             y = full(y, textMessage)
 
             local overrideTextAppearance = rebuildCheckbox({
-                text = "Override default text appearance",
+                text = L["BossMods_AAOptions_OverrideTextAppearance"],
                 labelTop = true,
                 get = function() return settings.text.overrideAppearance end,
                 onChange = function(value)
@@ -1962,21 +1986,22 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
             if settings.text.overrideAppearance then
                 local textFont = dropdown({
-                    label = "Font", values = fontValues,
+                    label = L["BossMods_AAOptions_Font"], values = fontValues,
                     get = function() return settings.text.font.name end,
                     onChange = function(value) settings.text.font.name = value end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local textFontSize = slider({
-                    label = "Font size", min = 8, max = 72,
+                    label = L["BossMods_AAOptions_FontSize"],
+                    min = 8, max = 72,
                     get = function() return settings.text.font.size end,
                     onChange = function(value) settings.text.font.size = math.floor(value) end,
                     disabled = function() return isDisabled() or not settings.enabled end
                 })
 
                 local textFontOutline = dropdown({
-                    label = "Font outline",
+                    label = L["BossMods_AAOptions_FontOutline"],
                     values = OUTLINE_VALUES,
                     sorting = OUTLINE_SORTING,
                     get = function() return settings.text.font.outline end,
@@ -1999,10 +2024,10 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         -- Audio
         -----------------------------------------------------------------------
 
-        y = section(y, "Audio")
+        y = section(y, L["BossMods_AAOptions_Audio"])
 
         local enableAudio = rebuildCheckbox({
-            text = "Enable audio",
+            text = L["BossMods_AAOptions_EnableAudio"],
             labelTop = true,
 
             get = function()
@@ -2024,8 +2049,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         if settings.audio.enabled then
         local audioSeconds = slider({
             label = ability.kind == "latestPickup"
-                and "Seconds before marker"
-                or "Seconds before",
+                and L["BossMods_AAOptions_SecondsBeforeMarker"]
+                or L["BossMods_AAOptions_SecondsBefore"],
             min = ability.kind == "latestPickup" and 0 or 1,
             max = ability.kind == "latestPickup" and 3 or 30,
             step = ability.kind == "latestPickup" and 0.1 or 1,
@@ -2053,8 +2078,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         local audioDelay = slider({
             label = ability.kind == "latestPickup"
-                and "Delay after marker"
-                or "Delay by",
+                and L["BossMods_AAOptions_DelayAfterMarker"]
+                or L["BossMods_AAOptions_DelayBy"],
             min = 0,
             max = ability.kind == "latestPickup" and 3 or 30,
             step = ability.kind == "latestPickup" and 0.1 or 1,
@@ -2086,7 +2111,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         })
 
         local audioMode = dropdown({
-            label = "Audio type",
+            label = L["BossMods_AAOptions_AudioType"],
             values = AUDIO_MODE_VALUES,
             sorting = AUDIO_MODE_SORTING,
 
@@ -2106,7 +2131,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         })
 
         local audioCountdown = checkbox({
-            text = "Countdown every second",
+            text = L["BossMods_AAOptions_CountdownEverySecond"],
             labelTop = true,
 
             get = function()
@@ -2131,7 +2156,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         })
 
         local ttsText = editBox({
-            label = "Text to Speech message",
+            label = L["BossMods_AAOptions_TextToSpeechMessage"],
 
             get = function()
                 return settings.audio.ttsText
@@ -2150,7 +2175,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         })
 
         local voiceID = dropdown({
-    label = "TTS voice",
+    label = L["BossMods_AAOptions_TTSVoice"],
 
     values = function()
         return E:GetModule("BossMods")
@@ -2167,7 +2192,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         E:GetModule("BossMods")
             .Alerts:SpeakTTS({
-                text = "Voice test",
+                text = L["BossMods_AAOptions_VoiceTest"],
                 voiceID = settings.audio.voiceID
             })
     end,
@@ -2186,7 +2211,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         })
 
         local soundName = dropdown({
-    label = "Sound file",
+    label = L["BossMods_AAOptions_SoundFile"],
 
     values = function()
         return E:GetModule("BossMods")
@@ -2220,7 +2245,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 })
 
         local soundChannel = dropdown({
-            label = "Sound channel",
+            label = L["BossMods_AAOptions_SoundChannel"],
             values = SOUND_CHANNEL_VALUES,
             sorting = SOUND_CHANNEL_SORTING,
 
@@ -2247,9 +2272,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
         y = full(y, track(T:Description(rightPanel, {
             text = ability.kind == "latestPickup"
-                and "The default audio timing is exactly on the marker. Seconds before marker plays it earlier; Delay after marker plays it later."
-                or "Variables: {spell} is replaced by the ability name. "
-                    .. "{time} is replaced by the current countdown number.",
+                and L["BossMods_AAOptions_LatestPickupAudioDescription"]
+                or L["BossMods_AAOptions_VariablesDescription"],
             sizeDelta = 0
         })))
         end

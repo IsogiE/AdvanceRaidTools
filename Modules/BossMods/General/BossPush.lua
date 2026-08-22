@@ -36,6 +36,7 @@ E:RegisterModuleDefaults("BossMods_BossPush", {
 })
 
 local Mod = E:NewModule("BossMods_BossPush", "AceEvent-3.0")
+local Shared = E:GetModule("BossMods").Engines.Shared
 
 local SHARE_TYPE = "bossPush"
 local SHARE_VERSION = "ART_BP1"
@@ -318,21 +319,6 @@ local function getNoteBars()
     local BossMods = E:GetModule("BossMods", true)
     local NoteBlock = BossMods and BossMods.NoteBlock or nil
     return parseNoteBars((NoteBlock and NoteBlock.GetMainNoteText and NoteBlock:GetMainNoteText()) or "")
-end
-
-local function paintUnitHealth(row, unit)
-    local healthBar = row and row.healthBar
-    if not healthBar then
-        return
-    end
-    if not unit or not UnitExists(unit) then
-        healthBar:SetMinMaxValues(0, 1)
-        healthBar:SetValue(0)
-        return
-    end
-
-    healthBar:SetMinMaxValues(0, UnitHealthMax(unit))
-    healthBar:SetValue(UnitHealth(unit))
 end
 
 local function targetPercentForBar(bar)
@@ -706,7 +692,7 @@ function Mod:RenderRow(row, bar, elapsed)
 
     local r, g, b, a = colorTuple(self.db.bar.color, 0.9, 0.12, 0.12, 1)
     row.healthBar:SetStatusBarColor(r, g, b, a)
-    paintUnitHealth(row, bar.bossUnit)
+    Shared.PaintUnitHealth(row.healthBar, bar.bossUnit)
 
     local w = self.db.bar.width or 360
     local h = self.db.bar.height or 24

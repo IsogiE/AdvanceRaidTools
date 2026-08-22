@@ -173,7 +173,7 @@ function Engines.Bar(config)
             end
         end
 
-        if showFill and progress ~= nil then
+        if showFill and config.manualFill ~= true and progress ~= nil then
             frame:SetValue(math.max(0, math.min(1, progress)))
         end
 

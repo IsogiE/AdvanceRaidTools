@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 
 E:RegisterModuleDefaults("BossMods_SszorakMarkers", {
     enabled = true,
@@ -44,18 +44,19 @@ local STOP_BAR_END_TOLERANCE = 1
 -- Buttons keep their own visual marker while announcing the opposite marker.
 -- Star <-> Moon, Circle (orange) <-> Square, Diamond <-> Cross.
 local MARKERS = {
-    {id = 1, oppositeID = 5, fileID = 137001, name = "Star"},
-    {id = 2, oppositeID = 6, fileID = 137002, name = "Circle"},
-    {id = 3, oppositeID = 7, fileID = 137003, name = "Diamond"},
-    {id = 5, oppositeID = 1, fileID = 137005, name = "Moon"},
-    {id = 6, oppositeID = 2, fileID = 137006, name = "Square"},
-    {id = 7, oppositeID = 3, fileID = 137007, name = "Cross"}
+    {id = 1, oppositeID = 5, fileID = 137001, name = L["BossMods_RaidMarkerStar"]},
+    {id = 2, oppositeID = 6, fileID = 137002, name = L["BossMods_RaidMarkerCircle"]},
+    {id = 3, oppositeID = 7, fileID = 137003, name = L["BossMods_RaidMarkerDiamond"]},
+    {id = 5, oppositeID = 1, fileID = 137005, name = L["BossMods_RaidMarkerMoon"]},
+    {id = 6, oppositeID = 2, fileID = 137006, name = L["BossMods_RaidMarkerSquare"]},
+    {id = 7, oppositeID = 3, fileID = 137007, name = L["BossMods_RaidMarkerCross"]}
 }
 
 local KEYBIND_NAMES = {}
 for i, marker in ipairs(MARKERS) do
     KEYBIND_NAMES[i] = "CLICK ART_SszorakMarkers_Btn" .. i .. ":LeftButton"
-    _G["BINDING_NAME_" .. KEYBIND_NAMES[i]] = "Sszorak " .. marker.name .. " Marker"
+    _G["BINDING_NAME_" .. KEYBIND_NAMES[i]] =
+        L["BossMods_SszorakMarkerBinding"]:format(marker.name)
 end
 
 local RAID_MARKER_TEXTURE = [[Interface\TargetingFrame\UI-RaidTargetingIcon_%d]]
