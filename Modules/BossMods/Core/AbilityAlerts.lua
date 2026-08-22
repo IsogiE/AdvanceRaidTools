@@ -4144,6 +4144,12 @@ function AbilityAlerts:TestAbility(spellID)
     )
 end
 
+function AbilityAlerts:TestEncounterBars(bossKey)
+    if config.testEncounterBars then
+        config.testEncounterBars(self, bossKey)
+    end
+end
+
 -------------------------------------------------------------------------------
 -- Reset
 -------------------------------------------------------------------------------

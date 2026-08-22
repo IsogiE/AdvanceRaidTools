@@ -263,8 +263,18 @@ local function ensureUlatekBars(self)
         )
 
         if not self.ulatekShriekerBars[row] then
-            bar.onFrame = function()
-                shared.PaintUnitHealth(bar.frame, bar.unit)
+            bar.onFrame = function(elapsed, total)
+                if bar.testPaceOffset ~= nil then
+                    local requiredHealth = (total - elapsed) / total
+                    local simulatedHealth = math.max(
+                        0,
+                        math.min(1, requiredHealth + bar.testPaceOffset)
+                    )
+                    bar.frame:SetMinMaxValues(0, 1)
+                    bar.frame:SetValue(simulatedHealth)
+                else
+                    shared.PaintUnitHealth(bar.frame, bar.unit)
+                end
             end
 
             bar.onTick = function(elapsed, total)
@@ -275,6 +285,7 @@ local function ensureUlatekBars(self)
 
             bar.onStop = function()
                 bar.unit = nil
+                bar.testPaceOffset = nil
                 bar:SetMarker(nil)
                 shared.PaintUnitHealth(bar.frame, nil)
                 bar:Hide()
@@ -382,7 +393,7 @@ reconcileUlatekUnits = function(self)
         if unit then
             bar.unit = unit
             bar:SetMode("label")
-            bar:SetLabel(L["BossMods_UlatekBrightscaleShrieker"])
+            bar:SetLabel(UnitName(unit) or L["BossMods_UlatekBrightscaleShrieker"])
             bar:SetMiddle("")
 
             if not bar:IsRunning()
@@ -419,6 +430,12 @@ local function startUlatekWave(self)
 
     ensureUlatekBars(self)
 
+    for _, bar in ipairs(self.ulatekShriekerBars) do
+        if bar:IsRunning() then
+            bar:Stop()
+        end
+    end
+
     self.ulatekWaveActive = true
     self.ulatekWaveStartTime = GetTime()
     self.ulatekEmptySince = nil
@@ -433,6 +450,33 @@ local function startUlatekWave(self)
     )
 
     reconcileUlatekUnits(self)
+end
+
+local function testEncounterBars(self, bossKey)
+    if bossKey ~= "Ulatek"
+        or not isUlatekBarEnabled(self)
+        or self.ulatekWaveActive
+    then
+        return
+    end
+
+    ensureUlatekBars(self)
+
+    for row, bar in ipairs(self.ulatekShriekerBars) do
+        if bar:IsRunning() then
+            bar:Stop()
+        end
+
+        bar.unit = nil
+        -- One row previews ahead of the required pace and one behind it.
+        bar.testPaceOffset = row == 1 and -0.12 or 0.12
+        bar:SetMode("label")
+        bar:SetLabel(L["BossMods_UlatekBrightscaleShrieker"])
+        bar:SetMiddle("")
+        bar:Start({total = ULATEK_CHECK_DURATION})
+    end
+
+    self:ApplyPositions()
 end
 
 local function onUlatekSpellcastStart(self, _, unit)
@@ -542,34 +586,11 @@ E:CreateAbilityAlertsModule({
     onBigWigsStage = onUlatekBigWigsStage,
     onEncounterStart = onEncounterStart,
     onFeatureEnabledChanged = onFeatureEnabledChanged,
+    testEncounterBars = testEncounterBars,
     refresh = refreshEncounterBars,
     getAbilityData = function()
         return E.VenomousAbyssAbilityData or {}
     end,
-    abilitySettingsMigration = {
-        aliases = {
-            [1284103] = 1292036,
-            [1289855] = 1305421,
-            [1284606] = 1284588,
-            [1296061] = 1291759,
-            [1296025] = 1290711,
-            [1297625] = 1296249,
-            [1285419] = 1285425,
-            [1286620] = 1286573,
-            [1285643] = 1289900,
-            [1299267] = 1299266
-        },
-        merged = {
-            [-1288232] = 1288232,
-            [-1296025] = 1290711,
-            [-1281907] = 1281907,
-            [-1282525] = 1282525,
-            [-1285419] = 1285425,
-            [-1282487] = 1282487,
-            [-1286895] = 1286895,
-            [-1298381] = 1298381
-        }
-    },
     extraDefaults = {
         entombedAssignmentFilteringEnabled = true,
         ulatekShriekerBarEnabled = true

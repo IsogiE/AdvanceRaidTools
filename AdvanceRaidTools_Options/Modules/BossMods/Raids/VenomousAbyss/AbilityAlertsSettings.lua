@@ -776,6 +776,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     abilityMod:TestAbility(spellID)
                 end
             end
+
+            abilityMod:TestEncounterBars(bossKey)
         end,
 
         disabled = function()
