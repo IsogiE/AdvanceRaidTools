@@ -707,6 +707,9 @@ function RaidGroups:SplitRaidIntoSlots()
         end
         return false
     end
+    if not self:ApplyGroups(self:GroupsToList(groups), false, true) then
+        return false
+    end
 
     clearAllEditFocus(self._editor)
     self:ClearSlots()

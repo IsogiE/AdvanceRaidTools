@@ -10,6 +10,7 @@ local GetCursorPosition = GetCursorPosition
 local GetRaidRosterInfo = GetRaidRosterInfo
 local GetNumGroupMembers = GetNumGroupMembers
 local GetNormalizedRealmName = GetNormalizedRealmName
+local GetTime = GetTime
 local InCombatLockdown = InCombatLockdown
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitGUID = UnitGUID
@@ -42,7 +43,9 @@ local SLOT_GAP = 4
 local NAME_ROW_H = 20
 local EDITOR_W = 1240
 local EDITOR_H = 520
-local MAX_PROCESS_ATTEMPTS = 10
+local PROCESS_TIMEOUT = 45
+local PROCESS_START_DELAY = 2
+local PROCESS_WATCHDOG_DELAY = 2
 local MIN_SPLIT_PLAYERS = 10
 local MAX_SPLIT_PLAYERS = 30
 
@@ -234,6 +237,19 @@ local function splitRole(role)
     return "NONE"
 end
 
+local function splitSideForGroup(group, groupsPerHalf)
+    group = tonumber(group)
+    if not group or not groupsPerHalf then
+        return nil
+    end
+    if group >= 1 and group <= groupsPerHalf then
+        return "left"
+    end
+    if group > groupsPerHalf and group <= groupsPerHalf * 2 then
+        return "right"
+    end
+end
+
 local function sortSplitBucket(bucket)
     tsort(bucket, function(a, b)
         local aKey = tostring(a.guid or a.name)
@@ -320,6 +336,43 @@ local function distributeSplitBucket(bucket, target, sides, classCounts)
     end
 end
 
+local function sameSplitCohort(a, b)
+    return splitRole(a.role) == splitRole(b.role) and (a.class or "NONE") == (b.class or "NONE")
+end
+
+local function splitSideRetention(player, side, groupsPerHalf)
+    return splitSideForGroup(player.group, groupsPerHalf) == side and 1 or 0
+end
+
+local function preferExistingSplitSides(sides, groupsPerHalf)
+    -- Preserve the original balance exactly by exchanging only equivalent players.
+    local improved = true
+    while improved do
+        improved = false
+        for leftIndex, leftPlayer in ipairs(sides.left) do
+            local bestRightIndex
+            local bestGain = 0
+            for rightIndex, rightPlayer in ipairs(sides.right) do
+                if sameSplitCohort(leftPlayer, rightPlayer) then
+                    local before = splitSideRetention(leftPlayer, "left", groupsPerHalf) +
+                                       splitSideRetention(rightPlayer, "right", groupsPerHalf)
+                    local after = splitSideRetention(leftPlayer, "right", groupsPerHalf) +
+                                      splitSideRetention(rightPlayer, "left", groupsPerHalf)
+                    local gain = after - before
+                    if gain > bestGain then
+                        bestGain = gain
+                        bestRightIndex = rightIndex
+                    end
+                end
+            end
+            if bestRightIndex then
+                sides.left[leftIndex], sides.right[bestRightIndex] = sides.right[bestRightIndex], leftPlayer
+                improved = true
+            end
+        end
+    end
+end
+
 local function moveSplitLeaderToGroupStart(side)
     local leaderIndex
     for i, player in ipairs(side) do
@@ -351,12 +404,66 @@ local function moveSplitLeaderToGroupStart(side)
 end
 
 local function placeSplitSide(groups, side, startGroup)
-    local startIndex = (startGroup - 1) * SLOTS_PER_GROUP
+    local targets = {}
+    local remaining = #side
+    local groupNum = startGroup
+    while remaining > 0 do
+        targets[#targets + 1] = {
+            group = groupNum,
+            capacity = math.min(SLOTS_PER_GROUP, remaining),
+            players = {}
+        }
+        remaining = remaining - SLOTS_PER_GROUP
+        groupNum = groupNum + 1
+    end
+
+    local byGroup = {}
+    for _, target in ipairs(targets) do
+        byGroup[target.group] = target
+    end
+
+    local placed = {}
+    -- Reserve current target subgroups before filling gaps so existing assignments move as little as possible.
     for i, player in ipairs(side) do
-        local index = startIndex + i
-        local groupNum = mathfloor((index - 1) / SLOTS_PER_GROUP) + 1
-        local slotNum = ((index - 1) % SLOTS_PER_GROUP) + 1
-        groups[groupNum][slotNum] = player.name
+        local target = byGroup[tonumber(player.group)]
+        if target and #target.players < target.capacity then
+            tinsert(target.players, player)
+            placed[i] = true
+        end
+    end
+
+    local fillTarget = 1
+    for i, player in ipairs(side) do
+        if not placed[i] then
+            while targets[fillTarget] and #targets[fillTarget].players >= targets[fillTarget].capacity do
+                fillTarget = fillTarget + 1
+            end
+            local target = targets[fillTarget]
+            if target then
+                tinsert(target.players, player)
+            end
+        end
+    end
+
+    for i = #side, 1, -1 do
+        side[i] = nil
+    end
+    for _, target in ipairs(targets) do
+        local leaderIndex
+        for i, player in ipairs(target.players) do
+            if player.isLeader then
+                leaderIndex = i
+                break
+            end
+        end
+        if leaderIndex and leaderIndex > 1 then
+            local leader = tremove(target.players, leaderIndex)
+            tinsert(target.players, 1, leader)
+        end
+        for slotNum, player in ipairs(target.players) do
+            groups[target.group][slotNum] = player.name
+            tinsert(side, player)
+        end
     end
 end
 
@@ -369,6 +476,7 @@ function RaidGroups:BuildBalancedSplitGroups(players)
     if total < MIN_SPLIT_PLAYERS or total > MAX_SPLIT_PLAYERS then
         return nil, strformat(L["RG_SplitRaidSize"], total, MIN_SPLIT_PLAYERS, MAX_SPLIT_PLAYERS)
     end
+    local groupsPerHalf = mathceil(total / (SLOTS_PER_GROUP * 2))
 
     local buckets = {
         TANK = {},
@@ -401,12 +509,12 @@ function RaidGroups:BuildBalancedSplitGroups(players)
     for _, role in ipairs(SPLIT_ROLE_ORDER) do
         distributeSplitBucket(buckets[role], targets[role], sides, classCounts)
     end
+    preferExistingSplitSides(sides, groupsPerHalf)
 
     moveSplitLeaderToGroupStart(sides.left)
     moveSplitLeaderToGroupStart(sides.right)
 
     local groups = emptyPresetGroups()
-    local groupsPerHalf = mathceil(total / (SLOTS_PER_GROUP * 2))
     placeSplitSide(groups, sides.left, 1)
     placeSplitSide(groups, sides.right, groupsPerHalf + 1)
 
@@ -427,7 +535,7 @@ function RaidGroups:BuildCurrentRaidSplitGroups()
     local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
     local players = {}
     for i = 1, expected do
-        local name, _, _, _, _, class, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
+        local name, _, subgroup, _, _, class, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
         if name then
             local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
             local unit = "raid" .. i
@@ -436,7 +544,8 @@ function RaidGroups:BuildCurrentRaidSplitGroups()
                 role = E:GetUnitRole(unit),
                 class = class,
                 guid = E:SafeString(UnitGUID(unit)),
-                isLeader = UnitIsGroupLeader(unit) and true or false
+                isLeader = UnitIsGroupLeader(unit) and true or false,
+                group = subgroup
             })
         end
     end
@@ -1106,8 +1215,19 @@ function RaidGroups:HasResolvableAssignments(list)
 end
 
 -- Apply logic
-function RaidGroups:ApplyGroups(list, skipValidation)
+local function applyAlreadyInProgress(self)
+    if not self._needGroup then
+        return false
+    end
+    E:Printf("Raid groups are already being applied. Please wait")
+    return true
+end
+
+function RaidGroups:ApplyGroups(list, skipValidation, membershipOnly)
     if not skipValidation and not validateCanApplyRaidGroups() then
+        return false
+    end
+    if applyAlreadyInProgress(self) then
         return false
     end
 
@@ -1115,6 +1235,7 @@ function RaidGroups:ApplyGroups(list, skipValidation)
     local needPosInGroup = {}
     local lockedUnit = {}
     local seen = {}
+    local assignedCount = 0
 
     local _, _, _, _, aliases = self:BuildRaidRosterMaps()
     for i = 1, GROUP_COUNT do
@@ -1130,8 +1251,11 @@ function RaidGroups:ApplyGroups(list, skipValidation)
                         return false
                     end
                     seen[name] = true
+                    assignedCount = assignedCount + 1
                     needGroup[name] = i
-                    needPosInGroup[name] = pos
+                    if not membershipOnly then
+                        needPosInGroup[name] = pos
+                    end
                     pos = pos + 1
                 end
             end
@@ -1142,14 +1266,26 @@ function RaidGroups:ApplyGroups(list, skipValidation)
         E:Printf("No assigned raiders are currently in the raid")
         return false
     end
+    local expectedRosterSize = membershipOnly and GetNumGroupMembers() or nil
+    if expectedRosterSize and assignedCount ~= expectedRosterSize then
+        E:Printf(L["RG_SplitRosterChanged"])
+        return false
+    end
 
     self._needGroup = needGroup
     self._needPosInGroup = needPosInGroup
     self._lockedUnit = lockedUnit
     self._groupsReady = false
-    self._processAttempts = 0
+    self._membershipOnly = membershipOnly and true or nil
+    self._expectedRosterSize = expectedRosterSize
+    self._processStartedAt = GetTime()
+    self._processPendingStart = membershipOnly and true or nil
 
-    self:ProcessRoster()
+    if membershipOnly then
+        self:_QueueProcessRoster(PROCESS_START_DELAY)
+    else
+        self:ProcessRoster()
+    end
     return true
 end
 
@@ -1158,6 +1294,9 @@ function RaidGroups:ApplyAssignment(groupsOrList, noteText)
         return false
     end
     if type(groupsOrList) ~= "table" then
+        return false
+    end
+    if applyAlreadyInProgress(self) then
         return false
     end
 
@@ -1182,6 +1321,35 @@ function RaidGroups:ApplyAssignment(groupsOrList, noteText)
     end
 
     return self:ApplyGroups(list, true)
+end
+
+function RaidGroups:_QueueProcessRoster(delay)
+    if not self._needGroup then
+        return
+    end
+    if self._processTimer then
+        return
+    end
+    self._processTimer = C_Timer.NewTimer(delay, function()
+        RaidGroups._processTimer = nil
+        RaidGroups._processPendingStart = nil
+        RaidGroups:ProcessRoster()
+    end)
+end
+
+function RaidGroups:_FinishProcessRoster()
+    self._needGroup = nil
+    self._needPosInGroup = nil
+    self._lockedUnit = nil
+    self._groupsReady = nil
+    self._membershipOnly = nil
+    self._expectedRosterSize = nil
+    self._processStartedAt = nil
+    self._processPendingStart = nil
+    if self._processTimer then
+        self._processTimer:Cancel()
+        self._processTimer = nil
+    end
 end
 
 local function showAssignmentConfirm(title, text, onAccept)
@@ -1249,14 +1417,7 @@ function RaidGroups:OnNoteChanged(_, slotIndex, text)
 end
 
 function RaidGroups:_GiveUpProcessRoster(reason, silent)
-    self._needGroup = nil
-    self._needPosInGroup = nil
-    self._lockedUnit = nil
-    self._processAttempts = 0
-    if self._processTimer then
-        self._processTimer:Cancel()
-        self._processTimer = nil
-    end
+    self:_FinishProcessRoster()
     if silent then
         return
     end
@@ -1265,6 +1426,10 @@ end
 
 function RaidGroups:ProcessRoster()
     if InCombatLockdown() then
+        if self._processTimer then
+            self._processTimer:Cancel()
+            self._processTimer = nil
+        end
         E:RunWhenOutOfCombat("RaidGroups:ProcessRoster", function()
             if self:IsEnabled() and self._needGroup then
                 self:ProcessRoster()
@@ -1274,7 +1439,7 @@ function RaidGroups:ProcessRoster()
     end
 
     if IsInRaid() and not E:HasBroadcastAuthority(UnitName("player")) then
-        self._needGroup = nil
+        self:_GiveUpProcessRoster(nil, true)
         return
     end
 
@@ -1285,10 +1450,19 @@ function RaidGroups:ProcessRoster()
         return
     end
 
-    self._processAttempts = (self._processAttempts or 0) + 1
-    if self._processAttempts > MAX_PROCESS_ATTEMPTS then
+    if self._processStartedAt and GetTime() - self._processStartedAt > PROCESS_TIMEOUT then
         self:_GiveUpProcessRoster(L["RG_ApplyUnreachable"])
         return
+    end
+    if self._expectedRosterSize and GetNumGroupMembers() ~= self._expectedRosterSize then
+        self:_GiveUpProcessRoster(L["RG_SplitRosterChanged"])
+        return
+    end
+    for i = 1, GetNumGroupMembers() do
+        if UnitAffectingCombat("raid" .. i) then
+            self:_QueueProcessRoster(PROCESS_WATCHDOG_DELAY)
+            return
+        end
     end
 
     local currentGroup, currentPos, nameToID, groupSize = self:BuildRaidRosterMaps()
@@ -1304,44 +1478,32 @@ function RaidGroups:ProcessRoster()
     end
 
     if not self._groupsReady then
-        local waitForGroup = false
+        -- Work from one live roster snapshot and issue at most one protected action.
         for unit, group in pairs(needGroup) do
             if currentGroup[unit] and currentGroup[unit] ~= group and nameToID[unit] then
                 if groupSize[group] < 5 then
-                    local fromGroup = currentGroup[unit]
                     SetRaidSubgroup(nameToID[unit], group)
-                    groupSize[group] = groupSize[group] + 1
-                    if fromGroup and groupSize[fromGroup] then
-                        groupSize[fromGroup] = math.max(0, groupSize[fromGroup] - 1)
-                    end
-                    waitForGroup = true
+                    self:_QueueProcessRoster(PROCESS_WATCHDOG_DELAY)
+                    return
                 end
             end
         end
-        if waitForGroup then
-            return
-        end
 
-        local setToSwap, waitForSwap = {}, false
         for unit, group in pairs(needGroup) do
-            if not setToSwap[unit] and currentGroup[unit] and currentGroup[unit] ~= group and nameToID[unit] then
+            if currentGroup[unit] and currentGroup[unit] ~= group and nameToID[unit] then
                 local unitToSwap
                 for unit2, group2 in pairs(currentGroup) do
-                    if not setToSwap[unit2] and group2 == group and needGroup[unit2] ~= group2 and nameToID[unit2] then
+                    if group2 == group and needGroup[unit2] ~= group2 and nameToID[unit2] then
                         unitToSwap = unit2
                         break
                     end
                 end
                 if unitToSwap then
                     SwapRaidSubgroup(nameToID[unit], nameToID[unitToSwap])
-                    waitForSwap = true
-                    setToSwap[unit] = true
-                    setToSwap[unitToSwap] = true
+                    self:_QueueProcessRoster(PROCESS_WATCHDOG_DELAY)
+                    return
                 end
             end
-        end
-        if waitForSwap then
-            return
         end
 
         local stillWrong = {}
@@ -1356,6 +1518,12 @@ function RaidGroups:ProcessRoster()
         end
 
         self._groupsReady = true
+    end
+
+    -- A split only cares about subgroup membership, not the order inside each subgroup.
+    if self._membershipOnly then
+        self:_FinishProcessRoster()
+        return
     end
 
     do
@@ -1396,6 +1564,7 @@ function RaidGroups:ProcessRoster()
             end
         end
         if waitForSwap then
+            self:_QueueProcessRoster(PROCESS_WATCHDOG_DELAY)
             return
         end
     end
@@ -1411,12 +1580,7 @@ function RaidGroups:ProcessRoster()
         return
     end
 
-    self._needGroup = nil
-    self._processAttempts = 0
-    if self._processTimer then
-        self._processTimer:Cancel()
-        self._processTimer = nil
-    end
+    self:_FinishProcessRoster()
 end
 
 function E:OpenRaidGroups()
@@ -1445,10 +1609,7 @@ function RaidGroups:OnEnable()
 end
 
 function RaidGroups:OnDisable()
-    if self._processTimer then
-        self._processTimer:Cancel()
-        self._processTimer = nil
-    end
+    self:_FinishProcessRoster()
     E:CancelRunWhenOutOfCombat("RaidGroups:ProcessRoster")
     self:UnregisterMessage("ART_NOTE_CHANGED")
     -- If the editor is open it will close itself on ART_RAIDGROUPS_DISABLED
@@ -1459,6 +1620,13 @@ function RaidGroups:OnRosterUpdate()
     if not self._needGroup then
         return
     end
+    if self._processPendingStart then
+        return
+    end
+    if self._processTimer then
+        self._processTimer:Cancel()
+        self._processTimer = nil
+    end
     if InCombatLockdown() then
         E:RunWhenOutOfCombat("RaidGroups:ProcessRoster", function()
             if self:IsEnabled() and self._needGroup then
@@ -1467,13 +1635,7 @@ function RaidGroups:OnRosterUpdate()
         end)
         return
     end
-    if self._processTimer then
-        self._processTimer:Cancel()
-    end
-    self._processTimer = C_Timer.NewTimer(0.6, function()
-        RaidGroups._processTimer = nil
-        RaidGroups:ProcessRoster()
-    end)
+    self:ProcessRoster()
 end
 
 RaidGroups:RegisterMessage("ART_PROFILE_CHANGED", function()
