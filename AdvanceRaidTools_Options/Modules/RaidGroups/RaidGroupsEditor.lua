@@ -695,6 +695,34 @@ function RaidGroups:ImportRosterToSlots()
     self:UpdateSlotTints()
 end
 
+function RaidGroups:SplitRaidIntoSlots()
+    if not self._slots then
+        return false
+    end
+
+    local groups, err = self:BuildCurrentRaidSplitGroups()
+    if not groups then
+        if err then
+            E:Printf(err)
+        end
+        return false
+    end
+
+    clearAllEditFocus(self._editor)
+    self:ClearSlots()
+    for groupNum = 1, GROUP_COUNT do
+        for slotNum = 1, SLOTS_PER_GROUP do
+            local name = groups[groupNum] and groups[groupNum][slotNum]
+            if name and name ~= "" then
+                setSlotValue(self, self._slots[groupNum][slotNum], name)
+            end
+        end
+    end
+    self:PopulateNameList()
+    self:UpdateSlotTints()
+    return true
+end
+
 function RaidGroups:GetEditorAssignmentList()
     if not self._slots then
         return
@@ -988,6 +1016,20 @@ function RaidGroups:BuildEditor()
         text = "Roster Layout"
     })
     layoutHeader.frame:SetPoint("TOPLEFT", centreCol, "TOPLEFT", PANEL_PAD, -PANEL_PAD)
+
+    local splitRaidBtn = T:Button(centreCol, {
+        text = L["RG_SplitRaid"],
+        width = 110,
+        height = 22,
+        tooltip = {
+            title = L["RG_SplitRaid"],
+            desc = L["RG_SplitRaidDesc"]
+        },
+        onClick = function()
+            RaidGroups:SplitRaidIntoSlots()
+        end
+    })
+    splitRaidBtn.frame:SetPoint("TOPRIGHT", centreCol, "TOPRIGHT", -PANEL_PAD, -PANEL_PAD + 2)
 
     self._slots = {}
     for g = 1, GROUP_COUNT do

@@ -12,6 +12,8 @@ local GetNumGroupMembers = GetNumGroupMembers
 local GetNormalizedRealmName = GetNormalizedRealmName
 local InCombatLockdown = InCombatLockdown
 local UnitAffectingCombat = UnitAffectingCombat
+local UnitGUID = UnitGUID
+local UnitIsGroupLeader = UnitIsGroupLeader
 local UnitName = UnitName
 local IsInRaid = IsInRaid
 local SetRaidSubgroup = SetRaidSubgroup
@@ -24,7 +26,11 @@ local strgmatch = string.gmatch
 local strformat = string.format
 local strsub = string.sub
 local tinsert = table.insert
+local tremove = table.remove
+local tsort = table.sort
 local tconcat = table.concat
+local mathceil = math.ceil
+local mathfloor = math.floor
 local pairs = pairs
 local ipairs = ipairs
 
@@ -37,6 +43,8 @@ local NAME_ROW_H = 20
 local EDITOR_W = 1240
 local EDITOR_H = 520
 local MAX_PROCESS_ATTEMPTS = 10
+local MIN_SPLIT_PLAYERS = 10
+local MAX_SPLIT_PLAYERS = 30
 
 RaidGroups.GROUP_COUNT = GROUP_COUNT
 RaidGroups.SLOTS_PER_GROUP = SLOTS_PER_GROUP
@@ -46,6 +54,8 @@ RaidGroups.SLOT_GAP = SLOT_GAP
 RaidGroups.NAME_ROW_H = NAME_ROW_H
 RaidGroups.EDITOR_W = EDITOR_W
 RaidGroups.EDITOR_H = EDITOR_H
+RaidGroups.MIN_SPLIT_PLAYERS = MIN_SPLIT_PLAYERS
+RaidGroups.MAX_SPLIT_PLAYERS = MAX_SPLIT_PLAYERS
 
 -- Utility
 local function classColor(token)
@@ -212,6 +222,230 @@ local function emptyPresetGroups()
         groups[g] = slots
     end
     return groups
+end
+
+-- Role-balanced raid split
+local SPLIT_ROLE_ORDER = {"TANK", "HEALER", "DAMAGER", "NONE"}
+
+local function splitRole(role)
+    if role == "TANK" or role == "HEALER" or role == "DAMAGER" then
+        return role
+    end
+    return "NONE"
+end
+
+local function sortSplitBucket(bucket)
+    tsort(bucket, function(a, b)
+        local aKey = tostring(a.guid or a.name)
+        local bKey = tostring(b.guid or b.name)
+        if aKey == bKey then
+            return a.name < b.name
+        end
+        return aKey < bKey
+    end)
+end
+
+local function planSplitRoleTargets(buckets, leftCapacity, rightCapacity)
+    local targets = {}
+    local plannedLeft, plannedRight = 0, 0
+
+    for _, role in ipairs(SPLIT_ROLE_ORDER) do
+        local count = #buckets[role]
+        local each = mathfloor(count / 2)
+        local left, right = each, each
+
+        if count % 2 == 1 then
+            local leftAfterBase = plannedLeft + each
+            local rightAfterBase = plannedRight + each
+            if leftAfterBase < leftCapacity and
+                (rightAfterBase >= rightCapacity or leftAfterBase <= rightAfterBase) then
+                left = left + 1
+            else
+                right = right + 1
+            end
+        end
+
+        targets[role] = {
+            left = left,
+            right = right
+        }
+        plannedLeft = plannedLeft + left
+        plannedRight = plannedRight + right
+    end
+
+    return targets
+end
+
+local function addSplitPlayer(side, player, classCounts)
+    tinsert(side, player)
+    local class = player.class or "NONE"
+    classCounts[class] = (classCounts[class] or 0) + 1
+end
+
+local function distributeSplitBucket(bucket, target, sides, classCounts)
+    local usedLeft, usedRight = 0, 0
+
+    for _, player in ipairs(bucket) do
+        local leftAvailable = usedLeft < target.left
+        local rightAvailable = usedRight < target.right
+        local side
+
+        if not rightAvailable then
+            side = "left"
+        elseif not leftAvailable then
+            side = "right"
+        else
+            local class = player.class or "NONE"
+            local leftClass = classCounts.left[class] or 0
+            local rightClass = classCounts.right[class] or 0
+            if leftClass < rightClass then
+                side = "left"
+            elseif rightClass < leftClass then
+                side = "right"
+            elseif usedLeft < usedRight then
+                side = "left"
+            elseif usedRight < usedLeft then
+                side = "right"
+            else
+                side = #sides.left <= #sides.right and "left" or "right"
+            end
+        end
+
+        addSplitPlayer(sides[side], player, classCounts[side])
+        if side == "left" then
+            usedLeft = usedLeft + 1
+        else
+            usedRight = usedRight + 1
+        end
+    end
+end
+
+local function moveSplitLeaderToGroupStart(side)
+    local leaderIndex
+    for i, player in ipairs(side) do
+        if player.isLeader then
+            leaderIndex = i
+            break
+        end
+    end
+    if not leaderIndex then
+        return
+    end
+
+    local leader = side[leaderIndex]
+    local goalIndex
+    if splitRole(leader.role) == "TANK" then
+        goalIndex = mathfloor((leaderIndex - 1) / SLOTS_PER_GROUP) * SLOTS_PER_GROUP + 1
+    elseif #side > SLOTS_PER_GROUP then
+        goalIndex = leaderIndex > SLOTS_PER_GROUP and
+            (mathfloor((leaderIndex - 1) / SLOTS_PER_GROUP) * SLOTS_PER_GROUP + 1) or
+            (SLOTS_PER_GROUP + 1)
+    else
+        goalIndex = 1
+    end
+
+    if goalIndex ~= leaderIndex then
+        tremove(side, leaderIndex)
+        tinsert(side, math.min(goalIndex, #side + 1), leader)
+    end
+end
+
+local function placeSplitSide(groups, side, startGroup)
+    local startIndex = (startGroup - 1) * SLOTS_PER_GROUP
+    for i, player in ipairs(side) do
+        local index = startIndex + i
+        local groupNum = mathfloor((index - 1) / SLOTS_PER_GROUP) + 1
+        local slotNum = ((index - 1) % SLOTS_PER_GROUP) + 1
+        groups[groupNum][slotNum] = player.name
+    end
+end
+
+function RaidGroups:BuildBalancedSplitGroups(players)
+    if type(players) ~= "table" then
+        return nil
+    end
+
+    local total = #players
+    if total < MIN_SPLIT_PLAYERS or total > MAX_SPLIT_PLAYERS then
+        return nil, strformat(L["RG_SplitRaidSize"], total, MIN_SPLIT_PLAYERS, MAX_SPLIT_PLAYERS)
+    end
+
+    local buckets = {
+        TANK = {},
+        HEALER = {},
+        DAMAGER = {},
+        NONE = {}
+    }
+    for _, player in ipairs(players) do
+        if type(player) ~= "table" or type(player.name) ~= "string" or strtrim(player.name) == "" then
+            return nil
+        end
+        tinsert(buckets[splitRole(player.role)], player)
+    end
+    for _, role in ipairs(SPLIT_ROLE_ORDER) do
+        sortSplitBucket(buckets[role])
+    end
+
+    local leftCapacity = mathceil(total / 2)
+    local rightCapacity = total - leftCapacity
+    local targets = planSplitRoleTargets(buckets, leftCapacity, rightCapacity)
+    local sides = {
+        left = {},
+        right = {}
+    }
+    local classCounts = {
+        left = {},
+        right = {}
+    }
+
+    for _, role in ipairs(SPLIT_ROLE_ORDER) do
+        distributeSplitBucket(buckets[role], targets[role], sides, classCounts)
+    end
+
+    moveSplitLeaderToGroupStart(sides.left)
+    moveSplitLeaderToGroupStart(sides.right)
+
+    local groups = emptyPresetGroups()
+    local groupsPerHalf = mathceil(total / (SLOTS_PER_GROUP * 2))
+    placeSplitSide(groups, sides.left, 1)
+    placeSplitSide(groups, sides.right, groupsPerHalf + 1)
+
+    return groups, nil, {
+        left = sides.left,
+        right = sides.right,
+        targets = targets,
+        groupsPerHalf = groupsPerHalf
+    }
+end
+
+function RaidGroups:BuildCurrentRaidSplitGroups()
+    if not IsInRaid() then
+        return nil, L["RG_NotInRaid"]
+    end
+
+    local expected = GetNumGroupMembers()
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
+    local players = {}
+    for i = 1, expected do
+        local name, _, _, _, _, class, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
+        if name then
+            local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
+            local unit = "raid" .. i
+            tinsert(players, {
+                name = display,
+                role = E:GetUnitRole(unit),
+                class = class,
+                guid = E:SafeString(UnitGUID(unit)),
+                isLeader = UnitIsGroupLeader(unit) and true or false
+            })
+        end
+    end
+
+    if #players ~= expected or GetNumGroupMembers() ~= expected then
+        return nil, L["RG_SplitRosterChanged"]
+    end
+
+    return self:BuildBalancedSplitGroups(players)
 end
 
 local function cleanImportText(text)
