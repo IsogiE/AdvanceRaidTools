@@ -118,20 +118,42 @@ local function clearAllEditFocus(editor)
     end
 end
 
-local function setSlotValue(self, eb, name)
+local function setSlotValue(self, eb, name, aliases, nicknameAliases)
     name = name and strtrim(name) or ""
     if name == "" then
         eb:SetText("")
         eb.usedName = nil
+        eb.assignmentName = nil
         return
     end
-    name = E:NormalizeName(self:ResolveNickname(name))
-    local class = E:GetClassByName(name)
+    if not aliases or not nicknameAliases then
+        aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
+    end
+    local identity = self:GetAssignmentIdentity(name, aliases, nicknameAliases)
+    local resolvedName = self:ResolveRosterAssignmentName(identity, aliases, nicknameAliases)
+    local className = resolvedName or E:NormalizeName(name)
+    local class = E:GetClassByName(className)
     local r, g, b = classColor(class)
-    local display = self:DisplayName(name)
+    local display = self:GetAssignmentDisplayName(identity)
     eb:SetText(colorize(display, r, g, b))
     eb:SetCursorPosition(0)
-    eb.usedName = name -- always the real name; display is cosmetic
+    eb.assignmentName = identity -- stable person identity used by presets/apply
+    eb.usedName = resolvedName or className -- live character used for color/list state
+end
+
+local function refreshSlotBindings(self)
+    if not self._slots then
+        return
+    end
+    local aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
+    for _, group in ipairs(self._slots) do
+        for _, eb in ipairs(group) do
+            local identity = eb.assignmentName or eb.usedName
+            if identity and identity ~= "" then
+                setSlotValue(self, eb, identity, aliases, nicknameAliases)
+            end
+        end
+    end
 end
 
 function RaidGroups:FindSlotUnderCursor()
@@ -188,7 +210,11 @@ local function getSharedSlotEditBox()
 
     eb:SetScript("OnEditFocusLost", function(self_)
         local slot = self_._activeSlot
+        local originalIdentity = self_._originalIdentity
+        local originalText = self_._originalText
         self_._activeSlot = nil
+        self_._originalIdentity = nil
+        self_._originalText = nil
         self_:Hide()
         if slot and slot._label then
             slot._label:Show()
@@ -198,9 +224,10 @@ local function getSharedSlotEditBox()
             if plain == "" then
                 slot._label:SetText("")
                 slot.usedName = nil
+                slot.assignmentName = nil
             else
-                local real = RaidGroups:ResolveNickname(plain)
-                setSlotValue(RaidGroups, slot, real)
+                setSlotValue(RaidGroups, slot,
+                    originalIdentity and plain == originalText and originalIdentity or plain)
             end
             RaidGroups:PopulateNameList()
             RaidGroups:UpdateSlotTints()
@@ -230,14 +257,20 @@ local function activateSlotEdit(slot)
         slot._label:Hide()
     end
 
-    if slot.usedName and slot.usedName ~= "" then
+    local identity = slot.assignmentName or slot.usedName
+    if identity and identity ~= "" then
         local class = E:GetClassByName(slot.usedName)
         local r, g, b = classColor(class)
         eb:SetTextColor(r, g, b)
-        eb:SetText(RaidGroups:DisplayName(slot.usedName) or slot.usedName)
+        local display = RaidGroups:GetAssignmentDisplayName(identity) or identity
+        eb:SetText(display)
+        eb._originalIdentity = identity
+        eb._originalText = display
     else
         eb:SetTextColor(1, 1, 1)
         eb:SetText("")
+        eb._originalIdentity = nil
+        eb._originalText = ""
     end
     eb:Show()
     eb:SetFocus()
@@ -259,6 +292,7 @@ local function createSlotEditBox(self, parent, group, slot)
     container._group = group
     container._slot = slot
     container.usedName = nil
+    container.assignmentName = nil
 
     function container:SetText(text)
         self._label:SetText(text or "")
@@ -284,14 +318,15 @@ local function createSlotEditBox(self, parent, group, slot)
     -- Drag handling
     container:RegisterForDrag("LeftButton")
     container:SetScript("OnDragStart", function(self_)
-        if not self_.usedName or self_.usedName == "" then
+        local identity = self_.assignmentName or self_.usedName
+        if not identity or identity == "" then
             return
         end
         clearAllEditFocus(RaidGroups._editor)
         local class = E:GetClassByName(self_.usedName)
         local r, g, b = classColor(class)
         self_._dragging = true
-        startDragPreview(RaidGroups, self_.usedName, r, g, b)
+        startDragPreview(RaidGroups, RaidGroups:GetAssignmentDisplayName(identity), r, g, b)
     end)
 
     container:SetScript("OnDragStop", function(self_)
@@ -301,14 +336,14 @@ local function createSlotEditBox(self, parent, group, slot)
         self_._dragging = nil
         stopDragPreview(RaidGroups)
 
-        local srcName = self_.usedName
+        local srcName = self_.assignmentName or self_.usedName
         if not srcName then
             return
         end
 
         local target = RaidGroups:FindSlotUnderCursor()
         if target and target ~= self_ then
-            local targetName = target.usedName
+            local targetName = target.assignmentName or target.usedName
             if targetName and targetName ~= "" then
                 setSlotValue(RaidGroups, self_, targetName)
                 setSlotValue(RaidGroups, target, srcName)
@@ -360,7 +395,9 @@ local function createNameRow(self, parent)
         end
         self_._dragging = true
         self_:SetAlpha(0.35)
-        startDragPreview(RaidGroups, RaidGroups:DisplayName(self_._playerName), self_._r, self_._g, self_._b)
+        startDragPreview(RaidGroups,
+            RaidGroups:GetAssignmentDisplayName(self_._assignmentIdentity or self_._playerName), self_._r, self_._g,
+            self_._b)
     end)
 
     row:SetScript("OnDragStop", function(self_)
@@ -373,7 +410,7 @@ local function createNameRow(self, parent)
 
         local target = RaidGroups:FindSlotUnderCursor()
         if target and self_._playerName then
-            setSlotValue(RaidGroups, target, self_._playerName)
+            setSlotValue(RaidGroups, target, self_._assignmentIdentity or self_._playerName)
         end
         RaidGroups:PopulateNameList()
         RaidGroups:UpdateSlotTints()
@@ -410,7 +447,10 @@ function RaidGroups:GetUsedSlotNames()
     for _, group in ipairs(self._slots) do
         for _, eb in ipairs(group) do
             if eb.usedName and eb.usedName ~= "" then
-                used[E:NormalizeName(eb.usedName)] = true
+                used[self:GetAssignmentIdentityKey(eb.usedName)] = true
+            end
+            if eb.assignmentName and eb.assignmentName ~= "" then
+                used[self:GetAssignmentIdentityKey(eb.assignmentName)] = true
             end
         end
     end
@@ -451,10 +491,13 @@ function RaidGroups:BuildAvailableList()
         end
     end
 
+    local aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
     local used = self:GetUsedSlotNames()
     local out = {}
     for _, p in ipairs(all) do
-        if not used[E:NormalizeName(p.name)] then
+        local identity = self:GetAssignmentIdentity(p.name, aliases, nicknameAliases)
+        if not used[self:GetAssignmentIdentityKey(identity)] then
+            p.assignmentIdentity = identity
             tinsert(out, p)
         end
     end
@@ -509,9 +552,10 @@ function RaidGroups:RefreshVisibleRows()
                 row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(idx - 1) * NAME_ROW_H)
                 row:SetPoint("RIGHT", content, "RIGHT", 0, 0)
                 row._playerName = player.name
+                row._assignmentIdentity = player.assignmentIdentity
                 local r, g, b = classColor(player.class)
                 row._r, row._g, row._b = r, g, b
-                row._label:SetText(self:DisplayName(player.name))
+                row._label:SetText(self:GetAssignmentDisplayName(player.assignmentIdentity or player.name))
                 row._label:SetTextColor(r, g, b)
                 row:Show()
                 resetNameRowVisual(row)
@@ -593,31 +637,16 @@ function RaidGroups:UpdateSlotTints()
         return
     end
 
-    local realm = GetNormalizedRealmName()
-    local inGroup, subs = {}, {}
-    for i = 1, GetNumGroupMembers() do
-        local name, _, subgroup, _, _, _, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
-        if name then
-            local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
-            local normalized = E:NormalizeName(display)
-            local bare = E:NormalizeName(E:BareName(normalized))
-            inGroup[normalized] = true
-            inGroup[bare] = true
-            inGroup[E:NormalizeName(name)] = true
-            subs[normalized] = subgroup
-            subs[bare] = subgroup
-            subs[E:NormalizeName(name)] = subgroup
-        end
-    end
+    local currentGroup, _, _, _, aliases, nicknameAliases = self:BuildRaidRosterMaps()
 
     for _, group in ipairs(self._slots) do
         for _, eb in ipairs(group) do
-            local name = eb.usedName
-            if name and name ~= "" then
-                local normalized = E:NormalizeName(name)
-                if not inGroup[normalized] then
+            local identity = eb.assignmentName or eb.usedName
+            if identity and identity ~= "" then
+                local resolvedName = self:ResolveRosterAssignmentName(identity, aliases, nicknameAliases)
+                if not resolvedName then
                     eb._container:SetBackdropColor(unpack(TINT_MISSING))
-                elseif subs[normalized] and subs[normalized] >= 7 then
+                elseif currentGroup[resolvedName] and currentGroup[resolvedName] >= 7 then
                     eb._container:SetBackdropColor(unpack(TINT_EXTRA))
                 else
                     setDefaultSlotTint(eb._container)
@@ -637,6 +666,7 @@ function RaidGroups:ClearSlots()
         for _, eb in ipairs(group) do
             eb:SetText("")
             eb.usedName = nil
+            eb.assignmentName = nil
             setDefaultSlotTint(eb._container)
         end
     end
@@ -681,13 +711,14 @@ function RaidGroups:ImportRosterToSlots()
             })
         end
     end
+    local aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
     for g = 1, GROUP_COUNT do
         local entries = byGroup[g] or {}
         for s = 1, SLOTS_PER_GROUP do
             local eb = self._slots[g][s]
             local entry = entries[s]
             if entry then
-                setSlotValue(self, eb, entry.name)
+                setSlotValue(self, eb, entry.name, aliases, nicknameAliases)
             end
         end
     end
@@ -713,11 +744,12 @@ function RaidGroups:SplitRaidIntoSlots()
 
     clearAllEditFocus(self._editor)
     self:ClearSlots()
+    local aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
     for groupNum = 1, GROUP_COUNT do
         for slotNum = 1, SLOTS_PER_GROUP do
             local name = groups[groupNum] and groups[groupNum][slotNum]
             if name and name ~= "" then
-                setSlotValue(self, self._slots[groupNum][slotNum], name)
+                setSlotValue(self, self._slots[groupNum][slotNum], name, aliases, nicknameAliases)
             end
         end
     end
@@ -735,14 +767,15 @@ function RaidGroups:GetEditorAssignmentList()
     for g = 1, GROUP_COUNT do
         for s = 1, SLOTS_PER_GROUP do
             local eb = self._slots[g][s]
-            local name = eb.usedName or ""
+            local name = eb.assignmentName or eb.usedName or ""
             list[(g - 1) * SLOTS_PER_GROUP + s] = name
             if name ~= "" then
-                if counts[name] then
-                    E:Printf(L["RG_DuplicateOnApply"], name)
+                local identityKey = self:GetAssignmentIdentityKey(name)
+                if counts[identityKey] then
+                    E:Printf(L["RG_DuplicateOnApply"], self:GetAssignmentDisplayName(name))
                     return
                 end
-                counts[name] = 1
+                counts[identityKey] = 1
             end
         end
     end
@@ -801,13 +834,14 @@ function RaidGroups:LoadPresetIntoSlots(dataString, note, presetName)
     end
 
     self:ClearSlots()
+    local aliases, nicknameAliases = select(5, self:BuildRaidRosterMaps())
     for gnum = 1, GROUP_COUNT do
         if self._slots[gnum] then
             for slotNum = 1, SLOTS_PER_GROUP do
                 local eb = self._slots[gnum][slotNum]
                 local name = groups[gnum] and groups[gnum][slotNum]
                 if name and name ~= "" then
-                    setSlotValue(self, eb, name)
+                    setSlotValue(self, eb, name, aliases, nicknameAliases)
                 end
             end
         end
@@ -832,7 +866,7 @@ function RaidGroups:SaveCurrentSlotsAsPreset(name)
     local hasData = false
     for _, group in ipairs(self._slots) do
         for _, eb in ipairs(group) do
-            if eb.usedName and eb.usedName ~= "" then
+            if (eb.assignmentName and eb.assignmentName ~= "") or (eb.usedName and eb.usedName ~= "") then
                 hasData = true
                 break
             end
@@ -1444,22 +1478,11 @@ editorEvents:RegisterMessage("ART_ROSTER_INVALIDATED", function()
     if not editor or not editor:IsShown() then
         return
     end
+    refreshSlotBindings(RaidGroups)
     if editor._listSource == "raid" or editor._listSource == "guild" then
         RaidGroups:PopulateNameList()
     end
     RaidGroups:UpdateSlotTints()
-    if RaidGroups._slots then
-        for _, group in ipairs(RaidGroups._slots) do
-            for _, eb in ipairs(group) do
-                if eb.usedName and eb.usedName ~= "" then
-                    local class = E:GetClassByName(eb.usedName)
-                    local r, g, b = classColor(class)
-                    eb:SetText(colorize(RaidGroups:DisplayName(eb.usedName), r, g, b))
-                    eb:SetCursorPosition(0)
-                end
-            end
-        end
-    end
 end)
 
 editorEvents:RegisterMessage("ART_RAIDGROUPS_PRESETS_CHANGED", function(_, touchedName)
@@ -1473,19 +1496,9 @@ editorEvents:RegisterMessage("ART_NICKNAME_CHANGED", function()
     if not f or not f:IsShown() then
         return
     end
-    if RaidGroups._slots then
-        for _, group in ipairs(RaidGroups._slots) do
-            for _, eb in ipairs(group) do
-                if eb.usedName and eb.usedName ~= "" then
-                    local class = E:GetClassByName(eb.usedName)
-                    local r, g, b = classColor(class)
-                    eb:SetText(colorize(RaidGroups:DisplayName(eb.usedName), r, g, b))
-                    eb:SetCursorPosition(0)
-                end
-            end
-        end
-    end
-    RaidGroups:RefreshVisibleRows()
+    refreshSlotBindings(RaidGroups)
+    RaidGroups:PopulateNameList()
+    RaidGroups:UpdateSlotTints()
 end)
 
 editorEvents:RegisterMessage("ART_RAIDGROUPS_DISABLED", function()

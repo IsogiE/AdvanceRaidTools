@@ -26,6 +26,8 @@ local strmatch = string.match
 local strgmatch = string.gmatch
 local strformat = string.format
 local strsub = string.sub
+local strbyte = string.byte
+local strchar = string.char
 local tinsert = table.insert
 local tremove = table.remove
 local tsort = table.sort
@@ -79,6 +81,8 @@ RaidGroups.colorize = colorize
 RaidGroups.stripColor = stripColor
 
 -- Nicknames
+local NICKNAME_ID_PREFIX = "nickname:"
+
 local function nicknameModule()
     local mod = E:GetModule("Nicknames", true)
     if mod and mod:IsEnabled() and mod.db and mod.db.map then
@@ -86,39 +90,105 @@ local function nicknameModule()
     end
 end
 
+local function cleanNickname(nickname)
+    if type(nickname) ~= "string" then
+        return nil
+    end
+    nickname = strtrim(nickname)
+    return nickname ~= "" and nickname or nil
+end
+
+local function nicknameAliasKey(nickname)
+    nickname = cleanNickname(nickname)
+    return nickname and strlower(nickname) or nil
+end
+
+local function encodeNicknameIdentity(nickname)
+    nickname = cleanNickname(nickname)
+    if not nickname then
+        return nil
+    end
+    local encoded = {}
+    for i = 1, #nickname do
+        encoded[i] = strformat("%02x", strbyte(nickname, i))
+    end
+    return NICKNAME_ID_PREFIX .. tconcat(encoded)
+end
+
+local function decodeNicknameIdentity(identity)
+    if type(identity) ~= "string" or strlower(strsub(identity, 1, #NICKNAME_ID_PREFIX)) ~= NICKNAME_ID_PREFIX then
+        return nil, false
+    end
+    local encoded = strsub(identity, #NICKNAME_ID_PREFIX + 1)
+    if encoded == "" or #encoded % 2 ~= 0 or strfind(encoded, "[^%x]") then
+        return nil, true
+    end
+    local decoded = {}
+    for i = 1, #encoded, 2 do
+        decoded[#decoded + 1] = strchar(tonumber(strsub(encoded, i, i + 1), 16))
+    end
+    return cleanNickname(tconcat(decoded)), true
+end
+
+function RaidGroups:GetNicknameForName(realName)
+    realName = realName and strtrim(realName) or ""
+    if realName == "" then
+        return nil
+    end
+    local mod = nicknameModule()
+    if not mod then
+        return nil
+    end
+
+    local key = realName
+    if not strfind(realName, "-", 1, true) then
+        local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
+        if realm and realm ~= "" then
+            key = realName .. "-" .. realm
+        end
+    end
+
+    local nickname = cleanNickname(mod.db.map[key])
+    if nickname then
+        return nickname
+    end
+
+    local wanted = strlower(key)
+    for realKey, candidate in pairs(mod.db.map) do
+        if type(realKey) == "string" and strlower(realKey) == wanted then
+            nickname = cleanNickname(candidate)
+            if nickname then
+                return nickname
+            end
+        end
+    end
+end
+
+function RaidGroups:GetAssignmentDisplayName(identity)
+    local nickname, isNickname = decodeNicknameIdentity(identity)
+    if isNickname then
+        return nickname or identity
+    end
+    local base, realm = strmatch(identity or "", "^(.-)%-(.+)$")
+    local localRealm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
+    if base and realm and localRealm and strlower(realm:gsub("%s+", "")) == strlower(localRealm:gsub("%s+", "")) then
+        return base
+    end
+    return identity
+end
+
 function RaidGroups:DisplayName(realName)
     if not realName or realName == "" then
         return realName
     end
-    local mod = nicknameModule()
-    if not mod then
-        return realName
-    end
-    local key = realName
-    if not strfind(key, "-", 1, true) then
-        key = realName .. "-" .. GetRealmName()
-    end
-    return mod.db.map[key] or realName
+    return self:GetNicknameForName(realName) or realName
 end
 
 function RaidGroups:ResolveNickname(typed)
     if not typed or typed == "" then
         return typed
     end
-    local mod = nicknameModule()
-    if not mod then
-        return typed
-    end
-    for realKey, nick in pairs(mod.db.map) do
-        if nick == typed then
-            local base, realm = strmatch(realKey, "^(.-)%-(.+)$")
-            if realm and realm == GetRealmName() then
-                return base
-            end
-            return realKey
-        end
-    end
-    return typed
+    return self.ResolveRosterAssignmentName and self:ResolveRosterAssignmentName(typed) or typed
 end
 
 local function cursorOver(frame, mx, my)
@@ -213,7 +283,8 @@ function RaidGroups:RenamePreset(oldName, newName)
     return true
 end
 
-local PRESET_STRING_VERSION = "ART_RG1"
+local PRESET_STRING_VERSION = "ART_RG2"
+local LEGACY_PRESET_STRING_VERSION = "ART_RG1"
 
 local function emptyPresetGroups()
     local groups = {}
@@ -585,9 +656,9 @@ end
 
 local function decodePayload(code)
     code = cleanImportText(code)
-    local encoded = strmatch(code, "^" .. PRESET_STRING_VERSION .. ":(.+)$")
-    if not encoded then
-        return nil, strformat(L["RG_InvalidPresetCode"], PRESET_STRING_VERSION)
+    local version, encoded = strmatch(code, "^(ART_RG%d+):(.+)$")
+    if (version ~= PRESET_STRING_VERSION and version ~= LEGACY_PRESET_STRING_VERSION) or not encoded then
+        return nil, strformat(L["RG_InvalidPresetCode"], LEGACY_PRESET_STRING_VERSION .. " or " .. PRESET_STRING_VERSION)
     end
     if not canPresetString() then
         return nil, L["RG_PresetCodecUnsupported"]
@@ -693,11 +764,20 @@ local function normalizeGroups(groups)
             local name = groups[groupNum] and groups[groupNum][slotNum] or ""
             name = strtrim(name or "")
             if name ~= "" then
-                name = E:NormalizeName(name)
-                if seen[name] then
-                    return nil, strformat(L["RG_DuplicateName"], name)
+                local nickname, isNickname = decodeNicknameIdentity(name)
+                if isNickname then
+                    if not nickname then
+                        return nil, L["RG_InvalidString"]
+                    end
+                    name = encodeNicknameIdentity(nickname)
+                else
+                    name = E:NormalizeName(name)
                 end
-                seen[name] = true
+                local identityKey = isNickname and (NICKNAME_ID_PREFIX .. nicknameAliasKey(nickname)) or strlower(name)
+                if seen[identityKey] then
+                    return nil, strformat(L["RG_DuplicateName"], nickname or name)
+                end
+                seen[identityKey] = true
                 hasAny = true
             end
             normalized[groupNum][slotNum] = name
@@ -1073,7 +1153,7 @@ function RaidGroups:SerializeSlots(slots)
     for g = 1, GROUP_COUNT do
         for s = 1, SLOTS_PER_GROUP do
             local eb = slots[g][s]
-            groups[g][s] = eb.usedName or ""
+            groups[g][s] = eb.assignmentName or self:GetAssignmentIdentity(eb.usedName) or ""
         end
     end
     local normalized = normalizeGroups(groups)
@@ -1092,7 +1172,7 @@ end
 
 function RaidGroups:IsAssignmentMarkerLine(line)
     line = strtrim(tostring(line or ""))
-    return strmatch(line, "^" .. PRESET_STRING_VERSION .. ":[A-Za-z0-9%+/%=]+$") ~= nil
+    return strmatch(line, "^ART_RG[12]:[A-Za-z0-9%+/%=]+$") ~= nil
 end
 
 function RaidGroups:StripAssignmentMarkers(text)
@@ -1155,60 +1235,232 @@ local function validateCanApplyRaidGroups()
     return true
 end
 
+local function addUniqueAlias(aliases, alias, canonical)
+    if not alias or alias == "" then
+        return
+    end
+    local existing = aliases[alias]
+    if existing == nil then
+        aliases[alias] = canonical
+    elseif existing ~= canonical then
+        aliases[alias] = false
+    end
+end
+
 local function addRosterAlias(aliases, alias, canonical)
     alias = alias and E:NormalizeName(alias) or ""
     if alias == "" then
         return
     end
-    aliases[alias] = canonical
-    local bare = E:NormalizeName(E:BareName(alias))
-    if bare ~= "" then
-        aliases[bare] = canonical
-    end
+    addUniqueAlias(aliases, alias, canonical)
 end
 
 function RaidGroups:BuildRaidRosterMaps()
-    local currentGroup, currentPos, nameToID, groupSize, aliases = {}, {}, {}, {}, {}
+    local currentGroup, currentPos, nameToID, groupSize, aliases, nicknameAliases = {}, {}, {}, {}, {}, {}
+    local bareCandidates = {}
     for i = 1, GROUP_COUNT do
         groupSize[i] = 0
     end
 
     local realm = GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()
+    local normalizedLocalRealm = realm and strlower(realm:gsub("%s+", "")) or ""
+    local mod = nicknameModule()
     for i = 1, GetNumGroupMembers() do
-        local name, _, subgroup, _, _, _, _, _, _, _, _, _, server = GetRaidRosterInfo(i)
+        local name, _, subgroup = GetRaidRosterInfo(i)
         if name and subgroup then
-            local display = (server and server ~= "" and server ~= realm) and (name .. "-" .. server) or name
-            local canonical = E:NormalizeName(display)
+            local base, memberRealm = strmatch(name, "^(.-)%-(.+)$")
+            base = base or name
+            memberRealm = memberRealm or realm
+            local fullName = base .. "-" .. memberRealm
+            local canonical = E:NormalizeName(fullName)
             currentGroup[canonical] = subgroup
             nameToID[canonical] = i
             groupSize[subgroup] = (groupSize[subgroup] or 0) + 1
             currentPos[canonical] = groupSize[subgroup]
-            addRosterAlias(aliases, display, canonical)
             addRosterAlias(aliases, name, canonical)
             addRosterAlias(aliases, canonical, canonical)
+
+            local bare = E:NormalizeName(base)
+            local candidate = bareCandidates[bare]
+            if not candidate then
+                candidate = {
+                    values = {},
+                    count = 0
+                }
+                bareCandidates[bare] = candidate
+            end
+            if not candidate.values[canonical] then
+                candidate.values[canonical] = true
+                candidate.count = candidate.count + 1
+                candidate.first = candidate.first or canonical
+            end
+            if strlower(memberRealm:gsub("%s+", "")) == normalizedLocalRealm then
+                candidate.localCharacter = canonical
+            end
+
+            local nickname = mod and IsInRaid() and mod.GetIfAny and cleanNickname(mod:GetIfAny("raid" .. i))
+            nickname = nickname or self:GetNicknameForName(fullName)
+            local nicknameKey = nicknameAliasKey(nickname)
+            if nicknameKey then
+                addUniqueAlias(nicknameAliases, nicknameKey, canonical)
+            end
         end
     end
 
-    return currentGroup, currentPos, nameToID, groupSize, aliases
+    for bare, candidate in pairs(bareCandidates) do
+        if candidate.localCharacter then
+            aliases[bare] = candidate.localCharacter
+        elseif candidate.count == 1 then
+            aliases[bare] = candidate.first
+        else
+            aliases[bare] = false
+        end
+    end
+
+    return currentGroup, currentPos, nameToID, groupSize, aliases, nicknameAliases
 end
 
-function RaidGroups:ResolveRosterAssignmentName(name, aliases)
+local function resolveAlias(aliases, key)
+    local match = aliases and aliases[key]
+    if match == false then
+        return nil, "ambiguous"
+    end
+    return match
+end
+
+local function resolveCharacterAlias(name, aliases)
+    local normalized = E:NormalizeName(name)
+    local match, reason = resolveAlias(aliases, normalized)
+    if match or reason then
+        return match, reason
+    end
+    local bare = E:NormalizeName(E:BareName(normalized))
+    if bare ~= normalized then
+        return resolveAlias(aliases, bare)
+    end
+end
+
+function RaidGroups:GetAssignmentIdentity(name, aliases, nicknameAliases)
     name = strtrim(name or "")
     if name == "" then
         return nil
     end
-    local normalized = E:NormalizeName(self:ResolveNickname(name))
-    return aliases[normalized] or aliases[E:NormalizeName(E:BareName(normalized))]
+
+    local taggedNickname, isTagged = decodeNicknameIdentity(name)
+    if isTagged then
+        return taggedNickname and encodeNicknameIdentity(taggedNickname) or name
+    end
+
+    local normalized = E:NormalizeName(name)
+    local nickname = self:GetNicknameForName(normalized)
+    if not aliases or not nicknameAliases then
+        local builtAliases, builtNicknameAliases
+        builtAliases, builtNicknameAliases = select(5, self:BuildRaidRosterMaps())
+        aliases = aliases or builtAliases
+        nicknameAliases = nicknameAliases or builtNicknameAliases
+    end
+
+    if nickname then
+        local character, characterReason = resolveCharacterAlias(normalized, aliases)
+        local nicknameCharacter, nicknameReason = resolveAlias(nicknameAliases, nicknameAliasKey(nickname))
+        if characterReason or nicknameReason or not character or nicknameCharacter ~= character then
+            return character or normalized
+        end
+        return encodeNicknameIdentity(nickname)
+    end
+
+    local character = resolveCharacterAlias(normalized, aliases)
+    if not character then
+        local nicknameCharacter = resolveAlias(nicknameAliases, nicknameAliasKey(name))
+        if nicknameCharacter then
+            return encodeNicknameIdentity(self:GetNicknameForName(nicknameCharacter) or name)
+        end
+    else
+        return character
+    end
+
+    if strfind(name, "[,\t\r\n]") then
+        return encodeNicknameIdentity(name)
+    end
+    return normalized
+end
+
+function RaidGroups:GetAssignmentIdentityKey(identity)
+    local nickname, isNickname = decodeNicknameIdentity(identity)
+    if isNickname then
+        return nickname and (NICKNAME_ID_PREFIX .. nicknameAliasKey(nickname)) or strlower(identity or "")
+    end
+    return strlower(E:NormalizeName(identity or ""))
+end
+
+function RaidGroups:ResolveRosterAssignmentName(name, aliases, nicknameAliases)
+    name = strtrim(name or "")
+    if name == "" then
+        return nil
+    end
+    if not aliases or not nicknameAliases then
+        local builtAliases, builtNicknameAliases
+        builtAliases, builtNicknameAliases = select(5, self:BuildRaidRosterMaps())
+        aliases = aliases or builtAliases
+        nicknameAliases = nicknameAliases or builtNicknameAliases
+    end
+
+    local nickname, isNickname = decodeNicknameIdentity(name)
+    if isNickname then
+        if not nickname then
+            return nil, "invalid"
+        end
+        local character, reason = resolveAlias(nicknameAliases, nicknameAliasKey(nickname))
+        if not character and not reason then
+            return nil, "missingNickname"
+        end
+        return character, reason
+    end
+
+    local character, reason = resolveCharacterAlias(name, aliases)
+    if character or reason then
+        return character, reason
+    end
+    return resolveAlias(nicknameAliases, nicknameAliasKey(name))
+end
+
+local function reportUnresolvableAssignment(rawName, reason)
+    if reason == "ambiguous" then
+        E:Printf("Name matches multiple raiders: %s", rawName)
+        return true
+    elseif reason == "invalid" then
+        E:Printf(L["RG_InvalidString"])
+        return true
+    elseif reason == "missingNickname" then
+        E:Printf("No raider currently has the nickname '%s'", rawName)
+        return true
+    end
+    return false
 end
 
 function RaidGroups:HasResolvableAssignments(list)
-    local _, _, _, _, aliases = self:BuildRaidRosterMaps()
+    local _, _, _, _, aliases, nicknameAliases = self:BuildRaidRosterMaps()
+    local hasResolved = false
+    local seen = {}
     for i = 1, GROUP_COUNT * SLOTS_PER_GROUP do
         local rawName = list[i]
         rawName = rawName and strtrim(rawName) or ""
-        if rawName ~= "" and self:ResolveRosterAssignmentName(rawName, aliases) then
-            return true
+        if rawName ~= "" then
+            local resolved, reason = self:ResolveRosterAssignmentName(rawName, aliases, nicknameAliases)
+            if resolved then
+                if seen[resolved] then
+                    E:Printf(L["RG_DuplicateOnApply"], self:GetAssignmentDisplayName(rawName))
+                    return false
+                end
+                seen[resolved] = true
+                hasResolved = true
+            elseif reportUnresolvableAssignment(self:GetAssignmentDisplayName(rawName), reason) then
+                return false
+            end
         end
+    end
+    if hasResolved then
+        return true
     end
     E:Printf("No assigned raiders are currently in the raid")
     return false
@@ -1237,17 +1489,20 @@ function RaidGroups:ApplyGroups(list, skipValidation, membershipOnly)
     local seen = {}
     local assignedCount = 0
 
-    local _, _, _, _, aliases = self:BuildRaidRosterMaps()
+    local _, _, _, _, aliases, nicknameAliases = self:BuildRaidRosterMaps()
     for i = 1, GROUP_COUNT do
         local pos = 1
         for j = 1, SLOTS_PER_GROUP do
             local rawName = list[(i - 1) * SLOTS_PER_GROUP + j]
             rawName = rawName and strtrim(rawName) or ""
             if rawName ~= "" then
-                local name = self:ResolveRosterAssignmentName(rawName, aliases)
+                local name, reason = self:ResolveRosterAssignmentName(rawName, aliases, nicknameAliases)
+                if reportUnresolvableAssignment(self:GetAssignmentDisplayName(rawName), reason) then
+                    return false
+                end
                 if name then
                     if seen[name] then
-                        E:Printf(L["RG_DuplicateOnApply"], rawName)
+                        E:Printf(L["RG_DuplicateOnApply"], self:GetAssignmentDisplayName(rawName))
                         return false
                     end
                     seen[name] = true
