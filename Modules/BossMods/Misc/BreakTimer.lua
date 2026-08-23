@@ -18,6 +18,7 @@ local Mod = E:NewModule("BossMods_BreakTimer", "AceEvent-3.0")
 local IMAGE_POOL = "Dreams"
 local IMAGE_SEED_BUCKET_SECONDS = 30
 local TIMER_GAP = 8
+local TIMER_TEXT_PADDING = 8
 local TICK_INTERVAL = 0.1
 local PREVIEW_DURATION = 300
 local LISTENER_TOKEN = "AdvanceRaidTools_BossMods_BreakTimer"
@@ -34,6 +35,35 @@ local function formatTime(seconds)
     local m = math.floor(seconds / 60)
     local s = math.floor(seconds % 60)
     return string.format("%d:%02d", m, s)
+end
+
+local function formatServerEndTime(duration)
+    local hour, minute = GetGameTime()
+    local second = getServerTime() % 60
+    local endSeconds = (hour * 3600 + minute * 60 + second + duration) % 86400
+    local endHour = math.floor(endSeconds / 3600)
+    local endMinute = math.floor(endSeconds / 60) % 60
+
+    if type(GameTime_GetFormattedTime) == "function" then
+        return GameTime_GetFormattedTime(endHour, endMinute, false)
+    end
+    if type(GetCVarBool) == "function" and GetCVarBool("timeMgrUseMilitaryTime") then
+        return string.format("%02d:%02d", endHour, endMinute)
+    end
+
+    endHour = endHour % 12
+    if endHour == 0 then
+        endHour = 12
+    end
+    return string.format("%d:%02d", endHour, endMinute)
+end
+
+local function formatTimerText(seconds, serverEndTime)
+    local countdown = formatTime(seconds)
+    if not serverEndTime then
+        return countdown
+    end
+    return L["BossMods_BreakTimer_CountdownWithEndTime"]:format(countdown, serverEndTime)
 end
 
 local function makeImageSeed(key, duration)
@@ -94,6 +124,7 @@ function Mod:EnsureFrame()
     f.timer = f:CreateFontString(nil, "OVERLAY")
     f.timer:SetJustifyH("CENTER")
     f.timer:SetJustifyV("MIDDLE")
+    f.timer:SetWordWrap(false)
 
     f._tickAcc = 0
     f:SetScript("OnUpdate", function(self, elapsed)
@@ -110,7 +141,7 @@ function Mod:EnsureFrame()
             Mod:Stop()
             return
         end
-        self.timer:SetText(formatTime(remaining))
+        Mod:SetTimerText(formatTimerText(remaining, Mod.serverEndTime))
     end)
 
     self.frame = f
@@ -167,14 +198,16 @@ function Mod:Start(key, duration)
         return
     end
     self.endTime = GetTime() + duration
+    self.serverEndTime = formatServerEndTime(duration)
     self.frame._tickAcc = 0
-    self.frame.timer:SetText(formatTime(duration))
+    self:SetTimerText(formatTimerText(duration, self.serverEndTime))
     E:SendMessage("ART_BREAKTIMER_STATE", true)
 end
 
 function Mod:Stop()
     local wasRunning = self.endTime ~= nil
     self.endTime = nil
+    self.serverEndTime = nil
     self.frame:Hide()
     if wasRunning then
         E:SendMessage("ART_BREAKTIMER_STATE", false)
@@ -219,11 +252,30 @@ function Mod:Show(seed)
     f.timer:SetWidth(imgW)
     f.timer:SetHeight(timerH)
 
+    f._contentWidth = imgW
     f:SetSize(imgW, labelH + TIMER_GAP + imgH + TIMER_GAP + timerH)
     self:ApplyScale()
     self:ApplyPosition()
     f:Show()
     return true
+end
+
+function Mod:SetTimerText(text)
+    local f = self.frame
+    f.timer:SetText(text or "")
+
+    local textWidth = 0
+    if f.timer.GetUnboundedStringWidth then
+        textWidth = f.timer:GetUnboundedStringWidth() or 0
+    elseif f.timer.GetStringWidth then
+        textWidth = f.timer:GetStringWidth() or 0
+    end
+
+    local requiredWidth = math.max(f._contentWidth or 0, math.ceil(textWidth) + TIMER_TEXT_PADDING * 2)
+    if requiredWidth > (f:GetWidth() or 0) then
+        f.timer:SetWidth(requiredWidth)
+        f:SetWidth(requiredWidth)
+    end
 end
 
 function Mod:ApplyPosition()
@@ -312,7 +364,7 @@ function Mod:SetEditMode(v)
         end
         if self:Show() then
             self.frame._tickAcc = 0
-            self.frame.timer:SetText(formatTime(PREVIEW_DURATION))
+            self:SetTimerText(formatTimerText(PREVIEW_DURATION, formatServerEndTime(PREVIEW_DURATION)))
         end
     else
         if not self:IsRunning() then
