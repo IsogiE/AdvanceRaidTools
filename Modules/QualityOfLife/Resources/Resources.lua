@@ -40,6 +40,9 @@ local Resources = E:NewModule("QoL_Resources", "AceEvent-3.0")
 local PRD_CVAR = "nameplateShowSelf"
 local PRD_STATUS_BAR_BACKGROUND_ATLAS = "UI-HUD-CoolDownManager-Bar-BG"
 
+local barVisualState = setmetatable({}, {__mode = "k"})
+local prdVisibilityState = setmetatable({}, {__mode = "k"})
+
 local function prd()
     return _G.PersonalResourceDisplayFrame
 end
@@ -55,81 +58,70 @@ local function secureCall(func, ...)
 end
 
 local function callBlizzardMethod(frame, methodName, ...)
-    local method = frame and frame[methodName]
+    if not frame then
+        return nil
+    end
+    if securecallmethod then
+        return securecallmethod(frame, methodName, ...)
+    end
+
+    local method = frame[methodName]
     if type(method) ~= "function" then
         return nil
     end
     return secureCall(method, frame, ...)
 end
 
-local function ensurePRDSetup(frame)
-    if frame and frame.Setup and not frame.hasBeenSetup then
-        callBlizzardMethod(frame, "Setup")
-    end
-end
-
 local function updatePRDLayout(frame)
-    if frame.UpdatePowerBarAnchor then
-        callBlizzardMethod(frame, "UpdatePowerBarAnchor")
-    end
-    if frame.UpdateAdditionalBarAnchors then
-        callBlizzardMethod(frame, "UpdateAdditionalBarAnchors")
-    end
-    if frame.UpdateFrameHeight then
-        callBlizzardMethod(frame, "UpdateFrameHeight")
-    end
-end
-
-local function setFrameShown(frame, shown)
-    if frame and frame.IsShown and frame:IsShown() ~= shown then
-        callBlizzardMethod(frame, "SetShown", shown)
-    end
-end
-
-local function hasClassFrame(frame)
-    if not frame then
-        return false
-    end
-    if frame.HasClassInfo then
-        return callBlizzardMethod(frame, "HasClassInfo") and true or false
-    end
-    if frame.classFrame or _G.prdClassFrame then
-        return true
-    end
-    return frame.ClassFrameContainer and frame.ClassFrameContainer.yOffset ~= nil
+    callBlizzardMethod(frame, "UpdatePowerBarAnchor")
+    callBlizzardMethod(frame, "UpdateAdditionalBarAnchors")
+    callBlizzardMethod(frame, "UpdateFrameHeight")
 end
 
 local function setHealthShown(frame, shown)
-    if frame.SetHideHealth then
-        callBlizzardMethod(frame, "SetHideHealth", not shown)
-    else
-        setFrameShown(frame.HealthBarsContainer, shown)
+    local hidden = not shown
+    if (frame.hideHealth == true) ~= hidden then
+        callBlizzardMethod(frame, "SetHideHealth", hidden)
     end
 end
 
 local function setPowerShown(frame, shown)
-    if frame.SetHidePower then
-        callBlizzardMethod(frame, "SetHidePower", not shown)
-    else
-        setFrameShown(frame.PowerBar, shown)
+    local hidden = not shown
+    if (frame.hidePower == true) ~= hidden then
+        callBlizzardMethod(frame, "SetHidePower", hidden)
     end
 end
 
 local function setClassFrameShown(frame, shown)
-    if frame.SetHideClassInfo then
-        callBlizzardMethod(frame, "SetHideClassInfo", not shown)
-    else
-        setFrameShown(frame.ClassFrameContainer, shown and hasClassFrame(frame))
+    local hidden = not shown
+    if (frame.hideClassInfo == true) ~= hidden then
+        callBlizzardMethod(frame, "SetHideClassInfo", hidden)
     end
 end
 
 local function setAltPowerShown(frame, shown)
-    if frame.SetHideAltPower then
-        callBlizzardMethod(frame, "SetHideAltPower", not shown)
-    else
-        local altPower = frame.AlternatePowerBar
-        setFrameShown(altPower, shown and altPower and altPower.alternatePowerRequirementsMet)
+    local hidden = not shown
+    if (frame.hideAltPower == true) ~= hidden then
+        callBlizzardMethod(frame, "SetHideAltPower", hidden)
     end
+end
+
+local function capturePRDVisibility(frame)
+    local state = prdVisibilityState[frame]
+    if not state then
+        state = {
+            hideHealth = frame.hideHealth == true,
+            hidePower = frame.hidePower == true,
+            hideClassInfo = frame.hideClassInfo == true,
+            hideAltPower = frame.hideAltPower == true
+        }
+        prdVisibilityState[frame] = state
+    end
+    return state
+end
+
+local function originalVisibility(state, key)
+    return not state[key]
 end
 
 local function enablePRDForART(self_)
@@ -179,15 +171,53 @@ local function setRegionShown(region, shown)
 end
 
 local function setFormattedNumberText(fontString, format, value)
-    if type(value) ~= "number" then
-        fontString:SetText("")
-        return
-    end
-
     local ok = pcall(fontString.SetFormattedText, fontString, format, value)
     if not ok then
         fontString:SetText("")
     end
+end
+
+local function getBarVisualState(bar, create)
+    local state = barVisualState[bar]
+    if not state and create ~= false then
+        state = {}
+        barVisualState[bar] = state
+    end
+    return state
+end
+
+local function ensureBarOverlay(bar)
+    local state = getBarVisualState(bar)
+    if not state.overlay then
+        -- The intermediate Frame isolates the FontString from the Blizzard
+        -- StatusBar's secret BarValue/Text aspects in 12.1.
+        state.overlay = CreateFrame("Frame", nil, bar)
+        state.overlay:SetAllPoints(bar)
+        state.overlay:SetFrameLevel((bar:GetFrameLevel() or 0) + 5)
+    end
+    return state.overlay, state
+end
+
+local function ensureBarText(bar)
+    local overlay, state = ensureBarOverlay(bar)
+    if not state.text then
+        state.text = overlay:CreateFontString(nil, "OVERLAY")
+        state.text:SetPoint("CENTER", overlay, "CENTER", 0, 0)
+    end
+    return state.text
+end
+
+local function hideBarText(bar)
+    local state = getBarVisualState(bar, false)
+    if state and state.text then
+        state.text:Hide()
+    end
+end
+
+local function prepareBarText(bar, fontSize)
+    local fontString = ensureBarText(bar)
+    fontString:SetFont(E:FetchModuleFont(), fontSize, "OUTLINE")
+    return fontString
 end
 
 local function hideBlizzardStatusBarBackground(bar)
@@ -195,31 +225,34 @@ local function hideBlizzardStatusBarBackground(bar)
         return false
     end
 
-    local hiddenRegions = bar._artPRDHiddenRegions
-    if not hiddenRegions then
-        hiddenRegions = {}
-        bar._artPRDHiddenRegions = hiddenRegions
-    end
+    local state = getBarVisualState(bar)
+    state.hiddenRegions = state.hiddenRegions or {}
 
     local foundNewPRDArt = false
-    for _, region in ipairs({bar:GetRegions()}) do
-        if region.GetAtlas and region:GetAtlas() == PRD_STATUS_BAR_BACKGROUND_ATLAS then
-            hiddenRegions[region] = true
+    if not state.backgroundScanned then
+        for _, region in ipairs({bar:GetRegions()}) do
+            if region.GetAtlas and region:GetAtlas() == PRD_STATUS_BAR_BACKGROUND_ATLAS then
+                state.hiddenRegions[region] = true
+            end
+        end
+        state.backgroundScanned = true
+    end
+
+    for region in pairs(state.hiddenRegions) do
+        if region then
             setRegionShown(region, false)
             foundNewPRDArt = true
         end
     end
 
     if foundNewPRDArt then
-        local bg = bar._artPRDBackground
-        if not bg then
-            bg = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
-            bg:SetAllPoints(bar)
-            bar._artPRDBackground = bg
+        if not state.background then
+            state.background = bar:CreateTexture(nil, "BACKGROUND", nil, -8)
+            state.background:SetAllPoints(bar)
         end
-        bg:SetTexture(E.media.blankTex)
-        bg:SetVertexColor(0.2, 0.2, 0.2, 0.65)
-        bg:Show()
+        state.background:SetTexture(E.media.blankTex)
+        state.background:SetVertexColor(0.2, 0.2, 0.2, 0.65)
+        state.background:Show()
     end
 
     return foundNewPRDArt
@@ -230,26 +263,32 @@ local function restoreBlizzardStatusBarBackground(bar)
         return
     end
 
-    if bar._artPRDHiddenRegions then
-        for region in pairs(bar._artPRDHiddenRegions) do
+    local state = getBarVisualState(bar, false)
+    if not state then
+        return
+    end
+
+    if state.hiddenRegions then
+        for region in pairs(state.hiddenRegions) do
             setRegionShown(region, true)
         end
     end
-    if bar._artPRDBackground then
-        bar._artPRDBackground:Hide()
+    if state.background then
+        state.background:Hide()
     end
 end
 
 local function applyCustomBorder(bar, show, color)
     hideBlizzardStatusBarBackground(bar)
 
+    local overlay = ensureBarOverlay(bar)
     if not show then
-        E:ApplyOuterBorder(bar, {
+        E:ApplyOuterBorder(overlay, {
             enabled = false
         })
         return
     end
-    local border = E:ApplyOuterBorder(bar, {
+    local border = E:ApplyOuterBorder(overlay, {
         enabled = true,
         edgeFile = E.media.blankTex,
         edgeSize = 1,
@@ -259,15 +298,18 @@ local function applyCustomBorder(bar, show, color)
         a = color[4] or 1
     })
     if border and border.SetFrameLevel then
-        border:SetFrameLevel((bar:GetFrameLevel() or 0) + 10)
+        border:SetFrameLevel((overlay:GetFrameLevel() or 0) + 5)
     end
 end
 
 local function hideCustomBorder(bar)
     restoreBlizzardStatusBarBackground(bar)
-    E:ApplyOuterBorder(bar, {
-        enabled = false
-    })
+    local state = getBarVisualState(bar, false)
+    if state and state.overlay then
+        E:ApplyOuterBorder(state.overlay, {
+            enabled = false
+        })
+    end
 end
 
 local RESOURCE_TEXT_TICK = 0.1
@@ -313,6 +355,7 @@ local function applyPowerBar(self_, frame)
     if db.showPowerBar then
         bar:SetSize(db.powerWidth, db.powerHeight)
     else
+        hideBarText(bar)
         return
     end
 
@@ -330,6 +373,7 @@ local function applyPowerBar(self_, frame)
     end
     applyCustomBorder(bar, db.showPowerBorder, db.powerBorderColor)
 
+    prepareBarText(bar, db.fontSize or 12)
     ensureResourceTextTicker()
     self_:UpdatePowerText(bar)
     updatePRDLayout(frame)
@@ -348,8 +392,8 @@ local function applyHealthBar(self_, frame)
 
     setHealthShown(frame, db.showHealthBar)
     if not db.showHealthBar then
-        if container.healthBar and container.healthBar.artHealthText then
-            container.healthBar.artHealthText:Hide()
+        if container.healthBar then
+            hideBarText(container.healthBar)
         end
         return
     end
@@ -373,6 +417,7 @@ local function applyHealthBar(self_, frame)
     end
     if container.healthBar then
         applyCustomBorder(container.healthBar, db.showHealthBorder, db.healthBorderColor)
+        prepareBarText(container.healthBar, db.healthFontSize or 12)
         attachHealthTextTicker(container.healthBar)
     end
 
@@ -382,7 +427,9 @@ end
 
 local function applyClassFrame(self_, frame)
     local db = self_.db
-    setClassFrameShown(frame, db.showClassFrame and hasClassFrame(frame))
+    -- Blizzard will decide whether this class actually has a class frame.
+    -- Avoid calling HasClassInfo before PRD's own OnShow/Setup has run.
+    setClassFrameShown(frame, db.showClassFrame)
     updatePRDLayout(frame)
 end
 
@@ -396,26 +443,31 @@ function Resources:UpdatePowerText(bar)
     local mode = db.powerTextMode or "off"
 
     if mode == "off" or not self:IsActive() then
-        if bar.artPowerText then
-            bar.artPowerText:Hide()
-        end
+        hideBarText(bar)
         return
     end
 
-    if not bar.artPowerText then
-        bar.artPowerText = bar:CreateFontString(nil, "OVERLAY")
-        bar.artPowerText:SetPoint("CENTER", bar, "CENTER", 0, 0)
+    local state = getBarVisualState(bar, false)
+    if (not state or not state.text) and InCombatLockdown() then
+        return
     end
-    local fs = bar.artPowerText
-    fs:SetFont(E:FetchModuleFont(), db.fontSize or 12, "OUTLINE")
+    local fs = ensureBarText(bar)
     fs:Show()
 
     if mode == "percent" then
         local ok, pct = pcall(UnitPowerPercent, "player", nil, false, CurveConstants and CurveConstants.ScaleTo100 or nil)
-        setFormattedNumberText(fs, "%.0f%%", ok and pct or nil)
+        if ok then
+            setFormattedNumberText(fs, "%.0f%%", pct)
+        else
+            fs:SetText("")
+        end
     elseif mode == "numeric" then
         local ok, power = pcall(UnitPower, "player")
-        setFormattedNumberText(fs, "%d", ok and power or nil)
+        if ok then
+            setFormattedNumberText(fs, "%d", power)
+        else
+            fs:SetText("")
+        end
     end
 end
 
@@ -434,31 +486,36 @@ function Resources:UpdateHealthText(bar)
     local mode = db.healthTextMode or "off"
 
     if mode == "off" or not self:IsActive() or not db.showHealthBar then
-        if bar.artHealthText then
-            bar.artHealthText:Hide()
-        end
+        hideBarText(bar)
         return
     end
 
-    if not bar.artHealthText then
-        bar.artHealthText = bar:CreateFontString(nil, "OVERLAY")
-        bar.artHealthText:SetPoint("CENTER", bar, "CENTER", 0, 0)
+    local state = getBarVisualState(bar, false)
+    if (not state or not state.text) and InCombatLockdown() then
+        return
     end
-    local fs = bar.artHealthText
-    fs:SetFont(E:FetchModuleFont(), db.healthFontSize or 12, "OUTLINE")
+    local fs = ensureBarText(bar)
     fs:Show()
 
     if mode == "percent" then
         local ok, pct = pcall(UnitHealthPercent, "player", false, CurveConstants and CurveConstants.ScaleTo100 or nil)
-        setFormattedNumberText(fs, "%.0f%%", ok and pct or nil)
+        if ok then
+            setFormattedNumberText(fs, "%.0f%%", pct)
+        else
+            fs:SetText("")
+        end
     elseif mode == "numeric" then
         local ok, health = pcall(UnitHealth, "player")
-        setFormattedNumberText(fs, "%d", ok and health or nil)
+        if ok then
+            setFormattedNumberText(fs, "%d", health)
+        else
+            fs:SetText("")
+        end
     end
 end
 
 local function hidePRDChildren(frame)
-    ensurePRDSetup(frame)
+    capturePRDVisibility(frame)
     setClassFrameShown(frame, false)
     setAltPowerShown(frame, false)
     setPowerShown(frame, false)
@@ -472,10 +529,13 @@ local function revert(self_)
     if not frame then
         return
     end
+    local visibility = prdVisibilityState[frame]
 
     if frame.HealthBarsContainer then
         local c = frame.HealthBarsContainer
-        setHealthShown(frame, true)
+        if visibility then
+            setHealthShown(frame, originalVisibility(visibility, "hideHealth"))
+        end
         c:ClearAllPoints()
         c:SetPoint("TOP", frame, "TOP", 0, 0)
         if not frame.UpdateBarWidth then
@@ -493,14 +553,14 @@ local function revert(self_)
             if c.healthBar.barTexture then
                 c.healthBar.barTexture:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
             end
-            if c.healthBar.artHealthText then
-                c.healthBar.artHealthText:Hide()
-            end
+            hideBarText(c.healthBar)
         end
     end
 
     if frame.PowerBar then
-        setPowerShown(frame, true)
+        if visibility then
+            setPowerShown(frame, originalVisibility(visibility, "hidePower"))
+        end
         frame.PowerBar:SetSize(200, 15)
         hideCustomBorder(frame.PowerBar)
         if frame.PowerBar.Border then
@@ -511,16 +571,15 @@ local function revert(self_)
         if frame.PowerBar.Texture then
             frame.PowerBar.Texture:SetTexture("Interface/TargetingFrame/UI-TargetingFrame-BarFill")
         end
-        if frame.PowerBar.artPowerText then
-            frame.PowerBar.artPowerText:Hide()
-        end
+        hideBarText(frame.PowerBar)
     end
 
-    if frame.ClassFrameContainer then
-        setAltPowerShown(frame, true)
-        setClassFrameShown(frame, hasClassFrame(frame))
+    if frame.ClassFrameContainer and visibility then
+        setAltPowerShown(frame, originalVisibility(visibility, "hideAltPower"))
+        setClassFrameShown(frame, originalVisibility(visibility, "hideClassInfo"))
     end
     updatePRDLayout(frame)
+    prdVisibilityState[frame] = nil
 end
 
 -- Pushes current db state onto PRD
@@ -549,9 +608,10 @@ function Resources:Apply()
             return -- will apply on next PLAYER_ENTERING_WORLD once Blizzard creates it
         end
 
-        ensurePRDSetup(frame)
+        local visibility = capturePRDVisibility(frame)
         applyHealthBar(self, frame)
         applyPowerBar(self, frame)
+        setAltPowerShown(frame, originalVisibility(visibility, "hideAltPower"))
         applyClassFrame(self, frame)
         return
     end
