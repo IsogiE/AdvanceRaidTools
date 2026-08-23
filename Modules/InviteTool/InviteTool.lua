@@ -22,6 +22,7 @@ local issecretvalue = issecretvalue or function() return false end
 local INVITE_INTERVAL = 0.2
 local CONVERT_RETRY_DELAY = 0.75
 local KEYWORD_THROTTLE = 2
+local PARTY_MEMBER_LIMIT = 5
 
 local function safeString(value)
     if type(value) ~= "string" or issecretvalue(value) then
@@ -79,6 +80,14 @@ end
 
 local function canInviteToGroup()
     return not IsInGroup() or UnitIsGroupLeader("player") or UnitIsGroupAssistant("player")
+end
+
+local function getPartyMemberCount()
+    local count = GetNumGroupMembers and GetNumGroupMembers() or 0
+    if type(count) ~= "number" or issecretvalue(count) or count < 1 then
+        return 1
+    end
+    return count
 end
 
 local function isPlayerGrouped(name)
@@ -380,7 +389,7 @@ function InviteTool:CHAT_MSG_WHISPER(_, message, sender, _, _, _, flags, _, _, _
         return
     end
     if self:CanProcessKeyword(sender:lower()) then
-        self:QueueInvites({sender})
+        self:QueueInvites({sender}, {convertOnlyWhenFull = true})
     end
 end
 
@@ -397,7 +406,7 @@ function InviteTool:CHAT_MSG_BN_WHISPER(_, message, sender, ...)
     end
     local characterName = self:ResolveBattleNetCharacter(accountID)
     if characterName then
-        self:QueueInvites({characterName})
+        self:QueueInvites({characterName}, {convertOnlyWhenFull = true})
     end
 end
 
@@ -456,19 +465,34 @@ function InviteTool:ProcessInviteQueue()
         return
     end
 
-    if IsInGroup() and not IsInRaid() then
-        if self:TryConvertToRaid() then
-            self:ScheduleInviteStep(CONVERT_RETRY_DELAY)
-        end
+    local invite = self.inviteQueue[1]
+    local name = type(invite) == "table" and invite.name or invite
+    if not name or isPlayerGrouped(name) then
+        table.remove(self.inviteQueue, 1)
+        self:ScheduleInviteStep(0)
         return
+    end
+
+    if IsInGroup() and not IsInRaid() then
+        local convertOnlyWhenFull = type(invite) == "table" and invite.convertOnlyWhenFull
+        local allowRaidConversion = type(invite) ~= "table" or invite.allowRaidConversion ~= false
+        if not convertOnlyWhenFull or getPartyMemberCount() >= PARTY_MEMBER_LIMIT then
+            if not allowRaidConversion then
+                table.remove(self.inviteQueue, 1)
+                self:ScheduleInviteStep(INVITE_INTERVAL)
+            elseif self:TryConvertToRaid() then
+                self:ScheduleInviteStep(CONVERT_RETRY_DELAY)
+            end
+            return
+        end
     end
 
     if not IsInRaid() and (self.partyInvitesSent or 0) >= 4 then
         return
     end
 
-    local name = table.remove(self.inviteQueue, 1)
-    if name and not isPlayerGrouped(name) and type(C_PartyInfo_InviteUnit) == "function" then
+    table.remove(self.inviteQueue, 1)
+    if type(C_PartyInfo_InviteUnit) == "function" then
         pcall(C_PartyInfo_InviteUnit, name)
         if not IsInRaid() then
             self.partyInvitesSent = (self.partyInvitesSent or 0) + 1
@@ -477,7 +501,7 @@ function InviteTool:ProcessInviteQueue()
     self:ScheduleInviteStep(INVITE_INTERVAL)
 end
 
-function InviteTool:QueueInvites(names)
+function InviteTool:QueueInvites(names, options)
     if type(names) ~= "table" or #names == 0 then
         return 0
     end
@@ -488,19 +512,27 @@ function InviteTool:QueueInvites(names)
 
     self.inviteQueue = self.inviteQueue or {}
     self.inviteQueued = self.inviteQueued or {}
+    local convertOnlyWhenFull = type(options) == "table" and options.convertOnlyWhenFull and true or false
+    local allowRaidConversion = type(options) ~= "table" or options.allowRaidConversion ~= false
     local added = 0
     for _, rawName in ipairs(names) do
         local name = safeString(rawName)
         local full = name and normalizeName(name)
         if name and full and not self.inviteQueued[full] and not isPlayerGrouped(name) then
             self.inviteQueued[full] = true
-            self.inviteQueue[#self.inviteQueue + 1] = name
+            self.inviteQueue[#self.inviteQueue + 1] = {
+                name = name,
+                convertOnlyWhenFull = convertOnlyWhenFull,
+                allowRaidConversion = allowRaidConversion
+            }
             added = added + 1
         end
     end
     if added > 0 then
-        self.autoConvertPending = true
-        self.autoConvertExpires = GetTime() + 120
+        if allowRaidConversion and not convertOnlyWhenFull then
+            self.autoConvertPending = true
+            self.autoConvertExpires = GetTime() + 120
+        end
         self.reportedInviteBlock = nil
         self.reportedConversionBlock = nil
         self:ScheduleInviteStep(0)

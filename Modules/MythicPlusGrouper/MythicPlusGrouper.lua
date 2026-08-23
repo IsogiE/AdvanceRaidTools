@@ -532,7 +532,10 @@ function Mod:InvitePlayer(character)
     if not character then return false end
     local InviteTool = E:GetEnabledModule("InviteTool")
     if InviteTool and InviteTool.QueueInvites then
-        return (InviteTool:QueueInvites({character}) or 0) > 0
+        return (InviteTool:QueueInvites({character}, {
+            convertOnlyWhenFull = true,
+            allowRaidConversion = false
+        }) or 0) > 0
     end
     local inviteUnit = C_PartyInfo and C_PartyInfo.InviteUnit or InviteUnit
     if type(inviteUnit) == "function" then
