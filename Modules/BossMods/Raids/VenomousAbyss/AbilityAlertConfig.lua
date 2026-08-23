@@ -340,7 +340,7 @@ end
 
 local function stopUlatekWave(self)
     self.ulatekWaveActive = false
-    self.ulatekWaveStartTime = nil
+    self.ulatekUnitStartTimes = nil
     self.ulatekEmptySince = nil
 
     if self.ulatekWaveTicker then
@@ -364,15 +364,15 @@ reconcileUlatekUnits = function(self)
         return
     end
 
-    local units = {}
+    local unitCount = 0
 
     for _, unit in ipairs(ULATEK_BOSS_UNITS) do
         if UnitExists(unit) then
-            units[#units + 1] = unit
+            unitCount = unitCount + 1
         end
     end
 
-    if #units == 0 then
+    if unitCount == 0 then
         local now = GetTime()
         self.ulatekEmptySince = self.ulatekEmptySince or now
 
@@ -387,21 +387,23 @@ reconcileUlatekUnits = function(self)
     local now = GetTime()
     local startedBar = false
 
-    for row, bar in ipairs(self.ulatekShriekerBars) do
-        local unit = units[row]
+    for row, unit in ipairs(ULATEK_BOSS_UNITS) do
+        local bar = self.ulatekShriekerBars[row]
+        local startTime = self.ulatekUnitStartTimes
+            and self.ulatekUnitStartTimes[unit]
 
-        if unit then
+        if UnitExists(unit) and startTime then
             bar.unit = unit
             bar:SetMode("label")
             bar:SetLabel(UnitName(unit) or L["BossMods_UlatekBrightscaleShrieker"])
             bar:SetMiddle("")
 
             if not bar:IsRunning()
-                and now - self.ulatekWaveStartTime < ULATEK_CHECK_DURATION
+                and now - startTime < ULATEK_CHECK_DURATION
             then
                 bar:Start({
                     total = ULATEK_CHECK_DURATION,
-                    lead = self.ulatekWaveStartTime - now
+                    lead = startTime - now
                 })
                 startedBar = true
             end
@@ -418,36 +420,37 @@ reconcileUlatekUnits = function(self)
     end
 end
 
-local function startUlatekWave(self)
+local function startUlatekWave(self, unit)
     if not isUlatekBarEnabled(self) then
-        return
-    end
-
-    if self.ulatekWaveActive then
-        reconcileUlatekUnits(self)
         return
     end
 
     ensureUlatekBars(self)
 
-    for _, bar in ipairs(self.ulatekShriekerBars) do
-        if bar:IsRunning() then
-            bar:Stop()
+    if not self.ulatekWaveActive then
+        for _, bar in ipairs(self.ulatekShriekerBars) do
+            if bar:IsRunning() then
+                bar:Stop()
+            end
         end
+
+        self.ulatekWaveActive = true
+        self.ulatekUnitStartTimes = {}
+        self.ulatekEmptySince = nil
+
+        -- Keep reconciling after the 35-second bars expire. This holds the wave
+        -- lock until surviving Shriekers disappear, so a later cast cannot rearm.
+        self.ulatekWaveTicker = C_Timer.NewTicker(
+            ULATEK_UNIT_REFRESH_INTERVAL,
+            function()
+                reconcileUlatekUnits(self)
+            end
+        )
     end
 
-    self.ulatekWaveActive = true
-    self.ulatekWaveStartTime = GetTime()
-    self.ulatekEmptySince = nil
-
-    -- Keep reconciling after the 35-second bars expire. This holds the wave
-    -- lock until surviving Shriekers disappear, so a later cast cannot rearm.
-    self.ulatekWaveTicker = C_Timer.NewTicker(
-        ULATEK_UNIT_REFRESH_INTERVAL,
-        function()
-            reconcileUlatekUnits(self)
-        end
-    )
+    self.ulatekUnitStartTimes = self.ulatekUnitStartTimes or {}
+    self.ulatekUnitStartTimes[unit] =
+        self.ulatekUnitStartTimes[unit] or GetTime()
 
     reconcileUlatekUnits(self)
 end
@@ -489,7 +492,7 @@ local function onUlatekSpellcastStart(self, _, unit)
     end
 
     if UnitExists(unit) and updateUlatekFinalPhase(self) then
-        startUlatekWave(self)
+        startUlatekWave(self, unit)
     end
 end
 
