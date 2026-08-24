@@ -68,6 +68,20 @@ E.VenomousAbyssAbilityData = {
                 defaultBarColor = "F7FF00",
                 order = 60,
             },
+
+            {
+                spellID = -1293212,
+                triggerSpellID = 1293212,
+                kind = "assignmentText",
+                textOnly = true,
+                settingsKey = "Grasping Depths Assignment",
+                name = L["BossMods_VA_Ability_GraspingDepthsAssignment"],
+                shortName = L["BossMods_VA_Ability_GraspingDepthsAssignment"],
+                defaultBarEnabled = false,
+                defaultTextEnabled = true,
+                defaultTextSecondsBefore = 5,
+                order = 65,
+            },
         },
     },
 

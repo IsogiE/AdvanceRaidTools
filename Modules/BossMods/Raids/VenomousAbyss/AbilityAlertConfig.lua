@@ -7,6 +7,7 @@ local ROUSE_THE_BROOD_SPELL_ID = 1308356
 local RAVENOUS_FEAST_SPELL_ID = 1290516
 local VENOM_COAGULATION_SPELL_ID = 1284251
 local UNSTABLE_MIASMA_SPELL_ID = 1288232
+local GRASPING_DEPTHS_SPELL_ID = 1293212
 
 local ULATEK_ENCOUNTER_ID = 3492
 local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
@@ -247,6 +248,80 @@ local function getEntombedAssignment()
     elseif red and not green then
         return "red"
     end
+end
+
+local function getNekzaliGroupAssignment()
+    local ready, context = getReadyAssignmentContext()
+
+    if not ready then
+        return nil
+    end
+
+    local groupOne = ready:FindPlayerInHashTag(
+        context,
+        "NekG1",
+        { hashtagMultiline = true }
+    )
+    local groupTwo = ready:FindPlayerInHashTag(
+        context,
+        "NekG2",
+        { hashtagMultiline = true }
+    )
+
+    -- A malformed note containing the player in both groups consistently
+    -- follows Group 1 rather than changing behavior between countdowns.
+    if groupOne then
+        return 1
+    elseif groupTwo then
+        return 2
+    end
+end
+
+local function getAssignmentTextState(self, ability, testMode)
+    if not ability
+        or ability.kind ~= "assignmentText"
+        or tonumber(ability.triggerSpellID) ~= GRASPING_DEPTHS_SPELL_ID
+    then
+        return nil
+    end
+
+    local group = testMode and 1 or getNekzaliGroupAssignment()
+
+    if not group then
+        return nil
+    end
+
+    local castNumber
+
+    if testMode then
+        castNumber = 1
+    else
+        local now = GetTime()
+        local lastTimer = self.nekzaliGraspingLastTimer
+
+        if lastTimer and now - lastTimer.time < 0.75 then
+            castNumber = lastTimer.castNumber
+        else
+            castNumber = (self.nekzaliGraspingCastCount or 0) + 1
+            self.nekzaliGraspingCastCount = castNumber
+            self.nekzaliGraspingLastTimer = {
+                time = now,
+                castNumber = castNumber
+            }
+        end
+    end
+
+    local groupGoingDown = castNumber % 2 == group % 2
+
+    return {
+        castNumber = castNumber,
+        message = groupGoingDown
+            and L["BossMods_VA_Assignment_GroupGoingDown"]
+            or L["BossMods_VA_Assignment_NotGoingDown"],
+        color = groupGoingDown
+            and {0.10, 0.90, 0.20, 1}
+            or {1.00, 0.10, 0.10, 1}
+    }
 end
 
 local reconcileUlatekUnits
@@ -528,6 +603,8 @@ local function resetEncounterTracking(self)
     wipe(self.entombedLastCast)
     self.entombedAssignment = nil
     self.entombedAssignmentResolved = false
+    self.nekzaliGraspingCastCount = 0
+    self.nekzaliGraspingLastTimer = nil
     self.ulatekEncounterActive = false
     self.ulatekFinalPhase = false
     self.ulatekBigWigsStage = nil
@@ -603,6 +680,7 @@ E:CreateAbilityAlertsModule({
     defaultBarEnabledWhenUnset = true,
     getAbilityAssignment = getAbilityAssignment,
     getAssignedHits = getAssignedHits,
+    getAssignmentTextState = getAssignmentTextState,
     resetEncounterTracking = resetEncounterTracking,
     shouldSuppressCast = shouldSuppressCast
 })

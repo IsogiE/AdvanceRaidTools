@@ -290,6 +290,7 @@ function AbilityAlerts:BuildAbilityLookup()
                     shortName = shortName,
                     order = ability.order or 100,
                     kind = ability.kind,
+                    textOnly = ability.textOnly == true,
                     triggerSpellID = tonumber(ability.triggerSpellID),
                     triggerSpellIDs = triggerSpellIDs,
                     castTimeAdjustment = tonumber(
@@ -307,6 +308,10 @@ function AbilityAlerts:BuildAbilityLookup()
                     ),
                     defaultBarColor = ability.defaultBarColor,
                     defaultBarEnabled = ability.defaultBarEnabled,
+                    defaultTextEnabled = ability.defaultTextEnabled,
+                    defaultTextSecondsBefore = tonumber(
+                        ability.defaultTextSecondsBefore
+                    ),
 
                     bossKey = boss.bossKey,
                     bossName = boss.bossName,
@@ -445,6 +450,7 @@ function AbilityAlerts:EnsureCustomBarDefaults()
 
             settings.enabled = true
             settings.bar = settings.bar or {}
+            settings.text = settings.text or {}
 
             if enableAllBarsMigration then
                 settings.bar.enabled = true
@@ -464,6 +470,14 @@ function AbilityAlerts:EnsureCustomBarDefaults()
 
                 if ability.defaultBarEnabled ~= nil then
                     settings.bar.enabled = ability.defaultBarEnabled == true
+                end
+
+                if ability.defaultTextEnabled ~= nil then
+                    settings.text.enabled = ability.defaultTextEnabled == true
+                end
+
+                if ability.defaultTextSecondsBefore ~= nil then
+                    settings.text.secondsBefore = ability.defaultTextSecondsBefore
                 end
 
                 settings[presetVersionField] = 1
@@ -2061,6 +2075,99 @@ function AbilityAlerts:StartTextCountdown(
     )
 end
 
+function AbilityAlerts:StartAssignmentTextAlert(
+    ability,
+    duration,
+    testMode
+)
+    if not self:IsAbilityFeatureEnabled(ability) then
+        return
+    end
+
+    local settings = self:GetAbilitySettings(ability.spellID)
+
+    if not settings
+        or not settings.text
+        or not settings.text.enabled
+        or (not testMode and not isDifficultyEnabled(settings, ability))
+    then
+        return
+    end
+
+    local state = config.getAssignmentTextState
+        and config.getAssignmentTextState(self, ability, testMode)
+
+    if not state or type(state.message) ~= "string" then
+        return
+    end
+
+    local seconds = getSeconds(settings.text.secondsBefore, 5)
+
+    if seconds <= 0 then
+        return
+    end
+
+    local delayBy = getSeconds(settings.text.delayBy, 0)
+    local startDelay = testMode and 0
+        or math.max(0, getSeconds(duration, 0) - seconds + delayBy)
+    local token = self:InvalidateAbility(ability.spellID)
+
+    self:Schedule(
+        ability.spellID,
+        startDelay,
+        token,
+        function()
+            local alert = self:EnsureTextAlert(ability.spellID)
+            local startedAt = GetTime()
+            local interval = settings.text.showOneDecimal ~= false and 0.1 or 1
+            local ticker
+
+            local function updateText()
+                if not self:IsEnabled()
+                    or not self:IsTokenValid(ability.spellID, token)
+                then
+                    if ticker then
+                        ticker:Cancel()
+                    end
+                    return
+                end
+
+                local remaining = seconds - (GetTime() - startedAt)
+
+                if remaining <= 0 then
+                    alert:Hide()
+                    self:ApplyPositions()
+
+                    if ticker then
+                        ticker:Cancel()
+                    end
+                    return
+                end
+
+                local timeText = settings.text.showOneDecimal ~= false
+                    and ("%.1f"):format(remaining)
+                    or tostring(math.ceil(remaining))
+
+                alert:SetText(state.message .. " " .. timeText)
+                alert:Show()
+                self:ApplyPositions()
+
+                local fontString = alert:GetTextFontString()
+                local color = state.color or {1, 1, 1, 1}
+                fontString:SetTextColor(
+                    color[1] or color.r or 1,
+                    color[2] or color.g or 1,
+                    color[3] or color.b or 1,
+                    color[4] or color.a or 1
+                )
+            end
+
+            updateText()
+            ticker = C_Timer.NewTicker(interval, updateText)
+        end
+    )
+end
+
 -------------------------------------------------------------------------------
 -- Audio and TTS
 -------------------------------------------------------------------------------
@@ -3271,6 +3378,14 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
                 duration,
                 false
             )
+        elseif difficultyEnabled
+            and triggeredAbility.kind == "assignmentText"
+        then
+            self:StartAssignmentTextAlert(
+                triggeredAbility,
+                duration,
+                false
+            )
         end
     end
 end
@@ -3965,6 +4080,11 @@ function AbilityAlerts:TestAbility(spellID)
 
     if ability.kind == "markerSequence" then
         self:StartMarkerSequenceBar(ability, 0, true)
+        return
+    end
+
+    if ability.kind == "assignmentText" then
+        self:StartAssignmentTextAlert(ability, 5, true)
         return
     end
 
