@@ -127,6 +127,8 @@ local function ensureAbilitySettings(mod, spellID)
         mod.db.abilities[storageKey] = settings
     end
 
+    local ability = mod.GetAbility and mod:GetAbility(spellID)
+
     -- The individual bar, text and audio toggles are the alert switches.
     -- Keep legacy profiles from retaining the removed ability-wide gate.
     settings.enabled = true
@@ -164,7 +166,11 @@ local function ensureAbilitySettings(mod, spellID)
     end
 
     if settings.bar.enabled == nil then
-        settings.bar.enabled = true
+        if ability and ability.defaultBarEnabled ~= nil then
+            settings.bar.enabled = ability.defaultBarEnabled == true
+        else
+            settings.bar.enabled = true
+        end
     end
 
     if settings.bar.unattached == nil then
@@ -261,7 +267,9 @@ settings.bar.font.outline =
     end
 
     if settings.text.enabled == nil then
-        settings.text.enabled = false
+        settings.text.enabled = ability
+            and ability.defaultTextEnabled == true
+            or false
     end
 
     if settings.text.unattached == nil then
@@ -269,7 +277,9 @@ settings.bar.font.outline =
     end
 
     settings.text.secondsBefore =
-        tonumber(settings.text.secondsBefore) or 7
+        tonumber(settings.text.secondsBefore)
+        or ability and ability.defaultTextSecondsBefore
+        or 7
 
     settings.text.delayBy =
         tonumber(settings.text.delayBy) or 0
@@ -1206,6 +1216,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         -- Bar
         -----------------------------------------------------------------------
 
+        if not ability.textOnly then
         y = section(y, L["BossMods_AAOptions_Bar"])
 
         local enableBar = rebuildCheckbox({
@@ -1858,6 +1869,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             end
         end
 
+        end
+
         if ability.kind ~= "mightyThudHits"
             and ability.kind ~= "ravenousFeastHits"
             and ability.kind ~= "mushroomTossJump"
@@ -1954,14 +1967,16 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
             y = full(y, showOneDecimal)
 
-            local textMessage = editBox({
-                label = L["BossMods_AAOptions_TextMessage"],
-                get = function() return settings.text.message end,
-                onChange = function(value) settings.text.message = value end,
-                disabled = function() return isDisabled() or not settings.enabled end
-            })
+            if ability.kind ~= "assignmentText" then
+                local textMessage = editBox({
+                    label = L["BossMods_AAOptions_TextMessage"],
+                    get = function() return settings.text.message end,
+                    onChange = function(value) settings.text.message = value end,
+                    disabled = function() return isDisabled() or not settings.enabled end
+                })
 
-            y = full(y, textMessage)
+                y = full(y, textMessage)
+            end
 
             local overrideTextAppearance = rebuildCheckbox({
                 text = L["BossMods_AAOptions_OverrideTextAppearance"],
@@ -2020,6 +2035,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         if ability.kind ~= "mightyThudHits"
             and ability.kind ~= "ravenousFeastHits"
             and ability.kind ~= "mushroomTossJump"
+            and not ability.textOnly
         then
 
         -----------------------------------------------------------------------

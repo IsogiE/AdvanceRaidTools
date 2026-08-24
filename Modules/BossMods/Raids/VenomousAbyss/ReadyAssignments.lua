@@ -100,17 +100,41 @@ local BOSS_META = {
     AR({
         boss = BOSS_META.nekzali,
 
-        key = "venomousAbyssFocusFarAdd",
-        sheet = "VenomousAbyssFocusFarAdd",
+        key = "venomousAbyssNekG1",
+        sheet = "VenomousAbyssNekzaliGroups",
 
-        labelKey = "BossMods_NoteFocusFarAdd",
-        itemLabelKey = "BossMods_NoteFocusFarAdd",
+        labelKey = "BossMods_NoteNekGroups",
+        itemLabelKey = "BossMods_NoteNekGroups",
 
         tab = "VenomousAbyss",
         order = 10,
 
-        tag = "FocusFarAdd",
-        textKey = "BossMods_AR_TextFocusFarAdd"
+        tag = "NekG1",
+        textKey = "BossMods_AR_TextNekG1",
+        note = {
+            tag = "NekG1",
+            template = "#NekG1\nPlayer1\nPlayer2\nPlayer3\nPlayer4\nPlayer5"
+        }
+    })
+
+    AR({
+        boss = BOSS_META.nekzali,
+
+        key = "venomousAbyssNekG2",
+        sheet = "VenomousAbyssNekzaliGroups",
+
+        labelKey = "BossMods_NoteNekGroups",
+        itemLabelKey = "BossMods_NoteNekGroups",
+
+        tab = "VenomousAbyss",
+        order = 11,
+
+        tag = "NekG2",
+        textKey = "BossMods_AR_TextNekG2",
+        note = {
+            tag = "NekG2",
+            template = "#NekG2\nPlayer1\nPlayer2\nPlayer3\nPlayer4\nPlayer5"
+        }
     })
 
     ---------------------------------------------------------------------------
@@ -493,7 +517,7 @@ AR({
         order = 10,
 
         entries = {
-            "VenomousAbyssFocusFarAdd"
+            "VenomousAbyssNekzaliGroups"
         }
     })
 
