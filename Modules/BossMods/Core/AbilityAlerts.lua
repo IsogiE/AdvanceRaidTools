@@ -288,6 +288,7 @@ function AbilityAlerts:BuildAbilityLookup()
                     settingsKey = settingsKey,
                     name = fullName,
                     shortName = shortName,
+                    barName = ability.barName,
                     order = ability.order or 100,
                     kind = ability.kind,
                     textOnly = ability.textOnly == true,
@@ -932,6 +933,10 @@ bar.frame:SetPoint(
 
     bar.onFrame = function(elapsed, total)
         if bar.postHitStageActive then
+            if bar.postHitStageCountDown then
+                return math.max(0, total - elapsed) / total
+            end
+
             return elapsed / total
         elseif bar.beamBarActive then
             if elapsed < 4 then
@@ -947,7 +952,7 @@ bar.frame:SetPoint(
 
         bar:SetRight(("%.1f"):format(remaining))
 
-        if bar.postHitStageActive then
+        if bar.postHitStageActive and not bar.postHitStageCountDown then
             bar:SetRight(("%.1f"):format(math.min(total, elapsed)))
         end
 
@@ -1101,6 +1106,7 @@ bar.frame:SetPoint(
         bar.guillotineSequenceActive = false
         bar.beamBarActive = false
         bar.postHitStageActive = false
+        bar.postHitStageCountDown = false
         bar.timelineMarkerData = nil
         bar:Hide()
         self:ApplyPositions()
@@ -1127,10 +1133,11 @@ function AbilityAlerts:StartBar(ability, settings, durationOverride, hitNumber)
     end
 
     bar:SetMode("label")
+    local barSpellName = ability.barName or ability.shortName or ability.name
     bar:SetLabel(
         replaceVariables(getBarText(settings), {
-            name = ability.name,
-            shortName = ability.shortName,
+            name = barSpellName,
+            shortName = barSpellName,
             hitNumber = hitNumber
         }, duration)
     )
@@ -2404,6 +2411,7 @@ function AbilityAlerts:SchedulePostHitStages(
         if stageDuration > 0 then
             local stageDelay = getSeconds(hitDelay, 0) + elapsed
             local stageText = stage.text
+            local stageBarText = stage.barText or stageText
 
             if barEnabled then
                 self:SchedulePostHit(
@@ -2414,10 +2422,16 @@ function AbilityAlerts:SchedulePostHitStages(
 
                         local bar = self:EnsureBar(ability.spellID)
                         bar.postHitStageActive = true
-                        bar:SetValue(0)
-                        bar:SetRight("0.0")
+                        bar.postHitStageCountDown =
+                            postHitStages.countDown == true
+                        bar:SetValue(bar.postHitStageCountDown and 1 or 0)
+                        bar:SetRight(
+                            ("%.1f"):format(
+                                bar.postHitStageCountDown and stageDuration or 0
+                            )
+                        )
                         bar:SetLabel(
-                            stageText or ability.shortName or ability.name
+                            stageBarText or ability.shortName or ability.name
                         )
                     end
                 )
