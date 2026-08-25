@@ -108,7 +108,6 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_ShiftingProtovenom"],
                 defaultBarColor = "C400FF",
                 order = 20,
-                castTimeAdjustment = 4,
             },
 
             {
