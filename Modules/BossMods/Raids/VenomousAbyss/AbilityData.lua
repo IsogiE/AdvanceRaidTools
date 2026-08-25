@@ -138,7 +138,7 @@ E.VenomousAbyssAbilityData = {
                 postHitStages = {
                     stages = {
                         { duration = 8, text = L["BossMods_VA_Stage_Soak"] },
-                        { duration = 6, text = L["BossMods_VA_Stage_PoolDrop"] },
+                        { duration = 7, text = L["BossMods_VA_Stage_PoolDrop"] },
                     },
                 },
             },
