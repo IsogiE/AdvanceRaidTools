@@ -267,10 +267,12 @@ E.VenomousAbyssAbilityData = {
                 spellID = 1281907,
                 settingsKey = "Plague Froth",
                 name = L["BossMods_VA_Ability_PlagueFroth"],
+                barName = L["BossMods_VA_Stage_Waves"],
                 defaultBarColor = "00FFC3",
                 order = 20,
                 embeddedMechanicDefaultEnabled = true,
                 postHitStages = {
+                    countDown = true,
                     stages = {
                         { duration = 6, text = L["BossMods_VA_Stage_Waves"] },
                     },
@@ -281,13 +283,19 @@ E.VenomousAbyssAbilityData = {
                 spellID = 1282525,
                 settingsKey = "Malignant Catalyst",
                 name = L["BossMods_VA_Ability_MalignantCatalyst"],
+                barName = "Damage+Soaks",
                 defaultBarColor = "FF7400",
                 order = 30,
                 castTimeAdjustment = 5,
                 embeddedMechanicDefaultEnabled = true,
                 postHitStages = {
+                    countDown = true,
                     stages = {
-                        { duration = 7, text = L["BossMods_VA_Stage_Soaks"] },
+                        {
+                            duration = 7,
+                            text = L["BossMods_VA_Stage_Soaks"],
+                            barText = "Catch",
+                        },
                     },
                 },
             },
@@ -296,6 +304,7 @@ E.VenomousAbyssAbilityData = {
                 spellID = 1282117,
                 settingsKey = "Adaptive Infection",
                 name = L["BossMods_VA_Ability_AdaptiveInfection"],
+                barName = "Absorbs+Dispels",
                 defaultBarColor = "FFF90F",
                 order = 40,
             },
