@@ -14,6 +14,7 @@
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkersSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakCompassSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>
