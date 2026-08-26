@@ -988,6 +988,11 @@ L["BossMods_AR_TextSSZSoak2"] = "You are soak group 2"
 L["BossMods_SszorakMarkers"] = "Sszorak Wind Markers"
 L["BossMods_SszorakMarkersDesc"] =
     "Mark where to drop mushrooms"
+L["BossMods_SszorakCompass"] = "Sszorak Compass"
+L["BossMods_SszorakCompassDesc"] =
+    "Displays the eight room markers when #sszCompass is present in the active ART note. The ring rotates with your facing and safely uses a north-up layout if facing cannot be read."
+L["BossMods_SCIconSize"] = "Icon Size"
+L["BossMods_SCRingRadius"] = "Ring Radius"
 L["BossMods_NoteSSZWindCaller"] = "Wind Marker Callers"
 L["BossMods_AR_TextSSZWindCaller"] = "You are assigned to call the wind markers"
 L["BossMods_SMButtonsSection"] = "Caller Button Bar"
