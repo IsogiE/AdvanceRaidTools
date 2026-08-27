@@ -687,27 +687,6 @@ function AbilityAlerts:Schedule(spellID, delay, token, callback)
     end)
 end
 
-function AbilityAlerts:SchedulePostHit(delay, token, callback)
-    delay = math.max(0, tonumber(delay) or 0)
-
-    local function run()
-        if not self:IsEnabled()
-            or self.postHitLifecycleToken ~= token
-        then
-            return
-        end
-
-        callback()
-    end
-
-    if delay == 0 then
-        run()
-        return
-    end
-
-    C_Timer.After(delay, run)
-end
-
 -------------------------------------------------------------------------------
 -- Bar
 -------------------------------------------------------------------------------
@@ -2346,7 +2325,7 @@ function AbilityAlerts:StartPostHitStageTextCountdown(
 
     local function updateText()
         if not self:IsEnabled()
-            or self.postHitLifecycleToken ~= token
+            or not self:IsTokenValid(ability.spellID, token)
         then
             if ticker then
                 ticker:Cancel()
@@ -2402,7 +2381,6 @@ function AbilityAlerts:SchedulePostHitStages(
         return
     end
 
-    local postHitToken = self.postHitLifecycleToken
     local elapsed = 0
 
     for _, stage in ipairs(postHitStages.stages or {}) do
@@ -2414,9 +2392,10 @@ function AbilityAlerts:SchedulePostHitStages(
             local stageBarText = stage.barText or stageText
 
             if barEnabled then
-                self:SchedulePostHit(
+                self:Schedule(
+                    ability.spellID,
                     stageDelay,
-                    postHitToken,
+                    token,
                     function()
                         self:StartBar(ability, settings.bar, stageDuration)
 
@@ -2442,14 +2421,15 @@ function AbilityAlerts:SchedulePostHitStages(
                     stageText or ability.shortName or ability.name
                 local firstUpdateDelay = stageDelay + 0.05
 
-                self:SchedulePostHit(
+                self:Schedule(
+                    ability.spellID,
                     firstUpdateDelay,
-                    postHitToken,
+                    token,
                     function()
                         self:StartPostHitStageTextCountdown(
                             ability,
                             settings.text,
-                            postHitToken,
+                            token,
                             displayText,
                             math.max(0, stageDuration - 0.05)
                         )

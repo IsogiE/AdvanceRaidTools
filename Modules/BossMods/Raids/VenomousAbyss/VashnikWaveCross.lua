@@ -10,6 +10,7 @@ E:RegisterModuleDefaults("BossMods_VashnikWaveCross", {
 
 local VASHNIK_ENCOUNTER_ID = 3455
 local PLAGUE_FROTH_SPELL_ID = 1281907
+local PLAGUE_FROTH_WAVES_DURATION = 6
 local UPDATE_INTERVAL = 0.05
 local CROSS_TEXTURE_SIZE = 2048
 local CROSS_TEXTURE = [[Interface\AddOns\AdvanceRaidTools\Media\VashnikWaveCross.tga]]
@@ -154,42 +155,123 @@ function VashnikWaveCross:ApplyVisibility()
 end
 
 function VashnikWaveCross:CancelTriggerTimers(clearBar)
+    self:CancelScheduledWindow()
+    self:CancelActiveWindow()
+    if clearBar then
+        self.plagueFrothStartsAt = nil
+        self.plagueFrothBarText = nil
+    end
+end
+
+function VashnikWaveCross:CancelScheduledWindow()
     self.triggerGeneration = (self.triggerGeneration or 0) + 1
     if self.showTimer then
         self.showTimer:Cancel()
         self.showTimer = nil
     end
-    if self.hideTimer then
-        self.hideTimer:Cancel()
-        self.hideTimer = nil
+end
+
+function VashnikWaveCross:CancelActiveWindow()
+    self.activeWindowGeneration = (self.activeWindowGeneration or 0) + 1
+    if self.activeWindowTimer then
+        self.activeWindowTimer:Cancel()
+        self.activeWindowTimer = nil
     end
     self.timedWindowActive = false
-    if clearBar then
-        self.plagueFrothEndsAt = nil
+end
+
+function VashnikWaveCross:StartTimedWindow(duration)
+    duration = tonumber(duration)
+    if not duration or duration <= 0 then
+        return
     end
+
+    self:CancelActiveWindow()
+
+    local generation = self.activeWindowGeneration
+    self.timedWindowActive = true
+    self:ApplyVisibility()
+
+    self.activeWindowTimer = C_Timer.NewTimer(duration, function()
+        if generation ~= self.activeWindowGeneration then
+            return
+        end
+
+        self.activeWindowTimer = nil
+        self.timedWindowActive = false
+        self:ApplyVisibility()
+    end)
+end
+
+function VashnikWaveCross:StartDueWavesWindow()
+    if self.db.displayMode == "always"
+        or not self.plagueFrothStartsAt
+    then
+        return
+    end
+
+    local elapsed = GetTime() - self.plagueFrothStartsAt
+    if elapsed < -0.5 or elapsed >= PLAGUE_FROTH_WAVES_DURATION then
+        return
+    end
+
+    self:StartTimedWindow(
+        PLAGUE_FROTH_WAVES_DURATION - math.max(0, elapsed)
+    )
 end
 
 function VashnikWaveCross:SchedulePlagueFrothWindow(timeRemaining)
     timeRemaining = tonumber(timeRemaining)
-    if not timeRemaining or timeRemaining < 0 then
+    if not timeRemaining then
         return
     end
 
-    self:CancelTriggerTimers(false)
+    self:CancelScheduledWindow()
     local generation = self.triggerGeneration
+    local showDelay
+    local hideDelay
+
+    if self.db.displayMode == "always" then
+        self:CancelActiveWindow()
+        self:ApplyVisibility()
+        return
+    end
+
+    if timeRemaining < 0 then
+        local wavesRemaining = PLAGUE_FROTH_WAVES_DURATION + timeRemaining
+        if wavesRemaining > 0 then
+            self:StartTimedWindow(wavesRemaining)
+            return
+        end
+
+        self:CancelActiveWindow()
+        self:ApplyVisibility()
+        return
+    end
+
     local secondsBefore = math.max(
         0,
         math.min(30, tonumber(self.db.secondsBefore) or 7)
     )
-    local showDelay = math.max(0, timeRemaining - secondsBefore)
+
+    showDelay = math.max(0, timeRemaining - secondsBefore)
+    hideDelay = timeRemaining + PLAGUE_FROTH_WAVES_DURATION
+
+    if not hideDelay or hideDelay <= 0 then
+        self:CancelActiveWindow()
+        self:ApplyVisibility()
+        return
+    end
+
+    local windowDuration = hideDelay - showDelay
 
     local function showCross()
         if generation ~= self.triggerGeneration or not self.encounterActive then
             return
         end
+
         self.showTimer = nil
-        self.timedWindowActive = true
-        self:ApplyVisibility()
+        self:StartTimedWindow(windowDuration)
     end
 
     if showDelay <= 0 then
@@ -197,19 +279,9 @@ function VashnikWaveCross:SchedulePlagueFrothWindow(timeRemaining)
     else
         self.showTimer = C_Timer.NewTimer(showDelay, showCross)
     end
-
-    self.hideTimer = C_Timer.NewTimer(timeRemaining, function()
-        if generation ~= self.triggerGeneration then
-            return
-        end
-        self.hideTimer = nil
-        self.plagueFrothEndsAt = nil
-        self.timedWindowActive = false
-        self:ApplyVisibility()
-    end)
 end
 
-function VashnikWaveCross:OnBigWigsStartBar(_, _, time)
+function VashnikWaveCross:OnBigWigsStartBar(_, text, time)
     if not self.encounterActive then
         return
     end
@@ -218,9 +290,33 @@ function VashnikWaveCross:OnBigWigsStartBar(_, _, time)
         return
     end
 
-    self.plagueFrothEndsAt = GetTime() + time
+    self:StartDueWavesWindow()
+
+    self.plagueFrothStartsAt = GetTime() + time
+    self.plagueFrothBarText = text
     if self.db.displayMode ~= "always" then
         self:SchedulePlagueFrothWindow(time)
+    end
+end
+
+function VashnikWaveCross:OnBigWigsStopBar(text)
+    if not self.encounterActive
+        or not self.plagueFrothBarText
+        or text ~= self.plagueFrothBarText
+    then
+        return
+    end
+
+    local timeRemaining = self.plagueFrothStartsAt
+        and self.plagueFrothStartsAt - GetTime()
+        or 0
+
+    if timeRemaining > 0.5 then
+        self:CancelScheduledWindow()
+        self:CancelActiveWindow()
+        self.plagueFrothStartsAt = nil
+        self.plagueFrothBarText = nil
+        self:ApplyVisibility()
     end
 end
 
@@ -233,6 +329,9 @@ function VashnikWaveCross:HookBigWigs()
         spellKeys = {PLAGUE_FROTH_SPELL_ID},
         onStartBar = function(key, text, time)
             self:OnBigWigsStartBar(key, text, time)
+        end,
+        onStopBar = function(text)
+            self:OnBigWigsStopBar(text)
         end
     })
 end
@@ -295,10 +394,11 @@ function VashnikWaveCross:Refresh()
     if self.db.displayMode == "always" then
         self:CancelTriggerTimers(false)
     elseif self.encounterActive
-        and self.plagueFrothEndsAt
-        and self.plagueFrothEndsAt > GetTime()
+        and self.plagueFrothStartsAt
     then
-        self:SchedulePlagueFrothWindow(self.plagueFrothEndsAt - GetTime())
+        self:SchedulePlagueFrothWindow(self.plagueFrothStartsAt - GetTime())
+    else
+        self:CancelTriggerTimers(false)
     end
     self:ApplyVisibility()
 end
