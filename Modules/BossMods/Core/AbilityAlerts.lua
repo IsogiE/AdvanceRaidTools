@@ -3303,6 +3303,16 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
         return
     end
 
+    if config.onBigWigsStartBar then
+        config.onBigWigsStartBar(
+            self,
+            spellID,
+            bigWigsText,
+            duration,
+            ability
+        )
+    end
+
     for _, triggeredAbility in ipairs(
         self.triggeredAbilitiesBySpellID[spellID] or {}
     ) do

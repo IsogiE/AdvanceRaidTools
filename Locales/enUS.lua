@@ -1027,6 +1027,10 @@ L["BossMods_AR_TextTFFeast3"] = "You are soaking Feast 3"
 
 L["BossMods_CoiledAltar"] = "The Coiled Altar"
 L["BossMods_CoiledAltarDesc"] = "Ready-check assignments for The Coiled Altar"
+L["BossMods_CoiledAltarNightfallBar"] = "Eternal Nightfall Shield"
+L["BossMods_CoiledAltarNightfallBarEnable"] = "Enable the Shield Break Bar"
+L["BossMods_CoiledAltarNightfallBarDesc"] =
+    "A bar that tracks if you're behind the shield break timer for Eternal Nightfall"
 L["BossMods_NoteCAGuillotines"] = "Guillotine Groups"
 L["BossMods_NoteCAOrbs"] = "Orb Assignments"
 L["BossMods_AR_TextCAG1"] = "You are soaking Guillotine 1"

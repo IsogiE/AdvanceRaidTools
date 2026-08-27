@@ -797,6 +797,32 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
     y = full(y, testAllAlerts)
 
+    if bossKey == "CoiledAltar" then
+        if abilityMod and abilityMod.db then
+            y = section(
+                y,
+                L["BossMods_CoiledAltarNightfallBar"]
+            )
+
+            y = full(y, checkbox({
+                text = L["BossMods_CoiledAltarNightfallBarEnable"],
+                labelTop = true,
+                get = function()
+                    return abilityMod.db.coiledAltarNightfallBarEnabled ~= false
+                end,
+                onChange = function(value)
+                    abilityMod.db.coiledAltarNightfallBarEnabled = value
+                    abilityMod:Refresh()
+                end
+            }))
+
+            y = full(y, track(T:Description(rightPanel, {
+                text = L["BossMods_CoiledAltarNightfallBarDesc"],
+                sizeDelta = 0
+            })))
+        end
+    end
+
     if bossKey == "Ulatek" then
         if abilityMod and abilityMod.db then
             y = section(

@@ -9,6 +9,12 @@ local VENOM_COAGULATION_SPELL_ID = 1284251
 local UNSTABLE_MIASMA_SPELL_ID = 1288232
 local GRASPING_DEPTHS_SPELL_ID = 1293212
 
+local COILED_ALTAR_ENCOUNTER_ID = 3429
+local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
+local COILED_ALTAR_NIGHTFALL_SPELL_ID = 1286918
+local COILED_ALTAR_NIGHTFALL_DURATION = 15
+local COILED_ALTAR_NIGHTFALL_BAR_ORDER = 130
+
 local ULATEK_ENCOUNTER_ID = 3492
 local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
 local ULATEK_CHECK_DURATION = 35
@@ -324,6 +330,219 @@ local function getAssignmentTextState(self, ability, testMode)
     }
 end
 
+local function isCoiledAltarNightfallBarEnabled(self)
+    return self.db.coiledAltarNightfallBarEnabled ~= false
+        and bossMods:IsFeatureEnabled(COILED_ALTAR_FEATURE_KEY)
+end
+
+local function getPublicNumber(value)
+    if issecretvalue(value) then
+        return nil
+    end
+
+    return tonumber(value)
+end
+
+local function paintCoiledAltarNightfallBar(bar)
+    local unit = bar.unit
+
+    if unit and UnitExists(unit) then
+        local absorb = UnitGetTotalAbsorbs
+            and getPublicNumber(UnitGetTotalAbsorbs(unit))
+            or nil
+
+        if absorb and (absorb > 0 or (bar.maxAbsorb or 0) > 0) then
+            bar.maxAbsorb = math.max(bar.maxAbsorb or 0, absorb)
+            local maxAbsorb = math.max(1, bar.maxAbsorb or 0)
+
+            bar.frame:SetMinMaxValues(0, maxAbsorb)
+            bar.frame:SetValue(math.max(0, math.min(maxAbsorb, absorb)))
+            bar:SetMiddle("")
+            return
+        end
+
+        shared.PaintUnitHealth(bar.frame, unit)
+        bar:SetMiddle("")
+        return
+    end
+
+    bar.frame:SetMinMaxValues(0, 1)
+    bar.frame:SetValue(0)
+    bar:SetMiddle("")
+end
+
+local function ensureCoiledAltarNightfallBar(self)
+    local bar = self:EnsureManagedBar(
+        "coiledAltarNightfall",
+        "CoiledAltar",
+        COILED_ALTAR_NIGHTFALL_BAR_ORDER,
+        {manualFill = true}
+    )
+
+    if not self.coiledAltarNightfallBar then
+        bar.onFrame = function(elapsed, total)
+            if bar.testPaceOffset ~= nil then
+                local requiredShield = (total - elapsed) / total
+                local simulatedShield = math.max(
+                    0,
+                    math.min(1, requiredShield + bar.testPaceOffset)
+                )
+
+                bar.frame:SetMinMaxValues(0, 1)
+                bar.frame:SetValue(simulatedShield)
+                bar:SetMiddle("")
+            else
+                paintCoiledAltarNightfallBar(bar)
+            end
+        end
+
+        bar.onTick = function(elapsed, total)
+            local remaining = math.max(0, total - elapsed)
+            bar:SetRight(("%.1f"):format(remaining))
+            bar:SetMarker(total > 0 and remaining / total or nil)
+        end
+
+        bar.onStop = function()
+            bar.unit = nil
+            bar.maxAbsorb = nil
+            bar.testPaceOffset = nil
+            bar:SetMarker(nil)
+            paintCoiledAltarNightfallBar(bar)
+            bar:Hide()
+            self:ApplyPositions()
+        end
+
+        self.coiledAltarNightfallBar = bar
+    end
+
+    return bar
+end
+
+local function clearCoiledAltarNightfallTimer(self)
+    if self.coiledAltarNightfallTimer then
+        self.coiledAltarNightfallTimer:Cancel()
+        self.coiledAltarNightfallTimer = nil
+    end
+end
+
+local function stopCoiledAltarNightfall(self)
+    clearCoiledAltarNightfallTimer(self)
+
+    local bar = self.coiledAltarNightfallBar
+
+    if not bar then
+        return
+    end
+
+    if bar:IsRunning() then
+        bar:Stop()
+    else
+        bar.unit = nil
+        bar.maxAbsorb = nil
+        bar.testPaceOffset = nil
+        paintCoiledAltarNightfallBar(bar)
+        bar:Hide()
+    end
+end
+
+local function startCoiledAltarNightfall(self)
+    if not self.coiledAltarEncounterActive
+        or not isCoiledAltarNightfallBarEnabled(self)
+    then
+        return
+    end
+
+    local now = GetTime()
+
+    if self.coiledAltarNightfallStartedAt
+        and now - self.coiledAltarNightfallStartedAt < 1
+    then
+        return
+    end
+
+    clearCoiledAltarNightfallTimer(self)
+
+    local bar = ensureCoiledAltarNightfallBar(self)
+
+    if bar:IsRunning() then
+        bar:Stop()
+    end
+
+    self.coiledAltarNightfallStartedAt = now
+    bar.unit = "boss2"
+    bar.maxAbsorb = nil
+    bar.testPaceOffset = nil
+    bar:SetMode("label")
+    bar:SetLabel(L["BossMods_CoiledAltarNightfallBar"])
+    bar:SetMiddle("")
+    bar:SetRight(("%.1f"):format(COILED_ALTAR_NIGHTFALL_DURATION))
+    bar:Start({total = COILED_ALTAR_NIGHTFALL_DURATION})
+    self:ApplyPositions()
+end
+
+local function scheduleCoiledAltarNightfall(self, duration)
+    if not self.coiledAltarEncounterActive
+        or not isCoiledAltarNightfallBarEnabled(self)
+    then
+        return
+    end
+
+    clearCoiledAltarNightfallTimer(self)
+
+    local delay = math.max(0, tonumber(duration) or 0)
+
+    if delay <= COILED_ALTAR_NIGHTFALL_DURATION + 0.5 then
+        startCoiledAltarNightfall(self)
+        return
+    end
+
+    self.coiledAltarNightfallTimer = C_Timer.NewTimer(delay, function()
+        self.coiledAltarNightfallTimer = nil
+        startCoiledAltarNightfall(self)
+    end)
+end
+
+local function testCoiledAltarNightfallBar(self)
+    if not isCoiledAltarNightfallBarEnabled(self) then
+        return
+    end
+
+    local bar = ensureCoiledAltarNightfallBar(self)
+
+    if bar:IsRunning() then
+        bar:Stop()
+    end
+
+    bar.unit = nil
+    bar.maxAbsorb = nil
+    bar.testPaceOffset = 0.12
+    bar:SetMode("label")
+    bar:SetLabel(L["BossMods_CoiledAltarNightfallBar"])
+    bar:SetMiddle("")
+    bar:SetRight(("%.1f"):format(COILED_ALTAR_NIGHTFALL_DURATION))
+    bar:Start({total = COILED_ALTAR_NIGHTFALL_DURATION})
+    self:ApplyPositions()
+end
+
+local function onCoiledAltarBigWigsStartBar(self, spellID, _, duration)
+    if tonumber(spellID) ~= COILED_ALTAR_NIGHTFALL_SPELL_ID then
+        return
+    end
+
+    scheduleCoiledAltarNightfall(self, duration)
+end
+
+local function onCoiledAltarBigWigsStage(self, module)
+    if not self.coiledAltarEncounterActive
+        or not module
+        or module.moduleName ~= "The Coiled Altar"
+    then
+        return
+    end
+
+    stopCoiledAltarNightfall(self)
+end
+
 local reconcileUlatekUnits
 
 local function ensureUlatekBars(self)
@@ -531,6 +750,11 @@ local function startUlatekWave(self, unit)
 end
 
 local function testEncounterBars(self, bossKey)
+    if bossKey == "CoiledAltar" then
+        testCoiledAltarNightfallBar(self)
+        return
+    end
+
     if bossKey ~= "Ulatek"
         or not isUlatekBarEnabled(self)
         or self.ulatekWaveActive
@@ -571,6 +795,11 @@ local function onUlatekSpellcastStart(self, _, unit)
     end
 end
 
+local function onBigWigsStage(self, module, stage)
+    onUlatekBigWigsStage(self, module, stage)
+    onCoiledAltarBigWigsStage(self, module, stage)
+end
+
 local function initializeEncounterBars(self, currentBossMods)
     bossMods = currentBossMods
     shared = bossMods.Engines.Shared
@@ -582,17 +811,28 @@ local function onEncounterStart(self, encounterID)
         self.ulatekFinalPhase = false
         self.ulatekBigWigsStage = 1
     end
+
+    if encounterID == COILED_ALTAR_ENCOUNTER_ID then
+        self.coiledAltarEncounterActive = true
+        stopCoiledAltarNightfall(self)
+    end
 end
 
 local function refreshEncounterBars(self)
     if not isUlatekBarEnabled(self) then
         stopUlatekWave(self)
     end
+
+    if not isCoiledAltarNightfallBarEnabled(self) then
+        stopCoiledAltarNightfall(self)
+    end
 end
 
 local function onFeatureEnabledChanged(self, _, key, enabled)
     if key == ULATEK_FEATURE_KEY and not enabled then
         stopUlatekWave(self)
+    elseif key == COILED_ALTAR_FEATURE_KEY and not enabled then
+        stopCoiledAltarNightfall(self)
     end
 end
 
@@ -609,6 +849,9 @@ local function resetEncounterTracking(self)
     self.ulatekFinalPhase = false
     self.ulatekBigWigsStage = nil
     stopUlatekWave(self)
+    self.coiledAltarEncounterActive = false
+    self.coiledAltarNightfallStartedAt = nil
+    stopCoiledAltarNightfall(self)
 end
 
 local function shouldSuppressCast(self, spellID)
@@ -663,7 +906,8 @@ E:CreateAbilityAlertsModule({
     events = {
         UNIT_SPELLCAST_START = onUlatekSpellcastStart
     },
-    onBigWigsStage = onUlatekBigWigsStage,
+    onBigWigsStartBar = onCoiledAltarBigWigsStartBar,
+    onBigWigsStage = onBigWigsStage,
     onEncounterStart = onEncounterStart,
     onFeatureEnabledChanged = onFeatureEnabledChanged,
     testEncounterBars = testEncounterBars,
@@ -673,6 +917,7 @@ E:CreateAbilityAlertsModule({
     end,
     extraDefaults = {
         entombedAssignmentFilteringEnabled = true,
+        coiledAltarNightfallBarEnabled = true,
         ulatekShriekerBarEnabled = true
     },
     presetVersionField = "venomousBarPresetVersion",
