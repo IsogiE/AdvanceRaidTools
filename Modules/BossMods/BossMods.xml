@@ -32,6 +32,7 @@
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakCompass.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekFangs.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCross.lua"/>
 
     <Script file="Misc\CombatTimer.lua"/>

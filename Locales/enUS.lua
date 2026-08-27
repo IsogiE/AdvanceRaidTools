@@ -1040,6 +1040,9 @@ L["BossMods_UlatekDesc"] = "Ready-check assignments for Ula'tek"
 L["BossMods_UlatekBrightscaleShrieker"] = "Shrieker DPS Check Bar"
 L["BossMods_UlatekShriekerBarEnable"] = "Enable the DPS Check Bar"
 L["BossMods_UlatekShriekerBarDesc"] = "A bar that tracks if you're behind the DPS Check on the Shrieker"
+L["BossMods_UlatekGraspingFangsOverview"] = "Grasping Fangs Overview"
+L["BossMods_UlatekGraspingFangsOverviewDesc"] =
+    "Display the list of people affected by Grasping Fang"
 
 -- BossMods: Venomous Abyss ability alerts
 L["BossMods_AA_SafeToPickup"] = "Safe To Pickup"
