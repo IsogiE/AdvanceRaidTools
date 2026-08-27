@@ -14,6 +14,7 @@ local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
 local COILED_ALTAR_NIGHTFALL_SPELL_ID = 1286918
 local COILED_ALTAR_NIGHTFALL_DURATION = 15
 local COILED_ALTAR_NIGHTFALL_BAR_ORDER = 130
+local COILED_ALTAR_NIGHTFALL_SAMPLE_DELAY = 0.2
 
 local ULATEK_ENCOUNTER_ID = 3492
 local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
@@ -335,29 +336,67 @@ local function isCoiledAltarNightfallBarEnabled(self)
         and bossMods:IsFeatureEnabled(COILED_ALTAR_FEATURE_KEY)
 end
 
-local function getPublicNumber(value)
-    if issecretvalue(value) then
-        return nil
+local function applyCoiledAltarNightfallAbsorb(bar, absorb)
+    if not absorb then
+        return false
     end
 
-    return tonumber(value)
+    if issecretvalue(absorb) then
+        if not bar.maxAbsorb then
+            bar.maxAbsorb = absorb
+            bar.maxAbsorbIsSecret = true
+        end
+
+        bar.frame:SetMinMaxValues(0, bar.maxAbsorb)
+        bar.frame:SetValue(absorb)
+        bar:SetMiddle("")
+        return true
+    end
+
+    absorb = tonumber(absorb)
+    if not absorb then
+        return false
+    end
+
+    if bar.maxAbsorbIsSecret then
+        bar.frame:SetMinMaxValues(0, bar.maxAbsorb)
+        bar.frame:SetValue(absorb)
+        bar:SetMiddle("")
+        return true
+    end
+
+    if absorb > 0 or (bar.maxAbsorb or 0) > 0 then
+        bar.maxAbsorb = math.max(bar.maxAbsorb or 0, absorb)
+        local maxAbsorb = math.max(1, bar.maxAbsorb or 0)
+
+        bar.frame:SetMinMaxValues(0, maxAbsorb)
+        bar.frame:SetValue(math.max(0, math.min(maxAbsorb, absorb)))
+        bar:SetMiddle("")
+        return true
+    end
+
+    return false
 end
 
-local function paintCoiledAltarNightfallBar(bar)
+local function paintCoiledAltarNightfallBar(bar, elapsed)
     local unit = bar.unit
 
     if unit and UnitExists(unit) then
-        local absorb = UnitGetTotalAbsorbs
-            and getPublicNumber(UnitGetTotalAbsorbs(unit))
-            or nil
+        if elapsed
+            and elapsed < COILED_ALTAR_NIGHTFALL_SAMPLE_DELAY
+            and not bar.maxAbsorb
+        then
+            bar.frame:SetMinMaxValues(0, 1)
+            bar.frame:SetValue(1)
+            return
+        end
 
-        if absorb and (absorb > 0 or (bar.maxAbsorb or 0) > 0) then
-            bar.maxAbsorb = math.max(bar.maxAbsorb or 0, absorb)
-            local maxAbsorb = math.max(1, bar.maxAbsorb or 0)
-
-            bar.frame:SetMinMaxValues(0, maxAbsorb)
-            bar.frame:SetValue(math.max(0, math.min(maxAbsorb, absorb)))
-            bar:SetMiddle("")
+        if UnitGetTotalAbsorbs
+            and applyCoiledAltarNightfallAbsorb(
+                bar,
+                UnitGetTotalAbsorbs(unit)
+            )
+        then
             return
         end
 
@@ -392,7 +431,7 @@ local function ensureCoiledAltarNightfallBar(self)
                 bar.frame:SetValue(simulatedShield)
                 bar:SetMiddle("")
             else
-                paintCoiledAltarNightfallBar(bar)
+                paintCoiledAltarNightfallBar(bar, elapsed)
             end
         end
 
@@ -405,6 +444,7 @@ local function ensureCoiledAltarNightfallBar(self)
         bar.onStop = function()
             bar.unit = nil
             bar.maxAbsorb = nil
+            bar.maxAbsorbIsSecret = nil
             bar.testPaceOffset = nil
             bar:SetMarker(nil)
             paintCoiledAltarNightfallBar(bar)
@@ -439,6 +479,7 @@ local function stopCoiledAltarNightfall(self)
     else
         bar.unit = nil
         bar.maxAbsorb = nil
+        bar.maxAbsorbIsSecret = nil
         bar.testPaceOffset = nil
         paintCoiledAltarNightfallBar(bar)
         bar:Hide()
@@ -471,7 +512,9 @@ local function startCoiledAltarNightfall(self)
     self.coiledAltarNightfallStartedAt = now
     bar.unit = "boss2"
     bar.maxAbsorb = nil
+    bar.maxAbsorbIsSecret = nil
     bar.testPaceOffset = nil
+    bar.frame:SetMinMaxValues(0, 1)
     bar:SetMode("label")
     bar:SetLabel(L["BossMods_CoiledAltarNightfallBar"])
     bar:SetMiddle("")
@@ -515,7 +558,9 @@ local function testCoiledAltarNightfallBar(self)
 
     bar.unit = nil
     bar.maxAbsorb = nil
+    bar.maxAbsorbIsSecret = nil
     bar.testPaceOffset = 0.12
+    bar.frame:SetMinMaxValues(0, 1)
     bar:SetMode("label")
     bar:SetLabel(L["BossMods_CoiledAltarNightfallBar"])
     bar:SetMiddle("")
