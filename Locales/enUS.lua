@@ -1047,6 +1047,10 @@ L["BossMods_UlatekShriekerBarDesc"] = "A bar that tracks if you're behind the DP
 L["BossMods_UlatekGraspingFangsOverview"] = "Grasping Fangs Overview"
 L["BossMods_UlatekGraspingFangsOverviewDesc"] =
     "Display the list of people affected by Grasping Fang"
+L["BossMods_UlatekWrongTarget"] = "Ula'tek Wrong Target"
+L["BossMods_UlatekWrongTargetDesc"] =
+    "Warning for when you're not targeting the heart"
+L["BossMods_UlatekWrongTargetText"] = "NOT TARGETING HEART"
 
 -- BossMods: Venomous Abyss ability alerts
 L["BossMods_AA_SafeToPickup"] = "Safe To Pickup"

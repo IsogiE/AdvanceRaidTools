@@ -15,6 +15,7 @@
     <Script file="Raids\VenomousAbyss\SszorakMarkersSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakCompassSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
