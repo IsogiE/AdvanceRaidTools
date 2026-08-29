@@ -17,10 +17,45 @@ local hooked = false
 local function dispatchStartBar(_, _, key, text, time)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
-        if sub and (not sub.spellKeys or sub.spellKeys[key]) then
+        if sub
+            and sub.onStartBar
+            and (not sub.spellKeys or sub.spellKeys[key])
+        then
             local ok, err = pcall(sub.onStartBar, key, text, time)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed: %s", sub.owner, tostring(err))
+            end
+        end
+    end
+end
+
+local function dispatchTimer(
+    _, _, key, time, maxTime, text, count, icon, isApprox, isBarEnabled
+)
+    for i = 1, #subscriberOrder do
+        local sub = subscribers[subscriberOrder[i]]
+        if sub
+            and sub.onTimer
+            and (not sub.spellKeys or sub.spellKeys[key])
+        then
+            local ok, err = pcall(
+                sub.onTimer,
+                key,
+                text,
+                time,
+                maxTime,
+                count,
+                icon,
+                isApprox,
+                isBarEnabled
+            )
+            if not ok then
+                E:ChannelWarn(
+                    DEBUG_CHANNEL,
+                    "subscriber '%s' failed handling a timer: %s",
+                    sub.owner,
+                    tostring(err)
+                )
             end
         end
     end
@@ -59,6 +94,7 @@ local function ensureHook()
         return
     end
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartBar", dispatchStartBar)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_Timer", dispatchTimer)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopBar", dispatchStopBar)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_SetStage", dispatchStage)
     hooked = true
@@ -73,6 +109,7 @@ local function maybeUnhook()
     end
     if BigWigsLoader then
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartBar")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_Timer")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopBar")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_SetStage")
     end
@@ -82,14 +119,19 @@ end
 function BW:Subscribe(opts)
     assert(type(opts) == "table", "BigWigs:Subscribe: opts required")
     assert(type(opts.owner) == "string" and opts.owner ~= "", "BigWigs:Subscribe: owner required")
-    assert(type(opts.onStartBar) == "function", "BigWigs:Subscribe: onStartBar required")
+    assert(
+        type(opts.onStartBar) == "function"
+            or type(opts.onTimer) == "function",
+        "BigWigs:Subscribe: onStartBar or onTimer required"
+    )
 
     local token = nextToken
     nextToken = nextToken + 1
 
     local sub = {
         owner = opts.owner,
-        onStartBar = opts.onStartBar,
+        onStartBar = type(opts.onStartBar) == "function" and opts.onStartBar or nil,
+        onTimer = type(opts.onTimer) == "function" and opts.onTimer or nil,
         onStopBar = type(opts.onStopBar) == "function" and opts.onStopBar or nil,
         onStage = type(opts.onStage) == "function" and opts.onStage or nil,
         spellKeys = nil
@@ -121,3 +163,4 @@ function BW:Subscribe(opts)
         end
     }
 end
+

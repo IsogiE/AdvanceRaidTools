@@ -172,45 +172,57 @@ end
 function Mod:CancelListeningWindow()
     self.windowGeneration = (self.windowGeneration or 0) + 1
     self.windowActive = false
+    self.activeWindowCount = 0
 
-    if self.openWindowTimer then
-        self.openWindowTimer:Cancel()
-        self.openWindowTimer = nil
+    if self.windowTimers then
+        for i = 1, #self.windowTimers do
+            local timer = self.windowTimers[i]
+            if timer and timer.Cancel then
+                timer:Cancel()
+            end
+        end
     end
-    if self.closeWindowTimer then
-        self.closeWindowTimer:Cancel()
-        self.closeWindowTimer = nil
-    end
+    self.windowTimers = {}
 end
 
-function Mod:OpenListeningWindow(generation)
+function Mod:TrackWindowTimer(timer)
+    self.windowTimers = self.windowTimers or {}
+    self.windowTimers[#self.windowTimers + 1] = timer
+    return timer
+end
+
+function Mod:OpenListeningWindow(generation, window)
     if not self:IsEnabled()
         or self.windowGeneration ~= generation
+        or window.active
     then
         return
     end
 
-    self.openWindowTimer = nil
+    window.active = true
+    self.activeWindowCount = (self.activeWindowCount or 0) + 1
     self.windowActive = true
 
     local windowDuration =
         clamp(self.db.trigger.windowDuration, 0.1, 60, 17)
 
-    self.closeWindowTimer = C_Timer.NewTimer(
+    self:TrackWindowTimer(C_Timer.NewTimer(
         windowDuration,
         function()
-            if self.windowGeneration ~= generation then
+            if self.windowGeneration ~= generation or not window.active then
                 return
             end
-            self.closeWindowTimer = nil
-            self.windowActive = false
+            window.active = false
+            self.activeWindowCount = math.max(
+                0,
+                (self.activeWindowCount or 1) - 1
+            )
+            self.windowActive = self.activeWindowCount > 0
         end
-    )
+    ))
 end
 
 function Mod:ScheduleListeningWindow(timeRemaining)
-    self:CancelListeningWindow()
-
     timeRemaining = tonumber(timeRemaining)
     if not timeRemaining or timeRemaining < 0 then
         return
@@ -220,16 +232,17 @@ function Mod:ScheduleListeningWindow(timeRemaining)
     local secondsBefore =
         clamp(self.db.trigger.secondsBefore, 0, 60, 2)
     local delay = math.max(0, timeRemaining - secondsBefore)
+    local window = {active = false}
 
     if delay <= 0 then
-        self:OpenListeningWindow(generation)
+        self:OpenListeningWindow(generation, window)
     else
-        self.openWindowTimer = C_Timer.NewTimer(
+        self:TrackWindowTimer(C_Timer.NewTimer(
             delay,
             function()
-                self:OpenListeningWindow(generation)
+                self:OpenListeningWindow(generation, window)
             end
-        )
+        ))
     end
 end
 
@@ -251,7 +264,7 @@ function Mod:HookBigWigs()
     self.bwHandle = BossMods.BigWigs:Subscribe({
         owner = "WhisperKickAlert",
         spellKeys = {spellID},
-        onStartBar = function(_, _, time)
+        onTimer = function(_, _, time)
             self:OnBigWigsStartBar(time)
         end
     })
@@ -348,6 +361,8 @@ function Mod:OnInitialize()
     self.alertGeneration = 0
     self.windowGeneration = 0
     self.windowActive = false
+    self.activeWindowCount = 0
+    self.windowTimers = {}
     self:EnsureDefaults()
     self:EnsureAlert()
     self:ApplyAppearance()
@@ -440,3 +455,4 @@ E:RegisterBossModFeature("WhisperKickAlert", {
     descKey = "BossMods_WhisperKickAlertDesc",
     moduleName = "BossMods_WhisperKickAlert"
 })
+
