@@ -2621,10 +2621,10 @@ function AbilityAlerts:StartRavenousFeastHitBar(
         return
     end
 
-    local totalDuration = 7
-    local firstHit = 4
-    local secondHit = 5.5
-    local thirdHit = 7
+    local totalDuration = 8
+    local firstHit = 4.5
+    local secondHit = 6.5
+    local thirdHit = 8
     local startDelay = testMode and 0 or duration
     local feastSettings = settings.ravenousFeast or {}
     local token = self:CreateCustomTriggerToken()

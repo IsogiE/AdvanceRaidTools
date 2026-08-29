@@ -206,6 +206,8 @@ local function getAssignedHits(kind)
     end
 end
 
+E.VenomousAbyssGetAssignedHits = getAssignedHits
+
 local function getEntombedAssignment()
     local _, _, difficultyID = GetInstanceInfo()
 

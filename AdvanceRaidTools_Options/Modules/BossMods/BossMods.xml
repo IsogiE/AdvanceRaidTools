@@ -17,6 +17,7 @@
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>
