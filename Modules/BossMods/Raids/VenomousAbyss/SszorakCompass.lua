@@ -17,6 +17,7 @@ local UPDATE_INTERVAL = 0.05
 local RAID_MARKER_TEXTURE = [[Interface\TargetingFrame\UI-RaidTargetingIcon_%d]]
 local COMPASS_RING_TEXTURE = [[Interface\AddOns\AdvanceRaidTools\Media\SszorakCompassRing.tga]]
 local NOTE_TAG = "#sszcompass"
+local VENOMOUS_ABYSS_INSTANCE_ID = 3004
 
 -- Fixed room orientation: north, north-east, east, south-east, south,
 -- south-west, west and north-west.
@@ -274,12 +275,28 @@ function SszorakCompass:NoteContainsCompassTag()
     return noteText:lower():find(NOTE_TAG .. "%f[%W]") ~= nil
 end
 
+function SszorakCompass:IsInVenomousAbyssRaid()
+    local inInstance, instanceType = IsInInstance()
+    if not inInstance or instanceType ~= "raid" then
+        return false
+    end
+
+    local instanceID = select(8, GetInstanceInfo())
+    if isSecret(instanceID) then
+        return false
+    end
+
+    return tonumber(instanceID) == VENOMOUS_ABYSS_INSTANCE_ID
+end
+
 function SszorakCompass:ApplyVisibility()
     if not self.frame or not self:IsEnabled() then
         return
     end
 
-    if self.editMode or self.noteActive then
+    if self.editMode
+        or (self.noteActive and self:IsInVenomousAbyssRaid())
+    then
         self.frame:Show()
     else
         self.frame:Hide()
@@ -297,6 +314,10 @@ function SszorakCompass:OnNoteChanged(_, slot)
     if slot == nil or slot == mainSlot then
         self:UpdateNoteVisibility()
     end
+end
+
+function SszorakCompass:OnZoneChanged()
+    self:ApplyVisibility()
 end
 
 function SszorakCompass:SavePosition(position)
@@ -351,6 +372,8 @@ function SszorakCompass:OnEnable()
     self:ApplySettings()
     self:RegisterMessage("ART_NOTE_CHANGED", "OnNoteChanged")
     self:RegisterMessage("ART_PROFILE_CHANGED", "UpdateNoteVisibility")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnZoneChanged")
+    self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:UpdateNoteVisibility()
     self:StartUpdates()
 end
@@ -358,6 +381,7 @@ end
 function SszorakCompass:OnDisable()
     self:StopUpdates()
     self:UnregisterAllMessages()
+    self:UnregisterAllEvents()
     self:ReleaseCompassFacingSource()
     self.editMode = false
     self.noteActive = false
