@@ -29,6 +29,7 @@
 
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertConfig.lua"/>
+    <Script file="Raids\VenomousAbyss\AbyssCustomBars.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakCompass.lua"/>
@@ -36,6 +37,7 @@
     <Script file="Raids\VenomousAbyss\UlatekWrongTarget.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCross.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircle.lua"/>
+    <Script file="Raids\VenomousAbyss\CoiledAltarKicker.lua"/>
 
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>

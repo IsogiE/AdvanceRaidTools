@@ -10,14 +10,16 @@ local UNSTABLE_MIASMA_SPELL_ID = 1288232
 local GRASPING_DEPTHS_SPELL_ID = 1293212
 
 local COILED_ALTAR_ENCOUNTER_ID = 3429
-local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
+local COILED_ALTAR_FEATURE_KEY = "CoiledAltarNightfallBar"
+local COILED_ALTAR_MODULE = "BossMods_CoiledAltarNightfallBar"
 local COILED_ALTAR_NIGHTFALL_SPELL_ID = 1286918
 local COILED_ALTAR_NIGHTFALL_DURATION = 15
 local COILED_ALTAR_NIGHTFALL_BAR_ORDER = 130
 local COILED_ALTAR_NIGHTFALL_SAMPLE_DELAY = 0.2
 
 local ULATEK_ENCOUNTER_ID = 3492
-local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
+local ULATEK_FEATURE_KEY = "UlatekShriekerBar"
+local ULATEK_MODULE = "BossMods_UlatekShriekerBar"
 local ULATEK_CHECK_DURATION = 35
 local ULATEK_BAR_ORDER = 130
 local ULATEK_UNIT_REFRESH_INTERVAL = 0.1
@@ -334,7 +336,9 @@ local function getAssignmentTextState(self, ability, testMode)
 end
 
 local function isCoiledAltarNightfallBarEnabled(self)
-    return self.db.coiledAltarNightfallBarEnabled ~= false
+    local featureMod = E:GetModule(COILED_ALTAR_MODULE, true)
+    return featureMod
+        and featureMod:IsEnabled()
         and bossMods:IsFeatureEnabled(COILED_ALTAR_FEATURE_KEY)
 end
 
@@ -639,7 +643,9 @@ local function ensureUlatekBars(self)
 end
 
 local function isUlatekBarEnabled(self)
-    return self.db.ulatekShriekerBarEnabled ~= false
+    local featureMod = E:GetModule(ULATEK_MODULE, true)
+    return featureMod
+        and featureMod:IsEnabled()
         and bossMods:IsFeatureEnabled(ULATEK_FEATURE_KEY)
 end
 
@@ -963,9 +969,7 @@ E:CreateAbilityAlertsModule({
         return E.VenomousAbyssAbilityData or {}
     end,
     extraDefaults = {
-        entombedAssignmentFilteringEnabled = true,
-        coiledAltarNightfallBarEnabled = true,
-        ulatekShriekerBarEnabled = true
+        entombedAssignmentFilteringEnabled = true
     },
     presetVersionField = "venomousBarPresetVersion",
     enableAllBarsMigrationField = "enableAllVenomousBarsMigration",
