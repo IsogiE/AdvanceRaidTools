@@ -53,14 +53,28 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
     local tracker = T:MakeTracker()
     local track = tracker.track
     local positionHandles = {}
-    local refreshAudioLayout
+    local needsRebuild = false
 
-    local function refreshLive()
+    local function refreshLive(rebuild)
         mod:CallIfEnabled("Refresh")
         tracker.refresh()
-        if refreshAudioLayout then
-            refreshAudioLayout()
+        if rebuild then
+            needsRebuild = true
+            if E.OptionsUI and E.OptionsUI.QueueRefresh then
+                E.OptionsUI:QueueRefresh("current")
+            end
         end
+    end
+
+    local function baseDisabled()
+        if type(isDisabled) == "function" then
+            return isDisabled()
+        end
+        return isDisabled
+    end
+
+    local function audioDisabled()
+        return baseDisabled() or not mod.db.audio.enabled
     end
 
     local function full(y, widget)
@@ -79,10 +93,11 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
     local function checkbox(opts)
         return track(T:Checkbox(rightPanel, {
             text = opts.text,
+            checked = type(opts.get) == "function" and opts.get() or false,
             get = opts.get,
             onChange = function(_, value)
                 opts.set(value and true or false)
-                refreshLive()
+                refreshLive(opts.rebuild)
             end,
             disabled = opts.disabled or isDisabled
         }))
@@ -99,7 +114,21 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
                 if opts.playSample then
                     opts.playSample(value)
                 end
-                refreshLive()
+                refreshLive(opts.rebuild)
+            end,
+            disabled = opts.disabled or isDisabled
+        }))
+    end
+
+    local function editbox(opts)
+        return track(T:EditBox(rightPanel, {
+            label = opts.label,
+            default = opts.default,
+            get = opts.get,
+            commitOn = opts.commitOn or "enter",
+            onCommit = function(value)
+                opts.set(value)
+                refreshLive(opts.rebuild)
             end,
             disabled = opts.disabled or isDisabled
         }))
@@ -402,147 +431,94 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         end,
         set = function(value)
             mod.db.audio.enabled = value
-        end
+        end,
+        rebuild = true
     }))
 
-    local audioContainer = CreateFrame("Frame", nil, rightPanel)
-    local audioStartY = y
-
-    local audioType = track(T:Dropdown(audioContainer, {
+    y = full(y, dropdown({
         label = L["BossMods_AAOptions_AudioType"] or "Audio type",
         values = AUDIO_MODE_VALUES,
         sorting = AUDIO_MODE_SORTING,
         get = function()
             return mod.db.audio.mode
         end,
-        onChange = function(value)
+        set = function(value)
             mod.db.audio.mode = value == "tts" and "tts" or "sound"
-            refreshLive()
         end,
-        disabled = isDisabled
+        rebuild = true,
+        disabled = audioDisabled
     }))
 
-    local soundFile = track(T:Dropdown(audioContainer, {
-        label = L["BossMods_AAOptions_SoundFile"] or "Sound file",
-        values = function()
-            return E:GetModule("BossMods").Alerts:GetSoundOptions()
-        end,
-        get = function()
-            return mod.db.audio.sound
-        end,
-        onChange = function(value)
-            mod.db.audio.sound = value
-            E:GetModule("BossMods").Alerts:PlaySound({
-                name = value,
-                channel = mod.db.audio.channel or "Master"
+    if mod.db.audio.mode == "sound" then
+        y = row(y, {
+            dropdown({
+                label = L["BossMods_AAOptions_SoundFile"] or "Sound file",
+                values = function()
+                    return E:GetModule("BossMods").Alerts:GetSoundOptions()
+                end,
+                get = function()
+                    return mod.db.audio.sound
+                end,
+                set = function(value)
+                    mod.db.audio.sound = value
+                end,
+                playSample = function(value)
+                    E:GetModule("BossMods").Alerts:PlaySound({
+                        name = value,
+                        channel = mod.db.audio.channel or "Master"
+                    })
+                end,
+                disabled = audioDisabled
+            }),
+            dropdown({
+                label = L["BossMods_AAOptions_SoundChannel"]
+                    or "Sound channel",
+                values = SOUND_CHANNEL_VALUES,
+                sorting = SOUND_CHANNEL_SORTING,
+                get = function()
+                    return mod.db.audio.channel
+                end,
+                set = function(value)
+                    mod.db.audio.channel = value
+                end,
+                disabled = audioDisabled
             })
-            refreshLive()
-        end,
-        disabled = isDisabled
-    }))
-
-    local soundChannel = track(T:Dropdown(audioContainer, {
-        label = L["BossMods_AAOptions_SoundChannel"] or "Sound channel",
-        values = SOUND_CHANNEL_VALUES,
-        sorting = SOUND_CHANNEL_SORTING,
-        get = function()
-            return mod.db.audio.channel
-        end,
-        onChange = function(value)
-            mod.db.audio.channel = value
-            refreshLive()
-        end,
-        disabled = isDisabled
-    }))
-
-    local ttsText = track(T:EditBox(audioContainer, {
-        label = L["BossMods_AAOptions_TextToSpeechMessage"]
-            or "Text to Speech message",
-        default = mod.db.audio.ttsText,
-        get = function()
-            return mod.db.audio.ttsText
-        end,
-        commitOn = "enter",
-        onCommit = function(value)
-            mod.db.audio.ttsText = strtrim(value or "") ~= ""
-                and value
-                or "Kick"
-            refreshLive()
-        end,
-        disabled = isDisabled
-    }))
-
-    local ttsVoice = track(T:Dropdown(audioContainer, {
-        label = L["BossMods_AAOptions_TTSVoice"] or "TTS voice",
-        values = function()
-            return E:GetModule("BossMods").Alerts:GetTTSVoices()
-        end,
-        get = function()
-            return mod.db.audio.voiceID or 0
-        end,
-        onChange = function(value)
-            mod.db.audio.voiceID = tonumber(value) or 0
-            E:GetModule("BossMods").Alerts:SpeakTTS({
-                text = mod.db.audio.ttsText or "Kick",
-                voiceID = mod.db.audio.voiceID or 0
+        })
+    else
+        y = row(y, {
+            editbox({
+                label = L["BossMods_AAOptions_TextToSpeechMessage"]
+                    or "Text to Speech message",
+                default = mod.db.audio.ttsText,
+                get = function()
+                    return mod.db.audio.ttsText
+                end,
+                set = function(value)
+                    mod.db.audio.ttsText = strtrim(value or "") ~= ""
+                        and value
+                        or "Kick"
+                end,
+                disabled = audioDisabled
+            }),
+            dropdown({
+                label = L["BossMods_AAOptions_TTSVoice"] or "TTS voice",
+                values = function()
+                    return E:GetModule("BossMods").Alerts:GetTTSVoices()
+                end,
+                get = function()
+                    return mod.db.audio.voiceID or 0
+                end,
+                set = function(value)
+                    mod.db.audio.voiceID = tonumber(value) or 0
+                    E:GetModule("BossMods").Alerts:SpeakTTS({
+                        text = mod.db.audio.ttsText or "Kick",
+                        voiceID = mod.db.audio.voiceID or 0
+                    })
+                end,
+                disabled = audioDisabled
             })
-            refreshLive()
-        end,
-        disabled = isDisabled
-    }))
-
-    local audioWidget
-    refreshAudioLayout = function()
-        local innerWidth = audioContainer:GetWidth()
-        if not innerWidth or innerWidth <= 0 then
-            innerWidth = width - 20
-        end
-
-        local enabled = mod.db.audio.enabled == true
-        local mode = mod.db.audio.mode == "tts" and "tts" or "sound"
-        audioType.frame:SetShown(enabled)
-        soundFile.frame:SetShown(enabled and mode == "sound")
-        soundChannel.frame:SetShown(enabled and mode == "sound")
-        ttsText.frame:SetShown(enabled and mode == "tts")
-        ttsVoice.frame:SetShown(enabled and mode == "tts")
-
-        local audioY = 0
-        if enabled then
-            audioY = audioY
-                + T:PlaceFull(audioContainer, audioType, audioY, innerWidth)
-                + ROW_GAP
-            if mode == "sound" then
-                audioY = audioY
-                    + T:PlaceRow(
-                        audioContainer,
-                        {soundFile, soundChannel},
-                        audioY,
-                        innerWidth
-                    )
-                    + ROW_GAP
-            else
-                audioY = audioY
-                    + T:PlaceRow(
-                        audioContainer,
-                        {ttsText, ttsVoice},
-                        audioY,
-                        innerWidth
-                    )
-                    + ROW_GAP
-            end
-        end
-
-        audioContainer:SetHeight(audioY)
-        rightPanel:SetHeight(math.max(audioStartY + audioY + 10, 1))
+        })
     end
-
-    audioWidget = track({
-        frame = audioContainer,
-        _relayout = refreshAudioLayout,
-        Refresh = refreshAudioLayout
-    })
-    refreshAudioLayout()
-    y = y + T:PlaceFull(rightPanel, audioWidget, y, width) + ROW_GAP
 
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)
@@ -551,7 +527,10 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         height = totalHeight,
         Refresh = function()
             tracker.refresh()
-            refreshAudioLayout()
+            if needsRebuild then
+                needsRebuild = false
+                return true
+            end
         end,
         Release = function()
             mod:SetEditMode(false)

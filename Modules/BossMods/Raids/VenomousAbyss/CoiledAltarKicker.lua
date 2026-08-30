@@ -649,7 +649,7 @@ end
 
 function CoiledAltarKicker:PlayConfiguredAudio(line, count)
     local audio = self.db.audio
-    if not audio or not audio.enabled then
+    if not audio or not audio.enabled or not BossMods or not BossMods.Alerts then
         return
     end
 
@@ -746,8 +746,16 @@ function CoiledAltarKicker:HandleCastStart(unit)
         and self:IsInterruptUnit(unit)
         and UnitIsEnemy(unit, "player")
     then
+        local line = self:GetLineForUnit(unit)
+        local count = line and self.castCounts[line]
+        local currentToken = line and self:GetLineAssignment(line, count)
+
         self.castingUnits[unit] = true
         self:UpdateDisplay()
+
+        if currentToken and self:IsPlayerToken(currentToken) then
+            self:PlayConfiguredAudio(line, count)
+        end
     end
 end
 
