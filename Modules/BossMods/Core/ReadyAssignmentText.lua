@@ -163,14 +163,6 @@ end
 -- }
 -- =============================================================================
 local REGISTRY = {
-    fallbackKey = "hashtag",
-    fallback = {
-        key = "hashtag",
-        textKey = "BossMods_AR_TextGenericTag",
-        values = {
-            tag = "tag"
-        }
-    },
     sheets = {},
     sheetMeta = {}
 }
@@ -386,7 +378,7 @@ function Text:GetDefinitionForReminder(reminder)
     end
 
     if reminder.type == "hashtag" then
-        return self:Get(reminder.tag) or self:Get(REGISTRY.fallbackKey)
+        return self:Get(reminder.tag)
     end
 
     return self:Get(reminder.type)
@@ -436,8 +428,6 @@ function Text:BuildValues(def, reminder)
     end
     return values
 end
-
-Text:Register(REGISTRY.fallback.key or REGISTRY.fallbackKey, REGISTRY.fallback)
 
 function Text:Compile(reminder, opts)
     if type(reminder) ~= "table" then

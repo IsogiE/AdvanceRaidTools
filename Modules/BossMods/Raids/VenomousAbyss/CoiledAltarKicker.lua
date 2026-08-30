@@ -123,30 +123,7 @@ local function fitFontString(fs, text, font, size, outline, maxWidth, minSize)
 end
 
 local function isActiveEnemyUnit(unit)
-    if not unit or not UnitExists(unit) then
-        return false
-    end
-
-    local enemy = UnitIsEnemy(unit, "player")
-    if not isSecret(enemy) and not enemy then
-        return false
-    end
-
-    if UnitIsDeadOrGhost then
-        local dead = UnitIsDeadOrGhost(unit)
-        if not isSecret(dead) and dead then
-            return false
-        end
-    end
-
-    if UnitHealth then
-        local health = UnitHealth(unit)
-        if type(health) == "number" and health <= 0 then
-            return false
-        end
-    end
-
-    return true
+    return unit and UnitExists(unit) and UnitIsEnemy(unit, "player")
 end
 
 local function isTrackedBossUnit(unit)
@@ -243,6 +220,114 @@ end
 
 function CoiledAltarKicker:IsMythic()
     return tonumber(self.difficultyID) == MYTHIC_DIFFICULTY_ID
+end
+
+function CoiledAltarKicker:IsInterruptUnit(unit)
+    if not self:IsActiveBossUnit(unit) then
+        return false
+    end
+
+    if unit ~= "boss3" and unit ~= "boss4" then
+        return true
+    end
+
+    if not self.assignedBoss then
+        return true
+    end
+    return unit == self.assignedBoss
+end
+
+function CoiledAltarKicker:SyncCastCounts()
+    self.castCountsByUnit = self.castCountsByUnit
+        or {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
+    for line, unit in ipairs(MYTHIC_BOSS_UNITS) do
+        self.castCounts[line] = self.castCountsByUnit[unit] or 1
+    end
+end
+
+function CoiledAltarKicker:UpdateInterruptMarker()
+    local assignedBoss = self.assignedBoss
+    local migratedBoss
+    if assignedBoss == "boss4" and not UnitExists("boss4") and UnitExists("boss3") then
+        migratedBoss = "boss3"
+    elseif assignedBoss == "boss3" and not UnitExists("boss3") and UnitExists("boss4") then
+        migratedBoss = "boss4"
+    end
+
+    if migratedBoss then
+        local counts = self.castCountsByUnit or {}
+        counts[migratedBoss] = math.max(counts[migratedBoss] or 1, counts[assignedBoss] or 1)
+        self.castCountsByUnit = counts
+        if self.castingUnits and self.castingUnits[assignedBoss] then
+            self.castingUnits[migratedBoss] = true
+        end
+        if self.castingUnits then
+            self.castingUnits[assignedBoss] = nil
+        end
+        self.assignedBoss = migratedBoss
+    end
+
+    if self.assignedBoss or not self.encounterActive then
+        self:SyncCastCounts()
+        return
+    end
+
+    local boss3Marker = GetRaidTargetIndex("boss3")
+    local boss4Marker = GetRaidTargetIndex("boss4")
+    if isSecret(boss3Marker) then
+        self.assignedBoss = "boss3"
+    elseif isSecret(boss4Marker) then
+        self.assignedBoss = "boss4"
+    end
+    self:SyncCastCounts()
+end
+
+function CoiledAltarKicker:EnsureSpellcastFrame()
+    if self.spellcastFrame then
+        return
+    end
+
+    self.spellcastFrame = CreateFrame("Frame")
+    self.spellcastFrame:SetScript("OnEvent", function(_, event, unit)
+        if event == "UNIT_SPELLCAST_START" then
+            self:HandleCastStart(unit)
+        elseif event == "UNIT_SPELLCAST_INTERRUPTED" then
+            self:HandleCastInterrupted(unit)
+        elseif event == "UNIT_SPELLCAST_STOP" then
+            self:HandleCastStop(unit)
+        end
+    end)
+end
+
+function CoiledAltarKicker:RegisterSpellcastEvents()
+    self:EnsureSpellcastFrame()
+    self.spellcastFrame:RegisterUnitEvent(
+        "UNIT_SPELLCAST_START",
+        "boss3",
+        "boss4",
+        "boss5",
+        "boss6"
+    )
+    self.spellcastFrame:RegisterUnitEvent(
+        "UNIT_SPELLCAST_INTERRUPTED",
+        "boss3",
+        "boss4",
+        "boss5",
+        "boss6"
+    )
+    self.spellcastFrame:RegisterUnitEvent(
+        "UNIT_SPELLCAST_STOP",
+        "boss3",
+        "boss4",
+        "boss5",
+        "boss6"
+    )
+end
+
+function CoiledAltarKicker:UnregisterSpellcastEvents()
+    if self.spellcastFrame then
+        self.spellcastFrame:UnregisterAllEvents()
+    end
 end
 
 local function createKickBox(parent, name)
@@ -418,8 +503,7 @@ function CoiledAltarKicker:GetLineForUnit(unit, lineIndex)
         return lineIndex
     end
 
-    local guid = unit and UnitGUID(unit)
-    return guid and self.guidLines[guid] or self.unitLines[unit] or bossUnitLine(unit)
+    return self.unitLines[unit] or bossUnitLine(unit)
 end
 
 function CoiledAltarKicker:GetLineAssignment(line, count)
@@ -694,19 +778,19 @@ function CoiledAltarKicker:ParseAssignments()
 end
 
 function CoiledAltarKicker:ResetCastCounts()
+    self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     for line = 1, 4 do
         self.castCounts[line] = 1
     end
     wipe(self.castingUnits)
-    wipe(self.castingGUIDs)
-    wipe(self.unitGUIDs)
     wipe(self.unitLines)
-    wipe(self.guidLines)
+    self.assignedBoss = nil
     self.lastAudioKey = nil
+    self:SyncCastCounts()
     self:UpdateDisplay()
 end
 
-function CoiledAltarKicker:RefreshUnitGUID(unit)
+function CoiledAltarKicker:RefreshUnitLine(unit)
     if not isTrackedBossUnit(unit) then
         return nil
     end
@@ -715,39 +799,24 @@ function CoiledAltarKicker:RefreshUnitGUID(unit)
         return nil
     end
 
-    if not isActiveEnemyUnit(unit) then
-        return nil
-    end
-
-    local guid = UnitGUID(unit)
-    if not guid then
-        return self:GetLineForUnit(unit)
-    end
-
-    local line = self.guidLines[guid]
-    local isNewAdd = line == nil
-    if isNewAdd then
-        line = bossUnitLine(unit)
-        if line then
-            self.guidLines[guid] = line
-        end
-    end
-
+    local line = bossUnitLine(unit)
     if not line then
         return nil
     end
 
-    if self.unitGUIDs[unit] ~= guid then
-        self.unitGUIDs[unit] = guid
-        self.unitLines[unit] = line
-        self.castingUnits[unit] = nil
-        if isNewAdd then
-            self.castCounts[line] = 1
+    if not isActiveEnemyUnit(unit) then
+        if self.unitLines[unit] == line then
+            self.unitLines[unit] = nil
+            self.castingUnits[unit] = nil
             self.lastAudioKey = nil
         end
-    elseif self.unitLines[unit] ~= line then
+        return nil
+    end
+
+    if self.unitLines[unit] ~= line then
         self.unitLines[unit] = line
     end
+
     return line
 end
 
@@ -755,72 +824,64 @@ function CoiledAltarKicker:RefreshActiveUnits()
     if not self.encounterActive then
         return
     end
-    for _, unit in ipairs(MYTHIC_BOSS_UNITS) do
-        self:RefreshUnitGUID(unit)
+    self:UpdateInterruptMarker()
+    for _, unit in ipairs(self:GetActiveBossUnits()) do
+        self:RefreshUnitLine(unit)
     end
+    self:SyncCastCounts()
 end
 
 function CoiledAltarKicker:HandleCastStart(unit)
+    self:UpdateInterruptMarker()
     if not self.encounterActive
-        or not self:IsActiveBossUnit(unit)
-        or not isActiveEnemyUnit(unit)
+        or self.boss3Available == false
+        or not self:IsInterruptUnit(unit)
+        or not UnitIsEnemy(unit, "player")
     then
         return
     end
 
-    local line = self:RefreshUnitGUID(unit)
+    local line = self:RefreshUnitLine(unit)
     if not line then
         return
     end
 
-    local guid = UnitGUID(unit)
     self.castingUnits[unit] = true
-    if guid then
-        self.castingGUIDs[guid] = true
-    end
+    self:SyncCastCounts()
     if self:GetLineState(line) == "now" then
         self:PlayConfiguredAudio(line, self.castCounts[line])
     end
     self:UpdateDisplay()
 end
 
-function CoiledAltarKicker:HandleCastInterrupted(unit)
-    if not self.encounterActive then
-        return
-    end
-
-    self.castingUnits[unit] = nil
-    local guid = UnitGUID(unit) or self.unitGUIDs[unit]
-    if guid then
-        self.castingGUIDs[guid] = nil
-    end
-    self:UpdateDisplay()
-end
-
-function CoiledAltarKicker:HandleCastStop(unit)
-    if not self.encounterActive or not self:IsActiveBossUnit(unit) then
-        return
-    end
-
-    local guid = UnitGUID(unit) or self.unitGUIDs[unit]
-    if not self.castingUnits[unit]
-        and not (guid and self.castingGUIDs[guid])
+function CoiledAltarKicker:FinishCast(unit, shouldCount)
+    self:UpdateInterruptMarker()
+    if not self.encounterActive
+        or self.boss3Available == false
+        or not self:IsInterruptUnit(unit)
     then
         return
     end
 
-    local line = guid and self.guidLines[guid]
-        or self.unitLines[unit]
-        or self:GetLineForUnit(unit)
-    self.castingUnits[unit] = nil
-    if guid then
-        self.castingGUIDs[guid] = nil
+    if not self.castingUnits[unit] then
+        return
     end
-    if line then
-        self.castCounts[line] = (self.castCounts[line] or 1) + 1
+
+    self.castingUnits[unit] = nil
+    if shouldCount then
+        self.castCountsByUnit[unit] = (self.castCountsByUnit[unit] or 1) + 1
+        self:SyncCastCounts()
     end
     self.lastAudioKey = nil
     self:UpdateDisplay()
+end
+
+function CoiledAltarKicker:HandleCastInterrupted(unit)
+    self:FinishCast(unit, true)
+end
+
+function CoiledAltarKicker:HandleCastStop(unit)
+    self:FinishCast(unit, true)
 end
 
 function CoiledAltarKicker:UNIT_SPELLCAST_START(_, unit)
@@ -840,11 +901,30 @@ function CoiledAltarKicker:OnRaidTargetUpdate()
     self:UpdateDisplay()
 end
 
+function CoiledAltarKicker:INSTANCE_ENCOUNTER_ENGAGE_UNIT()
+    local boss3Exists = UnitExists("boss3")
+    if not boss3Exists then
+        self.boss3Available = false
+        self.assignedBoss = nil
+        self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
+        wipe(self.castingUnits)
+        self:SyncCastCounts()
+        self:UpdateDisplay()
+        return
+    end
+
+    self.boss3Available = true
+    self:RefreshActiveUnits()
+    self:UpdateDisplay()
+end
+
 function CoiledAltarKicker:OnEncounterStart(_, encounterID, _, difficultyID)
     if tonumber(encounterID) ~= ENCOUNTER_ID then
         return
     end
     self.encounterActive = true
+    self.boss3Available = true
+    self.assignedBoss = nil
     self.difficultyID = tonumber(difficultyID) or 16
     self:ParseAssignments()
     self:ResetCastCounts()
@@ -856,11 +936,11 @@ function CoiledAltarKicker:OnEncounterEnd(_, encounterID)
         return
     end
     self.encounterActive = false
+    self.boss3Available = false
+    self.assignedBoss = nil
+    self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     wipe(self.castingUnits)
-    wipe(self.castingGUIDs)
-    wipe(self.unitGUIDs)
     wipe(self.unitLines)
-    wipe(self.guidLines)
     self.lastAudioKey = nil
     self:UpdateDisplay()
 end
@@ -896,11 +976,11 @@ function CoiledAltarKicker:OnInitialize()
     self.encounterActive = false
     self.editMode = false
     self.castCounts = {[1] = 1, [2] = 1, [3] = 1, [4] = 1}
+    self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     self.castingUnits = {}
-    self.castingGUIDs = {}
-    self.unitGUIDs = {}
     self.unitLines = {}
-    self.guidLines = {}
+    self.assignedBoss = nil
+    self.boss3Available = false
     self.assignments = {{}, {}, {}, {}}
     self:EnsureFrames()
     self:ParseAssignments()
@@ -913,11 +993,9 @@ function CoiledAltarKicker:OnEnable()
     self:Refresh()
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
-    self:RegisterEvent("UNIT_SPELLCAST_START")
-    self:RegisterEvent("UNIT_SPELLCAST_STOP")
-    self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    self:RegisterSpellcastEvents()
     self:RegisterEvent("UNIT_DIED", "OnRaidTargetUpdate")
-    self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "OnRaidTargetUpdate")
+    self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
     self:RegisterEvent("PLAYER_FOCUS_CHANGED", "OnRaidTargetUpdate")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
@@ -925,12 +1003,13 @@ end
 
 function CoiledAltarKicker:OnDisable()
     self.encounterActive = false
+    self.boss3Available = false
+    self.assignedBoss = nil
     self.editMode = false
+    self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     wipe(self.castingUnits)
-    wipe(self.castingGUIDs)
-    wipe(self.unitGUIDs)
     wipe(self.unitLines)
-    wipe(self.guidLines)
+    self:UnregisterSpellcastEvents()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
     if self.frames then

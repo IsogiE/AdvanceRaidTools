@@ -431,9 +431,9 @@ AR({
     order = 70,
 
     tag = "CAKick1",
-    textKey = "BossMods_AR_TextGenericTag",
-    values = {
-        tag = "CAKick1"
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 3
     },
     note = {
         tag = "CAKick1",
@@ -454,9 +454,9 @@ AR({
     order = 71,
 
     tag = "CAKick2",
-    textKey = "BossMods_AR_TextGenericTag",
-    values = {
-        tag = "CAKick2"
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 4
     },
     note = {
         tag = "CAKick2",
@@ -477,9 +477,9 @@ AR({
     order = 72,
 
     tag = "CAKick3",
-    textKey = "BossMods_AR_TextGenericTag",
-    values = {
-        tag = "CAKick3"
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 5
     },
     note = {
         tag = "CAKick3",
@@ -500,9 +500,9 @@ AR({
     order = 73,
 
     tag = "CAKick4",
-    textKey = "BossMods_AR_TextGenericTag",
-    values = {
-        tag = "CAKick4"
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 6
     },
     note = {
         tag = "CAKick4",
