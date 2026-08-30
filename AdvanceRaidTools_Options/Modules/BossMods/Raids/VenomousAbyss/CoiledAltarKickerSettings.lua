@@ -41,6 +41,40 @@ local SOUND_CHANNEL_SORTING = {
     "Ambience"
 }
 
+local NAMEPLATE_ANCHOR_FALLBACK_VALUES = {
+    TOP = "Top",
+    CENTER = "Center",
+    LEFT = "Left",
+    RIGHT = "Right",
+    BOTTOM = "Bottom"
+}
+
+local NAMEPLATE_ANCHOR_FALLBACK_SORTING = {
+    "TOP",
+    "CENTER",
+    "LEFT",
+    "RIGHT",
+    "BOTTOM"
+}
+
+local function getNameplateAnchorValues()
+    local BossMods = E:GetModule("BossMods", true)
+    local Alerts = BossMods and BossMods.Alerts
+    if Alerts and Alerts.GetNameplateAnchorValues then
+        return Alerts:GetNameplateAnchorValues()
+    end
+    return NAMEPLATE_ANCHOR_FALLBACK_VALUES
+end
+
+local function getNameplateAnchorSorting()
+    local BossMods = E:GetModule("BossMods", true)
+    local Alerts = BossMods and BossMods.Alerts
+    if Alerts and Alerts.GetNameplateAnchorSorting then
+        return Alerts:GetNameplateAnchorSorting()
+    end
+    return NAMEPLATE_ANCHOR_FALLBACK_SORTING
+end
+
 local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
     local width = rightPanel:GetWidth() or 0
     if width <= 0 then
@@ -369,7 +403,98 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         })
     })
 
-    y = section(y, L["Position"] or "Position")
+    y = section(y, L["Nameplate"] or "Nameplate")
+    y = row(y, {
+        slider({
+            label = "Number Font Size",
+            min = 8,
+            max = 40,
+            step = 1,
+            get = function()
+                return mod.db.nameplate.numberFontSize
+            end,
+            set = function(value)
+                mod.db.nameplate.numberFontSize = math.floor(value + 0.5)
+            end
+        }),
+        slider({
+            label = "Name Font Size",
+            min = 8,
+            max = 40,
+            step = 1,
+            get = function()
+                return mod.db.nameplate.nameFontSize
+            end,
+            set = function(value)
+                mod.db.nameplate.nameFontSize = math.floor(value + 0.5)
+            end
+        })
+    })
+    y = row(y, {
+        slider({
+            label = "Box Size",
+            min = 30,
+            max = 150,
+            step = 1,
+            get = function()
+                return mod.db.nameplate.size
+            end,
+            set = function(value)
+                mod.db.nameplate.size = math.floor(value + 0.5)
+            end
+        }),
+        dropdown({
+            label = "Nameplate Anchor",
+            values = getNameplateAnchorValues,
+            sorting = getNameplateAnchorSorting,
+            get = function()
+                return mod.db.nameplate.anchor
+            end,
+            set = function(value)
+                mod.db.nameplate.anchor = value or "TOP"
+            end
+        })
+    })
+    y = row(y, {
+        stepper({
+            label = "Nameplate X Offset",
+            min = -200,
+            max = 200,
+            get = function()
+                return mod.db.nameplate.offsetX or 0
+            end,
+            set = function(value)
+                mod.db.nameplate.offsetX = math.max(
+                    -200,
+                    math.min(200, tonumber(value) or 0)
+                )
+            end
+        }),
+        stepper({
+            label = "Nameplate Y Offset",
+            min = -200,
+            max = 200,
+            get = function()
+                return mod.db.nameplate.offsetY or 0
+            end,
+            set = function(value)
+                mod.db.nameplate.offsetY = math.max(
+                    -200,
+                    math.min(200, tonumber(value) or 0)
+                )
+            end
+        })
+    })
+    y = full(y, checkbox({
+        text = "Show All",
+        get = function()
+            return mod.db.nameplate.showAll
+        end,
+        set = function(value)
+            mod.db.nameplate.showAll = value
+        end
+    }))
+
     local positionY, positionHandle = T:PositionSection(rightPanel, y, width, {
         anchor = mod.frames and mod.frames.anchor,
         label = L["Position"],
