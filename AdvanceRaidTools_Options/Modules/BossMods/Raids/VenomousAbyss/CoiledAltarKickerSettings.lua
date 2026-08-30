@@ -495,7 +495,6 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         end
     }))
 
-    y = section(y, L["Position"] or "Position")
     local positionY, positionHandle = T:PositionSection(rightPanel, y, width, {
         anchor = mod.frames and mod.frames.anchor,
         label = L["Position"],
