@@ -889,6 +889,7 @@ function CoiledAltarKicker:UpdatePreviewDisplay()
             self.editMode
             or (
                 self.interruptActive
+                and self.boss3Available ~= false
                 and state ~= "idle"
                 and self:HasLineAssignments(line)
             )
@@ -1151,7 +1152,7 @@ function CoiledAltarKicker:OnEncounterStart(_, encounterID)
     self:ParseAssignments()
     self:ResetInterruptDisplay()
     self.interruptActive = true
-    self.boss3Available = true
+    self.boss3Available = false
     self:RegisterSpellcastEvents()
     self:RefreshNameplateUnits()
     self:UpdateAssignedBoss()
