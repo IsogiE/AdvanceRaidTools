@@ -421,6 +421,98 @@ AR({
 AR({
     boss = BOSS_META.coiledAltar,
 
+    key = "venomousAbyssCAKick1",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 70,
+
+    tag = "CAKick1",
+    textKey = "BossMods_AR_TextGenericTag",
+    values = {
+        tag = "CAKick1"
+    },
+    note = {
+        tag = "CAKick1",
+        template = "#CAKick1\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAKick2",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 71,
+
+    tag = "CAKick2",
+    textKey = "BossMods_AR_TextGenericTag",
+    values = {
+        tag = "CAKick2"
+    },
+    note = {
+        tag = "CAKick2",
+        template = "#CAKick2\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAKick3",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 72,
+
+    tag = "CAKick3",
+    textKey = "BossMods_AR_TextGenericTag",
+    values = {
+        tag = "CAKick3"
+    },
+    note = {
+        tag = "CAKick3",
+        template = "#CAKick3\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAKick4",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 73,
+
+    tag = "CAKick4",
+    textKey = "BossMods_AR_TextGenericTag",
+    values = {
+        tag = "CAKick4"
+    },
+    note = {
+        tag = "CAKick4",
+        template = "#CAKick4\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
     key = "venomousAbyssCAG1",
     sheet = "VenomousAbyssCoiledAltarGuillotines",
 
@@ -428,7 +520,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAGuillotines",
 
     tab = "VenomousAbyss",
-    order = 70,
+    order = 74,
 
     tag = "CAG1",
     textKey = "BossMods_AR_TextCAG1"
@@ -444,7 +536,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAGuillotines",
 
     tab = "VenomousAbyss",
-    order = 71,
+    order = 75,
 
     tag = "CAG2",
     textKey = "BossMods_AR_TextCAG2"
@@ -460,7 +552,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAGuillotines",
 
     tab = "VenomousAbyss",
-    order = 72,
+    order = 76,
 
     tag = "CAG3",
     textKey = "BossMods_AR_TextCAG3"
@@ -476,7 +568,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAOrbs",
 
     tab = "VenomousAbyss",
-    order = 73,
+    order = 77,
 
     tag = "CAMythOrb",
     textKey = "BossMods_AR_TextCAMythOrb"
@@ -492,7 +584,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAOrbs",
 
     tab = "VenomousAbyss",
-    order = 74,
+    order = 78,
 
     tag = "CAHcOrb",
     textKey = "BossMods_AR_TextCAHcOrb"
@@ -619,6 +711,7 @@ AR({
         order = 70,
 
         entries = {
+            "VenomousAbyssCoiledAltarKicks",
             "VenomousAbyssCoiledAltarGuillotines",
             "VenomousAbyssCoiledAltarOrbs"
         }

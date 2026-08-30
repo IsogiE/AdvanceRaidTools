@@ -12,6 +12,7 @@ local GRASPING_DEPTHS_SPELL_ID = 1293212
 local COILED_ALTAR_ENCOUNTER_ID = 3429
 local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
 local COILED_ALTAR_NIGHTFALL_SPELL_ID = 1286918
+local COILED_ALTAR_NIGHTFALL_UNIT = "boss2"
 local COILED_ALTAR_NIGHTFALL_DURATION = 15
 local COILED_ALTAR_NIGHTFALL_BAR_ORDER = 130
 local COILED_ALTAR_NIGHTFALL_SAMPLE_DELAY = 0.2
@@ -467,8 +468,10 @@ local function clearCoiledAltarNightfallTimer(self)
     end
 end
 
-local function stopCoiledAltarNightfall(self)
-    clearCoiledAltarNightfallTimer(self)
+local function stopCoiledAltarNightfall(self, keepScheduledStart)
+    if not keepScheduledStart then
+        clearCoiledAltarNightfallTimer(self)
+    end
 
     local bar = self.coiledAltarNightfallBar
 
@@ -512,7 +515,7 @@ local function startCoiledAltarNightfall(self)
     end
 
     self.coiledAltarNightfallStartedAt = now
-    bar.unit = "boss2"
+    bar.unit = COILED_ALTAR_NIGHTFALL_UNIT
     bar.maxAbsorb = nil
     bar.maxAbsorbIsSecret = nil
     bar.testPaceOffset = nil
@@ -577,6 +580,24 @@ local function onCoiledAltarBigWigsStartBar(self, spellID, _, duration)
     end
 
     scheduleCoiledAltarNightfall(self, duration)
+end
+
+local function onCoiledAltarNightfallSpellcastEnd(
+    self,
+    _,
+    unit
+)
+    local bar = self.coiledAltarNightfallBar
+
+    if not self.coiledAltarEncounterActive
+        or unit ~= COILED_ALTAR_NIGHTFALL_UNIT
+        or not bar
+        or not bar:IsRunning()
+    then
+        return
+    end
+
+    stopCoiledAltarNightfall(self, true)
 end
 
 local function onCoiledAltarBigWigsStage(self, module)
@@ -951,7 +972,10 @@ E:CreateAbilityAlertsModule({
     featurePrefix = "VenomousAbyss",
     initialize = initializeEncounterBars,
     events = {
-        UNIT_SPELLCAST_START = onUlatekSpellcastStart
+        UNIT_SPELLCAST_START = onUlatekSpellcastStart,
+        UNIT_SPELLCAST_STOP = onCoiledAltarNightfallSpellcastEnd,
+        UNIT_SPELLCAST_CHANNEL_STOP = onCoiledAltarNightfallSpellcastEnd,
+        UNIT_SPELLCAST_INTERRUPTED = onCoiledAltarNightfallSpellcastEnd
     },
     onBigWigsStartBar = onCoiledAltarBigWigsStartBar,
     onBigWigsStage = onBigWigsStage,
