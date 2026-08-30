@@ -32,6 +32,15 @@ E:RegisterModuleDefaults("BossMods_CoiledAltarKicker", {
         outline = "OUTLINE",
         color = {1, 0.82, 0.08, 1}
     },
+    nameplate = {
+        size = 30,
+        numberFontSize = 12,
+        nameFontSize = 12,
+        anchor = "TOP",
+        offsetX = 0,
+        offsetY = 0,
+        showAll = false
+    },
     audio = {
         enabled = false,
         mode = "sound",
@@ -50,6 +59,18 @@ local BOX_COLORS = {
     now = {0.05, 0.78, 0.18, 0.95},
     next = {1, 0.82, 0.08, 0.95},
     idle = {0.50, 0.08, 0.08, 0.70}
+}
+local NAMEPLATE_BOX_COLORS = {
+    now = {0.05, 0.78, 0.18, 0.95},
+    next = {1, 0.45, 0.02, 0.95},
+    idle = {0.50, 0.08, 0.08, 0.70}
+}
+local VALID_NAMEPLATE_ANCHORS = {
+    TOP = true,
+    BOTTOM = true,
+    LEFT = true,
+    RIGHT = true,
+    CENTER = true
 }
 
 local CoiledAltarKicker = E:NewModule(
@@ -177,6 +198,27 @@ function CoiledAltarKicker:EnsureDefaults()
     self.db.nextText.size = clamp(self.db.nextText.size, 12, 60, 28)
     self.db.nextText.outline = self.db.nextText.outline or "OUTLINE"
     self.db.nextText.color = self.db.nextText.color or {1, 0.82, 0.08, 1}
+
+    self.db.nameplate = self.db.nameplate or {}
+    self.db.nameplate.size = clamp(self.db.nameplate.size, 30, 150, 30)
+    self.db.nameplate.numberFontSize = clamp(
+        self.db.nameplate.numberFontSize,
+        8,
+        40,
+        12
+    )
+    self.db.nameplate.nameFontSize = clamp(
+        self.db.nameplate.nameFontSize,
+        8,
+        40,
+        12
+    )
+    if not VALID_NAMEPLATE_ANCHORS[self.db.nameplate.anchor] then
+        self.db.nameplate.anchor = "TOP"
+    end
+    self.db.nameplate.offsetX = clamp(self.db.nameplate.offsetX, -200, 200, 0)
+    self.db.nameplate.offsetY = clamp(self.db.nameplate.offsetY, -200, 200, 0)
+    self.db.nameplate.showAll = self.db.nameplate.showAll == true
 
     self.db.audio = self.db.audio or {}
     self.db.audio.enabled = self.db.audio.enabled == true
@@ -362,6 +404,51 @@ function CoiledAltarKicker:SavePosition(pos, key)
     self:UpdateDisplay()
 end
 
+function CoiledAltarKicker:ApplyBoxAppearance(
+    frame,
+    size,
+    numberFontSize,
+    nameFontSize
+)
+    if not frame then
+        return
+    end
+
+    local font = E:FetchFont(self.db.font.name)
+    size = tonumber(size) or self.db.box.size or 62
+    frame:SetSize(size, size)
+    frame.artBoxSize = size
+    frame.artNameFontSize = nameFontSize
+        or math.max(7, math.min(12, math.floor(size * 0.18)))
+
+    frame.text:ClearAllPoints()
+    frame.text:SetPoint(
+        "CENTER",
+        frame,
+        "CENTER",
+        0,
+        math.max(2, math.floor(size * 0.08))
+    )
+    E:ApplyFontString(
+        frame.text,
+        font,
+        numberFontSize or self.db.font.size,
+        self.db.font.outline
+    )
+    frame.text:SetTextColor(colorValue(self.db.font.color, {1, 1, 1, 1}))
+
+    frame.nameText:ClearAllPoints()
+    frame.nameText:SetPoint("BOTTOM", frame, "BOTTOM", 0, 3)
+    frame.nameText:SetWidth(math.max(1, size - 4))
+    E:ApplyFontString(
+        frame.nameText,
+        font,
+        frame.artNameFontSize,
+        self.db.font.outline
+    )
+    frame.nameText:SetTextColor(colorValue(self.db.font.color, {1, 1, 1, 1}))
+end
+
 function CoiledAltarKicker:ApplyAppearance()
     self:EnsureDefaults()
     self:EnsureFrames()
@@ -369,42 +456,7 @@ function CoiledAltarKicker:ApplyAppearance()
     local size = self.db.box.size
     self.frames.anchor:SetSize(size, size)
 
-    self.frames.kickBox:SetSize(size, size)
-    self.frames.kickBox.text:ClearAllPoints()
-    self.frames.kickBox.text:SetPoint(
-        "CENTER",
-        self.frames.kickBox,
-        "CENTER",
-        0,
-        math.max(3, math.floor(size * 0.08))
-    )
-    E:ApplyFontString(
-        self.frames.kickBox.text,
-        E:FetchFont(self.db.font.name),
-        self.db.font.size,
-        self.db.font.outline
-    )
-    self.frames.kickBox.text:SetTextColor(
-        colorValue(self.db.font.color, {1, 1, 1, 1})
-    )
-    self.frames.kickBox.nameText:ClearAllPoints()
-    self.frames.kickBox.nameText:SetPoint(
-        "BOTTOM",
-        self.frames.kickBox,
-        "BOTTOM",
-        0,
-        3
-    )
-    self.frames.kickBox.nameText:SetWidth(math.max(1, size - 4))
-    E:ApplyFontString(
-        self.frames.kickBox.nameText,
-        E:FetchFont(self.db.font.name),
-        math.max(7, math.min(12, math.floor(size * 0.18))),
-        self.db.font.outline
-    )
-    self.frames.kickBox.nameText:SetTextColor(
-        colorValue(self.db.font.color, {1, 1, 1, 1})
-    )
+    self:ApplyBoxAppearance(self.frames.kickBox, size, self.db.font.size)
 
     local nextText = self.db.nextText
     E:ApplyFontString(
@@ -418,18 +470,27 @@ function CoiledAltarKicker:ApplyAppearance()
     )
 end
 
-function CoiledAltarKicker:SetBoxState(frame, state, count, currentName)
+function CoiledAltarKicker:SetBoxState(
+    frame,
+    state,
+    count,
+    currentName,
+    colors,
+    currentClass
+)
     if not frame then
         return
     end
 
-    local color = BOX_COLORS.idle
+    colors = colors or BOX_COLORS
+    local color = colors.idle
     if state == "now" then
-        color = BOX_COLORS.now
+        color = colors.now
     elseif state == "next" then
-        color = BOX_COLORS.next
+        color = colors.next
     end
 
+    local size = frame.artBoxSize or self.db.box.size or 62
     local r, g, b, a = colorValue(color, {0.5, 0.08, 0.08, 0.70})
     frame:SetBackdropColor(r, g, b, (a or 1) * (self.db.box.opacity or 1))
     frame.text:SetText(count or "")
@@ -437,11 +498,21 @@ function CoiledAltarKicker:SetBoxState(frame, state, count, currentName)
         frame.nameText,
         currentName,
         E:FetchFont(self.db.font.name),
-        math.max(7, math.min(12, math.floor((self.db.box.size or 62) * 0.18))),
+        frame.artNameFontSize or math.max(
+            7,
+            math.min(12, math.floor(size * 0.18))
+        ),
         self.db.font.outline,
-        math.max(1, (self.db.box.size or 62) - 4),
+        math.max(1, size - 4),
         7
     )
+
+    local nr, ng, nb, na = colorValue(self.db.font.color, {1, 1, 1, 1})
+    if currentClass and E.ClassColorRGB then
+        nr, ng, nb = E:ClassColorRGB(currentClass)
+        na = 1
+    end
+    frame.nameText:SetTextColor(nr, ng, nb, na)
 end
 
 function CoiledAltarKicker:GetLineForUnit(unit, lineIndex)
@@ -504,6 +575,25 @@ function CoiledAltarKicker:GetKickDisplayName(token)
     return cleanDisplayName(token) or ""
 end
 
+function CoiledAltarKicker:GetKickDisplayInfo(token)
+    local displayName = self:GetKickDisplayName(token)
+    local classFile
+    local NoteBlock = BossMods and BossMods.NoteBlock
+
+    if NoteBlock and NoteBlock.GetClassForToken then
+        classFile = NoteBlock:GetClassForToken(token)
+        if not classFile and displayName ~= token then
+            classFile = NoteBlock:GetClassForToken(displayName)
+        end
+    end
+
+    if not classFile and E.GetClassByName then
+        classFile = E:GetClassByName(token) or E:GetClassByName(displayName)
+    end
+
+    return displayName, classFile
+end
+
 function CoiledAltarKicker:IsPlayerToken(token)
     local Ready = BossMods and BossMods.ReadyAssignments
     if Ready and Ready.TokenIsPlayer then
@@ -516,9 +606,10 @@ function CoiledAltarKicker:IsPlayerToken(token)
     return false
 end
 
-function CoiledAltarKicker:GetLineState(line)
-    local current = self:GetLineAssignment(line, self.castCounts[line])
-    local _, nextPlayer = self:GetLineAssignment(line, self.castCounts[line])
+function CoiledAltarKicker:GetLineState(line, count)
+    count = count or self.castCounts[line]
+    local current = self:GetLineAssignment(line, count)
+    local _, nextPlayer = self:GetLineAssignment(line, count)
     if current and self:IsPlayerToken(current) then
         return "now"
     end
@@ -567,6 +658,113 @@ function CoiledAltarKicker:GetUnitForLine(line)
         end
     end
     return nil
+end
+
+function CoiledAltarKicker:EnsureNameplatePool()
+    if self.nameplatePool then
+        return self.nameplatePool
+    end
+
+    BossMods = BossMods or E:GetModule("BossMods")
+    local Alerts = BossMods and BossMods.Alerts
+    if not Alerts or not Alerts.CreateNameplateAnchorPool then
+        return nil
+    end
+
+    self.nameplatePool = Alerts:CreateNameplateAnchorPool({
+        prefix = "ART_CoiledAltarKicker_Nameplate_",
+        parent = UIParent,
+        createFrame = function(_, parent, name)
+            local frame = createKickBox(parent, name)
+            frame:SetFrameLevel(95)
+            return frame
+        end,
+        updateFrame = function(frame, opts)
+            self:ApplyBoxAppearance(
+                frame,
+                opts.size,
+                opts.numberFontSize,
+                opts.nameFontSize
+            )
+            self:SetBoxState(
+                frame,
+                opts.state,
+                opts.count,
+                opts.currentName,
+                NAMEPLATE_BOX_COLORS,
+                opts.currentClass
+            )
+        end
+    })
+    return self.nameplatePool
+end
+
+function CoiledAltarKicker:HideNameplateDisplays()
+    local pool = self.nameplatePool
+    if pool and pool.HideAll then
+        pool:HideAll()
+    end
+end
+
+function CoiledAltarKicker:LineHasPlayer(line)
+    local group = self.assignments and self.assignments[line]
+    if not group then
+        return false
+    end
+
+    for _, token in ipairs(group) do
+        if self:IsPlayerToken(token) then
+            return true
+        end
+    end
+    return false
+end
+
+function CoiledAltarKicker:UpdateNameplateDisplays()
+    local pool = self:EnsureNameplatePool()
+    if not pool then
+        return
+    end
+
+    if self.editMode or not self.encounterActive then
+        pool:HideAll()
+        return
+    end
+
+    local activeUnits = {}
+    local size = self.db.nameplate.size or 30
+    local fontScale = size / 30
+    local numberFontSize = (self.db.nameplate.numberFontSize or 12) * fontScale
+    local nameFontSize = (self.db.nameplate.nameFontSize or 12) * fontScale
+
+    for _, unit in ipairs(self:GetActiveBossUnits()) do
+        activeUnits[unit] = true
+        local line = UnitExists(unit) and self:GetLineForUnit(unit)
+        if line
+            and self:HasLineAssignments(line)
+            and (self.db.nameplate.showAll or self:LineHasPlayer(line))
+        then
+            local count = self.castCountsByUnit[unit] or self.castCounts[line] or 1
+            local currentToken = self:GetLineAssignment(line, count)
+            local displayName, classFile = self:GetKickDisplayInfo(currentToken)
+            pool:Update(unit, unit, {
+                anchor = self.db.nameplate.anchor,
+                offsetX = self.db.nameplate.offsetX,
+                offsetY = self.db.nameplate.offsetY,
+                size = size,
+                numberFontSize = numberFontSize,
+                nameFontSize = nameFontSize,
+                state = self:GetLineState(line, count),
+                count = count,
+                currentName = displayName,
+                currentClass = classFile
+            })
+        else
+            pool:Hide(unit)
+        end
+    end
+
+    pool:HideInactive(activeUnits)
 end
 
 function CoiledAltarKicker:UpdateNextText(showNext)
@@ -632,18 +830,22 @@ function CoiledAltarKicker:UpdateDisplay()
 
     if showBox then
         local currentToken = self:GetLineAssignment(line, self.castCounts[line])
+        local displayName, classFile = self:GetKickDisplayInfo(currentToken)
         self:AnchorKickBox(line, unit)
         self:SetBoxState(
             self.frames.kickBox,
             state,
             self.castCounts[line] or 1,
-            self:GetKickDisplayName(currentToken)
+            displayName,
+            nil,
+            classFile
         )
         self.frames.kickBox:Show()
     else
         self.frames.kickBox:Hide()
     end
 
+    self:UpdateNameplateDisplays()
     self:UpdateNextText(showBox and state == "next")
 end
 
@@ -797,7 +999,23 @@ function CoiledAltarKicker:UNIT_SPELLCAST_INTERRUPTED(_, unit)
     self:HandleCastInterrupted(unit)
 end
 
-function CoiledAltarKicker:OnRaidTargetUpdate()
+function CoiledAltarKicker:OnUnitDisplayUpdate()
+    self:RefreshActiveUnits()
+    self:UpdateDisplay()
+end
+
+function CoiledAltarKicker:NAME_PLATE_UNIT_ADDED()
+    if not self.encounterActive then
+        return
+    end
+    self:RefreshActiveUnits()
+    self:UpdateDisplay()
+end
+
+function CoiledAltarKicker:NAME_PLATE_UNIT_REMOVED()
+    if not self.encounterActive then
+        return
+    end
     self:RefreshActiveUnits()
     self:UpdateDisplay()
 end
@@ -885,9 +1103,11 @@ function CoiledAltarKicker:OnEnable()
     self:Refresh()
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
-    self:RegisterEvent("UNIT_DIED", "OnRaidTargetUpdate")
+    self:RegisterEvent("UNIT_DIED", "OnUnitDisplayUpdate")
     self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
-    self:RegisterEvent("PLAYER_FOCUS_CHANGED", "OnRaidTargetUpdate")
+    self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    self:RegisterEvent("PLAYER_FOCUS_CHANGED", "OnUnitDisplayUpdate")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
 end
@@ -904,6 +1124,7 @@ function CoiledAltarKicker:OnDisable()
         self.frames.anchor:Hide()
         self.frames.nextTextAnchor:Hide()
         self.frames.kickBox:Hide()
+        self:HideNameplateDisplays()
     end
 end
 
