@@ -53,6 +53,7 @@ E:RegisterModuleDefaults("BossMods_CoiledAltarKicker", {
 
 local ENCOUNTER_ID = 3429
 local MYTHIC_DIFFICULTY_ID = 16
+local INTERRUPT_ADD_LEVEL = 92
 local HEROIC_BOSS_UNITS = {"boss3", "boss4"}
 local MYTHIC_BOSS_UNITS = {"boss3", "boss4", "boss5", "boss6"}
 local BOX_COLORS = {
@@ -119,6 +120,16 @@ local function cleanDisplayName(name)
     return name ~= "" and name or nil
 end
 
+local function safeUnitToken(unit)
+    if E.SafeString then
+        return E:SafeString(unit)
+    end
+    if type(unit) == "string" and not isSecret(unit) then
+        return unit
+    end
+    return nil
+end
+
 local function fitFontString(fs, text, font, size, outline, maxWidth, minSize)
     if not fs then
         return
@@ -144,7 +155,41 @@ local function fitFontString(fs, text, font, size, outline, maxWidth, minSize)
 end
 
 local function isActiveEnemyUnit(unit)
-    return unit and UnitExists(unit) and UnitIsEnemy(unit, "player")
+    unit = safeUnitToken(unit)
+    if not unit then
+        return false
+    end
+
+    local exists = UnitExists(unit)
+    if isSecret(exists) or not exists then
+        return false
+    end
+
+    local enemy = UnitIsEnemy(unit, "player")
+    return not isSecret(enemy) and enemy == true
+end
+
+local function isInterruptAddNameplateUnit(unit)
+    if not isActiveEnemyUnit(unit) then
+        return false
+    end
+
+    local level = UnitLevel(unit)
+    return not isSecret(level) and tonumber(level) == INTERRUPT_ADD_LEVEL
+end
+
+local function unitHasRaidMarker(unit)
+    if not unit then
+        return false
+    end
+
+    local exists = UnitExists(unit)
+    if isSecret(exists) or not exists then
+        return false
+    end
+
+    local marker = GetRaidTargetIndex(unit)
+    return isSecret(marker) or marker ~= nil
 end
 
 local function bossUnitLine(unit)
@@ -549,7 +594,8 @@ function CoiledAltarKicker:GetKickDisplayName(token)
         and NoteBlock.FindUnitByToken
         and NoteBlock:FindUnitByToken(token)
 
-    if unit and UnitExists(unit) then
+    local unitExists = unit and UnitExists(unit)
+    if not isSecret(unitExists) and unitExists then
         if E.GetNickname then
             local nickname = cleanDisplayName(E:GetNickname(unit))
             if nickname then
@@ -660,6 +706,56 @@ function CoiledAltarKicker:GetUnitForLine(line)
     return nil
 end
 
+function CoiledAltarKicker:GetBossUnitForLine(line)
+    for _, unit in ipairs(self:GetActiveBossUnits()) do
+        if self:GetLineForUnit(unit) == line then
+            return unit
+        end
+    end
+    return nil
+end
+
+function CoiledAltarKicker:GetBossUnitForNameplate(unit)
+    unit = safeUnitToken(unit)
+    if not unit then
+        return nil
+    end
+
+    local unitExists = UnitExists(unit)
+    if isSecret(unitExists) or not unitExists then
+        return nil
+    end
+
+    for _, bossUnit in ipairs(self:GetActiveBossUnits()) do
+        local bossExists = UnitExists(bossUnit)
+        if not isSecret(bossExists) and bossExists then
+            local sameUnit = UnitIsUnit(unit, bossUnit)
+            if not isSecret(sameUnit) and sameUnit then
+                return bossUnit
+            end
+        end
+    end
+    return nil
+end
+
+function CoiledAltarKicker:GetNameplateLine(unit)
+    unit = safeUnitToken(unit)
+    if not unit then
+        return nil, nil
+    end
+
+    local bossUnit = self:GetBossUnitForNameplate(unit)
+    if bossUnit then
+        return self:GetLineForUnit(bossUnit), bossUnit
+    end
+
+    if isInterruptAddNameplateUnit(unit) then
+        local line = unitHasRaidMarker(unit) and 2 or 1
+        return line, self:GetBossUnitForLine(line)
+    end
+    return nil, nil
+end
+
 function CoiledAltarKicker:EnsureNameplatePool()
     if self.nameplatePool then
         return self.nameplatePool
@@ -720,6 +816,23 @@ function CoiledAltarKicker:LineHasPlayer(line)
     return false
 end
 
+function CoiledAltarKicker:RefreshNameplateUnits()
+    self.nameplateUnits = self.nameplateUnits or {}
+    wipe(self.nameplateUnits)
+
+    if not C_NamePlate or not C_NamePlate.GetNamePlates then
+        return
+    end
+
+    local secure = issecure and issecure()
+    for _, plate in ipairs(C_NamePlate.GetNamePlates(secure) or {}) do
+        local unit = safeUnitToken(plate and plate.namePlateUnitToken)
+        if self:GetNameplateLine(unit) then
+            self.nameplateUnits[unit] = true
+        end
+    end
+end
+
 function CoiledAltarKicker:UpdateNameplateDisplays()
     local pool = self:EnsureNameplatePool()
     if not pool then
@@ -737,14 +850,18 @@ function CoiledAltarKicker:UpdateNameplateDisplays()
     local numberFontSize = (self.db.nameplate.numberFontSize or 12) * fontScale
     local nameFontSize = (self.db.nameplate.nameFontSize or 12) * fontScale
 
-    for _, unit in ipairs(self:GetActiveBossUnits()) do
+    self:RefreshNameplateUnits()
+
+    for unit in pairs(self.nameplateUnits or {}) do
         activeUnits[unit] = true
-        local line = UnitExists(unit) and self:GetLineForUnit(unit)
+        local line, countUnit = self:GetNameplateLine(unit)
         if line
             and self:HasLineAssignments(line)
             and (self.db.nameplate.showAll or self:LineHasPlayer(line))
         then
-            local count = self.castCountsByUnit[unit] or self.castCounts[line] or 1
+            local count = countUnit and self.castCountsByUnit[countUnit]
+                or self.castCounts[line]
+                or 1
             local currentToken = self:GetLineAssignment(line, count)
             local displayName, classFile = self:GetKickDisplayInfo(currentToken)
             pool:Update(unit, unit, {
@@ -841,6 +958,9 @@ function CoiledAltarKicker:UpdateDisplay()
             classFile
         )
         self.frames.kickBox:Show()
+        if not self.editMode and state == "now" then
+            self:PlayPersonalAudio(line, self.castCounts[line])
+        end
     else
         self.frames.kickBox:Hide()
     end
@@ -871,6 +991,17 @@ function CoiledAltarKicker:PlayConfiguredAudio(line, count)
             name = audio.sound,
             channel = audio.channel or "Master"
         })
+    end
+end
+
+function CoiledAltarKicker:PlayPersonalAudio(line, count)
+    if not line or self.editMode or not self.encounterActive then
+        return
+    end
+
+    local currentToken = self:GetLineAssignment(line, count)
+    if currentToken and self:IsPlayerToken(currentToken) then
+        self:PlayConfiguredAudio(line, count)
     end
 end
 
@@ -946,18 +1077,12 @@ end
 function CoiledAltarKicker:HandleCastStart(unit)
     if self.encounterActive
         and self:IsInterruptUnit(unit)
-        and UnitIsEnemy(unit, "player")
+        and isActiveEnemyUnit(unit)
     then
         local line = self:GetLineForUnit(unit)
-        local count = line and self.castCounts[line]
-        local currentToken = line and self:GetLineAssignment(line, count)
 
         self.castingUnits[unit] = true
         self:UpdateDisplay()
-
-        if currentToken and self:IsPlayerToken(currentToken) then
-            self:PlayConfiguredAudio(line, count)
-        end
     end
 end
 
@@ -1004,17 +1129,27 @@ function CoiledAltarKicker:OnUnitDisplayUpdate()
     self:UpdateDisplay()
 end
 
-function CoiledAltarKicker:NAME_PLATE_UNIT_ADDED()
+function CoiledAltarKicker:NAME_PLATE_UNIT_ADDED(_, unit)
     if not self.encounterActive then
         return
+    end
+    if unit and self:GetNameplateLine(unit) then
+        self.nameplateUnits = self.nameplateUnits or {}
+        self.nameplateUnits[unit] = true
     end
     self:RefreshActiveUnits()
     self:UpdateDisplay()
 end
 
-function CoiledAltarKicker:NAME_PLATE_UNIT_REMOVED()
+function CoiledAltarKicker:NAME_PLATE_UNIT_REMOVED(_, unit)
     if not self.encounterActive then
         return
+    end
+    if unit and self.nameplateUnits then
+        self.nameplateUnits[unit] = nil
+    end
+    if unit and self.nameplatePool then
+        self.nameplatePool:Hide(unit)
     end
     self:RefreshActiveUnits()
     self:UpdateDisplay()
@@ -1022,7 +1157,7 @@ end
 
 function CoiledAltarKicker:INSTANCE_ENCOUNTER_ENGAGE_UNIT()
     local boss3Exists = UnitExists("boss3")
-    if not boss3Exists then
+    if isSecret(boss3Exists) or not boss3Exists then
         self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
         wipe(self.castingUnits)
         self:SyncCastCounts()
@@ -1054,6 +1189,7 @@ function CoiledAltarKicker:OnEncounterEnd(_, encounterID)
     self:UnregisterSpellcastEvents()
     self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     wipe(self.castingUnits)
+    wipe(self.nameplateUnits)
     self.lastAudioKey = nil
     self:UpdateDisplay()
 end
@@ -1091,6 +1227,7 @@ function CoiledAltarKicker:OnInitialize()
     self.castCounts = {[1] = 1, [2] = 1, [3] = 1, [4] = 1}
     self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     self.castingUnits = {}
+    self.nameplateUnits = {}
     self.assignments = {{}, {}, {}, {}}
     self:EnsureFrames()
     self:ParseAssignments()
@@ -1105,6 +1242,7 @@ function CoiledAltarKicker:OnEnable()
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
     self:RegisterEvent("UNIT_DIED", "OnUnitDisplayUpdate")
     self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+    self:RegisterEvent("RAID_TARGET_UPDATE", "OnUnitDisplayUpdate")
     self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
     self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     self:RegisterEvent("PLAYER_FOCUS_CHANGED", "OnUnitDisplayUpdate")
@@ -1117,6 +1255,7 @@ function CoiledAltarKicker:OnDisable()
     self.editMode = false
     self.castCountsByUnit = {boss3 = 1, boss4 = 1, boss5 = 1, boss6 = 1}
     wipe(self.castingUnits)
+    wipe(self.nameplateUnits)
     self:UnregisterSpellcastEvents()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()

@@ -132,6 +132,19 @@ local NAMEPLATE_ANCHOR_SORTING = {
     "BOTTOM"
 }
 
+local function safeNameplateToken(unit)
+    if E.SafeString then
+        return E:SafeString(unit)
+    end
+    if type(unit) ~= "string" then
+        return nil
+    end
+    if E.IsSecret and E:IsSecret(unit) then
+        return nil
+    end
+    return unit
+end
+
 local function nameplatePoolFrameName(prefix, key)
     key = tostring(key or ""):gsub("[^%w_]", "_")
     if key == "" then
@@ -149,6 +162,7 @@ function Alerts:GetNameplateAnchorSorting()
 end
 
 function Alerts:ResolveNameplateFrame(unit)
+    unit = safeNameplateToken(unit)
     if not unit then
         return nil
     end
@@ -156,7 +170,8 @@ function Alerts:ResolveNameplateFrame(unit)
     if C_NamePlate
         and C_NamePlate.GetNamePlateForUnit
     then
-        return C_NamePlate.GetNamePlateForUnit(unit)
+        local secure = issecure and issecure()
+        return C_NamePlate.GetNamePlateForUnit(unit, secure)
     end
     return nil
 end
@@ -167,7 +182,8 @@ function Alerts:AnchorToNameplate(frame, unit, opts)
     end
 
     opts = opts or {}
-    local target = opts.target or self:ResolveNameplateFrame(unit)
+    unit = safeNameplateToken(unit)
+    local target = opts.target or (unit and self:ResolveNameplateFrame(unit))
     if not target then
         frame:Hide()
         return nil
@@ -195,6 +211,7 @@ function Alerts:CreateNameplateAnchorPool(config)
     }
 
     function pool:GetFrame(key)
+        key = safeNameplateToken(key)
         if not key then
             return nil
         end
@@ -219,6 +236,8 @@ function Alerts:CreateNameplateAnchorPool(config)
     end
 
     function pool:Update(key, unit, opts)
+        key = safeNameplateToken(key)
+        unit = safeNameplateToken(unit)
         if not key or not unit then
             return nil
         end
@@ -259,6 +278,7 @@ function Alerts:CreateNameplateAnchorPool(config)
     end
 
     function pool:Hide(key)
+        key = safeNameplateToken(key)
         local frame = key and self.frames[key]
         if frame then
             frame:Hide()
