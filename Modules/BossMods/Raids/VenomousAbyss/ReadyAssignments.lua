@@ -431,7 +431,10 @@ AR({
     order = 70,
 
     tag = "CAKick1",
-    textKey = "BossMods_AR_TextCAKickUnmarked",
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 3
+    },
     note = {
         tag = "CAKick1",
         template = "#CAKick1\nPlayer1\nPlayer2\nPlayer3"
@@ -451,10 +454,59 @@ AR({
     order = 71,
 
     tag = "CAKick2",
-    textKey = "BossMods_AR_TextCAKickMarked",
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 4
+    },
     note = {
         tag = "CAKick2",
         template = "#CAKick2\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAKick3",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 72,
+
+    tag = "CAKick3",
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 5
+    },
+    note = {
+        tag = "CAKick3",
+        template = "#CAKick3\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAKick4",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 73,
+
+    tag = "CAKick4",
+    textKey = "BossMods_AR_TextKickBoss",
+    defaultValues = {
+        bossNumber = 6
+    },
+    note = {
+        tag = "CAKick4",
+        template = "#CAKick4\nPlayer1\nPlayer2\nPlayer3"
     }
 })
 
