@@ -209,6 +209,62 @@ local function hasEnchantableOffHand()
         classID == Enum.ItemClass.Weapon
 end
 
+local function normalizeReadyCheckName(name)
+    name = E:SafeString(name)
+    if not name or name == "" then
+        return nil
+    end
+    return name:gsub("%s+", ""):lower()
+end
+
+local function getPlayerShortName()
+    if type(UnitNameUnmodified) == "function" then
+        local ok, name = pcall(UnitNameUnmodified, "player")
+        if ok and not E:IsSecret(name) then
+            return name
+        end
+    end
+    if type(UnitName) == "function" then
+        local ok, name = pcall(UnitName, "player")
+        if ok and not E:IsSecret(name) then
+            return name
+        end
+    end
+    return nil
+end
+
+local function isPlayerReadyCheckStarter(starter)
+    if not starter or E:IsSecret(starter) then
+        return false
+    end
+
+    if type(UnitIsUnit) == "function" then
+        local ok, isPlayer = pcall(UnitIsUnit, starter, "player")
+        if ok and not E:IsSecret(isPlayer) and isPlayer then
+            return true
+        end
+    end
+
+    local starterName = E:SafeString(starter)
+    local normalizedStarter = normalizeReadyCheckName(starterName)
+    if not normalizedStarter then
+        return false
+    end
+
+    if type(E.GetUnitFullName) == "function" then
+        local ok, playerFullName = pcall(E.GetUnitFullName, E, "player", true)
+        if ok and normalizedStarter == normalizeReadyCheckName(playerFullName) then
+            return true
+        end
+    end
+
+    if starterName:find("-", 1, true) then
+        return false
+    end
+
+    return normalizedStarter == normalizeReadyCheckName(getPlayerShortName())
+end
+
 local function showButtonTooltip(button)
     GameTooltip:SetOwner(button, "ANCHOR_CURSOR")
 
@@ -547,12 +603,7 @@ function ReadyCheckConsumables:AnchorDisplay(starter, forceCenter)
 
     if not forceCenter then
         local target = _G.ReadyCheckListenerFrame
-        local starterIsPlayer = false
-        if starter and not E:IsSecret(starter) then
-            local ok, result = pcall(UnitIsUnit, starter, "player")
-            starterIsPlayer = ok and not E:IsSecret(result) and result
-        end
-        if starterIsPlayer and _G.ReadyCheckFrame then
+        if isPlayerReadyCheckStarter(starter) and _G.ReadyCheckFrame then
             target = _G.ReadyCheckFrame
         end
 
@@ -859,6 +910,13 @@ function ReadyCheckConsumables:ShowForReadyCheck(starter, timeout, forceCenter)
 end
 
 function ReadyCheckConsumables:OnReadyCheck(_, starter, timeout)
+    if isPlayerReadyCheckStarter(starter) then
+        if self.displayMode == "readyCheck" then
+            self:HideDisplay(false)
+        end
+        return
+    end
+
     self:ShowForReadyCheck(starter, timeout, false)
 end
 
