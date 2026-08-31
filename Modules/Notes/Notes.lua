@@ -2246,25 +2246,12 @@ function Notes:BuildFrame(slotIndex)
     end
     applyBackdropColors(frame, slot and slot.display or {})
 
-    -- Scrolling text body
+    -- Clipped text body
     local scroll = CreateFrame("ScrollFrame", nil, frame)
     scroll:SetPoint("TOPLEFT", 4, -4)
     scroll:SetPoint("BOTTOMRIGHT", -4, 6)
     scroll:EnableMouse(false)
-    scroll:EnableMouseWheel(true)
-    scroll:SetScript("OnMouseWheel", function(self_, delta)
-        local cur = self_:GetVerticalScroll()
-        local child = self_:GetScrollChild()
-        local maxY = child and max(0, child:GetHeight() - self_:GetHeight()) or 0
-        local new = cur - delta * 20
-        if new < 0 then
-            new = 0
-        end
-        if new > maxY then
-            new = maxY
-        end
-        self_:SetVerticalScroll(new)
-    end)
+    scroll:EnableMouseWheel(false)
     frame.scroll = scroll
 
     local content = CreateFrame("Frame", nil, scroll)
