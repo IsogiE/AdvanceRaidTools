@@ -52,6 +52,8 @@ local Mod = E:NewModule("BossMods_GeneralPack", "AceEvent-3.0")
 local BM
 
 local COMM_PREFIX = "ART_GenPack"
+local GLOW123_KEY = "ART_GP_123"
+local GLOW123_LABEL_FIELD = "ARTGP123Label"
 
 local SPELL_FEAST = 19705
 local SPELL_CAULDRON = 448001
@@ -882,38 +884,70 @@ function Mod:Glow123(sender)
         return
     end
 
-    self:StopGlow123()
+    local label = self:StopGlow123Frame(frame, true)
 
-    LCG.PixelGlow_Start(frame, {0.2, 1, 0.4, 1}, 8, 0.25, nil, 2, 0, 0, false, "ART_GP_123")
+    LCG.PixelGlow_Start(frame, {0.2, 1, 0.4, 1}, 8, 0.25, nil, 2, 0, 0, false, GLOW123_KEY)
 
-    local label = frame:CreateFontString(nil, "OVERLAY")
+    local active = self.glow123Active or {}
+    self.glow123Active = active
+
+    label = label or frame[GLOW123_LABEL_FIELD]
+    if not label then
+        label = frame:CreateFontString(nil, "OVERLAY")
+        frame[GLOW123_LABEL_FIELD] = label
+    end
+    label:ClearAllPoints()
     label:SetFont(E:FetchModuleFont() or [[Fonts\FRIZQT__.TTF]], 22, "OUTLINE")
     label:SetTextColor(0.2, 1, 0.4, 1)
     label:SetText(L["BossMods_GP_TriggerSummonStone"])
     label:SetPoint("CENTER", frame, "CENTER", 0, 0)
+    label:Show()
 
-    self.glow123Frame = frame
-    self.glow123Label = label
-    self.glow123Timer = C_Timer.NewTimer(self.db.summonGlowSeconds or 10, function()
-        Mod:StopGlow123()
+    local entry = {
+        label = label
+    }
+    active[frame] = entry
+    entry.timer = C_Timer.NewTimer(self.db.summonGlowSeconds or 10, function()
+        if Mod.glow123Active and Mod.glow123Active[frame] == entry then
+            Mod:StopGlow123Frame(frame)
+        end
     end)
 end
 
-function Mod:StopGlow123()
+function Mod:StopGlow123Frame(frame, keepLabel)
+    if not frame then
+        return
+    end
+    local active = self.glow123Active
+    local entry = active and active[frame]
+    if not entry then
+        return
+    end
+
     local LCG = E.Libs and E.Libs.LibCustomGlow
-    if self.glow123Frame and LCG then
-        LCG.PixelGlow_Stop(self.glow123Frame, "ART_GP_123")
+    if LCG then
+        LCG.PixelGlow_Stop(frame, GLOW123_KEY)
     end
-    if self.glow123Label then
-        self.glow123Label:Hide()
-        self.glow123Label:SetParent(nil)
+    if entry.timer and entry.timer.Cancel then
+        entry.timer:Cancel()
     end
-    if self.glow123Timer then
-        self.glow123Timer:Cancel()
+    if entry.label and not keepLabel then
+        entry.label:Hide()
     end
-    self.glow123Frame = nil
-    self.glow123Label = nil
-    self.glow123Timer = nil
+    active[frame] = nil
+    return keepLabel and entry.label or nil
+end
+
+function Mod:StopGlow123()
+    local active = self.glow123Active
+    if not active then
+        return
+    end
+    local frame = next(active)
+    while frame do
+        self:StopGlow123Frame(frame)
+        frame = next(active)
+    end
 end
 
 function Mod:OnEnterCombat()
