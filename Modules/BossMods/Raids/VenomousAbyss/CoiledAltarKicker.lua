@@ -592,6 +592,42 @@ function CoiledAltarKicker:GetUnitForLine(line)
     return nil
 end
 
+function CoiledAltarKicker:GetOtherBossUnit(unit)
+    if unit == "boss3" then
+        return "boss4"
+    elseif unit == "boss4" then
+        return "boss3"
+    end
+    return nil
+end
+
+function CoiledAltarKicker:GetCounterUnitForLine(line)
+    if self.assignedBossUnit then
+        if line == MARKED_LINE then
+            return self.assignedBossUnit
+        end
+        return self:GetOtherBossUnit(self.assignedBossUnit)
+    end
+
+    return line == MARKED_LINE and "boss4" or "boss3"
+end
+
+function CoiledAltarKicker:GetLineForBossUnit(unit)
+    if not isInterruptBossUnit(unit) then
+        return nil
+    end
+    if not UnitExists(unit) then
+        return nil
+    end
+
+    if self.assignedBossUnit then
+        return unit == self.assignedBossUnit and MARKED_LINE or UNMARKED_LINE
+    end
+
+    local raidMarker = GetRaidTargetIndex(unit)
+    return isSecret(raidMarker) and MARKED_LINE or UNMARKED_LINE
+end
+
 function CoiledAltarKicker:ResolveAnchorFrame(unit)
     if BossMods
         and BossMods.Alerts
@@ -639,21 +675,16 @@ end
 function CoiledAltarKicker:SyncCastCounts()
     self.castCountsByUnit = self.castCountsByUnit
         or {boss3 = 1, boss4 = 1}
-    local countUnit = self.assignedBossUnit
+    local unmarkedUnit = self:GetCounterUnitForLine(UNMARKED_LINE)
+    local markedUnit = self:GetCounterUnitForLine(MARKED_LINE)
     self.castCounts[UNMARKED_LINE] =
-        self.castCountsByUnit[countUnit or "boss3"] or 1
+        self.castCountsByUnit[unmarkedUnit or "boss3"] or 1
     self.castCounts[MARKED_LINE] =
-        self.castCountsByUnit[countUnit or "boss4"] or 1
+        self.castCountsByUnit[markedUnit or "boss4"] or 1
 end
 
 function CoiledAltarKicker:IsInterruptUnit(unit)
-    if not isInterruptBossUnit(unit) then
-        return false
-    end
-    if not self.assignedBossUnit then
-        return true
-    end
-    return unit == self.assignedBossUnit
+    return isInterruptBossUnit(unit)
 end
 
 function CoiledAltarKicker:HideNameplateDisplays()
@@ -802,7 +833,6 @@ function CoiledAltarKicker:UpdateNameplateDisplays()
     local fontScale = boxSize / 30
     local numberFontSize = (self.db.nameplate.numberFontSize or 12) * fontScale
     local nameFontSize = (self.db.nameplate.nameFontSize or 12) * fontScale
-    local assignedBoss = self.assignedBossUnit
     local assignedLine = self:GetAssignedLine()
 
     for unit, display in pairs(self.nameplateDisplays or {}) do
@@ -816,11 +846,10 @@ function CoiledAltarKicker:UpdateNameplateDisplays()
             end
 
             for boxIndex, box in ipairs(display.boxes or {}) do
-                local bossUnit = boxIndex == UNMARKED_LINE and "boss3" or "boss4"
                 local displayLine = boxIndex == MARKED_LINE and MARKED_LINE
                     or UNMARKED_LINE
                 local lineNames = self.assignments[displayLine] or {}
-                local countUnit = assignedBoss or bossUnit
+                local countUnit = self:GetCounterUnitForLine(displayLine)
                 local castCount = self.castCountsByUnit[countUnit] or 1
                 local currentToken = #lineNames > 0
                     and lineNames[((castCount - 1) % #lineNames) + 1]
@@ -963,16 +992,20 @@ function CoiledAltarKicker:PlayConfiguredAudio(line, count)
     end
 end
 
-function CoiledAltarKicker:PlayPersonalAudioForCount(count)
+function CoiledAltarKicker:PlayPersonalAudioForUnit(unit)
     if self.editMode or not self.interruptActive then
         return
     end
 
-    for line = 1, LINE_COUNT do
-        local currentToken = self:GetLineAssignment(line, count)
-        if currentToken and self:IsPlayerToken(currentToken) then
-            self:PlayConfiguredAudio(line, count)
-        end
+    local line = self:GetLineForBossUnit(unit)
+    if not line then
+        return
+    end
+
+    local count = self.castCountsByUnit[unit] or 1
+    local currentToken = self:GetLineAssignment(line, count)
+    if currentToken and self:IsPlayerToken(currentToken) then
+        self:PlayConfiguredAudio(line, count)
     end
 end
 
@@ -1035,7 +1068,7 @@ function CoiledAltarKicker:HandleCastStart(unit)
     then
         self.castingUnits[unit] = true
         self:UpdateDisplay()
-        self:PlayPersonalAudioForCount(self.castCountsByUnit[unit] or 1)
+        self:PlayPersonalAudioForUnit(unit)
     end
 end
 
