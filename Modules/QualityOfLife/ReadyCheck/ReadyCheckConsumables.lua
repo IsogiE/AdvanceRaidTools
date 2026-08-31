@@ -868,6 +868,20 @@ function ReadyCheckConsumables:OnReadyCheckFinished()
     end
 end
 
+function ReadyCheckConsumables:OnReadyCheckConfirm(_, unit, ready)
+    if self.displayMode ~= "readyCheck" or ready ~= true then
+        return
+    end
+    if not unit then
+        return
+    end
+
+    local ok, isPlayer = pcall(UnitIsUnit, unit, "player")
+    if ok and isPlayer then
+        self:HideDisplay(false)
+    end
+end
+
 function ReadyCheckConsumables:OnUnitChanged(_, unit)
     if unit and (E:IsSecret(unit) or unit ~= "player") then
         return
@@ -930,6 +944,7 @@ function ReadyCheckConsumables:OnEnable()
     self.displayMode = nil
 
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
+    self:RegisterEvent("READY_CHECK_CONFIRM", "OnReadyCheckConfirm")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
     self:RegisterEvent("UNIT_AURA", "OnUnitChanged")
     self:RegisterEvent("UNIT_INVENTORY_CHANGED", "OnUnitChanged")
