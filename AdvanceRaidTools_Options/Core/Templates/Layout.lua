@@ -788,7 +788,7 @@ end
 
 -- =============================================================================
 -- T:XYOffsetControls(parent, yOffset, widthPx, opts)
--- Numeric X/Y inputs for exact coordinates relative to the WoW window center.
+-- Numeric X/Y inputs for exact frame offsets.
 -- opts:
 --   getPosition  function() -> { point, x, y }
 --   setPosition  function(position)
@@ -796,6 +796,7 @@ end
 --   disabled     bool | function
 --   onChanged    optional callback after a value is committed
 --   anchorLabel  optional label for the anchor dropdown
+--   descriptionText optional localized help text between anchor and offsets
 -- =============================================================================
 function T:XYOffsetControls(parent, yOffset, widthPx, opts)
     opts = opts or {}
@@ -840,15 +841,15 @@ function T:XYOffsetControls(parent, yOffset, widthPx, opts)
     end
 
     local anchorValues = {
-        TOP = "Top",
-        CENTER = "Center",
-        BOTTOM = "Bottom",
-        LEFT = "Left",
-        RIGHT = "Right",
-        TOPLEFT = "Top left",
-        TOPRIGHT = "Top right",
-        BOTTOMLEFT = "Bottom left",
-        BOTTOMRIGHT = "Bottom right"
+        TOP = L["Top"],
+        CENTER = L["Center"],
+        BOTTOM = L["Bottom"],
+        LEFT = L["Left"],
+        RIGHT = L["Right"],
+        TOPLEFT = L["TopLeft"],
+        TOPRIGHT = L["TopRight"],
+        BOTTOMLEFT = L["BottomLeft"],
+        BOTTOMRIGHT = L["BottomRight"]
     }
 
     local anchorSorting = {
@@ -864,7 +865,7 @@ function T:XYOffsetControls(parent, yOffset, widthPx, opts)
     }
 
     local anchorDropdown = track(T:Dropdown(parent, {
-        label = opts.anchorLabel or "Anchor point on alert",
+        label = opts.anchorLabel or L["Anchor"],
         values = anchorValues,
         sorting = anchorSorting,
         get = function()
@@ -881,12 +882,15 @@ function T:XYOffsetControls(parent, yOffset, widthPx, opts)
         disabled = opts.disabled
     }))
 
-    local anchorDescription = track(T:Description(parent, {
-        text = "X and Y are relative to the center of the WoW window."
-    }))
+    local anchorDescription
+    if opts.descriptionText then
+        anchorDescription = track(T:Description(parent, {
+            text = opts.descriptionText
+        }))
+    end
 
     local xInput = track(T:NumericStepper(parent, {
-        label = opts.xInputLabel or "X value",
+        label = opts.xInputLabel or L["OffsetX"],
         get = function()
             return tonumber(currentPosition().x) or 0
         end,
@@ -898,7 +902,7 @@ function T:XYOffsetControls(parent, yOffset, widthPx, opts)
     }))
 
     local yInput = track(T:NumericStepper(parent, {
-        label = opts.yInputLabel or "Y value",
+        label = opts.yInputLabel or L["OffsetY"],
         get = function()
             return tonumber(currentPosition().y) or 0
         end,
@@ -912,7 +916,9 @@ function T:XYOffsetControls(parent, yOffset, widthPx, opts)
     local y = yOffset or 0
     local gap = opts.rowGap or 6
     y = y + T:PlaceFull(parent, anchorDropdown, y, widthPx) + gap
-    y = y + T:PlaceFull(parent, anchorDescription, y, widthPx) + gap
+    if anchorDescription then
+        y = y + T:PlaceFull(parent, anchorDescription, y, widthPx) + gap
+    end
     y = y + T:PlaceRow(parent, {xInput, yInput}, y, widthPx) + gap
 
     return y
