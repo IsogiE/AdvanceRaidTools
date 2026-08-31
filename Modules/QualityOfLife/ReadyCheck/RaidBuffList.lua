@@ -16,6 +16,7 @@ E:RegisterModuleDefaults("QoL_RaidBuffList", {
     useClassColors = true,
     backgroundEnabled = true,
     borderEnabled = true,
+    minimizedByGroup = {},
     position = {
         point = "CENTER",
         relPoint = "CENTER",
@@ -111,7 +112,15 @@ end
 local FRAME_WIDTH = TABLE_WIDTH + 34
 local HEADER_HEIGHT = 25
 local HEADER_GAP = 2
-local FRAME_FIXED_HEIGHT = 46 + HEADER_HEIGHT + HEADER_GAP
+local TIMER_BAR_HEIGHT = 16
+local TIMER_BAR_GAP = 4
+local TIMER_BAR_FADE_WIDTH = 18
+local FRAME_CHROME_HEIGHT = 46
+local FRAME_FIXED_HEIGHT =
+    FRAME_CHROME_HEIGHT + TIMER_BAR_HEIGHT + TIMER_BAR_GAP + HEADER_HEIGHT +
+        HEADER_GAP
+local FRAME_MINIMIZED_FIXED_HEIGHT =
+    FRAME_CHROME_HEIGHT + TIMER_BAR_HEIGHT + TIMER_BAR_GAP
 local MAX_SCREEN_HEIGHT_RATIO = 0.72
 local DEFAULT_ROW_HEIGHT = 18
 local READY_CHECK_ICON_SIZE = 15
@@ -119,6 +128,28 @@ local NAME_LEFT_PADDING = 5
 local NAME_ICON_GAP = 3
 local NAME_TEXT_OFFSET = NAME_LEFT_PADDING + READY_CHECK_ICON_SIZE +
     NAME_ICON_GAP
+local MINIMIZED_COLUMNS = 4
+local MINIMIZED_COLUMN_GAP = 6
+local MINIMIZED_COLUMN_WIDTH = math.floor(
+    (TABLE_WIDTH - (MINIMIZED_COLUMNS - 1) * MINIMIZED_COLUMN_GAP) /
+        MINIMIZED_COLUMNS
+)
+local PREVIEW_SIZE = 30
+local PREVIEW_CLASSES = {
+    "DEATHKNIGHT",
+    "DEMONHUNTER",
+    "DRUID",
+    "EVOKER",
+    "HUNTER",
+    "MAGE",
+    "MONK",
+    "PALADIN",
+    "PRIEST",
+    "ROGUE",
+    "SHAMAN",
+    "WARLOCK",
+    "WARRIOR"
+}
 
 local function clamp(value, minimum, maximum)
     value = tonumber(value) or minimum
@@ -189,6 +220,27 @@ local function colorComponents(color, fallbackR, fallbackG, fallbackB)
     return fallbackR, fallbackG, fallbackB
 end
 
+local function unitFlag(func, unit)
+    if type(func) ~= "function" then
+        return false
+    end
+
+    local ok, value = pcall(func, unit)
+    return ok and value == true
+end
+
+local function setHorizontalFade(texture, r, g, b, startAlpha, endAlpha)
+    if texture.SetGradient and type(CreateColor) == "function" then
+        texture:SetGradient(
+            "HORIZONTAL",
+            CreateColor(r, g, b, startAlpha),
+            CreateColor(r, g, b, endAlpha)
+        )
+        return
+    end
+    texture:SetColorTexture(r, g, b, startAlpha)
+end
+
 local function setReadyState(cell, value, available, connected)
     cell.tooltipLines = nil
     cell.tooltipEnabled = available and true or false
@@ -211,15 +263,17 @@ local function setReadyState(cell, value, available, connected)
     cell.icon:SetAlpha(1)
 end
 
-local function setReadyCheckStatus(icon, unit)
-    local status
+local function getReadyCheckStatus(unit)
     if type(GetReadyCheckStatus) == "function" then
         local ok, value = pcall(GetReadyCheckStatus, unit)
         if ok and not E:IsSecret(value) then
-            status = value
+            return value
         end
     end
+    return nil
+end
 
+local function setReadyCheckIcon(icon, status)
     local atlas = READY_CHECK_ATLASES[status]
     if not atlas then
         icon:Hide()
@@ -272,9 +326,85 @@ function RaidBuffList:GetRowHeight()
     return math.max(DEFAULT_ROW_HEIGHT, size + 7)
 end
 
+function RaidBuffList:GetMinimizedRowHeight()
+    local size = clamp(self.db.fontSize, 8, 22)
+    return math.max(16, size + 5)
+end
+
+function RaidBuffList:HasReadyCheckControl()
+    return unitFlag(UnitIsGroupLeader, "player") or
+        unitFlag(UnitIsGroupAssistant, "player")
+end
+
+function RaidBuffList:GetMinimizedGroup()
+    return self:HasReadyCheckControl() and "controller" or "member"
+end
+
+function RaidBuffList:GetMinimizedPreferences()
+    if not self.db then
+        return {}
+    end
+
+    local preferences = rawget(self.db, "minimizedByGroup")
+    if type(preferences) ~= "table" then
+        preferences = {}
+        self.db.minimizedByGroup = preferences
+    end
+    return preferences
+end
+
+function RaidBuffList:MigrateMinimizedPreference()
+    if self.minimizedPreferenceMigrated or not self.db then
+        return
+    end
+    self.minimizedPreferenceMigrated = true
+
+    local oldValue = rawget(self.db, "minimized")
+    if oldValue == nil then
+        return
+    end
+
+    local preferences = self:GetMinimizedPreferences()
+    local group = self:GetMinimizedGroup()
+    if preferences[group] == nil then
+        preferences[group] = oldValue == true
+    end
+    self.db.minimized = nil
+end
+
+function RaidBuffList:GetDefaultMinimized()
+    return not self:HasReadyCheckControl()
+end
+
+function RaidBuffList:IsMinimized()
+    if not self.db then
+        return true
+    end
+
+    self:MigrateMinimizedPreference()
+    local preferences = self:GetMinimizedPreferences()
+    local value = preferences[self:GetMinimizedGroup()]
+    if value ~= nil then
+        return value == true
+    end
+    return self:GetDefaultMinimized()
+end
+
 function RaidBuffList:ResizeForRoster(rosterCount)
     local frame = self.frame
     if not frame then
+        return
+    end
+
+    if self:IsMinimized() then
+        local rows = math.max(
+            1,
+            math.ceil((rosterCount or 0) / MINIMIZED_COLUMNS)
+        )
+        frame:SetHeight(
+            FRAME_MINIMIZED_FIXED_HEIGHT +
+                rows * self:GetMinimizedRowHeight()
+        )
         return
     end
 
@@ -290,6 +420,242 @@ function RaidBuffList:ResizeForRoster(rosterCount)
     local visibleRows = clamp(rosterCount or 0, 1, maximumRows)
     frame:SetHeight(
         FRAME_FIXED_HEIGHT + visibleRows * rowHeight
+    )
+end
+
+function RaidBuffList:GetBaseTitle()
+    return text("QoL_RaidBuffList", "Raid Buff List")
+end
+
+function RaidBuffList:GetPreviewPlayer()
+    local fullName
+    if type(E.GetUnitFullName) == "function" then
+        fullName = E:GetUnitFullName("player", true)
+    end
+    if not fullName and type(UnitNameUnmodified) == "function" then
+        fullName = UnitNameUnmodified("player")
+    end
+    if not fullName and type(UnitName) == "function" then
+        fullName = UnitName("player")
+    end
+    fullName = fullName or "Player"
+
+    local class
+    if type(UnitClass) == "function" then
+        local ok, _, classFile = pcall(UnitClass, "player")
+        if ok and not E:IsSecret(classFile) then
+            class = classFile
+        end
+    end
+
+    return {
+        unit = "player",
+        fullName = fullName,
+        shortName = E:BareName(fullName) or fullName,
+        class = class or "PRIEST",
+        subgroup = 1,
+        preview = true
+    }
+end
+
+function RaidBuffList:GetPreviewRoster()
+    local player = self:GetPreviewPlayer()
+    if self.previewRoster and self.previewPlayerName == player.fullName and
+        self.previewPlayerClass == player.class then
+        return self.previewRoster
+    end
+
+    local roster = {
+        player
+    }
+    for index = 2, PREVIEW_SIZE do
+        local classIndex = ((index * 7) % #PREVIEW_CLASSES) + 1
+        local name = "Player" .. index
+        roster[index] = {
+            fullName = name,
+            shortName = name,
+            class = PREVIEW_CLASSES[classIndex],
+            subgroup = math.ceil(index / 5),
+            preview = true
+        }
+    end
+
+    self.previewRoster = roster
+    self.previewPlayerName = player.fullName
+    self.previewPlayerClass = player.class
+    return roster
+end
+
+function RaidBuffList:GetDisplayRoster()
+    if self.localTest or self.unlocked then
+        return self:GetPreviewRoster()
+    end
+    return Data:GetRoster() or {}
+end
+
+function RaidBuffList:UpdateTitle()
+    local frame = self.frame
+    if not frame then
+        return
+    end
+
+    local title = self:GetBaseTitle()
+    if self.readyCheckEndTime then
+        local remaining = math.max(0, self.readyCheckEndTime - GetTime())
+        frame:SetTitle(("%s (%d sec.)"):format(title, math.ceil(remaining)))
+        return
+    end
+
+    frame:SetTitle(title)
+end
+
+function RaidBuffList:UpdateTimerBar()
+    local frame = self.frame
+    local bar = frame and frame.timerBar
+    if not bar then
+        return
+    end
+
+    local fullWidth = math.max(1, bar:GetWidth() or TABLE_WIDTH)
+    local width = 1
+    if self.readyCheckEndTime and self.readyCheckDuration then
+        local remaining = math.max(0, self.readyCheckEndTime - GetTime())
+        width = math.max(
+            1,
+            fullWidth * remaining / math.max(1, self.readyCheckDuration)
+        )
+    end
+    local fadeWidth = math.min(TIMER_BAR_FADE_WIDTH, width)
+    local fillWidth = math.max(1, width - fadeWidth)
+    bar.fill:SetWidth(fillWidth)
+    if bar.fade then
+        bar.fade:SetWidth(fadeWidth)
+        bar.fade:SetShown(width > 1)
+    end
+
+    local total = tonumber(self.readyTotal) or 0
+    local responded = tonumber(self.readyResponded) or 0
+    bar.text:SetFormattedText("%d/%d", responded, total)
+
+    local progress = total > 0 and responded / total or 0
+    local r, g, b
+    if progress >= 0.66 then
+        local step = (progress - 0.66) / 0.34
+        r = 0.6 - (0.6 - 0.2) * step
+        g = 0.6 - (0.6 - 0.7) * step
+        b = 0.2
+    else
+        local step = progress / 0.66
+        r = 1 - (1 - 0.6) * step
+        g = 0.2 - (0.2 - 0.6) * step
+        b = 0.2
+    end
+    bar.fill:SetColorTexture(r, g, b, 0.9)
+    if bar.fade then
+        setHorizontalFade(bar.fade, r, g, b, 0.9, 0)
+    end
+    self:UpdateTitle()
+end
+
+function RaidBuffList:OnTimerUpdate(elapsed)
+    self.timerUpdateElapsed = (self.timerUpdateElapsed or 0) + elapsed
+    if self.timerUpdateElapsed < 0.1 then
+        return
+    end
+    self.timerUpdateElapsed = 0
+    self:UpdateTimerBar()
+
+    if self.readyCheckEndTime and self.readyCheckEndTime <= GetTime() and
+        self.frame and self.frame.timerBar then
+        self.frame.timerBar:SetScript("OnUpdate", nil)
+    end
+end
+
+function RaidBuffList:StartTimer(duration)
+    duration = clamp(duration, 5, 60)
+    self.readyCheckDuration = duration
+    self.readyCheckEndTime = GetTime() + duration
+    self.timerUpdateElapsed = 0
+
+    if self.frame and self.frame.timerBar then
+        self.frame.timerBar:SetScript("OnUpdate", function(_, elapsed)
+            RaidBuffList:OnTimerUpdate(elapsed)
+        end)
+    end
+    self:UpdateTimerBar()
+end
+
+function RaidBuffList:StopTimer()
+    self.readyCheckDuration = nil
+    self.readyCheckEndTime = nil
+    self.timerUpdateElapsed = 0
+
+    if self.frame and self.frame.timerBar then
+        self.frame.timerBar:SetScript("OnUpdate", nil)
+    end
+    self:UpdateTimerBar()
+end
+
+function RaidBuffList:UpdateMinimizeButton()
+    local button = self.frame and self.frame.minimizeButton
+    if not button then
+        return
+    end
+
+    if button.arrow then
+        button.arrow:SetRotation(self:IsMinimized() and -math.pi / 2 or
+            math.pi / 2)
+    end
+end
+
+function RaidBuffList:ApplyViewMode()
+    local frame = self.frame
+    if not frame then
+        return
+    end
+
+    local minimized = self:IsMinimized()
+    frame.headers:SetShown(not minimized)
+    frame.list.frame:SetShown(not minimized)
+    frame.miniContent:SetShown(minimized)
+    self:UpdateMinimizeButton()
+    self:ResizeForRoster(self.rosterCount)
+end
+
+function RaidBuffList:SetMinimized(value)
+    value = value and true or false
+    local group = self:GetMinimizedGroup()
+    local preferences = self:GetMinimizedPreferences()
+    if preferences[group] == value then
+        self:ApplyViewMode()
+        return
+    end
+
+    preferences[group] = value
+    self.db.minimized = nil
+    self:ApplyViewMode()
+    self:RefreshList()
+end
+
+function RaidBuffList:ApplyRowBackground(row, index, r, g, b)
+    if not row or not row.highlight then
+        return
+    end
+
+    if self.db.backgroundEnabled == false then
+        row.highlight:SetColorTexture(0, 0, 0, 0)
+        return
+    end
+
+    if self.db.useClassColors == false then
+        r, g, b = colorComponents(E.media.valueColor, 0.09, 0.52, 0.82)
+    end
+
+    row.highlight:SetColorTexture(
+        r,
+        g,
+        b,
+        index % 2 == 0 and 0.16 or 0.08
     )
 end
 
@@ -374,6 +740,32 @@ function RaidBuffList:CreateRow(index)
     return row
 end
 
+function RaidBuffList:CreateMiniRow(index)
+    local frame = self.frame
+    local row = CreateFrame("Frame", nil, frame.miniContent)
+    row:SetWidth(MINIMIZED_COLUMN_WIDTH)
+
+    row.highlight = row:CreateTexture(nil, "BACKGROUND")
+    row.highlight:SetAllPoints()
+
+    row.readyCheck = row:CreateTexture(nil, "ARTWORK")
+    row.readyCheck:SetPoint("LEFT", NAME_LEFT_PADDING, 0)
+    row.readyCheck:SetSize(READY_CHECK_ICON_SIZE, READY_CHECK_ICON_SIZE)
+    row.readyCheck:Hide()
+
+    row.name = E:CreateFontString(row, nil, "ARTWORK")
+    row.name:SetPoint("LEFT", NAME_TEXT_OFFSET, 0)
+    row.name:SetWidth(
+        MINIMIZED_COLUMN_WIDTH - NAME_TEXT_OFFSET - NAME_LEFT_PADDING
+    )
+    row.name:SetJustifyH("LEFT")
+    row.name:SetWordWrap(false)
+    frame:RegisterDragRegion(row)
+
+    frame.miniRows[index] = row
+    return row
+end
+
 function RaidBuffList:CreateFrame()
     if self.frame then
         return self.frame
@@ -422,13 +814,65 @@ function RaidBuffList:CreateFrame()
             )
         end)
     end
+    local minimize = E:CreateWindowCloseButton(frame.titleBar, {
+        size = 20,
+        onClick = function()
+            RaidBuffList:SetMinimized(not RaidBuffList:IsMinimized())
+        end
+    })
+    minimize.glyph:SetText("")
+    minimize:SetPoint("RIGHT", frame.close, "LEFT", -4, 0)
+    frame.title:ClearAllPoints()
+    frame.title:SetPoint("LEFT")
+    frame.title:SetPoint("RIGHT", minimize, "LEFT", -6, 0)
+
+    local arrow = minimize:CreateTexture(nil, "OVERLAY")
+    arrow:SetTexture([[Interface\ChatFrame\ChatFrameExpandArrow]])
+    arrow:SetDesaturated(true)
+    arrow:SetSize(10, 10)
+    arrow:SetPoint("CENTER")
+    E:RegisterAccentTexture(arrow)
+    minimize.arrow = arrow
+    frame.minimizeButton = minimize
+
     frame:RegisterDragRegion(frame.body)
 
+    local timerBar = CreateFrame("Frame", nil, frame.body)
+    timerBar:SetPoint("TOPLEFT")
+    timerBar:SetSize(TABLE_WIDTH, TIMER_BAR_HEIGHT)
+    frame:RegisterDragRegion(timerBar)
+
+    timerBar.background = timerBar:CreateTexture(nil, "BACKGROUND")
+    timerBar.background:SetAllPoints()
+    timerBar.background:SetColorTexture(0, 0, 0, 0.35)
+
+    timerBar.fill = timerBar:CreateTexture(nil, "ARTWORK")
+    timerBar.fill:SetPoint("TOPLEFT")
+    timerBar.fill:SetPoint("BOTTOMLEFT")
+    timerBar.fill:SetWidth(TABLE_WIDTH)
+    timerBar.fill:SetColorTexture(1, 0.2, 0.2, 0.9)
+
+    timerBar.fade = timerBar:CreateTexture(nil, "ARTWORK")
+    timerBar.fade:SetPoint("TOPLEFT", timerBar.fill, "TOPRIGHT")
+    timerBar.fade:SetPoint("BOTTOMLEFT", timerBar.fill, "BOTTOMRIGHT")
+    timerBar.fade:SetWidth(TIMER_BAR_FADE_WIDTH)
+    setHorizontalFade(timerBar.fade, 1, 0.2, 0.2, 0.9, 0)
+
+    timerBar.text = E:CreateFontString(timerBar, nil, "OVERLAY")
+    timerBar.text:SetPoint("CENTER")
+    timerBar.text:SetJustifyH("CENTER")
+    timerBar.text:SetText("0/0")
+    frame.timerBar = timerBar
+
     local headers = CreateFrame("Frame", nil, frame.body)
-    headers:SetPoint("TOPLEFT")
+    headers:SetPoint("TOPLEFT", timerBar, "BOTTOMLEFT", 0, -TIMER_BAR_GAP)
     headers:SetSize(TABLE_WIDTH, HEADER_HEIGHT)
     frame.headers = headers
     frame:RegisterDragRegion(headers)
+
+    headers.background = headers:CreateTexture(nil, "BACKGROUND")
+    headers.background:SetAllPoints()
+    headers.background:SetColorTexture(0, 0, 0, 0.22)
 
     local nameHeader = E:CreateFontString(headers, nil, "OVERLAY")
     nameHeader:SetPoint("LEFT", NAME_TEXT_OFFSET, 0)
@@ -480,6 +924,20 @@ function RaidBuffList:CreateFrame()
     frame:RegisterDragRegion(list.scroll)
     frame:RegisterDragRegion(list.content)
 
+    local miniContent = CreateFrame("Frame", nil, frame.body)
+    miniContent:SetPoint(
+        "TOPLEFT",
+        timerBar,
+        "BOTTOMLEFT",
+        0,
+        -TIMER_BAR_GAP
+    )
+    miniContent:SetSize(TABLE_WIDTH, DEFAULT_ROW_HEIGHT)
+    miniContent:Hide()
+    frame.miniContent = miniContent
+    frame.miniRows = {}
+    frame:RegisterDragRegion(miniContent)
+
     self.frame = frame
     frame:SetScale(clamp(self.db.scale, 0.75, 1.5))
     self:ApplyPosition()
@@ -515,8 +973,28 @@ function RaidBuffList:ApplyAppearance()
     local outline = normalizedOutline(self.db.fontOutline)
     local r, g, b, a = E:ColorTuple(self.db.textColor, 1, 1, 1, 1)
 
+    E:ApplyFontString(
+        frame.timerBar.text,
+        font,
+        math.max(8, fontSize - 1),
+        outline
+    )
+    frame.timerBar.text:SetTextColor(r, g, b, a)
+    frame.timerBar.background:SetColorTexture(
+        background[1],
+        background[2],
+        background[3],
+        self.db.backgroundEnabled == false and 0 or 0.35
+    )
+    frame.headers.background:SetColorTexture(
+        background[1],
+        background[2],
+        background[3],
+        self.db.backgroundEnabled == false and 0 or 0.22
+    )
+
     E:ApplyFontString(frame.nameHeader, font, fontSize, outline)
-    frame:SetTitle(text("QoL_RaidBuffList", "Raid Buff List"))
+    self:UpdateTitle()
     frame.nameHeader:SetText(text("Name", "Name"))
     frame.nameHeader:SetTextColor(r, g, b, a)
 
@@ -550,8 +1028,34 @@ function RaidBuffList:ApplyAppearance()
             )
         end
     end
+    local miniRowHeight = self:GetMinimizedRowHeight()
+    for index, row in ipairs(frame.miniRows) do
+        local column = (index - 1) % MINIMIZED_COLUMNS
+        local rowIndex = math.floor((index - 1) / MINIMIZED_COLUMNS)
+        row:ClearAllPoints()
+        row:SetPoint(
+            "TOPLEFT",
+            frame.miniContent,
+            "TOPLEFT",
+            column * (MINIMIZED_COLUMN_WIDTH + MINIMIZED_COLUMN_GAP),
+            -rowIndex * miniRowHeight
+        )
+        row:SetSize(MINIMIZED_COLUMN_WIDTH, miniRowHeight)
+        row.highlight:SetColorTexture(
+            accent[1],
+            accent[2],
+            accent[3],
+            self.db.backgroundEnabled == false and 0 or
+                (index % 2 == 0 and 0.075 or 0.025)
+        )
+        E:ApplyFontString(row.name, font, fontSize, outline)
+        row.name:SetWidth(
+            MINIMIZED_COLUMN_WIDTH - NAME_TEXT_OFFSET - NAME_LEFT_PADDING
+        )
+    end
     frame.list.SetMouseWheelStep(self:GetRowHeight() * 2)
-    self:ResizeForRoster(self.rosterCount)
+    self:UpdateTimerBar()
+    self:ApplyViewMode()
 end
 
 function RaidBuffList:StoreDurabilityReport(percent, broken, sender, allowTest)
@@ -647,24 +1151,36 @@ function RaidBuffList:RefreshList()
         return
     end
 
-    local roster = Data:GetRoster()
-    roster = roster or {}
+    local roster = self:GetDisplayRoster()
     self.rosterCount = #roster
+    self.readyTotal = #roster
+
+    local minimized = self:IsMinimized()
+    local createdRows = false
     for index = 1, #roster do
-        if not frame.rows[index] then
+        if minimized then
+            if not frame.miniRows[index] then
+                self:CreateMiniRow(index)
+                createdRows = true
+            end
+        elseif not frame.rows[index] then
             self:CreateRow(index)
+            createdRows = true
         end
     end
-    self:ApplyAppearance()
+    if createdRows then
+        self:ApplyAppearance()
+    else
+        self:ApplyViewMode()
+    end
 
     local textR, textG, textB =
         E:ColorTuple(self.db.textColor, 1, 1, 1, 1)
+    local responded = 0
 
     for index, member in ipairs(roster) do
-        local row = frame.rows[index]
-        row:Show()
-
-        local connected = isUnitConnected(member.unit)
+        local preview = member.preview == true
+        local connected = preview or isUnitConnected(member.unit)
         local r, g, b = textR, textG, textB
         if self.db.useClassColors ~= false then
             r, g, b = E:ClassColorRGB(member.class)
@@ -672,44 +1188,78 @@ function RaidBuffList:RefreshList()
         if not connected then
             r, g, b = colorComponents(_G.GRAY_FONT_COLOR, 0.5, 0.5, 0.5)
         end
-        row.name:SetText(member.shortName or "?")
-        row.name:SetTextColor(r, g, b)
-        setReadyCheckStatus(row.readyCheck, member.unit)
 
-        local scan, available
-        if isUnitInspectable(member.unit) then
-            scan, available = Data:ScanUnit(member.unit)
-        else
-            scan, available = {}, false
+        local status = preview and "waiting" or getReadyCheckStatus(member.unit)
+        if status == "ready" or status == "notready" then
+            responded = responded + 1
         end
-        scan = scan or {}
 
-        local durabilityReport = self:GetDurabilityReport(member)
+        if minimized then
+            local row = frame.miniRows[index]
+            row:Show()
+            row.name:SetText(member.shortName or "?")
+            row.name:SetTextColor(r, g, b)
+            setReadyCheckIcon(row.readyCheck, status)
+            self:ApplyRowBackground(row, index, r, g, b)
+        else
+            local row = frame.rows[index]
+            row:Show()
+            row.name:SetText(member.shortName or "?")
+            row.name:SetTextColor(r, g, b)
+            setReadyCheckIcon(row.readyCheck, status)
+            self:ApplyRowBackground(row, index, r, g, b)
 
-        for _, column in ipairs(COLUMNS) do
-            local cell = row.cells[column.key]
-            if column.kind == "durability" then
-                setDurabilityState(cell, durabilityReport)
+            local scan, available
+            if not preview and isUnitInspectable(member.unit) then
+                scan, available = Data:ScanUnit(member.unit)
             else
-                setReadyState(
-                    cell,
-                    scan[column.key],
-                    available,
-                    connected
-                )
+                scan, available = {}, false
+            end
+            scan = scan or {}
+
+            local durabilityReport = preview and nil or
+                self:GetDurabilityReport(member)
+
+            for _, column in ipairs(COLUMNS) do
+                local cell = row.cells[column.key]
+                if column.kind == "durability" then
+                    setDurabilityState(cell, durabilityReport)
+                else
+                    setReadyState(
+                        cell,
+                        scan[column.key],
+                        available,
+                        connected
+                    )
+                end
             end
         end
     end
+    self.readyResponded = responded
 
     for index = #roster + 1, #frame.rows do
         frame.rows[index]:Hide()
     end
-
-    local contentHeight = math.max(
-        frame.scroll:GetHeight() or 1,
-        #roster * self:GetRowHeight()
+    for index = #roster + 1, #frame.miniRows do
+        frame.miniRows[index]:Hide()
+    end
+    frame.miniContent:SetHeight(
+        math.max(
+            self:GetMinimizedRowHeight(),
+            math.ceil(#roster / MINIMIZED_COLUMNS) *
+                self:GetMinimizedRowHeight()
+        )
     )
-    frame.list.SetContentSize(TABLE_WIDTH, contentHeight)
+
+    if not minimized then
+        local contentHeight = math.max(
+            frame.scroll:GetHeight() or 1,
+            #roster * self:GetRowHeight()
+        )
+        frame.list.SetContentSize(TABLE_WIDTH, contentHeight)
+    end
+    self:ResizeForRoster(#roster)
+    self:UpdateTimerBar()
 end
 
 function RaidBuffList:ShowList(localTest, timeout)
@@ -727,6 +1277,10 @@ function RaidBuffList:ShowList(localTest, timeout)
         self.hideTimer:Cancel()
         self.hideTimer = nil
     end
+    local duration = 35
+    if not E:IsSecret(timeout) and type(timeout) == "number" then
+        duration = clamp(timeout, 5, 60)
+    end
 
     self.unlocked = false
     self.localTest = isTest
@@ -740,6 +1294,7 @@ function RaidBuffList:ShowList(localTest, timeout)
     frame.list.ScrollToTop()
     frame:Show()
     self.listActive = true
+    self:StartTimer(duration)
     self:SeedLocalDurability()
     self:RefreshList()
     -- Let roster and aura state settle once, matching Blizzard ready-check
@@ -747,11 +1302,7 @@ function RaidBuffList:ShowList(localTest, timeout)
     self:ScheduleRefresh(1)
 
     if not isTest then
-        local duration = 62
-        if not E:IsSecret(timeout) and type(timeout) == "number" then
-            duration = clamp(timeout, 5, 60) + 2
-        end
-        self.hideTimer = C_Timer.NewTimer(duration, function()
+        self.hideTimer = C_Timer.NewTimer(duration + 2, function()
             self.hideTimer = nil
             if self.listActive and not self.localTest then
                 self:HideList()
@@ -767,6 +1318,8 @@ function RaidBuffList:HideList()
     self.unlocked = false
     self.localTest = false
     self.durabilityReports = {}
+    self.readyTotal = 0
+    self.readyResponded = 0
     if self.refreshTimer then
         self.refreshTimer:Cancel()
         self.refreshTimer = nil
@@ -775,6 +1328,7 @@ function RaidBuffList:HideList()
         self.hideTimer:Cancel()
         self.hideTimer = nil
     end
+    self:StopTimer()
     if self.frame then
         self.frame:Hide()
     end
@@ -869,8 +1423,11 @@ function RaidBuffList:SetUnlocked(value)
     self.localTest = false
     self.listActive = true
     self.durabilityReports = {}
+    self.readyTotal = 0
+    self.readyResponded = 0
     frame.list.ScrollToTop()
     frame:Show()
+    self:StartTimer(35)
     self:SeedLocalDurability()
     self:RefreshList()
     self:ScheduleRefresh(1)
