@@ -52,6 +52,8 @@ E:RegisterModuleDefaults("BossMods_CoiledAltarKicker", {
 })
 
 local ENCOUNTER_ID = 3429
+local BIGWIGS_MODULE_NAME = "The Coiled Altar"
+local PHASE_THREE = 3
 local INTERRUPT_ADD_LEVEL = 92
 local LINE_COUNT = 2
 local UNMARKED_LINE = 1
@@ -695,11 +697,9 @@ function CoiledAltarKicker:HideNameplateDisplays()
     end
 end
 
-function CoiledAltarKicker:ResetInterruptDisplay()
+function CoiledAltarKicker:ResetKickCounters()
     self:HideNameplateDisplays()
     self.assignedBossUnit = nil
-    self.interruptActive = false
-    self.boss3Available = false
     self.castCountsByUnit = {boss3 = 1, boss4 = 1}
     self.castCounts = {[1] = 1, [2] = 1}
     self.castingUnits = {}
@@ -707,6 +707,12 @@ function CoiledAltarKicker:ResetInterruptDisplay()
     for _, display in pairs(self.nameplateDisplays or {}) do
         display.plate = nil
     end
+end
+
+function CoiledAltarKicker:ResetInterruptDisplay()
+    self:ResetKickCounters()
+    self.interruptActive = false
+    self.boss3Available = false
 end
 
 function CoiledAltarKicker:UpdateAssignedBoss()
@@ -1016,8 +1022,9 @@ function CoiledAltarKicker:ParseHashAssignments(ctx)
     end
 
     local found = false
+    local tagPrefix = self.currentPhase == PHASE_THREE and "cap3kick" or "cakick"
     for line = 1, LINE_COUNT do
-        local tag = "cakick" .. line
+        local tag = tagPrefix .. line
         local sections = ctx.tags and ctx.tags[tag]
         if sections then
             for _, section in ipairs(sections) do
@@ -1058,6 +1065,50 @@ function CoiledAltarKicker:ParseAssignments()
     }
 
     self:ParseHashAssignments(self.noteContext)
+end
+
+function CoiledAltarKicker:OnBigWigsStage(module, stage)
+    if not self.encounterActive
+        or not module
+        or module.moduleName ~= BIGWIGS_MODULE_NAME
+    then
+        return
+    end
+
+    local phase = tonumber(stage)
+    if not phase or phase == self.currentPhase then
+        return
+    end
+
+    self.currentPhase = phase
+    if not self.interruptActive then
+        return
+    end
+
+    self:ParseAssignments()
+    self:ResetKickCounters()
+    self:RefreshNameplateUnits()
+    self:INSTANCE_ENCOUNTER_ENGAGE_UNIT()
+end
+
+function CoiledAltarKicker:HookBigWigs()
+    if self.bigWigsSubscription or not BossMods or not BossMods.BigWigs then
+        return
+    end
+
+    self.bigWigsSubscription = BossMods.BigWigs:Subscribe({
+        owner = "CoiledAltarKicker",
+        onStage = function(module, stage)
+            self:OnBigWigsStage(module, stage)
+        end
+    })
+end
+
+function CoiledAltarKicker:UnhookBigWigs()
+    if self.bigWigsSubscription then
+        self.bigWigsSubscription:Unsubscribe()
+        self.bigWigsSubscription = nil
+    end
 end
 
 function CoiledAltarKicker:HandleCastStart(unit)
@@ -1182,6 +1233,8 @@ function CoiledAltarKicker:OnEncounterStart(_, encounterID)
         return
     end
 
+    self.encounterActive = true
+    self.currentPhase = 1
     self:ParseAssignments()
     self:ResetInterruptDisplay()
     self.interruptActive = true
@@ -1198,6 +1251,8 @@ function CoiledAltarKicker:OnEncounterEnd(_, encounterID)
 
     self:UnregisterSpellcastEvents()
     self:ResetInterruptDisplay()
+    self.encounterActive = false
+    self.currentPhase = 1
     self:UpdateDisplay()
 end
 
@@ -1226,6 +1281,8 @@ end
 
 function CoiledAltarKicker:OnInitialize()
     BossMods = E:GetModule("BossMods")
+    self.encounterActive = false
+    self.currentPhase = 1
     self.editMode = false
     self.nameplateDisplays = {}
     self.assignments = {{}, {}}
@@ -1239,6 +1296,7 @@ function CoiledAltarKicker:OnEnable()
     BossMods = BossMods or E:GetModule("BossMods")
     self:EnsureFrames()
     self:Refresh()
+    self:HookBigWigs()
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
     self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
@@ -1251,6 +1309,7 @@ function CoiledAltarKicker:OnEnable()
 end
 
 function CoiledAltarKicker:OnDisable()
+    self:UnhookBigWigs()
     self:UnregisterSpellcastEvents()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()

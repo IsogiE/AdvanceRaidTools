@@ -484,6 +484,46 @@ AR({
 AR({
     boss = BOSS_META.coiledAltar,
 
+    key = "venomousAbyssCAP3Kick1",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 72,
+
+    tag = "CAP3Kick1",
+    textKey = "BossMods_AR_TextCAP3KickUnmarked",
+    note = {
+        tag = "CAP3Kick1",
+        template = "#CAP3Kick1\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAP3Kick2",
+    sheet = "VenomousAbyssCoiledAltarKicks",
+
+    labelKey = "BossMods_NoteKickAssignments",
+    itemLabelKey = "BossMods_NoteKickAssignments",
+
+    tab = "VenomousAbyss",
+    order = 73,
+
+    tag = "CAP3Kick2",
+    textKey = "BossMods_AR_TextCAP3KickMarked",
+    note = {
+        tag = "CAP3Kick2",
+        template = "#CAP3Kick2\nPlayer1\nPlayer2\nPlayer3"
+    }
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
     key = "venomousAbyssCAG1",
     sheet = "VenomousAbyssCoiledAltarGuillotines",
 

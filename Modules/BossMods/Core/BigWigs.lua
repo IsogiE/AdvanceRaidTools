@@ -121,8 +121,10 @@ function BW:Subscribe(opts)
     assert(type(opts.owner) == "string" and opts.owner ~= "", "BigWigs:Subscribe: owner required")
     assert(
         type(opts.onStartBar) == "function"
-            or type(opts.onTimer) == "function",
-        "BigWigs:Subscribe: onStartBar or onTimer required"
+            or type(opts.onTimer) == "function"
+            or type(opts.onStopBar) == "function"
+            or type(opts.onStage) == "function",
+        "BigWigs:Subscribe: callback required"
     )
 
     local token = nextToken
@@ -163,4 +165,3 @@ function BW:Subscribe(opts)
         end
     }
 end
-
