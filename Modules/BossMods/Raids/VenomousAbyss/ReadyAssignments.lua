@@ -283,6 +283,29 @@ AR({
     }
 })
 
+-- Note-only switch for the Sszorak Compass. This is intentionally registered
+-- directly instead of as a ready-check assignment, since the tag enables the
+-- compass for the raid rather than assigning individual players.
+E:RegisterBossModNoteBlock("VenomousAbyssSszorakCompass", {
+    blocks = {
+        {
+            tag = "sszCompass",
+            template = "#sszCompass"
+        }
+    },
+    tab = "VenomousAbyss",
+    order = 53,
+    labelKey = "BossMods_SszorakCompass",
+    raidKey = "VenomousAbyss",
+    raidLabelKey = "BossMods_VenomousAbyss",
+    bossKey = "Sszorak",
+    bossLabelKey = "BossMods_Sszorak",
+    bossOrder = 50,
+    itemKey = "SszorakCompass",
+    itemLabelKey = "BossMods_SszorakCompass",
+    itemOrder = 53
+})
+
 ---------------------------------------------------------------------------
 -- The Twin Fangs: kick-position parser
 ---------------------------------------------------------------------------
@@ -493,7 +516,7 @@ AR({
 AR({
     boss = BOSS_META.coiledAltar,
 
-    key = "venomousAbyssCAG3",
+    key = "venomousAbyssCAGG1",
     sheet = "VenomousAbyssCoiledAltarGuillotines",
 
     labelKey = "BossMods_NoteCAGuillotines",
@@ -502,8 +525,40 @@ AR({
     tab = "VenomousAbyss",
     order = 76,
 
-    tag = "CAG3",
-    textKey = "BossMods_AR_TextCAG3"
+    tag = "CAGG1",
+    textKey = "BossMods_AR_TextCAGG1"
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAGG2",
+    sheet = "VenomousAbyssCoiledAltarGuillotines",
+
+    labelKey = "BossMods_NoteCAGuillotines",
+    itemLabelKey = "BossMods_NoteCAGuillotines",
+
+    tab = "VenomousAbyss",
+    order = 77,
+
+    tag = "CAGG2",
+    textKey = "BossMods_AR_TextCAGG2"
+})
+
+AR({
+    boss = BOSS_META.coiledAltar,
+
+    key = "venomousAbyssCAGG3",
+    sheet = "VenomousAbyssCoiledAltarGuillotines",
+
+    labelKey = "BossMods_NoteCAGuillotines",
+    itemLabelKey = "BossMods_NoteCAGuillotines",
+
+    tab = "VenomousAbyss",
+    order = 78,
+
+    tag = "CAGG3",
+    textKey = "BossMods_AR_TextCAGG3"
 })
 
 AR({
@@ -516,7 +571,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAOrbs",
 
     tab = "VenomousAbyss",
-    order = 77,
+    order = 79,
 
     tag = "CAMythOrb",
     textKey = "BossMods_AR_TextCAMythOrb"
@@ -532,7 +587,7 @@ AR({
     itemLabelKey = "BossMods_NoteCAOrbs",
 
     tab = "VenomousAbyss",
-    order = 78,
+    order = 80,
 
     tag = "CAHcOrb",
     textKey = "BossMods_AR_TextCAHcOrb"

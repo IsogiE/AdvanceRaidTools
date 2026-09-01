@@ -273,7 +273,9 @@ settings.bar.font.outline =
     end
 
     if settings.text.unattached == nil then
-        settings.text.unattached = false
+        settings.text.unattached = ability
+            and ability.defaultTextUnattached == true
+            or false
     end
 
     settings.text.secondsBefore =
@@ -312,7 +314,9 @@ settings.text.font.outline =
     end
 
     settings.audio.secondsBefore =
-        tonumber(settings.audio.secondsBefore) or 3
+        tonumber(settings.audio.secondsBefore)
+        or ability and ability.defaultAudioSecondsBefore
+        or 3
 
     settings.audio.delayBy =
         tonumber(settings.audio.delayBy) or 0
@@ -328,6 +332,7 @@ settings.text.font.outline =
 
     settings.audio.ttsText =
         settings.audio.ttsText
+        or ability and ability.defaultAudioTTSText
         or L["BossMods_AAOptions_DefaultCountdownMessage"]
 
     settings.audio.voiceID =
@@ -2061,7 +2066,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         if ability.kind ~= "mightyThudHits"
             and ability.kind ~= "ravenousFeastHits"
             and ability.kind ~= "mushroomTossJump"
-            and not ability.textOnly
+            and (not ability.textOnly or ability.assignmentAudio)
         then
 
         -----------------------------------------------------------------------
@@ -2095,8 +2100,10 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             label = ability.kind == "latestPickup"
                 and L["BossMods_AAOptions_SecondsBeforeMarker"]
                 or L["BossMods_AAOptions_SecondsBefore"],
-            min = ability.kind == "latestPickup" and 0 or 1,
-            max = ability.kind == "latestPickup" and 3 or 30,
+            min = ability.assignmentAudio and 0
+                or ability.kind == "latestPickup" and 0 or 1,
+            max = ability.assignmentAudio and 7
+                or ability.kind == "latestPickup" and 3 or 30,
             step = ability.kind == "latestPickup" and 0.1 or 1,
 
             get = function()
@@ -2120,7 +2127,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             end
         })
 
-        local audioDelay = slider({
+        local audioDelay = not ability.assignmentAudio and slider({
             label = ability.kind == "latestPickup"
                 and L["BossMods_AAOptions_DelayAfterMarker"]
                 or L["BossMods_AAOptions_DelayBy"],
@@ -2147,12 +2154,18 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     or not settings.enabled
                     or not settings.audio.enabled
             end
-        })
+        }) or nil
 
-        y = row(y, {
-            audioSeconds,
-            audioDelay
-        })
+        if ability.assignmentAudio then
+            settings.audio.delayBy = 0
+            settings.audio.countdown = false
+            y = full(y, audioSeconds)
+        else
+            y = row(y, {
+                audioSeconds,
+                audioDelay
+            })
+        end
 
         local audioMode = dropdown({
             label = L["BossMods_AAOptions_AudioType"],
@@ -2174,7 +2187,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             end
         })
 
-        local audioCountdown = checkbox({
+        local audioCountdown = not ability.assignmentAudio and checkbox({
             text = L["BossMods_AAOptions_CountdownEverySecond"],
             labelTop = true,
 
@@ -2192,12 +2205,16 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     or not settings.audio.enabled
                     or settings.audio.mode ~= "tts"
             end
-        })
+        }) or nil
 
-        y = row(y, {
-            audioMode,
-            audioCountdown
-        })
+        if ability.assignmentAudio then
+            y = full(y, audioMode)
+        else
+            y = row(y, {
+                audioMode,
+                audioCountdown
+            })
+        end
 
         local ttsText = editBox({
             label = L["BossMods_AAOptions_TextToSpeechMessage"],

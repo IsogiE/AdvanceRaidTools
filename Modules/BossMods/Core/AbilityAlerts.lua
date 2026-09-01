@@ -292,6 +292,8 @@ function AbilityAlerts:BuildAbilityLookup()
                     order = ability.order or 100,
                     kind = ability.kind,
                     textOnly = ability.textOnly == true,
+                    assignmentType = ability.assignmentType,
+                    assignmentAudio = ability.assignmentAudio == true,
                     triggerSpellID = tonumber(ability.triggerSpellID),
                     triggerSpellIDs = triggerSpellIDs,
                     castTimeAdjustment = tonumber(
@@ -310,9 +312,20 @@ function AbilityAlerts:BuildAbilityLookup()
                     defaultBarColor = ability.defaultBarColor,
                     defaultBarEnabled = ability.defaultBarEnabled,
                     defaultTextEnabled = ability.defaultTextEnabled,
+                    defaultTextUnattached = ability.defaultTextUnattached,
                     defaultTextSecondsBefore = tonumber(
                         ability.defaultTextSecondsBefore
                     ),
+                    defaultTextPosition = ability.defaultTextPosition,
+                    defaultTextPositionVersion = tonumber(
+                        ability.defaultTextPositionVersion
+                    ),
+                    previousDefaultTextPosition =
+                        ability.previousDefaultTextPosition,
+                    defaultAudioSecondsBefore = tonumber(
+                        ability.defaultAudioSecondsBefore
+                    ),
+                    defaultAudioTTSText = ability.defaultAudioTTSText,
 
                     bossKey = boss.bossKey,
                     bossName = boss.bossName,
@@ -479,6 +492,10 @@ function AbilityAlerts:EnsureCustomBarDefaults()
 
                 if ability.defaultTextSecondsBefore ~= nil then
                     settings.text.secondsBefore = ability.defaultTextSecondsBefore
+                end
+
+                if ability.defaultTextUnattached ~= nil then
+                    settings.text.unattached = ability.defaultTextUnattached == true
                 end
 
                 settings[presetVersionField] = 1
@@ -2064,7 +2081,9 @@ end
 function AbilityAlerts:StartAssignmentTextAlert(
     ability,
     duration,
-    testMode
+    testMode,
+    bigWigsText,
+    triggerSpellID
 )
     if not self:IsAbilityFeatureEnabled(ability) then
         return
@@ -2073,21 +2092,62 @@ function AbilityAlerts:StartAssignmentTextAlert(
     local settings = self:GetAbilitySettings(ability.spellID)
 
     if not settings
-        or not settings.text
-        or not settings.text.enabled
         or (not testMode and not isDifficultyEnabled(settings, ability))
     then
         return
     end
 
+    local textEnabled = settings.text and settings.text.enabled == true
+    local audioEnabled = ability.assignmentAudio
+        and settings.audio
+        and settings.audio.enabled == true
+
+    if not textEnabled and not audioEnabled then
+        return
+    end
+
     local state = config.getAssignmentTextState
-        and config.getAssignmentTextState(self, ability, testMode)
+        and config.getAssignmentTextState(
+            self,
+            ability,
+            testMode,
+            bigWigsText,
+            triggerSpellID
+        )
 
     if not state or type(state.message) ~= "string" then
         return
     end
 
-    local seconds = getSeconds(settings.text.secondsBefore, 5)
+    local seconds = textEnabled
+        and getSeconds(settings.text.secondsBefore, 5)
+        or 0
+
+    local token = ability.assignmentType == "guillotine"
+        and self:CreateCustomTriggerToken()
+        or self:InvalidateAbility(ability.spellID)
+
+    if audioEnabled then
+        local audioSecond = math.max(
+            0,
+            math.min(7, math.floor(
+                getSeconds(settings.audio.secondsBefore, 3)
+            ))
+        )
+        local audioDelay = math.max(
+            0,
+            getSeconds(duration, testMode and 5 or 0) - audioSecond
+        )
+
+        self:Schedule(
+            ability.spellID,
+            audioDelay,
+            token,
+            function()
+                self:PlayAudio(ability, settings.audio, audioSecond)
+            end
+        )
+    end
 
     if seconds <= 0 then
         return
@@ -2096,7 +2156,6 @@ function AbilityAlerts:StartAssignmentTextAlert(
     local delayBy = getSeconds(settings.text.delayBy, 0)
     local startDelay = testMode and 0
         or math.max(0, getSeconds(duration, 0) - seconds + delayBy)
-    local token = self:InvalidateAbility(ability.spellID)
 
     self:Schedule(
         ability.spellID,
@@ -3388,7 +3447,9 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
             self:StartAssignmentTextAlert(
                 triggeredAbility,
                 duration,
-                false
+                false,
+                bigWigsText,
+                spellID
             )
         end
     end
@@ -3454,17 +3515,48 @@ function AbilityAlerts:GetTextPosition(spellID)
         self.db.textPositions or {}
 
     local position = self.db.textPositions[settingsKey]
+    local ability = self:GetAbility(spellID)
 
     if not position then
         local fallback = self.db.textPosition or {}
+        local defaultPosition = ability and ability.defaultTextPosition or {}
 
         position = {
-            point = normalizeAnchorPoint(fallback.point),
-            x = fallback.x or 0,
-            y = fallback.y or 120
+            point = normalizeAnchorPoint(
+                defaultPosition.point or fallback.point
+            ),
+            x = defaultPosition.x ~= nil and defaultPosition.x
+                or fallback.x or 0,
+            y = defaultPosition.y ~= nil and defaultPosition.y
+                or fallback.y or 120,
+            defaultPositionVersion = ability
+                and ability.defaultTextPositionVersion
+                or nil
         }
 
         self.db.textPositions[settingsKey] = position
+    end
+
+    local defaultVersion = ability
+        and tonumber(ability.defaultTextPositionVersion)
+    local storedVersion = tonumber(position.defaultPositionVersion) or 0
+
+    if defaultVersion and storedVersion < defaultVersion then
+        local previous = ability.previousDefaultTextPosition
+        local replacement = ability.defaultTextPosition
+
+        if previous and replacement
+            and normalizeAnchorPoint(position.point)
+                == normalizeAnchorPoint(previous.point)
+            and (tonumber(position.x) or 0) == (tonumber(previous.x) or 0)
+            and (tonumber(position.y) or 120) == (tonumber(previous.y) or 120)
+        then
+            position.point = normalizeAnchorPoint(replacement.point)
+            position.x = tonumber(replacement.x) or 0
+            position.y = tonumber(replacement.y) or 120
+        end
+
+        position.defaultPositionVersion = defaultVersion
     end
 
     position.point = normalizeAnchorPoint(position.point)
@@ -3795,6 +3887,8 @@ function AbilityAlerts:SaveTextPosition(
     self.db.textPositions =
         self.db.textPositions or {}
 
+    local ability = self:GetAbility(spellID)
+
     self.db.textPositions[settingsKey] = {
         point =
             normalizeAnchorPoint(position and position.point),
@@ -3805,7 +3899,11 @@ function AbilityAlerts:SaveTextPosition(
 
         y =
             position and position.y
-            or 120
+            or 120,
+
+        defaultPositionVersion = ability
+            and ability.defaultTextPositionVersion
+            or nil
     }
 
     self:ApplyPositions()
