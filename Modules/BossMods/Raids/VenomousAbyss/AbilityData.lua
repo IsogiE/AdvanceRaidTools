@@ -556,6 +556,36 @@ E.VenomousAbyssAbilityData = {
             },
 
             {
+                spellID = -1299266,
+                triggerSpellIDs = { 1283489, 1299266 },
+                kind = "assignmentText",
+                assignmentType = "guillotine",
+                assignmentAudio = true,
+                textOnly = true,
+                settingsKey = "Guillotine Assignment",
+                name = L["BossMods_VA_Ability_GuillotineAssignment"],
+                shortName = L["BossMods_VA_Ability_GuillotineAssignment"],
+                defaultBarEnabled = false,
+                defaultTextEnabled = true,
+                defaultTextUnattached = true,
+                defaultTextSecondsBefore = 5,
+                defaultTextPosition = {
+                    point = "CENTER",
+                    x = 0,
+                    y = 120,
+                },
+                defaultTextPositionVersion = 1,
+                previousDefaultTextPosition = {
+                    point = "CENTER",
+                    x = 0,
+                    y = -120,
+                },
+                defaultAudioSecondsBefore = 3,
+                defaultAudioTTSText = "Soak",
+                order = 48,
+            },
+
+            {
                 spellID = 1286573,
                 settingsKey = "soulSever",
                 name = L["BossMods_VA_Ability_SoulSever"],

@@ -287,7 +287,78 @@ local function getNekzaliGroupAssignment()
     end
 end
 
-local function getAssignmentTextState(self, ability, testMode)
+local function getGuillotineAssignmentState(
+    ability,
+    testMode,
+    bigWigsText,
+    triggerSpellID
+)
+    if ability.assignmentType ~= "guillotine" then
+        return nil
+    end
+
+    if testMode then
+        return {
+            castNumber = 1,
+            message = L["BossMods_VA_Assignment_SoakIn"],
+            color = {1, 1, 1, 1}
+        }
+    end
+
+    local castNumber = tonumber(
+        tostring(bigWigsText or ""):match("(%d+)%D*$")
+    )
+    local spellID = tonumber(triggerSpellID)
+    local tag
+
+    if spellID == 1283489 then
+        -- BigWigs schedules a third normal Guillotine that never happens.
+        if castNumber == 1 or castNumber == 2 then
+            tag = "CAG" .. castNumber
+        end
+    elseif spellID == 1299266 then
+        if castNumber and castNumber >= 1 and castNumber <= 3 then
+            tag = "CAGG" .. castNumber
+        end
+    end
+
+    if not tag then
+        return nil
+    end
+
+    local ready, context = getReadyAssignmentContext()
+
+    if not ready or not ready:FindPlayerInHashTag(
+        context,
+        tag,
+        { hashtagMultiline = true }
+    ) then
+        return nil
+    end
+
+    return {
+        castNumber = castNumber,
+        message = L["BossMods_VA_Assignment_SoakIn"],
+        color = {1, 1, 1, 1}
+    }
+end
+
+local function getAssignmentTextState(
+    self,
+    ability,
+    testMode,
+    bigWigsText,
+    triggerSpellID
+)
+    if ability and ability.assignmentType == "guillotine" then
+        return getGuillotineAssignmentState(
+            ability,
+            testMode,
+            bigWigsText,
+            triggerSpellID
+        )
+    end
+
     if not ability
         or ability.kind ~= "assignmentText"
         or tonumber(ability.triggerSpellID) ~= GRASPING_DEPTHS_SPELL_ID
