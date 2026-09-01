@@ -4,10 +4,12 @@ local MODULE_NAME = "BossMods_HealerAuras"
 local ENCOUNTER_ID = 3429
 local GLOOMBOMB_TIMER_SPELL_ID = 1286895
 local GLOOMBOMB_DEBUFF_SPELL_ID = 1310881
-local GLOOMBOMB_CAST_TIME = 2
 local GLOOMBOMB_DURATION = 5
-local LISTEN_EARLY = 0.25
-local LISTEN_DURATION = 2.5
+local EXPECTED_TARGETS = 4
+local LISTEN_EARLY = 0.15
+local LISTEN_DURATION = 0.65
+local BATCH_DURATION = 0.08
+local EVENT_EARLY_GRACE = 0.05
 local GLOW_KEY = "ART_HealerAuras_GloombombGlow"
 
 local HealerAuras = E:GetModule(MODULE_NAME)
@@ -279,6 +281,7 @@ function HealerAuras:CancelWindowRecord(record)
     record.cancelled, record.listening = true, false
     if record.showTimer then record.showTimer:Cancel() end
     if record.stopTimer then record.stopTimer:Cancel() end
+    if record.batchTimer then record.batchTimer:Cancel() end
     self:RemoveWindowRecord(record)
 end
 
@@ -287,6 +290,7 @@ function HealerAuras:CancelAllWindows()
         record.cancelled = true
         if record.showTimer then record.showTimer:Cancel() end
         if record.stopTimer then record.stopTimer:Cancel() end
+        if record.batchTimer then record.batchTimer:Cancel() end
     end
     self.windowRecords = {}
 end
@@ -299,13 +303,10 @@ function HealerAuras:ScheduleGloombombWindow(text, timeUntilCast)
         listening = false,
         cancelled = false,
         targets = {},
-        targetCount = 0
+        batch = {}
     }
     table.insert(self.windowRecords, record)
-    local delay = math.max(
-        0,
-        (tonumber(timeUntilCast) or 0) + GLOOMBOMB_CAST_TIME - LISTEN_EARLY
-    )
+    local delay = math.max(0, (tonumber(timeUntilCast) or 0) - LISTEN_EARLY)
     record.showTimer = C_Timer.NewTimer(delay, function()
         record.showTimer = nil
         if record.cancelled or not self.encounterActive then
@@ -329,19 +330,43 @@ function HealerAuras:GetListeningRecord()
     end
 end
 
+function HealerAuras:FlushGloombombBatch(record)
+    if not record or record.cancelled then return end
+    record.batchTimer = nil
+
+    local units, count = {}, 0
+    for unit in pairs(record.batch or {}) do
+        count = count + 1
+        units[count] = unit
+    end
+    record.batch = {}
+
+    if count ~= EXPECTED_TARGETS then return end
+
+    for i = 1, count do
+        local unit = units[i]
+        if not record.targets[unit] then
+            record.targets[unit] = true
+            self:ShowOverlayForUnit(unit)
+        end
+    end
+    self:CancelWindowRecord(record)
+end
+
 function HealerAuras:OnUnitAura(_, unit)
     if not self.encounterActive then return end
     local record = self:GetListeningRecord()
-    if not record or (record.targetCount or 0) >= 4 then return end
+    if not record then return end
+    if GetTime() + EVENT_EARLY_GRACE < (record.castStartsAt or 0) then return end
     if unit == "player" then unit = getPlayerRaidUnit() end
     if type(unit) ~= "string" or not unit:match("^raid%d+$") then return end
-    if record.targets[unit] then return end
-    if not self:ShowOverlayForUnit(unit) then return end
+    if record.targets[unit] or record.batch[unit] then return end
 
-    record.targets[unit] = true
-    record.targetCount = (record.targetCount or 0) + 1
-    if record.targetCount >= 4 then
-        self:CancelWindowRecord(record)
+    record.batch[unit] = true
+    if not record.batchTimer then
+        record.batchTimer = C_Timer.NewTimer(BATCH_DURATION, function()
+            self:FlushGloombombBatch(record)
+        end)
     end
 end
 
