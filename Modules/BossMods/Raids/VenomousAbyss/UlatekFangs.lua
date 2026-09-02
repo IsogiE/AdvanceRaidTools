@@ -160,6 +160,7 @@ function UlatekFangs:ConfigureButton(state, button)
     local fillColor = COLUMN_COLORS[state.column] or COLUMN_COLORS[1]
     local fontSize = math.max(8, tonumber(self.db.fontSize) or 14)
     local roleSize = math.max(10, math.min(16, layout.rowHeight - 6))
+    local showRole = roleSize > 0 and state.roleAtlas ~= nil
 
     if not state.buttonRegions[button] then
         local regions = {}
@@ -203,7 +204,7 @@ function UlatekFangs:ConfigureButton(state, button)
     regions.border:SetBackdropBorderColor(0, 0, 0, 1)
 
     regions.role:ClearAllPoints()
-    if roleSize > 0 and state.roleAtlas then
+    if showRole then
         regions.role:SetTexCoord(0, 1, 0, 1)
         regions.role:SetVertexColor(1, 1, 1, 1)
         regions.role:SetAlpha(1)
@@ -216,7 +217,7 @@ function UlatekFangs:ConfigureButton(state, button)
     end
 
     regions.name:ClearAllPoints()
-    if roleSize > 0 and regions.role:IsShown() then
+    if showRole then
         regions.name:SetPoint("LEFT", regions.role, "RIGHT", 4, 0)
     else
         regions.name:SetPoint("LEFT", regions.bar, "LEFT", 5, 0)
