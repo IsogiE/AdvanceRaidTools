@@ -717,6 +717,38 @@ AR({
     }
 })
 
+E:RegisterBossModNoteBlock("VenomousAbyssUlatekIntermission", {
+    blocks = {
+        {
+            tag = "UTIntClicker",
+            template = "#UTIntClicker Player1"
+        },
+        {
+            tag = "UTInt1",
+            template = "#UTInt1 Player1 Player2 Player3 Player4 Player5 Player6 Player7"
+        },
+        {
+            tag = "UTInt2",
+            template = "#UTInt2 Player1 Player2 Player3 Player4 Player5 Player6 Player7"
+        },
+        {
+            tag = "UTInt3",
+            template = "#UTInt3 Player1 Player2 Player3 Player4 Player5 Player6"
+        }
+    },
+    tab = "VenomousAbyss",
+    order = 85,
+    labelKey = "BossMods_NoteUTIntermission",
+    raidKey = RAID_META.raidKey,
+    raidLabelKey = RAID_META.raidLabelKey,
+    bossKey = BOSS_META.ulatek.bossKey,
+    bossLabelKey = BOSS_META.ulatek.bossLabelKey,
+    bossOrder = BOSS_META.ulatek.bossOrder,
+    itemKey = "UlatekIntermission",
+    itemLabelKey = "BossMods_NoteUTIntermission",
+    itemOrder = 85
+})
+
     ---------------------------------------------------------------------------
     -- Note groups
     ---------------------------------------------------------------------------
@@ -861,7 +893,8 @@ AR({
 
         entries = {
             "VenomousAbyssUlatekSides",
-            "VenomousAbyssUlatekSoaks"
+            "VenomousAbyssUlatekSoaks",
+            "VenomousAbyssUlatekIntermission"
         }
     })
 end

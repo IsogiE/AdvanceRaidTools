@@ -40,6 +40,7 @@
     <Script file="Raids\VenomousAbyss\UlatekWrongTarget.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekCircles.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWaves.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekIntermission.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCross.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircle.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDeluge.lua"/>

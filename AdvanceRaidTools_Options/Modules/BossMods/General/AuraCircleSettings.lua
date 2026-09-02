@@ -117,20 +117,6 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
         })))
     end
 
-    y = full(y, track(T:Checkbox(rightPanel, {
-        text = L["BossMods_AuraCirclePreview"],
-        get = function()
-            return mod.previewMode == true
-        end,
-        onChange = function(_, value)
-            if mod.SetPreviewMode then
-                mod:SetPreviewMode(value)
-            end
-            tracker.refresh()
-        end,
-        disabled = isDisabled
-    })))
-
     local unlockY, unlockController = T:UnlockController(rightPanel, y, width, {
         tracker = tracker,
         isDisabled = isDisabled,
@@ -284,8 +270,8 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
         height = totalHeight,
         Refresh = tracker.refresh,
         Release = function()
-            if mod.SetPreviewMode then
-                mod:SetPreviewMode(false)
+            if mod.SetEditMode then
+                mod:SetEditMode(false)
             end
             if positionHandle and positionHandle.Release then
                 positionHandle.Release()

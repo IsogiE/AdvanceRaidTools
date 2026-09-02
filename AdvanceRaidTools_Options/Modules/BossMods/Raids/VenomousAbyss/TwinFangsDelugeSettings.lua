@@ -95,18 +95,6 @@ local function buildBody(rightPanel, mod, isDisabled, options)
         sizeDelta = 1
     })))
 
-    y = full(y, track(T:Checkbox(rightPanel, {
-        text = L[options.previewKey],
-        get = function()
-            return mod.previewMode and true or false
-        end,
-        onChange = function(_, value)
-            mod:SetPreviewMode(value)
-            tracker.refresh()
-        end,
-        disabled = isDisabled
-    })))
-
     local unlockY, unlockController = T:UnlockController(rightPanel, y, width, {
         tracker = tracker,
         isDisabled = isDisabled,
@@ -247,7 +235,7 @@ local function buildBody(rightPanel, mod, isDisabled, options)
         height = totalHeight,
         Refresh = tracker.refresh,
         Release = function()
-            mod:SetPreviewMode(false)
+            mod:SetEditMode(false)
             positionHandle.Release()
             unlockController:Release()
             tracker.release()
@@ -259,7 +247,6 @@ local function buildBar(rightPanel, mod, isDisabled)
     return buildBody(rightPanel, mod, isDisabled, {
         labelKey = "BossMods_TwinFangsDelugeBar",
         descKey = "BossMods_TwinFangsDelugeBarDesc",
-        previewKey = "BossMods_TFDelugePreviewBar",
         defaultWidth = 300,
         defaultHeight = 30,
         defaultPosition = {point = "CENTER", x = 0, y = -180}
@@ -270,7 +257,6 @@ local function buildList(rightPanel, mod, isDisabled)
     return buildBody(rightPanel, mod, isDisabled, {
         labelKey = "BossMods_TwinFangsDelugeList",
         descKey = "BossMods_TwinFangsDelugeListDesc",
-        previewKey = "BossMods_TFDelugePreviewList",
         defaultWidth = 360,
         defaultHeight = 20,
         defaultPosition = {point = "CENTER", x = 360, y = 0},

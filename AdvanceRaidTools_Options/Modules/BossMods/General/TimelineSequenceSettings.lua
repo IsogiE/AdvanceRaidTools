@@ -128,32 +128,17 @@ local function buildTimelineSequenceBody(rightPanel, mod, isDisabled)
         })))
     end
 
-    y = row(y, {
-        track(T:Checkbox(rightPanel, {
-            text = L["BossMods_TimelineSequencePreview"],
-            get = function()
-                return mod.previewMode == true
-            end,
-            onChange = function(_, value)
-                if mod.SetPreviewMode then
-                    mod:SetPreviewMode(value)
-                end
-                tracker.refresh()
-            end,
-            disabled = isDisabled
-        })),
-        track(T:Checkbox(rightPanel, {
-            text = L["BossMods_TimelineSequenceTextOnly"],
-            get = function()
-                return mod.db.textOnly == true
-            end,
-            onChange = function(_, value)
-                mod.db.textOnly = value and true or false
-                refreshLive()
-            end,
-            disabled = isDisabled
-        }))
-    })
+    y = full(y, track(T:Checkbox(rightPanel, {
+        text = L["BossMods_TimelineSequenceTextOnly"],
+        get = function()
+            return mod.db.textOnly == true
+        end,
+        onChange = function(_, value)
+            mod.db.textOnly = value and true or false
+            refreshLive()
+        end,
+        disabled = isDisabled
+    })))
 
     local unlockY, unlockController = T:UnlockController(rightPanel, y, width, {
         tracker = tracker,
@@ -382,9 +367,6 @@ local function buildTimelineSequenceBody(rightPanel, mod, isDisabled)
         height = totalHeight,
         Refresh = tracker.refresh,
         Release = function()
-            if mod.SetPreviewMode then
-                mod:SetPreviewMode(false)
-            end
             if mod.SetEditMode then
                 mod:SetEditMode(false)
             end
