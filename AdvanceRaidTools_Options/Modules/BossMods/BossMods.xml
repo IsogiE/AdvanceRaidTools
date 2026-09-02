@@ -19,6 +19,7 @@
     <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\TwinFangsDelugeSettings.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarKickerSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
@@ -31,3 +32,4 @@
     <Script file="Raids\Queldanas\LuraMapSettings.lua"/>
     <Script file="Raids\Queldanas\DirgeSettings.lua"/>
 </Ui>
+
