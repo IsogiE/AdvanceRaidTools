@@ -9,6 +9,8 @@
     <Script file="Misc\GeneralPackSettings.lua"/>
 
     <Script file="General\ReadyAssignmentsSettings.lua"/>
+    <Script file="General\AuraCircleSettings.lua"/>
+    <Script file="General\TimelineSequenceSettings.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignmentsSettings.lua"/>
     <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
@@ -17,6 +19,8 @@
     <Script file="Raids\VenomousAbyss\HealerAurasSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekCirclesSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekWavesSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDelugeSettings.lua"/>

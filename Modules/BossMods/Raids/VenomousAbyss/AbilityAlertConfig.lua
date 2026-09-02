@@ -8,6 +8,7 @@ local RAVENOUS_FEAST_SPELL_ID = 1290516
 local VENOM_COAGULATION_SPELL_ID = 1284251
 local UNSTABLE_MIASMA_SPELL_ID = 1288232
 local GRASPING_DEPTHS_SPELL_ID = 1293212
+local SPECTRAL_COILS_SPELL_ID = 1300530
 
 local COILED_ALTAR_ENCOUNTER_ID = 3429
 local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
@@ -19,6 +20,8 @@ local COILED_ALTAR_NIGHTFALL_SAMPLE_DELAY = 0.2
 
 local ULATEK_ENCOUNTER_ID = 3492
 local ULATEK_FEATURE_KEY = "VenomousAbyssUlatek"
+local ULATEK_KNOCK_UP_ALERT_ID = -3492005
+local ULATEK_STAGE_TWO_ASSIGNMENT_ID = -3492006
 local ULATEK_CHECK_DURATION = 35
 local ULATEK_BAR_ORDER = 130
 local ULATEK_UNIT_REFRESH_INTERVAL = 0.1
@@ -287,6 +290,36 @@ local function getNekzaliGroupAssignment()
     end
 end
 
+local function findPlayerInUlatekTag(tag)
+    local ready, context = getReadyAssignmentContext()
+
+    if not ready then
+        return false
+    end
+
+    return ready:FindPlayerInHashTag(
+        context,
+        tag,
+        {hashtagMultiline = true}
+    ) ~= nil
+end
+
+local function getUlatekStageTwoAssignment()
+    if findPlayerInUlatekTag("UTBlueside") then
+        return "blue"
+    elseif findPlayerInUlatekTag("UTMoonside") then
+        return "moon"
+    end
+end
+
+local function getUlatekSlamAssignment()
+    if findPlayerInUlatekTag("UTSoakright") then
+        return "right"
+    elseif findPlayerInUlatekTag("UTSoakleft") then
+        return "left"
+    end
+end
+
 local function getGuillotineAssignmentState(
     ability,
     testMode,
@@ -350,6 +383,23 @@ local function getAssignmentTextState(
     bigWigsText,
     triggerSpellID
 )
+    if ability and ability.assignmentType == "ulatekStage2" then
+        local side = testMode and "blue" or getUlatekStageTwoAssignment()
+
+        if not side then
+            return nil
+        end
+
+        local markerID = side == "blue" and 6 or 5
+        local marker = ("|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_%d:0|t")
+            :format(markerID)
+
+        return {
+            message = L["BossMods_VA_Assignment_GoToMarker"]:format(marker),
+            color = {1, 1, 1, 1}
+        }
+    end
+
     if ability and ability.assignmentType == "guillotine" then
         return getGuillotineAssignmentState(
             ability,
@@ -645,12 +695,62 @@ local function testCoiledAltarNightfallBar(self)
     self:ApplyPositions()
 end
 
-local function onCoiledAltarBigWigsStartBar(self, spellID, _, duration)
-    if tonumber(spellID) ~= COILED_ALTAR_NIGHTFALL_SPELL_ID then
+local function onVenomousAbyssBigWigsStartBar(
+    self,
+    spellID,
+    _,
+    duration,
+    _,
+    spellKey
+)
+    if tonumber(spellID) == COILED_ALTAR_NIGHTFALL_SPELL_ID then
+        scheduleCoiledAltarNightfall(self, duration)
         return
     end
 
-    scheduleCoiledAltarNightfall(self, duration)
+    if self.ulatekEncounterActive
+        and spellKey == "stages"
+        and duration >= 44
+        and duration <= 45
+    then
+        local ability = self:GetAbility(ULATEK_KNOCK_UP_ALERT_ID)
+
+        if ability then
+            self:HandleStandardAbility(ability, duration)
+        end
+    end
+end
+
+local function getPostHitStageMarkers(_, ability, _, markers)
+    if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID then
+        return markers
+    end
+
+    local assignment = getUlatekSlamAssignment()
+    local highlightedIndex = assignment == "right" and 1
+        or assignment == "left" and 2
+        or nil
+    local result = {}
+
+    for index, marker in ipairs(markers or {}) do
+        local copy = {}
+
+        for key, value in pairs(marker) do
+            copy[key] = value
+        end
+
+        if index == highlightedIndex then
+            copy.color = {0.1, 1, 0.2, 1}
+            copy.thickness = 10
+        else
+            copy.color = {1, 1, 1, 0.35}
+            copy.thickness = 4
+        end
+
+        result[index] = copy
+    end
+
+    return result
 end
 
 local function onCoiledAltarNightfallSpellcastEnd(
@@ -763,6 +863,14 @@ local function onUlatekBigWigsStage(self, module, stage)
     end
 
     self.ulatekBigWigsStage = tonumber(stage)
+
+    if self.ulatekBigWigsStage == 2 then
+        local ability = self:GetAbility(ULATEK_STAGE_TWO_ASSIGNMENT_ID)
+
+        if ability then
+            self:StartAssignmentTextAlert(ability, 5, false)
+        end
+    end
 
     if self.ulatekBigWigsStage
         and self.ulatekBigWigsStage >= 3
@@ -1048,7 +1156,8 @@ E:CreateAbilityAlertsModule({
         UNIT_SPELLCAST_CHANNEL_STOP = onCoiledAltarNightfallSpellcastEnd,
         UNIT_SPELLCAST_INTERRUPTED = onCoiledAltarNightfallSpellcastEnd
     },
-    onBigWigsStartBar = onCoiledAltarBigWigsStartBar,
+    onBigWigsStartBar = onVenomousAbyssBigWigsStartBar,
+    extraSpellKeys = {"stages"},
     onBigWigsStage = onBigWigsStage,
     onEncounterStart = onEncounterStart,
     onFeatureEnabledChanged = onFeatureEnabledChanged,
@@ -1068,6 +1177,7 @@ E:CreateAbilityAlertsModule({
     getAbilityAssignment = getAbilityAssignment,
     getAssignedHits = getAssignedHits,
     getAssignmentTextState = getAssignmentTextState,
+    getPostHitStageMarkers = getPostHitStageMarkers,
     resetEncounterTracking = resetEncounterTracking,
     shouldSuppressCast = shouldSuppressCast
 })

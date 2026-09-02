@@ -726,6 +726,7 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_MephiticThrash"],
                 defaultBarEnabled = false,
                 order = 60,
+                castTimeAdjustment = 4,
             },
             {
                 spellID = 1300530,
@@ -733,6 +734,21 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_SpectralCoils"],
                 defaultBarEnabled = false,
                 order = 70,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    countDown = true,
+                    stages = {
+                        {
+                            duration = 12,
+                            barText = L["BossMods_VA_Stage_Soaks"],
+                            showText = false,
+                            markers = {
+                                {time = 8},
+                                {time = 11},
+                            },
+                        },
+                    },
+                },
             },
             {
                 spellID = 1286860,
@@ -740,6 +756,25 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_RageOfTheShackled"],
                 defaultBarEnabled = false,
                 order = 80,
+                ignoreTriggerDuration = 6.5,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    countDown = true,
+                    stages = {
+                        {
+                            duration = 20,
+                            barText = "",
+                            showText = false,
+                            markers = {
+                                {time = 16},
+                                {time = 12},
+                                {time = 8},
+                                {time = 4},
+                                {time = 0},
+                            },
+                        },
+                    },
+                },
             },
             {
                 spellID = 1302982,
@@ -747,6 +782,26 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_VirulentSpit"],
                 defaultBarEnabled = false,
                 order = 90,
+                embeddedMechanicDefaultEnabled = true,
+                postHitStages = {
+                    countDown = true,
+                    stages = {
+                        {
+                            duration = 10,
+                            barText = "",
+                            showText = false,
+                            markers = {
+                                {time = 4},
+                                {time = 5},
+                                {time = 6},
+                                {time = 7},
+                                {time = 8},
+                                {time = 9},
+                                {time = 10},
+                            },
+                        },
+                    },
+                },
             },
             {
                 spellID = 1301510,
@@ -754,6 +809,19 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_CirclingPrey"],
                 defaultBarEnabled = false,
                 order = 100,
+            },
+            {
+                spellID = -3492006,
+                kind = "assignmentText",
+                assignmentType = "ulatekStage2",
+                textOnly = true,
+                settingsKey = "Stage 2 Side Assignment",
+                name = L["BossMods_VA_Ability_StageTwoSideAssignment"],
+                shortName = L["BossMods_VA_Ability_StageTwoSideAssignment"],
+                defaultBarEnabled = false,
+                defaultTextEnabled = true,
+                defaultTextSecondsBefore = 5,
+                order = 105,
             },
             {
                 spellID = 1295905,
@@ -768,6 +836,13 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_FuryUnleashed"],
                 defaultBarEnabled = false,
                 order = 120,
+            },
+            {
+                spellID = -3492005,
+                settingsKey = "Knock Up",
+                name = L["BossMods_VA_Ability_KnockUp"],
+                defaultBarEnabled = false,
+                order = 130,
             },
         },
     },

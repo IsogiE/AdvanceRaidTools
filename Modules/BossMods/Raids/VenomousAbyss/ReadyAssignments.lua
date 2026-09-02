@@ -633,6 +633,90 @@ AR({
     textKey = "BossMods_AR_TextCAHcOrb"
 })
 
+---------------------------------------------------------------------------
+-- Ula'tek
+---------------------------------------------------------------------------
+
+AR({
+    boss = BOSS_META.ulatek,
+
+    key = "venomousAbyssUTBlueSide",
+    sheet = "VenomousAbyssUlatekSides",
+
+    labelKey = "BossMods_NoteUTSides",
+    itemLabelKey = "BossMods_NoteUTSides",
+
+    tab = "VenomousAbyss",
+    order = 81,
+
+    tag = "UTBlueside",
+    textKey = "BossMods_AR_TextUTBlueSide",
+    note = {
+        tag = "UTBlueside",
+        template = "#UTBlueside Player1 Player2 Player3 Player4 Player5 Player6 Player7 Player8 Player9 Player10"
+    }
+})
+
+AR({
+    boss = BOSS_META.ulatek,
+
+    key = "venomousAbyssUTMoonSide",
+    sheet = "VenomousAbyssUlatekSides",
+
+    labelKey = "BossMods_NoteUTSides",
+    itemLabelKey = "BossMods_NoteUTSides",
+
+    tab = "VenomousAbyss",
+    order = 82,
+
+    tag = "UTMoonside",
+    textKey = "BossMods_AR_TextUTMoonSide",
+    note = {
+        tag = "UTMoonside",
+        template = "#UTMoonside Player1 Player2 Player3 Player4 Player5 Player6 Player7 Player8 Player9 Player10"
+    }
+})
+
+AR({
+    boss = BOSS_META.ulatek,
+
+    key = "venomousAbyssUTSoakRight",
+    sheet = "VenomousAbyssUlatekSoaks",
+
+    labelKey = "BossMods_NoteUTSlamSoaks",
+    itemLabelKey = "BossMods_NoteUTSlamSoaks",
+
+    tab = "VenomousAbyss",
+    order = 83,
+
+    tag = "UTSoakright",
+    textKey = "BossMods_AR_TextUTSoakRight",
+    note = {
+        tag = "UTSoakright",
+        template = "#UTSoakright Player1 Player2 Player3 Player4 Player5 Player6 Player7 Player8 Player9 Player10"
+    }
+})
+
+AR({
+    boss = BOSS_META.ulatek,
+
+    key = "venomousAbyssUTSoakLeft",
+    sheet = "VenomousAbyssUlatekSoaks",
+
+    labelKey = "BossMods_NoteUTSlamSoaks",
+    itemLabelKey = "BossMods_NoteUTSlamSoaks",
+
+    tab = "VenomousAbyss",
+    order = 84,
+
+    tag = "UTSoakleft",
+    textKey = "BossMods_AR_TextUTSoakLeft",
+    note = {
+        tag = "UTSoakleft",
+        template = "#UTSoakleft Player1 Player2 Player3 Player4 Player5 Player6 Player7 Player8 Player9 Player10"
+    }
+})
+
     ---------------------------------------------------------------------------
     -- Note groups
     ---------------------------------------------------------------------------
@@ -757,6 +841,27 @@ AR({
             "VenomousAbyssCoiledAltarKicks",
             "VenomousAbyssCoiledAltarGuillotines",
             "VenomousAbyssCoiledAltarOrbs"
+        }
+    })
+
+    E:RegisterBossModNoteGroup("VenomousAbyss_Ulatek", {
+        labelKey = "BossMods_Ulatek",
+        itemLabelKey = "BossMods_NoteFull",
+
+        raidKey = RAID_META.raidKey,
+        raidLabelKey = RAID_META.raidLabelKey,
+
+        bossKey = BOSS_META.ulatek.bossKey,
+        bossLabelKey = BOSS_META.ulatek.bossLabelKey,
+        bossOrder = BOSS_META.ulatek.bossOrder,
+
+        itemOrder = 0,
+        tab = "VenomousAbyss",
+        order = 80,
+
+        entries = {
+            "VenomousAbyssUlatekSides",
+            "VenomousAbyssUlatekSoaks"
         }
     })
 end

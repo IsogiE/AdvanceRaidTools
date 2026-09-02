@@ -1654,8 +1654,21 @@ function AbilityAlerts:PositionGuillotineSequenceMarkers(bar)
         local ratio = (totalDuration - markerTime) / totalDuration
         local x = math.max(1, math.min(width - 1, width * ratio))
 
-        marker:SetColorTexture(color[1], color[2], color[3], color[4])
-        marker:SetSize(thickness, height)
+        local currentColor = data.color
+            and markerColor(data.color, color)
+            or color
+        local currentThickness = math.max(
+            1,
+            math.min(30, tonumber(data.thickness) or thickness)
+        )
+
+        marker:SetColorTexture(
+            currentColor[1],
+            currentColor[2],
+            currentColor[3],
+            currentColor[4]
+        )
+        marker:SetSize(currentThickness, height)
         marker:ClearAllPoints()
         marker:SetPoint("CENTER", bar.frame, "LEFT", x, 0)
         marker:Show()
@@ -2440,6 +2453,10 @@ function AbilityAlerts:SchedulePostHitStages(
         return
     end
 
+    -- Follow-up bars belong to the completed cast. A new BigWigs timer for
+    -- the next cast must not invalidate them; encounter/stage resets still do.
+    token = self:CreateCustomTriggerToken()
+
     local elapsed = 0
 
     for _, stage in ipairs(postHitStages.stages or {}) do
@@ -2471,11 +2488,37 @@ function AbilityAlerts:SchedulePostHitStages(
                         bar:SetLabel(
                             stageBarText or ability.shortName or ability.name
                         )
+
+                        local stageMarkers = stage.markers
+
+                        if stageMarkers and config.getPostHitStageMarkers then
+                            stageMarkers = config.getPostHitStageMarkers(
+                                self,
+                                ability,
+                                stage,
+                                stageMarkers
+                            ) or stageMarkers
+                        end
+
+                        if stageMarkers then
+                            local markerSettings =
+                                settings.timelineMarkers or {}
+
+                            self:SetTimelineMarkers(
+                                bar,
+                                stageMarkers,
+                                stageDuration,
+                                ability.spellID,
+                                tonumber(markerSettings.markerThickness) or 5,
+                                markerSettings.markerColor,
+                                tonumber(markerSettings.textOffsetY) or 0
+                            )
+                        end
                     end
                 )
             end
 
-            if textEnabled then
+            if textEnabled and stage.showText ~= false then
                 local displayText =
                     stageText or ability.shortName or ability.name
                 local firstUpdateDelay = stageDelay + 0.05
@@ -3331,6 +3374,14 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
         )
     end
     local suppressCast = self:ShouldSuppressCast(spellID)
+    local ignoredDuration = ability
+        and tonumber(ability.ignoreTriggerDuration)
+
+    if ignoredDuration
+        and math.abs(duration - ignoredDuration) < 0.05
+    then
+        suppressCast = true
+    end
 
     if ability then
         if not suppressCast then
@@ -3348,7 +3399,8 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
             spellID,
             bigWigsText,
             duration,
-            ability
+            ability,
+            spellKey
         )
     end
 
@@ -4462,6 +4514,10 @@ function AbilityAlerts:OnEnable()
 
     for triggerSpellID in pairs(self.triggeredAbilitiesBySpellID) do
         spellKeySet[triggerSpellID] = true
+    end
+
+    for _, spellKey in ipairs(config.extraSpellKeys or {}) do
+        spellKeySet[spellKey] = true
     end
 
     local spellKeys = {}
