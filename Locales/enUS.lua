@@ -1024,6 +1024,23 @@ L["BossMods_VashnikWaveCross"] = "Vashnik Wave Cross"
 L["BossMods_VashnikWaveCrossDesc"] =
     "Displays a north/south and east/west cross during the Vashnik encounter. The cross rotates with your facing while remaining aligned to the world's cardinal directions."
 L["BossMods_RavenousFeastSoakCircle"] = "Ravenous Feast Soak Circle"
+L["BossMods_TwinFangsDelugeBar"] = "Twin Fangs Deluge Bar"
+L["BossMods_TwinFangsDelugeBarDesc"] =
+    "Shows your Eternal Venom stacks as a nine-segment bar. The value on the right is fixed at the lethal maximum of 10."
+L["BossMods_TwinFangsDelugeList"] = "Twin Fangs Deluge List"
+L["BossMods_TwinFangsDelugeListDesc"] =
+    "Shows an Eternal Venom stack bar for every player in the raid during The Twin Fangs encounter."
+L["BossMods_TFDelugePreviewBar"] = "Preview personal bar"
+L["BossMods_TFDelugePreviewList"] = "Preview raid list"
+L["BossMods_TFDelugeAppearance"] = "Bar Appearance"
+L["BossMods_TFDelugeText"] = "Text Appearance"
+L["BossMods_TFDelugeColors"] = "Segment Colors"
+L["BossMods_TFDelugeSafeColor"] = "Fields 1-6"
+L["BossMods_TFDelugeDangerColor"] = "Fields 7-9"
+L["BossMods_TFDelugeDangerDesc"] = "Fields 7, 8 and 9 use the danger color."
+L["BossMods_TFDelugeBackgroundOpacity"] = "Background opacity"
+L["BossMods_TFDelugeRowHeight"] = "Row height"
+L["BossMods_TFDelugeRowSpacing"] = "Row spacing"
 L["BossMods_RavenousFeastSoakCircleDesc"] =
     "Shows a yellow WAIT circle when the Ravenous Feast hit bar begins. The circle turns green with GO during your #TFFeast1, #TFFeast2 or #TFFeast3 soak window, then hides instead of returning to yellow."
 L["BossMods_RFSCWait"] = "WAIT"
