@@ -4,6 +4,7 @@ local MODULE_NAME = "BossMods_HealerAuras"
 local ENCOUNTER_ID = 3429
 local GLOOMBOMB_TIMER_SPELL_ID = 1286895
 local GLOOMBOMB_DEBUFF_SPELL_ID = 1310881
+local GLOOMBOMB_AURA_APPLY_DELAY = 2
 local GLOOMBOMB_DURATION = 5
 local LISTEN_DURATION = 0.1
 local GLOW_KEY = "ART_HealerAuras_GloombombGlow"
@@ -290,17 +291,20 @@ function HealerAuras:CancelAllWindows()
 end
 
 function HealerAuras:ScheduleGloombombWindow(text, timeUntilCast)
-    local delay = math.max(0, tonumber(timeUntilCast) or 0)
+    local castDelay = math.max(0, tonumber(timeUntilCast) or 0)
+    local listenDelay = castDelay + GLOOMBOMB_AURA_APPLY_DELAY
+    local now = GetTime()
     self.windowRecords = self.windowRecords or {}
     local record = {
         text = text,
-        listenStartsAt = GetTime() + delay,
+        castStartsAt = now + castDelay,
+        listenStartsAt = now + listenDelay,
         listening = false,
         cancelled = false,
         targets = {}
     }
     table.insert(self.windowRecords, record)
-    record.showTimer = C_Timer.NewTimer(delay, function()
+    record.showTimer = C_Timer.NewTimer(listenDelay, function()
         record.showTimer = nil
         if record.cancelled or not self.encounterActive then
             self:CancelWindowRecord(record)
@@ -344,7 +348,7 @@ end
 function HealerAuras:OnBigWigsStopBar(text)
     for _, record in ipairs(self.windowRecords or {}) do
         if record.text == text then
-            if (record.listenStartsAt or 0) - GetTime() > 0.5 then
+            if (record.castStartsAt or 0) - GetTime() > 0.5 then
                 self:CancelWindowRecord(record)
             end
             return
