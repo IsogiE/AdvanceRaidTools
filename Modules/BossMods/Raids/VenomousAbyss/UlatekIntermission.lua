@@ -95,11 +95,11 @@ local VARIATIONS = {
     }
 }
 local BUTTON_ORDER = {"PINK", "WHITE", "RED"}
-local VARIATION_BY_MARKER_ID = {}
-for _, variationKey in ipairs(BUTTON_ORDER) do
-    local variation = VARIATIONS[variationKey]
-    VARIATION_BY_MARKER_ID[tostring(variation.markerID)] = variationKey
-end
+local CHAT_PAYLOADS = {
+    PINK = "%s",
+    WHITE = "%.0s%s",
+    RED = "%.0s%.0s%s"
+}
 
 local UlatekIntermission = E:NewModule(MODULE_NAME, "AceEvent-3.0", "AceTimer-3.0")
 local BossMods
@@ -285,7 +285,10 @@ function UlatekIntermission:EnsureFrames()
             0
         )
         button:SetAttribute("type1", "macro")
-        button:SetAttribute("macrotext1", "/raid " .. variation.markerID)
+        button:SetAttribute(
+            "macrotext1",
+            "/raid " .. CHAT_PAYLOADS[variationKey]
+        )
         button:RegisterForClicks("AnyUp", "AnyDown")
         button:SetFrameStrata("MEDIUM")
         button:SetFrameLevel(5)
@@ -469,12 +472,11 @@ function UlatekIntermission:OnChatMsg(_, msg)
         return
     end
 
-    local variationKey = VARIATION_BY_MARKER_ID[msg]
-    if not variationKey then
+    if not self.playerGroup then
         return
     end
 
-    self.selectedVariation = variationKey
+    self.assignmentMessage = msg
     self:UpdateDisplay()
 end
 
@@ -484,7 +486,7 @@ function UlatekIntermission:StartIntermissionBar()
     end
 
     self.activeStartedAt = GetTime()
-    self.selectedVariation = nil
+    self.assignmentMessage = nil
     self.playerGroup, self.isCaller = self:GetAssignments()
     self:UpdateDisplay()
 end
@@ -556,6 +558,7 @@ function UlatekIntermission:OnBigWigsStage(moduleInfo, stage)
     if stage == 2.5 then
         self.waitingForIntermissionCoils = true
         self.intermissionCoilsClaimed = false
+        self.assignmentMessage = nil
         self:CancelPendingCoils()
     elseif stage and stage >= 3 then
         self.waitingForIntermissionCoils = false
@@ -627,7 +630,7 @@ function UlatekIntermission:UpdateDisplay()
     if not active then
         if not editMode then
             self.activeStartedAt = nil
-            self.selectedVariation = nil
+            self.assignmentMessage = nil
         end
         self:HideDisplay()
         return
@@ -644,13 +647,16 @@ function UlatekIntermission:UpdateDisplay()
     end
     f.barAnchor:Show()
 
-    local variationKey = editMode and "PINK" or self.selectedVariation
-    local group = editMode and 1 or self.playerGroup
-    local variation = variationKey and VARIATIONS[variationKey]
-    local sequence = variation and group and variation.groups[group]
-
-    if sequence then
-        f.assignmentText:SetText(sequenceMarkup(sequence))
+    if editMode then
+        f.assignmentText:SetText(sequenceMarkup(VARIATIONS.PINK.groups[1]))
+        f.assignmentAnchor:Show()
+    elseif self.assignmentMessage and self.playerGroup then
+        f.assignmentText:SetFormattedText(
+            self.assignmentMessage,
+            sequenceMarkup(VARIATIONS.PINK.groups[self.playerGroup]),
+            sequenceMarkup(VARIATIONS.WHITE.groups[self.playerGroup]),
+            sequenceMarkup(VARIATIONS.RED.groups[self.playerGroup])
+        )
         f.assignmentAnchor:Show()
     else
         f.assignmentAnchor:Hide()
@@ -767,7 +773,7 @@ function UlatekIntermission:OnEncounterStart(_, encounterID)
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
     self.activeStartedAt = nil
-    self.selectedVariation = nil
+    self.assignmentMessage = nil
     self.playerGroup, self.isCaller = self:GetAssignments()
     self:CancelPendingCoils()
     self:StartChatListener()
@@ -783,7 +789,7 @@ function UlatekIntermission:OnEncounterEnd(_, encounterID)
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
     self.activeStartedAt = nil
-    self.selectedVariation = nil
+    self.assignmentMessage = nil
     self:CancelPendingCoils()
     self:StopChatListener()
     self:UpdateDisplay()
@@ -796,7 +802,7 @@ function UlatekIntermission:OnInitialize()
     self.editMode = false
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
-    self.selectedVariation = nil
+    self.assignmentMessage = nil
     self.playerGroup = nil
     self.isCaller = false
 
@@ -835,7 +841,7 @@ function UlatekIntermission:OnDisable()
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
     self.activeStartedAt = nil
-    self.selectedVariation = nil
+    self.assignmentMessage = nil
     self.playerGroup = nil
     self.isCaller = false
 
