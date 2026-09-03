@@ -1654,12 +1654,12 @@ function AbilityAlerts:PositionGuillotineSequenceMarkers(bar)
         local ratio = (totalDuration - markerTime) / totalDuration
         local x = math.max(1, math.min(width - 1, width * ratio))
 
-        local currentColor = data.color
-            and markerColor(data.color, color)
+        local currentColor = markerData.color
+            and markerColor(markerData.color, color)
             or color
         local currentThickness = math.max(
             1,
-            math.min(30, tonumber(data.thickness) or thickness)
+            math.min(30, tonumber(markerData.thickness) or thickness)
         )
 
         marker:SetColorTexture(
