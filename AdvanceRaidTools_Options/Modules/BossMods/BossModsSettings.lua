@@ -76,7 +76,8 @@ local function buildTabBody(parent, tabKey)
         placeholder = nil
     }
 
-    local nav = T:GroupedNavList(container, {
+    local nav
+    nav = T:GroupedNavList(container, {
         width = NAV_WIDTH,
         height = NAV_MIN_HEIGHT,
         minHeight = NAV_MIN_HEIGHT,
