@@ -1324,7 +1324,11 @@ end
 E:RegisterBossModFeature("CoiledAltarKicker", {
     tab = "AbyssCustom",
     order = 85,
+    bossKey = "CoiledAltar",
+    bossLabelKey = "BossMods_CoiledAltar",
+    bossOrder = 70,
     labelKey = "BossMods_CoiledAltarKicker",
+    navLabelKey = "BossMods_CoiledAltarKickerNav",
     descKey = "BossMods_CoiledAltarKickerDesc",
     moduleName = "BossMods_CoiledAltarKicker"
 })

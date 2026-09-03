@@ -351,7 +351,11 @@ end
 E:RegisterBossModFeature("UlatekWrongTarget", {
     tab = "AbyssCustom",
     order = 66,
+    bossKey = "Ulatek",
+    bossLabelKey = "BossMods_Ulatek",
+    bossOrder = 80,
     labelKey = "BossMods_UlatekWrongTarget",
+    navLabelKey = "BossMods_UlatekWrongTargetNav",
     descKey = "BossMods_UlatekWrongTargetDesc",
     moduleName = "BossMods_UlatekWrongTarget"
 })

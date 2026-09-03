@@ -25,6 +25,9 @@ E:NewModule(MODULE_NAME, "AceEvent-3.0")
 E:RegisterBossModFeature("HealerAuras", {
     tab = "AbyssCustom",
     order = 10,
+    bossKey = "CoiledAltar",
+    bossLabelKey = "BossMods_CoiledAltar",
+    bossOrder = 70,
     labelKey = "BossMods_HealerAuras",
     descKey = "BossMods_HealerAurasDesc",
     moduleName = MODULE_NAME

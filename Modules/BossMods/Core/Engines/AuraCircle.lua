@@ -836,7 +836,17 @@ function BossMods:RegisterAuraCircleFeature(definition)
     E:RegisterBossModFeature(definition.featureKey, {
         tab = definition.tab or "AbyssCustom",
         order = definition.order or 100,
+        bossKey = definition.bossKey,
+        bossLabelKey = definition.bossLabelKey,
+        bossName = definition.bossName,
+        bossOrder = definition.bossOrder,
+        groupKey = definition.groupKey,
+        groupLabelKey = definition.groupLabelKey,
+        groupLabel = definition.groupLabel,
+        groupOrder = definition.groupOrder,
         labelKey = definition.labelKey or definition.featureKey,
+        navLabelKey = definition.navLabelKey,
+        navLabel = definition.navLabel,
         descKey = definition.descKey,
         moduleName = definition.moduleName
     })

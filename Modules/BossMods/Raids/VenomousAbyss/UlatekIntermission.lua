@@ -1099,6 +1099,9 @@ end
 E:RegisterBossModFeature("UlatekIntermission", {
     tab = "AbyssCustom",
     order = 73,
+    bossKey = "Ulatek",
+    bossLabelKey = "BossMods_Ulatek",
+    bossOrder = 80,
     labelKey = "BossMods_UlatekIntermission",
     descKey = "BossMods_UlatekIntermissionDesc",
     moduleName = MODULE_NAME

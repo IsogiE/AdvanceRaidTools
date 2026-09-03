@@ -31,6 +31,7 @@ local loc = P.loc
 --     resultsText    = function(mod) -> text            -- uses ScrollingText
 --     resultsRows    = { items = fn(mod), createRow = fn(parent), updateRow = fn(row, item) },
 --     resultsHeight  = 320,
+--     resultsFillViewport = false,
 --
 --     disabled       = nil | function() -> bool,        -- greys out the runner widgets
 -- }
@@ -241,6 +242,8 @@ function T:CheckerPanel(opts)
             build = function(parent)
                 return T:ScrollingPanel(parent, {
                     height = opts.resultsHeight or 320,
+                    minHeight = opts.resultsHeight or 320,
+                    fillViewport = opts.resultsFillViewport == true,
                     rowHeight = rows.rowHeight or 20,
                     template = "Transparent",
                     forwardWheelToOuter = true,
@@ -268,6 +271,8 @@ function T:CheckerPanel(opts)
             build = function(parent)
                 return T:ScrollingText(parent, {
                     height = opts.resultsHeight or 320,
+                    minHeight = opts.resultsHeight or 320,
+                    fillViewport = opts.resultsFillViewport == true,
                     template = "Transparent",
                     forwardWheelToOuter = true,
                     spacing = 2,

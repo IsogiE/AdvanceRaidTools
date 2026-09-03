@@ -13,6 +13,7 @@ Core\OptionsShared.lua
 Core\OptionsTemplate.lua
 Core\Templates\Basics.lua
 Core\Templates\Scroll.lua
+Core\Templates\GroupedNav.lua
 Core\Templates\Inputs.lua
 Core\Templates\Dropdown.lua
 Core\Templates\Layout.lua

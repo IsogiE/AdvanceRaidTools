@@ -765,6 +765,7 @@ local newBackdropFrame = OH.newBackdropFrame
 local function aceWrap(tpl, opts)
     opts = opts or {}
     local extra = opts.Refresh
+    local wrapped
     local function Refresh()
         if extra then
             extra(tpl)
@@ -773,15 +774,43 @@ local function aceWrap(tpl, opts)
             tpl.Refresh()
         end
     end
+    local function SetHeight(selfOrHeight, maybeHeight)
+        local height = selfOrHeight == wrapped and maybeHeight or selfOrHeight
+        height = tonumber(height)
+        if not height or height <= 0 then
+            return
+        end
+
+        if type(opts.SetHeight) == "function" then
+            opts.SetHeight(wrapped, height)
+        elseif type(tpl.SetHeight) == "function" then
+            local ok = pcall(tpl.SetHeight, tpl, height)
+            if not ok then
+                pcall(tpl.SetHeight, height)
+            end
+        elseif tpl.frame and tpl.frame.SetHeight then
+            tpl.frame:SetHeight(height)
+        end
+
+        wrapped.height = tpl.height
+            or (tpl.frame and tpl.frame.GetHeight and tpl.frame:GetHeight())
+            or wrapped.height
+    end
     Refresh()
-    return {
+    wrapped = {
         frame = tpl.frame,
         Refresh = Refresh,
         height = tpl.height,
-        fullWidth = opts.fullWidth,
+        minHeight = opts.minHeight or tpl.minHeight,
+        fillViewport = opts.fillViewport or tpl.fillViewport,
+        fullWidth = opts.fullWidth or tpl.fullWidth,
         GetNaturalWidth = opts.GetNaturalWidth or tpl.GetNaturalWidth,
-        _relayout = opts._relayout or tpl.Relayout
+        _relayout = opts._relayout or tpl._relayout or tpl.Relayout
     }
+    if opts.SetHeight or tpl.SetHeight or tpl.frame and tpl.frame.SetHeight then
+        wrapped.SetHeight = SetHeight
+    end
+    return wrapped
 end
 
 -- Header
@@ -1044,6 +1073,8 @@ local function buildMultilineEditBox(parent, option, info)
         label = evalName(option, info),
         default = tostring(callGet(option, info) or ""),
         lines = lines,
+        minHeight = option.minHeight,
+        fillViewport = option.fillViewport == true,
         template = "Default",
         tooltip = function()
             local desc = evalDesc(option, info)
@@ -1189,6 +1220,44 @@ local function parseRowFraction(w)
         return nil
     end
     return f
+end
+
+local function parentViewportHeight(parent)
+    local scroll = parent and parent.GetParent and parent:GetParent()
+    if scroll and scroll.GetHeight then
+        local h = scroll:GetHeight()
+        if h and h > 0 then
+            return h
+        end
+    end
+
+    if parent and parent.GetHeight then
+        local h = parent:GetHeight()
+        if h and h > 0 then
+            return h
+        end
+    end
+
+    return nil
+end
+
+local function setWidgetHeight(widget, height)
+    if not (widget and height and height > 0) then
+        return
+    end
+
+    if type(widget.SetHeight) == "function" then
+        local ok = pcall(widget.SetHeight, widget, height)
+        if ok then
+            return
+        end
+        pcall(widget.SetHeight, height)
+        return
+    end
+
+    if widget.frame and widget.frame.SetHeight then
+        widget.frame:SetHeight(height)
+    end
 end
 
 local function buildWidget(parent, option, info)
@@ -1460,6 +1529,16 @@ local function buildArgsInto(parent, args, path, inheritedHandler, startY, conte
             fr:ClearAllPoints()
             fr:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
             fr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -y)
+
+            if widget.fillViewport or (opt and opt.fillViewport) then
+                local minH = tonumber(widget.minHeight or (opt and opt.minHeight) or widget.height) or H_WIDGET
+                local viewportH = parentViewportHeight(parent)
+                if viewportH and viewportH > 0 then
+                    local targetH = math.max(minH, viewportH - y - ROW_GAP)
+                    setWidgetHeight(widget, targetH)
+                end
+            end
+
             if widget._relayout then
                 widget._relayout()
             end

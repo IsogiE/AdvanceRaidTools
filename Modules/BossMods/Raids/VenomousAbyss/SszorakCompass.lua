@@ -393,7 +393,11 @@ end
 E:RegisterBossModFeature("SszorakCompass", {
     tab = "AbyssCustom",
     order = 60,
+    bossKey = "Sszorak",
+    bossLabelKey = "BossMods_Sszorak",
+    bossOrder = 50,
     labelKey = "BossMods_SszorakCompass",
+    navLabelKey = "BossMods_SszorakCompassNav",
     descKey = "BossMods_SszorakCompassDesc",
     moduleName = "BossMods_SszorakCompass"
 })

@@ -1456,8 +1456,16 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)
 
-    return {
+    local api
+    api = {
         height = totalHeight,
+        minHeight = totalHeight,
+
+        SetHeight = function(selfOrHeight, maybeHeight)
+            local nextHeight = tonumber(selfOrHeight == api and maybeHeight or selfOrHeight)
+            api.height = math.max(totalHeight, nextHeight or totalHeight)
+            rightPanel:SetHeight(api.height)
+        end,
 
         Refresh = tracker.refresh,
 
@@ -1487,6 +1495,7 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             tracker.release()
         end
     }
+    return api
 end
 
 -------------------------------------------------------------------------------
@@ -1494,7 +1503,7 @@ end
 -------------------------------------------------------------------------------
 
 local function createBossBuilder(bossKey)
-    return function(rightPanel, assignmentMod, isDisabled)
+    return function(rightPanel, assignmentMod, isDisabled, requestLayout)
         local abilityMod =
             E:GetModule(MODULE_NAME, true)
 
@@ -1506,24 +1515,37 @@ local function createBossBuilder(bossKey)
         local released = false
 
         local proxy = {
-            height = 1
+            height = 1,
+            minHeight = 1
         }
+        local requestedHeight
 
-        local function refreshScrollRange()
-            if released then
-                return
+        local function syncHeight()
+            if currentBody
+                and currentBody.SetHeight
+                and requestedHeight
+            then
+                local ok = pcall(currentBody.SetHeight, currentBody, requestedHeight)
+                if not ok then
+                    pcall(currentBody.SetHeight, requestedHeight)
+                end
             end
 
-            local content = rightPanel:GetParent()
+            proxy.height =
+                currentBody and currentBody.height
+                or rightPanel:GetHeight()
+                or 1
+            proxy.minHeight =
+                currentBody and currentBody.minHeight
+                or proxy.minHeight
+                or 1
 
-            if content then
-                content:SetHeight(proxy.height)
-            end
+            rightPanel:SetHeight(math.max(1, proxy.height))
+        end
 
-            local scroll = content and content:GetParent()
-
-            if scroll and scroll.UpdateScrollChildRect then
-                scroll:UpdateScrollChildRect()
+        local function requestOwnerLayout()
+            if type(requestLayout) == "function" then
+                requestLayout()
             end
         end
 
@@ -1549,9 +1571,6 @@ local function createBossBuilder(bossKey)
                 bossKey
             )
 
-            proxy.height =
-                currentBody and currentBody.height or 1
-
             if keepUnlocked
                 and currentBody
                 and currentBody.SetUnlocked
@@ -1559,18 +1578,30 @@ local function createBossBuilder(bossKey)
                 currentBody.SetUnlocked(true)
             end
 
-            rightPanel:SetHeight(proxy.height)
-            refreshScrollRange()
-            C_Timer.After(0, refreshScrollRange)
+            syncHeight()
+            requestOwnerLayout()
+            C_Timer.After(0, function()
+                if not released then
+                    requestOwnerLayout()
+                end
+            end)
         end
 
         rebuildCurrentPage()
+
+        proxy.SetHeight = function(selfOrHeight, maybeHeight)
+            requestedHeight = tonumber(selfOrHeight == proxy and maybeHeight or selfOrHeight)
+            syncHeight()
+        end
 
         proxy.Refresh = function()
             if currentBody
                 and currentBody.Refresh
             then
-                return currentBody.Refresh()
+                local result = currentBody.Refresh()
+                syncHeight()
+                requestOwnerLayout()
+                return result
             end
         end
 

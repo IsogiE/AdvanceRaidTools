@@ -342,6 +342,8 @@ end
 -- -----------------------------------------------------------------------------
 -- opts = {
 --     height              = nil,          -- if set, applied to the outer frame
+--     minHeight           = nil,
+--     fillViewport        = false,
 --     mouseWheelStep      = 20,           -- pixels per wheel notch
 --     insets              = {l,t,r,b},    -- inner padding around scroll viewport
 --     template            = "Default"|"Transparent"|"Opaque",
@@ -355,10 +357,12 @@ end
 -- }
 --
 -- Returns {
---     frame, scroll, content,
+--     frame, height, minHeight, fillViewport,
+--     scroll, content,
 --     scrollbar,               -- the T:ScrollBar instance
 --     ApplyAutoWidth(),
 --     SetContentSize(w, h),
+--     SetHeight(px),
 --     SyncViewport(),           -- refresh child rect/range without relayout
 --     SetMouseWheelStep(pixels),
 --     ScrollTo(y), ScrollToTop(), ScrollToBottom(),
@@ -387,8 +391,9 @@ function T:ScrollFrame(parent, opts)
         outer = CreateFrame("Frame", nil, parent)
     end
 
-    if opts.height then
-        outer:SetHeight(opts.height)
+    local height = opts.height
+    if height then
+        outer:SetHeight(height)
     end
 
     local leftInset, topInset, bottomInset
@@ -490,14 +495,31 @@ function T:ScrollFrame(parent, opts)
         ApplyAutoWidth()
     end
 
-    return {
+    local api
+    api = {
         frame = outer,
+        height = height,
+        minHeight = opts.minHeight,
+        fillViewport = opts.fillViewport and true or false,
         scroll = scroll,
         content = content,
         scrollbar = scrollbar,
         ApplyAutoWidth = ApplyAutoWidth,
         SetContentSize = function(w, h)
             content:SetSize(w or content:GetWidth(), h or content:GetHeight())
+            scroll:UpdateScrollChildRect()
+            scrollbar.Refresh()
+        end,
+        SetHeight = function(selfOrHeight, maybeHeight)
+            local nextHeight = tonumber(selfOrHeight == api and maybeHeight or selfOrHeight)
+            if not nextHeight or nextHeight <= 0 then
+                return
+            end
+
+            height = nextHeight
+            api.height = nextHeight
+            outer:SetHeight(nextHeight)
+            ApplyAutoWidth()
             scroll:UpdateScrollChildRect()
             scrollbar.Refresh()
         end,
@@ -522,6 +544,7 @@ function T:ScrollFrame(parent, opts)
             scroll:SetVerticalScroll(maxY)
         end
     }
+    return api
 end
 
 -- =============================================================================
@@ -774,6 +797,7 @@ end
 --     frame, height, fullWidth = true,
 --     content, scroll, fontString,
 --     SetText(s), GetText(),
+--     SetHeight(px),
 --     Refresh(),
 --     _relayout(),
 -- }
@@ -782,6 +806,7 @@ function T:ScrollingText(parent, opts)
     opts = shallowCopy(opts)
     local height = opts.height or 200
     local pad = opts.padding or 4
+    local lastText
 
     local sf = T:ScrollFrame(parent, {
         height = height,
@@ -819,7 +844,7 @@ function T:ScrollingText(parent, opts)
         sf.scroll:UpdateScrollChildRect()
     end
 
-    local lastText = computeText()
+    lastText = computeText()
     fs:SetText(lastText)
     sf.scroll:HookScript("OnSizeChanged", function()
         if not optionsResizeActive() then
@@ -840,9 +865,12 @@ function T:ScrollingText(parent, opts)
         relayout()
     end
 
-    return {
+    local api
+    api = {
         frame = sf.frame,
         height = height,
+        minHeight = opts.minHeight,
+        fillViewport = opts.fillViewport and true or false,
         fullWidth = true,
         content = sf.content,
         scroll = sf.scroll,
@@ -851,11 +879,22 @@ function T:ScrollingText(parent, opts)
         GetText = function()
             return lastText
         end,
+        SetHeight = function(selfOrHeight, maybeHeight)
+            local nextHeight = tonumber(selfOrHeight == api and maybeHeight or selfOrHeight)
+            if not nextHeight or nextHeight <= 0 then
+                return
+            end
+            height = nextHeight
+            api.height = nextHeight
+            sf.frame:SetHeight(nextHeight)
+            relayout()
+        end,
         Refresh = function()
             SetText(computeText())
         end,
         _relayout = relayout
     }
+    return api
 end
 
 -- =============================================================================
@@ -881,6 +920,7 @@ end
 --     content, scroll,
 --     SetItems(list),   -- list may itself be a function
 --     GetItems(),
+--     SetHeight(px),
 --     Refresh(),        -- re-evaluates items() and repaints
 --     _relayout(),
 -- }
@@ -981,22 +1021,37 @@ function T:ScrollingPanel(parent, opts)
         populate()
     end
 
-    return {
+    local api
+    api = {
         frame = sf.frame,
         height = height,
+        minHeight = opts.minHeight,
+        fillViewport = opts.fillViewport and true or false,
         fullWidth = true,
         content = sf.content,
         scroll = sf.scroll,
-        SetItems = function(list)
+        SetItems = function(selfOrList, maybeList)
+            local list = selfOrList == api and maybeList or selfOrList
             itemsOpt = list
             populate()
         end,
         GetItems = function()
             return currentItems()
         end,
+        SetHeight = function(selfOrHeight, maybeHeight)
+            local nextHeight = tonumber(selfOrHeight == api and maybeHeight or selfOrHeight)
+            if not nextHeight or nextHeight <= 0 then
+                return
+            end
+            height = nextHeight
+            api.height = nextHeight
+            sf.frame:SetHeight(nextHeight)
+            relayout()
+        end,
         Refresh = populate,
         _relayout = relayout
     }
+    return api
 end
 
 -- Utility: MergeArgs

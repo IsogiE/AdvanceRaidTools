@@ -371,9 +371,10 @@ end
 -- }
 --
 -- Returns {
---     frame, height, editBox, scrollFrame, content,
+--     frame, height, minHeight, fillViewport, editBox, scrollFrame, content,
 --     SetText(t), GetText(),
 --     SetFocus(), ClearFocus(),
+--     SetHeight(px),
 --     SetReadOnly(bool),
 --     SetDisabled(d), Refresh(),
 -- }
@@ -606,9 +607,26 @@ function T:MultilineEditBox(parent, opts)
 
     SetDisabled(evalMaybeFn(opts.disabled, eb))
 
-    return {
+    local function SetHeight(nextHeight)
+        nextHeight = tonumber(nextHeight)
+        if not nextHeight or nextHeight <= labelH then
+            return
+        end
+
+        local nextBoxH = math.max(lineH + 10, nextHeight - labelH)
+        boxH = nextBoxH
+        container:SetHeight(nextBoxH + labelH)
+        box:SetHeight(nextBoxH)
+        syncWidth()
+        scroll:UpdateScrollChildRect()
+    end
+
+    local api
+    api = {
         frame = container,
         height = container:GetHeight(),
+        minHeight = opts.minHeight or container:GetHeight(),
+        fillViewport = opts.fillViewport and true or false,
         editBox = eb,
         scrollFrame = scroll,
         box = box,
@@ -629,6 +647,12 @@ function T:MultilineEditBox(parent, opts)
             if labelFS then
                 labelFS:SetText(t or "")
             end
+        end,
+
+        SetHeight = function(selfOrHeight, maybeHeight)
+            local nextHeight = selfOrHeight == api and maybeHeight or selfOrHeight
+            SetHeight(nextHeight)
+            api.height = container:GetHeight()
         end,
 
         SetReadOnly = SetReadOnly,
@@ -656,6 +680,7 @@ function T:MultilineEditBox(parent, opts)
             SetDisabled(evalMaybeFn(opts.disabled, eb))
         end
     }
+    return api
 end
 
 -- =============================================================================

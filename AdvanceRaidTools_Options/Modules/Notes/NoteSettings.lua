@@ -1149,6 +1149,21 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         rebuildRoster()
     end)
 
+    local function resizeEditorArea(height)
+        local targetH = math.max(EDITOR_HEIGHT, tonumber(height) or container:GetHeight() or EDITOR_HEIGHT)
+        container:SetHeight(targetH)
+
+        local editorH = math.max(EDITOR_INNER_H, targetH - PRE_EDITOR_H)
+        if editor.SetHeight then
+            editor:SetHeight(editorH)
+        else
+            editor.frame:SetHeight(editorH)
+        end
+
+        rebuildRows()
+        rebuildRoster()
+    end
+
     rebuildRows()
     rebuildRoster()
 
@@ -1187,12 +1202,22 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
 
     refreshActionButtons()
 
-    return {
+    local api
+    api = {
         frame = container,
         height = EDITOR_HEIGHT,
+        minHeight = EDITOR_HEIGHT,
+        fillViewport = true,
         fullWidth = true,
+        SetHeight = function(selfOrHeight, maybeHeight)
+            resizeEditorArea(selfOrHeight == api and maybeHeight or selfOrHeight)
+        end,
+        _relayout = function()
+            resizeEditorArea()
+        end,
         Refresh = refreshAll
     }
+    return api
 end
 
 -- Display tab

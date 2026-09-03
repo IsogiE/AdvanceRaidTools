@@ -443,7 +443,11 @@ end
 E:RegisterBossModFeature("VashnikWaveCross", {
     tab = "AbyssCustom",
     order = 70,
+    bossKey = "Vashnik",
+    bossLabelKey = "BossMods_Vashnik",
+    bossOrder = 40,
     labelKey = "BossMods_VashnikWaveCross",
+    navLabelKey = "BossMods_VashnikWaveCrossNav",
     descKey = "BossMods_VashnikWaveCrossDesc",
     moduleName = "BossMods_VashnikWaveCross"
 })

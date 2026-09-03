@@ -225,7 +225,8 @@ local function buildPanel()
         exportResults = function(c)
             return exportResults(c)
         end,
-        resultsHeight = 320
+        resultsHeight = 320,
+        resultsFillViewport = true
     })
 
     local header = {

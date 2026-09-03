@@ -683,7 +683,11 @@ end
 E:RegisterBossModFeature("SszorakMarkers", {
     tab = "AbyssCustom",
     order = 55,
+    bossKey = "Sszorak",
+    bossLabelKey = "BossMods_Sszorak",
+    bossOrder = 50,
     labelKey = "BossMods_SszorakMarkers",
+    navLabelKey = "BossMods_SszorakMarkersNav",
     descKey = "BossMods_SszorakMarkersDesc",
     moduleName = "BossMods_SszorakMarkers"
 })

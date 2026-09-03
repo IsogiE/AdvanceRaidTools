@@ -752,7 +752,11 @@ end
 E:RegisterBossModFeature("TwinFangsDelugeBar", {
     tab = "AbyssCustom",
     order = 56,
+    bossKey = "TwinFangs",
+    bossLabelKey = "BossMods_TwinFangs",
+    bossOrder = 60,
     labelKey = "BossMods_TwinFangsDelugeBar",
+    navLabelKey = "BossMods_TwinFangsDelugeBarNav",
     descKey = "BossMods_TwinFangsDelugeBarDesc",
     moduleName = "BossMods_TwinFangsDelugeBar"
 })
@@ -760,7 +764,11 @@ E:RegisterBossModFeature("TwinFangsDelugeBar", {
 E:RegisterBossModFeature("TwinFangsDelugeList", {
     tab = "AbyssCustom",
     order = 57,
+    bossKey = "TwinFangs",
+    bossLabelKey = "BossMods_TwinFangs",
+    bossOrder = 60,
     labelKey = "BossMods_TwinFangsDelugeList",
+    navLabelKey = "BossMods_TwinFangsDelugeListNav",
     descKey = "BossMods_TwinFangsDelugeListDesc",
     moduleName = "BossMods_TwinFangsDelugeList"
 })

@@ -27,6 +27,16 @@ features:SetSortKey(function(fa, fb)
         return (fa.tab or "") < (fb.tab or "")
     end
 
+    local ag = fa.groupOrder or fa.bossOrder
+    local bg = fb.groupOrder or fb.bossOrder
+    if ag or bg then
+        ag = ag or fa.order or 100
+        bg = bg or fb.order or 100
+        if ag ~= bg then
+            return ag < bg
+        end
+    end
+
     if fa.order == fb.order then
         return fa.key < fb.key
     end
@@ -35,7 +45,7 @@ features:SetSortKey(function(fa, fb)
 end)
 
 -- Per-feature settings builder registry
--- [key] = function(mod, isDisabled) -> argsTable
+-- [key] = function(parent, mod, isDisabled, requestLayout) -> settingsHandle
 BossMods.settingsBuilders = {}
 
 function BossMods:RegisterRaidTab(key, opts)
@@ -76,6 +86,16 @@ function BossMods:RegisterFeature(key, opts)
     features:Register(key, {
         order = opts.order or 100,
         tab = tab,
+        navLabelKey = opts.navLabelKey,
+        navLabel = opts.navLabel,
+        groupKey = opts.groupKey or opts.bossKey,
+        groupLabelKey = opts.groupLabelKey or opts.bossLabelKey,
+        groupLabel = opts.groupLabel or opts.bossName,
+        groupOrder = opts.groupOrder or opts.bossOrder,
+        bossKey = opts.bossKey,
+        bossLabelKey = opts.bossLabelKey,
+        bossName = opts.bossName,
+        bossOrder = opts.bossOrder,
         labelKey = opts.labelKey or key,
         descKey = opts.descKey,
         moduleName = opts.moduleName

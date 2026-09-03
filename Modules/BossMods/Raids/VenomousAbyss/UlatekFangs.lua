@@ -772,6 +772,9 @@ end
 E:RegisterBossModFeature("UlatekFangs", {
     tab = "AbyssCustom",
     order = 65,
+    bossKey = "Ulatek",
+    bossLabelKey = "BossMods_Ulatek",
+    bossOrder = 80,
     labelKey = "BossMods_UlatekGraspingFangsOverview",
     descKey = "BossMods_UlatekGraspingFangsOverviewDesc",
     moduleName = "BossMods_UlatekFangs"

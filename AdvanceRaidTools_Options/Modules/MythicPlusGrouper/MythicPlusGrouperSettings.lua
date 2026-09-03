@@ -464,6 +464,8 @@ local function buildPanel()
         build = function(parent)
             return T:ScrollingPanel(parent, {
                 height = 210,
+                minHeight = 210,
+                fillViewport = true,
                 rowHeight = 20,
                 template = "Transparent",
                 forwardWheelToOuter = true,

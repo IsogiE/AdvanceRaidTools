@@ -364,7 +364,11 @@ end
 E:RegisterBossModFeature("RavenousFeastSoakCircle", {
     tab = "AbyssCustom",
     order = 80,
+    bossKey = "TwinFangs",
+    bossLabelKey = "BossMods_TwinFangs",
+    bossOrder = 60,
     labelKey = "BossMods_RavenousFeastSoakCircle",
+    navLabelKey = "BossMods_RavenousFeastSoakCircleNav",
     descKey = "BossMods_RavenousFeastSoakCircleDesc",
     moduleName = "BossMods_RavenousFeastSoakCircle"
 })

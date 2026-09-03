@@ -59,6 +59,7 @@ local function buildPanel()
                         default = mod.db.text or "",
                         get = function() return mod.db.text or "" end,
                         lines = 12,
+                        fillViewport = true,
                         maxLetters = 100000,
                         forwardWheelToOuter = true,
                         onTextChanged = function(value, userInput)
