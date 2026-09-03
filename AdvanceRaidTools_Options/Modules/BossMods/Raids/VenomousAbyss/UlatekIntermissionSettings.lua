@@ -181,6 +181,18 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
     })
     y = unlockY
 
+    y = full(y, track(T:Checkbox(rightPanel, {
+        text = L["BossMods_TimelineSequenceTextOnly"],
+        get = function()
+            return mod.db.textOnly == true
+        end,
+        onChange = function(_, value)
+            mod.db.textOnly = value and true or false
+            refreshLive()
+        end,
+        disabled = isDisabled
+    })))
+
     y = full(y, track(T:Header(rightPanel, {
         text = L["BossMods_UlatekIntermissionBarAppearance"]
     })))

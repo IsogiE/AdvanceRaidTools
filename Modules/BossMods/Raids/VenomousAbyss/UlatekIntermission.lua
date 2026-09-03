@@ -3,7 +3,8 @@ local E, L = unpack(ART)
 local MODULE_NAME = "BossMods_UlatekIntermission"
 
 E:RegisterModuleDefaults(MODULE_NAME, {
-    enabled = false,
+    enabled = true,
+    textOnly = false,
     bar = {
         position = {point = "CENTER", x = 0, y = 220},
         width = 420,
@@ -45,28 +46,44 @@ local CLICK_WINDOW = 5
 local DUPLICATE_WINDOW = 2
 local CLICKER_BUTTON_SIZE = 40
 local CLICKER_BUTTON_SPACING = 5
+local MAX_ASSIGNMENT_SLOTS = 3
 local UPDATE_STATE_KEY = "UlatekIntermission:UpdateState"
+local DEBUG_LOCAL_TEST = false
 
 local WHITE = [[Interface\Buttons\WHITE8x8]]
 local RAID_MARKER_TEXTURE = [[Interface\TargetingFrame\UI-RaidTargetingIcon_%d]]
 local ASSIGNMENT_MARKER_MARKUP = [[|TInterface\TargetingFrame\UI-RaidTargetingIcon_%d:30:30|t]]
+local ASSIGNMENT_ICON_WIDTH = 30
 
 local DEFAULT_BAR_POSITION = {point = "CENTER", x = 0, y = 220}
 local DEFAULT_ASSIGNMENT_POSITION = {point = "CENTER", x = 0, y = 150}
 local DEFAULT_CLICKER_POSITION = {point = "CENTER", x = 0, y = 80}
 local DEFAULT_FONT_COLOR = {1, 1, 1, 1}
 local DEFAULT_BAR_COLOR = {0.16, 0.58, 0.92, 1}
+local DEFAULT_MARKER_COLOR = {1, 1, 1, 1}
+
+local GROUP_COLORS = {
+    [1] = {0.92, 0.92, 0.86, 1},
+    [2] = {1, 0.48, 0.74, 1},
+    [3] = {0.78, 0.04, 0.16, 1}
+}
 
 local FIXED_MARKERS = {
-    {remaining = 17, color = {1, 0.08, 0.08, 1}},
-    {remaining = 15.5, color = {0.08, 0.42, 1, 1}},
-    {remaining = 12, color = {0.08, 1, 0.18, 1}},
-    {remaining = 10.5, color = {1, 0.08, 0.08, 1}},
-    {remaining = 6, color = {0.08, 0.42, 1, 1}},
-    {remaining = 4, color = {0.08, 1, 0.18, 1}},
-    {remaining = 2.5, color = {1, 0.08, 0.08, 1}},
-    {remaining = 0, color = {0.08, 0.42, 1, 1}}
+    {remaining = 17, group = 1},
+    {remaining = 15.5, group = 2},
+    {remaining = 12, group = 3},
+    {remaining = 10.5, group = 1},
+    {remaining = 6, group = 2},
+    {remaining = 4, group = 3},
+    {remaining = 2.5, group = 1},
+    {remaining = 0, group = 2}
 }
+
+local ASSIGNMENT_TIMINGS = {{}, {}, {}}
+for _, data in ipairs(FIXED_MARKERS) do
+    ASSIGNMENT_TIMINGS[data.group][#ASSIGNMENT_TIMINGS[data.group] + 1] =
+        DURATION - data.remaining
+end
 
 local VARIATIONS = {
     PINK = {
@@ -80,8 +97,8 @@ local VARIATIONS = {
     WHITE = {
         markerID = 4,
         groups = {
-            {4, 5, 6},
             {2, 1, 8},
+            {4, 5, 6},
             {7, 3}
         }
     },
@@ -104,6 +121,19 @@ local CHAT_PAYLOADS = {
 local UlatekIntermission = E:NewModule(MODULE_NAME, "AceEvent-3.0", "AceTimer-3.0")
 local BossMods
 
+local function formatCountdown(remaining)
+    remaining = tonumber(remaining) or 0
+    if remaining % 1 == 0 then
+        return tostring(math.floor(remaining))
+    end
+
+    return ("%.1f"):format(remaining)
+end
+
+local function formatAssignmentCountdown(remaining)
+    return ("%.1f"):format(math.max(0, tonumber(remaining) or 0))
+end
+
 local function sequenceMarkup(sequence)
     local result = {}
     for index, markerID in ipairs(sequence or {}) do
@@ -114,6 +144,15 @@ local function sequenceMarkup(sequence)
     end
 
     return table.concat(result)
+end
+
+local function buildVisibleSequence(sequence, indexes)
+    local result = {}
+    for _, sourceIndex in ipairs(indexes or {}) do
+        result[#result + 1] = sequence[sourceIndex]
+    end
+
+    return result
 end
 
 local function copyPosition(position, fallback)
@@ -162,11 +201,16 @@ local function ensureFont(font, defaultSize)
 end
 
 local function currentLocationIsSupported()
+    if DEBUG_LOCAL_TEST then
+        return true
+    end
+
     local _, _, _, _, _, _, _, mapID = GetInstanceInfo()
     return mapID == INSTANCE_ID
 end
 
 function UlatekIntermission:EnsureDefaults()
+    self.db.textOnly = self.db.textOnly == true
     self.db.bar = type(self.db.bar) == "table" and self.db.bar or {}
     self.db.assignment = type(self.db.assignment) == "table" and self.db.assignment or {}
     self.db.clicker = type(self.db.clicker) == "table" and self.db.clicker or {}
@@ -235,7 +279,9 @@ function UlatekIntermission:EnsureFrames()
     for index, data in ipairs(FIXED_MARKERS) do
         local marker = bar:CreateTexture(nil, "OVERLAY", nil, 7)
         marker:SetTexture(WHITE)
-        marker:SetVertexColor(unpack(data.color))
+        marker:SetVertexColor(
+            unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
+        )
         E:DisableSharpening(marker)
         barMarkers[index] = marker
     end
@@ -249,9 +295,30 @@ function UlatekIntermission:EnsureFrames()
         "OVERLAY",
         "GameFontHighlight"
     )
-    assignmentText:SetPoint("CENTER", assignmentAnchor, "CENTER", 0, 0)
+    assignmentText:SetPoint("TOP", assignmentAnchor, "TOP", 0, 0)
     assignmentText:SetJustifyH("CENTER")
     assignmentText:SetJustifyV("MIDDLE")
+    assignmentText:Hide()
+
+    local assignmentMeasure = assignmentAnchor:CreateFontString(
+        nil,
+        "OVERLAY",
+        "GameFontHighlight"
+    )
+    assignmentMeasure:Hide()
+
+    local assignmentCountdowns = {}
+    for index = 1, MAX_ASSIGNMENT_SLOTS do
+        local countdown = assignmentAnchor:CreateFontString(
+            nil,
+            "OVERLAY",
+            "GameFontHighlight"
+        )
+        countdown:SetJustifyH("CENTER")
+        countdown:SetJustifyV("TOP")
+        countdown:Hide()
+        assignmentCountdowns[index] = countdown
+    end
 
     local clickerWidth = #BUTTON_ORDER * CLICKER_BUTTON_SIZE
         + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING
@@ -287,7 +354,8 @@ function UlatekIntermission:EnsureFrames()
         button:SetAttribute("type1", "macro")
         button:SetAttribute(
             "macrotext1",
-            "/raid " .. CHAT_PAYLOADS[variationKey]
+            (DEBUG_LOCAL_TEST and "/say " or "/raid ")
+                .. CHAT_PAYLOADS[variationKey]
         )
         button:RegisterForClicks("AnyUp", "AnyDown")
         button:SetFrameStrata("MEDIUM")
@@ -327,6 +395,8 @@ function UlatekIntermission:EnsureFrames()
         barMarkers = barMarkers,
         assignmentAnchor = assignmentAnchor,
         assignmentText = assignmentText,
+        assignmentMeasure = assignmentMeasure,
+        assignmentCountdowns = assignmentCountdowns,
         clickerAnchor = clickerAnchor,
         clickerButtons = clickerButtons
     }
@@ -383,6 +453,9 @@ function UlatekIntermission:ApplySettings()
     for index, data in ipairs(FIXED_MARKERS) do
         local marker = f.barMarkers[index]
         if marker then
+            marker:SetVertexColor(
+                unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
+            )
             local x = barWidth * data.remaining / DURATION
             x = math.max(markerWidth / 2, math.min(barWidth - markerWidth / 2, x))
 
@@ -400,12 +473,18 @@ function UlatekIntermission:ApplySettings()
         1,
         1
     )
+    local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
+    local rowHeight = math.max(40, assignmentSize + 10)
+    local assignmentHeight = rowHeight + countdownSize + 12
+    local assignmentWidth = 700
 
-    f.assignmentAnchor:SetSize(700, math.max(60, assignmentSize * 2))
+    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
     E:ApplyFramePosition(f.assignmentAnchor, assignmentDB.position)
+
+    local assignmentFont = E:FetchFont(assignmentDB.font.name)
     E:ApplyFontString(
         f.assignmentText,
-        E:FetchFont(assignmentDB.font.name),
+        assignmentFont,
         assignmentSize,
         assignmentDB.font.outline
     )
@@ -415,6 +494,43 @@ function UlatekIntermission:ApplySettings()
         assignmentB,
         assignmentA
     )
+    f.assignmentText:ClearAllPoints()
+    f.assignmentText:SetPoint("TOP", f.assignmentAnchor, "TOP", 0, -2)
+    f.assignmentText:SetSize(assignmentWidth, rowHeight)
+
+    E:ApplyFontString(
+        f.assignmentMeasure,
+        assignmentFont,
+        assignmentSize,
+        assignmentDB.font.outline
+    )
+    f.assignmentMeasure:SetText(" Into ")
+
+    for _, countdown in ipairs(f.assignmentCountdowns or {}) do
+        E:ApplyFontString(
+            countdown,
+            assignmentFont,
+            countdownSize,
+            assignmentDB.font.outline
+        )
+        countdown:SetTextColor(
+            assignmentR,
+            assignmentG,
+            assignmentB,
+            assignmentA
+        )
+        countdown:SetSize(80, countdownSize + 4)
+    end
+
+    self.assignmentLayout = {
+        connectorWidth = math.max(
+            assignmentSize * 1.2,
+            f.assignmentMeasure:GetStringWidth()
+        ),
+        countdownOffsetY = -(rowHeight + 17),
+        iconWidth = ASSIGNMENT_ICON_WIDTH,
+        width = assignmentWidth
+    }
 
     if not InCombatLockdown() then
         f.clickerAnchor:SetScale(tonumber(clickDB.scale) or 1)
@@ -455,6 +571,10 @@ function UlatekIntermission:GetAssignments()
 end
 
 function UlatekIntermission:IsClickWindowOpen()
+    if DEBUG_LOCAL_TEST then
+        return true
+    end
+
     if not self.activeStartedAt then
         return false
     end
@@ -464,12 +584,16 @@ function UlatekIntermission:IsClickWindowOpen()
 end
 
 function UlatekIntermission:OnChatMsg(_, msg)
-    if not self.encounterActive or not self:IsClickWindowOpen() then
+    if not DEBUG_LOCAL_TEST
+        and (not self.encounterActive or not self:IsClickWindowOpen())
+    then
         return
     end
 
-    if not self.frames then
-        return
+    if DEBUG_LOCAL_TEST then
+        self.encounterActive = true
+        self.playerGroup, self.isCaller = self:GetAssignments()
+        self.activeStartedAt = GetTime()
     end
 
     if not self.playerGroup then
@@ -481,7 +605,7 @@ function UlatekIntermission:OnChatMsg(_, msg)
 end
 
 function UlatekIntermission:StartIntermissionBar()
-    if not self.encounterActive then
+    if not self.encounterActive and not DEBUG_LOCAL_TEST then
         return
     end
 
@@ -606,6 +730,105 @@ function UlatekIntermission:ApplyClickerVisibility()
     self:ApplyClickerInteraction()
 end
 
+function UlatekIntermission:HideAssignmentSlots()
+    if not self.frames then
+        return
+    end
+
+    self.frames.assignmentText:Hide()
+    for _, countdown in ipairs(self.frames.assignmentCountdowns or {}) do
+        countdown:Hide()
+    end
+end
+
+function UlatekIntermission:UpdateAssignmentSlots(formatMessage, group, elapsed)
+    if not self.frames then
+        return false
+    end
+
+    local pink = VARIATIONS.PINK.groups[group]
+    local white = VARIATIONS.WHITE.groups[group]
+    local red = VARIATIONS.RED.groups[group]
+    local timings = ASSIGNMENT_TIMINGS[group]
+
+    if not formatMessage or not pink or not white or not red or not timings then
+        self:HideAssignmentSlots()
+        return false
+    end
+
+    local totalCount = math.min(#pink, #white, #red, #timings, MAX_ASSIGNMENT_SLOTS)
+    if totalCount <= 0 then
+        self:HideAssignmentSlots()
+        return false
+    end
+
+    local f = self.frames
+    local layout = self.assignmentLayout or {}
+    local connectorWidth = layout.connectorWidth or 40
+    elapsed = tonumber(elapsed) or 0
+
+    local activeIndexes = {}
+    local activeTimeLeft = {}
+    for index = 1, totalCount do
+        local timeLeft = (tonumber(timings[index]) or 0) - elapsed
+        if timeLeft > 0 then
+            activeIndexes[#activeIndexes + 1] = index
+            activeTimeLeft[#activeTimeLeft + 1] = timeLeft
+        end
+    end
+
+    local count = #activeIndexes
+    if count <= 0 then
+        self:HideAssignmentSlots()
+        return false
+    end
+
+    f.assignmentText:SetFormattedText(
+        formatMessage,
+        sequenceMarkup(buildVisibleSequence(pink, activeIndexes)),
+        sequenceMarkup(buildVisibleSequence(white, activeIndexes)),
+        sequenceMarkup(buildVisibleSequence(red, activeIndexes))
+    )
+    f.assignmentText:Show()
+
+    local rowWidth = f.assignmentText:GetStringWidth()
+    if not rowWidth or rowWidth <= 0 then
+        rowWidth = count * ASSIGNMENT_ICON_WIDTH + (count - 1) * connectorWidth
+    end
+
+    local iconWidth = (rowWidth - (count - 1) * connectorWidth) / count
+    iconWidth = math.max(layout.iconWidth or ASSIGNMENT_ICON_WIDTH, iconWidth)
+
+    local x = -rowWidth / 2 + iconWidth / 2
+    for index = 1, MAX_ASSIGNMENT_SLOTS do
+        local countdown = f.assignmentCountdowns[index]
+
+        if countdown and index <= count then
+            countdown:ClearAllPoints()
+            countdown:SetPoint(
+                "TOP",
+                f.assignmentAnchor,
+                "TOP",
+                x,
+                layout.countdownOffsetY or -(ASSIGNMENT_ICON_WIDTH + 12)
+            )
+            local timeLeft = activeTimeLeft[index]
+            if timeLeft > 0 then
+                countdown:SetText(formatAssignmentCountdown(timeLeft))
+                countdown:Show()
+            else
+                countdown:Hide()
+            end
+
+            x = x + iconWidth + connectorWidth
+        elseif countdown then
+            countdown:Hide()
+        end
+    end
+
+    return true
+end
+
 function UlatekIntermission:HideDisplay()
     if not self.frames then
         return
@@ -613,6 +836,7 @@ function UlatekIntermission:HideDisplay()
 
     self.frames.barAnchor:Hide()
     self.frames.assignmentAnchor:Hide()
+    self:HideAssignmentSlots()
     self:ApplyClickerVisibility()
 end
 
@@ -645,20 +869,23 @@ function UlatekIntermission:UpdateDisplay()
     else
         f.barTime:SetText(("%.1f"):format(remaining))
     end
+    f.bar:SetShown(self.db.textOnly ~= true)
     f.barAnchor:Show()
 
     if editMode then
-        f.assignmentText:SetText(sequenceMarkup(VARIATIONS.PINK.groups[1]))
+        self:UpdateAssignmentSlots(CHAT_PAYLOADS.PINK, 1, 0)
         f.assignmentAnchor:Show()
-    elseif self.assignmentMessage and self.playerGroup then
-        f.assignmentText:SetFormattedText(
+    elseif self.assignmentMessage
+        and self.playerGroup
+        and self:UpdateAssignmentSlots(
             self.assignmentMessage,
-            sequenceMarkup(VARIATIONS.PINK.groups[self.playerGroup]),
-            sequenceMarkup(VARIATIONS.WHITE.groups[self.playerGroup]),
-            sequenceMarkup(VARIATIONS.RED.groups[self.playerGroup])
+            self.playerGroup,
+            elapsed
         )
+    then
         f.assignmentAnchor:Show()
     else
+        self:HideAssignmentSlots()
         f.assignmentAnchor:Hide()
     end
 
@@ -732,11 +959,16 @@ end
 function UlatekIntermission:StartChatListener()
     self:RegisterEvent("CHAT_MSG_RAID", "OnChatMsg")
     self:RegisterEvent("CHAT_MSG_RAID_LEADER", "OnChatMsg")
+
+    if DEBUG_LOCAL_TEST then
+        self:RegisterEvent("CHAT_MSG_SAY", "OnChatMsg")
+    end
 end
 
 function UlatekIntermission:StopChatListener()
     self:UnregisterEvent("CHAT_MSG_RAID")
     self:UnregisterEvent("CHAT_MSG_RAID_LEADER")
+    self:UnregisterEvent("CHAT_MSG_SAY")
 end
 
 function UlatekIntermission:UpdateState()
@@ -760,6 +992,11 @@ function UlatekIntermission:UpdateState()
     end
 
     self.playerGroup, self.isCaller = self:GetAssignments()
+    if DEBUG_LOCAL_TEST then
+        self.encounterActive = true
+        self:StartChatListener()
+    end
+
     self:ApplySettings()
     self:UpdateDisplay()
 end
