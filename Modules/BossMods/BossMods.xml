@@ -34,8 +34,6 @@
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakCompass.lua"/>
-    <Script file="Raids\VenomousAbyss\HealerAuras.lua"/>
-    <Include file="Raids\VenomousAbyss\HealerAuras\HealerAuras.xml"/>
     <Script file="Raids\VenomousAbyss\UlatekFangs.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWrongTarget.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekCircles.lua"/>
