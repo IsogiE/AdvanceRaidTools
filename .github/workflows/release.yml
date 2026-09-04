@@ -27,3 +27,19 @@ jobs:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
           GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trigger Brick addon feed
+        env:
+          GH_TOKEN: ${{ secrets.BRICK_WORKFLOW_TOKEN }}
+          ADDON_REF: ${{ github.sha }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "BRICK_WORKFLOW_TOKEN is not configured; skipping Brick addon feed dispatch."
+            exit 0
+          fi
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            repos/IsogiE/Brick/actions/workflows/addon-feed.yml/dispatches \
+            -f ref=main \
+            -f "inputs[addon_ref]=$ADDON_REF"
