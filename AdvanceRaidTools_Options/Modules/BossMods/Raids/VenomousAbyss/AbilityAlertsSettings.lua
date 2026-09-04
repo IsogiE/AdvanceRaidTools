@@ -671,7 +671,7 @@ end
     for _, ability in ipairs(bossData.abilities or {}) do
         local spellID = tonumber(ability.spellID)
 
-        if spellID then
+        if spellID and not ability.hideInAbilityAlerts then
             abilityValues[spellID] =
                 ability.name or tostring(spellID)
 
@@ -701,8 +701,13 @@ end
         return a < b
     end)
 
-    local firstAbility = bossData.abilities
-        and bossData.abilities[1]
+    local firstAbility
+    for _, ability in ipairs(bossData.abilities or {}) do
+        if not ability.hideInAbilityAlerts then
+            firstAbility = ability
+            break
+        end
+    end
 
     abilityMod.db.selectedAbilitySpellIDs =
         abilityMod.db.selectedAbilitySpellIDs or {}
@@ -782,7 +787,8 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             for _, ability in ipairs(bossData.abilities or {}) do
                 local spellID = tonumber(ability.spellID)
                 local settings =
-                    spellID and ensureAbilitySettings(
+                    spellID and not ability.hideInAbilityAlerts
+                    and ensureAbilitySettings(
                         abilityMod,
                         spellID
                     )

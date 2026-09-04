@@ -256,6 +256,217 @@ function E:IsSecret(v)
     return issecretvalue and issecretvalue(v) or false
 end
 
+local COMPASS_DEFAULT_OWNER = {}
+local COMPASS_DEFAULT_TOKEN = true
+
+local function showCompassRegion(region)
+    local metatable = getmetatable(region)
+    local methods = metatable
+        and type(metatable.__index) == "table"
+        and metatable.__index
+    local show = methods and methods.Show or region.Show
+    if show then
+        pcall(show, region)
+    end
+end
+
+local function releaseCompassLoan(state, loan)
+    if not loan then
+        return 0
+    end
+
+    for region in pairs(loan.regions or {}) do
+        local regionState = state.regions[region]
+
+        if regionState then
+            regionState.count = (regionState.count or 1) - 1
+
+            if regionState.count <= 0 then
+                if region.Hide then
+                    pcall(region.Hide, region)
+                end
+
+                if region.SetAlpha then
+                    pcall(region.SetAlpha, region, regionState.alpha or 1)
+                end
+
+                state.regions[region] = nil
+            end
+        end
+    end
+
+    return 1
+end
+
+local function restoreCompassFacingState(state)
+    for region, regionState in pairs(state.regions or {}) do
+        if region.Hide then
+            pcall(region.Hide, region)
+        end
+
+        if region.SetAlpha then
+            pcall(region.SetAlpha, region, regionState.alpha or 1)
+        end
+
+        state.regions[region] = nil
+    end
+
+    if state.originalRotateMinimap ~= nil then
+        if GetCVar("rotateMinimap") ~= state.originalRotateMinimap
+            and C_CVar and C_CVar.SetCVar
+        then
+            pcall(
+                C_CVar.SetCVar,
+                "rotateMinimap",
+                state.originalRotateMinimap
+            )
+        end
+
+        state.originalRotateMinimap = nil
+    end
+end
+
+function E:AcquireCompassFacingSource(owner, token)
+    if not MinimapCompassTexture then
+        return false
+    end
+
+    owner = owner or COMPASS_DEFAULT_OWNER
+    token = token or COMPASS_DEFAULT_TOKEN
+
+    local state = self.compassFacingSourceLoans
+
+    if not state then
+        state = {
+            owners = {},
+            regions = {},
+            active = 0
+        }
+        self.compassFacingSourceLoans = state
+    end
+
+    if state.active == 0 and state.originalRotateMinimap == nil then
+        state.originalRotateMinimap = GetCVar("rotateMinimap")
+    end
+
+    if GetCVar("rotateMinimap") ~= "1" and C_CVar and C_CVar.SetCVar then
+        pcall(C_CVar.SetCVar, "rotateMinimap", "1")
+    end
+
+    local ownerLoans = state.owners[owner]
+
+    if not ownerLoans then
+        ownerLoans = {}
+        state.owners[owner] = ownerLoans
+    end
+
+    local loan = ownerLoans[token]
+
+    if not loan then
+        loan = {
+            regions = {}
+        }
+        ownerLoans[token] = loan
+        state.active = state.active + 1
+    end
+
+    local region = MinimapCompassTexture
+
+    while region and region ~= UIParent do
+        local regionState = state.regions[region]
+
+        if regionState then
+            if not loan.regions[region] then
+                regionState.count = (regionState.count or 0) + 1
+                loan.regions[region] = true
+            end
+
+            if region.SetAlpha then
+                pcall(region.SetAlpha, region, 0)
+            end
+
+            if region.IsShown and not region:IsShown() then
+                showCompassRegion(region)
+            end
+        elseif region.IsShown and not region:IsShown() then
+            state.regions[region] = {
+                alpha = region.GetAlpha and region:GetAlpha() or 1,
+                count = 1
+            }
+            loan.regions[region] = true
+
+            if region.SetAlpha then
+                pcall(region.SetAlpha, region, 0)
+            end
+
+            showCompassRegion(region)
+        end
+
+        if not region.GetParent then
+            break
+        end
+
+        region = region:GetParent()
+    end
+
+    return true
+end
+
+function E:ReleaseCompassFacingSource(owner, token)
+    local state = self.compassFacingSourceLoans
+
+    if not state then
+        return
+    end
+
+    owner = owner or COMPASS_DEFAULT_OWNER
+
+    local ownerLoans = state.owners[owner]
+
+    if not ownerLoans then
+        return
+    end
+
+    local released = 0
+
+    if token ~= nil then
+        local loan = ownerLoans[token]
+        ownerLoans[token] = nil
+        released = released + releaseCompassLoan(state, loan)
+    else
+        for loanToken, loan in pairs(ownerLoans) do
+            ownerLoans[loanToken] = nil
+            released = released + releaseCompassLoan(state, loan)
+        end
+    end
+
+    if next(ownerLoans) == nil then
+        state.owners[owner] = nil
+    end
+
+    state.active = math.max(0, (state.active or 0) - released)
+
+    if state.active <= 0 then
+        restoreCompassFacingState(state)
+        self.compassFacingSourceLoans = nil
+    end
+end
+
+function E:ApplySecretCompassRotation(texture)
+    if not texture or not texture.SetRotation
+        or not MinimapCompassTexture
+        or not MinimapCompassTexture.GetRotation
+    then
+        return false
+    end
+
+    local ok = pcall(function()
+        texture:SetRotation(MinimapCompassTexture:GetRotation())
+    end)
+
+    return ok == true
+end
+
 function E:BareName(s)
     s = self:SafeString(s)
     if not s or s == "" then

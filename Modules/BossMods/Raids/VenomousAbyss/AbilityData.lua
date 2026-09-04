@@ -814,6 +814,7 @@ E.VenomousAbyssAbilityData = {
                 spellID = -3492006,
                 kind = "assignmentText",
                 assignmentType = "ulatekStage2",
+                hideInAbilityAlerts = true,
                 textOnly = true,
                 settingsKey = "Stage 2 Side Assignment",
                 name = L["BossMods_VA_Ability_StageTwoSideAssignment"],

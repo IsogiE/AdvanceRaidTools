@@ -21,10 +21,12 @@
     <Script file="Raids\VenomousAbyss\UlatekCirclesSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWavesSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekIntermissionSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekStageTwoAssignmentSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDelugeSettings.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarKickerSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\CoiledAltarIntermissionBarSettings.lua"/>
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>

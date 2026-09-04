@@ -652,6 +652,7 @@ function AbilityAlerts:InvalidateAbility(spellID)
 
     if alert then
         alert:Hide()
+        self:HideAssignmentVisual(self:GetAbility(spellID))
         self:ApplyPositions()
     end
 
@@ -952,6 +953,16 @@ bar.frame:SetPoint(
             bar:SetRight(("%.1f"):format(math.min(total, elapsed)))
         end
 
+        if bar.postHitStageActive and config.updatePostHitStageBar then
+            config.updatePostHitStageBar(
+                self,
+                self:GetAbility(spellID),
+                bar,
+                elapsed,
+                total
+            )
+        end
+
         if bar.mightyThudActive then
             local nextAssignedHit
 
@@ -1104,6 +1115,10 @@ bar.frame:SetPoint(
         bar.postHitStageActive = false
         bar.postHitStageCountDown = false
         bar.timelineMarkerData = nil
+        if bar.postHitAssignmentText then
+            bar.postHitAssignmentText:Hide()
+        end
+        bar.ulatekSlamAssignment = nil
         bar:Hide()
         self:ApplyPositions()
     end
@@ -1772,8 +1787,18 @@ function AbilityAlerts:PositionTimelineMarkers(bar)
         local ratio = (totalDuration - markerTime) / totalDuration
         local x = math.max(1, math.min(width - 1, width * ratio))
 
-        marker:SetColorTexture(color[1], color[2], color[3], color[4])
-        marker:SetSize(thickness, height)
+        local dataColor = markerColor(data.color, color)
+        local dataThickness = math.max(
+            1,
+            math.min(30, tonumber(data.thickness) or thickness)
+        )
+        marker:SetColorTexture(
+            dataColor[1],
+            dataColor[2],
+            dataColor[3],
+            dataColor[4]
+        )
+        marker:SetSize(dataThickness, height)
         marker:ClearAllPoints()
         marker:SetPoint("CENTER", bar.frame, "LEFT", x, 0)
         marker:Show()
@@ -2184,6 +2209,11 @@ function AbilityAlerts:StartAssignmentTextAlert(
                 if not self:IsEnabled()
                     or not self:IsTokenValid(ability.spellID, token)
                 then
+                    alert:Hide()
+                    if config.hideAssignmentVisual then
+                        config.hideAssignmentVisual(self, ability)
+                    end
+                    self:ApplyPositions()
                     if ticker then
                         ticker:Cancel()
                     end
@@ -2194,6 +2224,9 @@ function AbilityAlerts:StartAssignmentTextAlert(
 
                 if remaining <= 0 then
                     alert:Hide()
+                    if config.hideAssignmentVisual then
+                        config.hideAssignmentVisual(self, ability)
+                    end
                     self:ApplyPositions()
 
                     if ticker then
@@ -2208,6 +2241,15 @@ function AbilityAlerts:StartAssignmentTextAlert(
 
                 alert:SetText(state.message .. " " .. timeText)
                 alert:Show()
+                if config.updateAssignmentVisual then
+                    config.updateAssignmentVisual(
+                        self,
+                        ability,
+                        alert,
+                        state,
+                        remaining
+                    )
+                end
                 self:ApplyPositions()
 
                 local fontString = alert:GetTextFontString()
@@ -2358,6 +2400,12 @@ end
 function AbilityAlerts:ResetEncounterTracking()
     if config.resetEncounterTracking then
         config.resetEncounterTracking(self)
+    end
+end
+
+function AbilityAlerts:HideAssignmentVisual(ability)
+    if config.hideAssignmentVisual then
+        config.hideAssignmentVisual(self, ability)
     end
 end
 
@@ -2512,6 +2560,15 @@ function AbilityAlerts:SchedulePostHitStages(
                                 tonumber(markerSettings.markerThickness) or 5,
                                 markerSettings.markerColor,
                                 tonumber(markerSettings.textOffsetY) or 0
+                            )
+                        end
+                        if config.configurePostHitStageBar then
+                            config.configurePostHitStageBar(
+                                self,
+                                ability,
+                                bar,
+                                stage,
+                                stageDuration
                             )
                         end
                     end
@@ -3977,7 +4034,7 @@ function AbilityAlerts:EnsurePreviewFrames(spellID)
     self:ApplyPositions()
 end
 
-function AbilityAlerts:SetEditMode(enabled, bossKey)
+function AbilityAlerts:SetEditMode(enabled, bossKey, spellID)
     self.editMode = enabled and true or false
 
     if bossKey ~= nil then
@@ -3987,6 +4044,12 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
     end
 
     local activeBossKey = self.editModeBossKey
+    if self.editMode then
+        self.editModeSpellID = tonumber(spellID)
+    else
+        self.editModeSpellID = nil
+    end
+    local activeSpellID = self.editModeSpellID
 
     local function enableDragging(
         frame,
@@ -4059,6 +4122,9 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
             not activeBossKey
             or (ability and ability.bossKey == activeBossKey)
 
+        belongsToBoss = belongsToBoss
+            and (not activeSpellID or tonumber(spellID) == activeSpellID)
+
         if belongsToBoss
             and settings
         then
@@ -4083,6 +4149,7 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
         local shouldShow =
             ability
             and (not activeBossKey or ability.bossKey == activeBossKey)
+            and (not activeSpellID or tonumber(spellID) == activeSpellID)
             and settings
             and settings.bar
             and settings.bar.enabled
@@ -4092,7 +4159,7 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
             bar:SetMode("label")
             bar:SetLabel(
                 (ability and (ability.shortName or ability.name) or tostring(spellID))
-                .. " bar — drag to move"
+                .. " bar - drag to move"
             )
             bar:SetRight("5.0")
             bar.frame:Show()
@@ -4123,6 +4190,7 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
         local shouldShow =
             ability
             and (not activeBossKey or ability.bossKey == activeBossKey)
+            and (not activeSpellID or tonumber(spellID) == activeSpellID)
             and settings
             and settings.text
             and settings.text.enabled
@@ -4131,10 +4199,25 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
         if self.editMode and shouldShow then
             alert:SetText(
                 (ability and (ability.shortName or ability.name) or tostring(spellID))
-                .. " text — drag to move"
+                .. " text - drag to move"
             )
 
             alert.frame:Show()
+
+            if ability.kind == "assignmentText"
+                and config.getAssignmentTextState
+                and config.updateAssignmentVisual
+            then
+                local state = config.getAssignmentTextState(
+                    self, ability, true
+                )
+                if state then
+                    config.updateAssignmentVisual(
+                        self, ability, alert, state,
+                        settings.text.secondsBefore or 5
+                    )
+                end
+            end
 
             enableDragging(
                 alert.frame,
@@ -4145,6 +4228,9 @@ function AbilityAlerts:SetEditMode(enabled, bossKey)
         else
             disableDragging(alert.frame)
             alert:Hide()
+            if config.hideAssignmentVisual then
+                config.hideAssignmentVisual(self, ability)
+            end
         end
     end
 
@@ -4448,6 +4534,10 @@ function AbilityAlerts:ResetAlerts()
         alert:Hide()
     end
 
+    for _, ability in pairs(self.abilitiesBySpellID) do
+        self:HideAssignmentVisual(ability)
+    end
+
     if BossMods and BossMods.Alerts then
         BossMods.Alerts:StopTTS()
     end
@@ -4714,7 +4804,7 @@ end
     self:ApplyPositions()
 
     if self.editMode then
-        self:SetEditMode(true, self.editModeBossKey)
+        self:SetEditMode(true, self.editModeBossKey, self.editModeSpellID)
     end
 end
 

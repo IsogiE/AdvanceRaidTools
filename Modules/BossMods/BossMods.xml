@@ -39,10 +39,12 @@
     <Script file="Raids\VenomousAbyss\UlatekCircles.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWaves.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekIntermission.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekStageTwoAssignment.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCross.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircle.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDeluge.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarKicker.lua"/>
+    <Script file="Raids\VenomousAbyss\CoiledAltarIntermissionBar.lua"/>
 
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
