@@ -844,6 +844,9 @@ L["BossMods_BreakTimerDesc"] =
     "Show a popup with with some fun images. Requires either AdvanceRaidTools_Media, or being in the know how to get around it and use your own"
 L["BossMods_BreakTimer_Label"] = "Break"
 L["BossMods_BreakTimer_CountdownWithEndTime"] = "%s (%s ST)"
+L["BossMods_PullReminder"] = "Pull Reminders"
+L["BossMods_PullReminderDesc"] = "Reminders during BigWigs pull timers."
+L["BossMods_PullReminderPreview"] = "Mind Soothe Boss"
 
 -- BossMods: Bress
 L["BossMods_Bress"] = "Battle Ress"

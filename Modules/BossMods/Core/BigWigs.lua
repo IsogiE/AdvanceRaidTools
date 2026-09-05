@@ -13,6 +13,27 @@ local subscribers = {}
 local subscriberOrder = {}
 local nextToken = 1
 local hooked = false
+local callbacks = E:NewCallbackHandle()
+
+local function dispatchPull(callbackName, ...)
+    for i = 1, #subscriberOrder do
+        local sub = subscribers[subscriberOrder[i]]
+        if sub and sub[callbackName] then
+            local ok, err = pcall(sub[callbackName], ...)
+            if not ok then
+                E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed handling a pull: %s", sub.owner, tostring(err))
+            end
+        end
+    end
+end
+
+local function dispatchStartPull(_, _, duration)
+    dispatchPull("onStartPull", duration)
+end
+
+local function dispatchStopPull(_, _, reason)
+    dispatchPull("onStopPull", reason)
+end
 
 local function dispatchStartBar(_, _, key, text, time)
     for i = 1, #subscriberOrder do
@@ -89,14 +110,18 @@ local function ensureHook()
     if hooked then
         return
     end
-    if not BigWigsLoader then
+    if not BigWigsLoader or not BigWigsLoader.RegisterMessage then
         E:ChannelDebug(DEBUG_CHANNEL, "BigWigsLoader not present; subscription dormant")
+        callbacks:RegisterEvent("ADDON_LOADED", ensureHook)
         return
     end
+    callbacks:UnregisterEvent("ADDON_LOADED")
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartBar", dispatchStartBar)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_Timer", dispatchTimer)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopBar", dispatchStopBar)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_SetStage", dispatchStage)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartPull", dispatchStartPull)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopPull", dispatchStopPull)
     hooked = true
 end
 
@@ -104,6 +129,7 @@ local function maybeUnhook()
     if #subscriberOrder > 0 then
         return
     end
+    callbacks:UnregisterEvent("ADDON_LOADED")
     if not hooked then
         return
     end
@@ -112,6 +138,8 @@ local function maybeUnhook()
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_Timer")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopBar")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_SetStage")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartPull")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopPull")
     end
     hooked = false
 end
@@ -123,7 +151,9 @@ function BW:Subscribe(opts)
         type(opts.onStartBar) == "function"
             or type(opts.onTimer) == "function"
             or type(opts.onStopBar) == "function"
-            or type(opts.onStage) == "function",
+            or type(opts.onStage) == "function"
+            or type(opts.onStartPull) == "function"
+            or type(opts.onStopPull) == "function",
         "BigWigs:Subscribe: callback required"
     )
 
@@ -136,6 +166,8 @@ function BW:Subscribe(opts)
         onTimer = type(opts.onTimer) == "function" and opts.onTimer or nil,
         onStopBar = type(opts.onStopBar) == "function" and opts.onStopBar or nil,
         onStage = type(opts.onStage) == "function" and opts.onStage or nil,
+        onStartPull = type(opts.onStartPull) == "function" and opts.onStartPull or nil,
+        onStopPull = type(opts.onStopPull) == "function" and opts.onStopPull or nil,
         spellKeys = nil
     }
     if opts.spellKeys then

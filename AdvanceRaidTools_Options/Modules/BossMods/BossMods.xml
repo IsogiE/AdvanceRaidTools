@@ -7,6 +7,7 @@
     <Script file="Misc\HoTTrackerSettings.lua"/>
     <Script file="Misc\BressSettings.lua"/>
     <Script file="Misc\BreakTimerSettings.lua"/>
+    <Script file="Misc\PullReminderSettings.lua"/>
     <Script file="Misc\GeneralPackSettings.lua"/>
 
     <Script file="General\ReadyAssignmentsSettings.lua"/>

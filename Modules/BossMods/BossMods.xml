@@ -53,6 +53,7 @@
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
     <Script file="Misc\BreakTimer.lua"/>
+    <Script file="Misc\PullReminder.lua"/>
     <Script file="Misc\GeneralPack.lua"/>
 
     <Script file="General\ReadyAssignments.lua"/>
