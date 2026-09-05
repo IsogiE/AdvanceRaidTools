@@ -60,13 +60,13 @@ function CombatTimer:EnsureBar()
         return
     end
     self.bar = BM.Engines.Bar(buildBarConfig(self.db))
-    local lastUpdate = 0
     self.bar.onTick = function(t)
-        if t > lastUpdate and t - lastUpdate < 0.1 then
+        local second = math.floor(math.max(0, t))
+        if second == self.lastSecond then
             return
         end
-        lastUpdate = t
-        self.bar:SetCenter(("%d:%02d"):format(math.floor(t / 60), math.floor(t % 60)))
+        self.lastSecond = second
+        self.bar:SetCenter(("%d:%02d"):format(math.floor(second / 60), second % 60))
     end
     self:ApplyPosition()
     self.bar:Hide()
@@ -93,16 +93,24 @@ function CombatTimer:OnEnable()
 
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStart")
     self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatEnd")
+    self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
+    self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
 
-    if UnitAffectingCombat("player") then
+    local phaseTimers = E:GetModule("PhaseTimers", true)
+    self.encounterStartTime = phaseTimers and phaseTimers.encounterStartTime or nil
+    if self.encounterStartTime then
+        self:UpdateTimer()
+    elseif UnitAffectingCombat("player") then
         self:OnCombatStart()
     end
 end
 
 function CombatTimer:OnDisable()
     self.editMode = false
+    self.encounterStartTime = nil
+    self.combatStartTime = nil
     if self.bar then
         self.bar:Stop()
         self.bar:Hide()
@@ -114,20 +122,31 @@ function CombatTimer:SetEditMode(v)
         return
     end
     self.editMode = v and true or false
+    self:UpdateTimer()
+end
 
+function CombatTimer:UpdateTimer()
+    if not self.bar then
+        return
+    end
+
+    self.lastSecond = nil
     if self.editMode then
-        if self.bar:IsRunning() then
-            self.bar:Stop()
-        end
+        self.bar:Stop()
         self.bar:SetCenter("0:00")
         self.bar:Show()
+        return
+    end
+
+    local startTime = self.encounterStartTime or self.combatStartTime
+    if startTime then
+        self.bar:Start({
+            total = 86400,
+            lead = startTime - GetTime()
+        })
     else
-        if UnitAffectingCombat("player") then
-            self:OnCombatStart()
-        else
-            self.bar:Stop()
-            self.bar:Hide()
-        end
+        self.bar:Stop()
+        self.bar:Hide()
     end
 end
 
@@ -152,22 +171,31 @@ function CombatTimer:Refresh()
 end
 
 function CombatTimer:OnCombatStart()
-    if not self.bar then
+    if self.encounterStartTime then
         return
     end
-
-    self.bar:Start({
-        total = 86400
-    })
-    self.bar:SetCenter("0:00")
+    self.combatStartTime = self.combatStartTime or GetTime()
+    self:UpdateTimer()
 end
 
 function CombatTimer:OnCombatEnd()
-    if not self.bar then
+    self.combatStartTime = nil
+    if self.encounterStartTime then
         return
     end
-    self.bar:Stop()
-    self.bar:Hide()
+    self:UpdateTimer()
+end
+
+function CombatTimer:OnEncounterStart()
+    self.encounterStartTime = GetTime()
+    self.combatStartTime = nil
+    self:UpdateTimer()
+end
+
+function CombatTimer:OnEncounterEnd()
+    self.encounterStartTime = nil
+    self.combatStartTime = nil
+    self:UpdateTimer()
 end
 
 function CombatTimer:SavePosition(pos)
