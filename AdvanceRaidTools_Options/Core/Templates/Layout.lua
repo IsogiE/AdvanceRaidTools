@@ -578,13 +578,17 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
     local xStepper
     local yStepper
     local resetBtn
+    local refreshingOwn = false
 
     local function refreshOwn()
+        if refreshingOwn then return end
+        refreshingOwn = true
         for _, widget in ipairs(own) do
             if widget.Refresh then
                 widget.Refresh()
             end
         end
+        refreshingOwn = false
     end
 
     local function readUnlocked()

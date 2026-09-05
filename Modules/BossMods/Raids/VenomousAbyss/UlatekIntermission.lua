@@ -367,10 +367,15 @@ local function createClickerArtwork(button, markerID, interactive)
     icon:SetTexture(RAID_MARKER_TEXTURE:format(markerID))
 
     if interactive then
-        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints(button)
-        highlight:SetColorTexture(1, 1, 1, 0.3)
-        highlight:SetBlendMode("ADD")
+        local function clearHighlight()
+            outer:SetColorTexture(0.3, 0.3, 0.3, 1)
+        end
+        button:HookScript("OnEnter", function()
+            outer:SetColorTexture(0.7, 0.7, 0.7, 1)
+        end)
+        button:HookScript("OnLeave", clearHighlight)
+        button:HookScript("OnHide", clearHighlight)
+        button.artClearHighlight = clearHighlight
     end
 end
 
@@ -733,6 +738,7 @@ function UlatekIntermission:ApplyClickerInteraction()
 
     for _, button in ipairs(self.frames.clickerButtons) do
         button:EnableMouse(not self.editMode)
+        if self.editMode then button.artClearHighlight() end
     end
 end
 

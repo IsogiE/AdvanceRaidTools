@@ -18,14 +18,13 @@ E:RegisterModuleDefaults("BossMods_UlatekFangs", {
 local ENCOUNTER_ID = 3492
 local INSTANCE_ID = 3004
 local SPELL_GRASPING_FANGS = 1311611
-local DURATION = 40
+local DURATION = 30
 local ROWS = 3
 local COLUMN_GAP = 8
 local ROW_SPACING = 2
-local PREVIEW_UPDATE_INTERVAL = 0.05
 local TIMERS = {
-    [15] = {195},
-    [16] = {195}
+    [15] = {180},
+    [16] = {190}
 }
 local COLUMN_COLORS = {
     {0.72, 0.02, 0.02, 1},
@@ -181,7 +180,6 @@ function UlatekFangs:ConfigureButton(state, button)
         })
 
         regions.name = regions.bar:CreateFontString(nil, "OVERLAY")
-        regions.duration = regions.bar:CreateFontString(nil, "OVERLAY")
         regions.role = regions.bar:CreateTexture(nil, "OVERLAY")
         state.buttonRegions[button] = regions
     end
@@ -199,6 +197,10 @@ function UlatekFangs:ConfigureButton(state, button)
     regions.bar:SetStatusBarTexture(E.media.blankTex)
     regions.bar:SetStatusBarColor(unpack(fillColor))
     regions.bar:SetBackdropColor(0, 0, 0, self.db.backgroundOpacity or 0.85)
+    -- This overview marks affected players; the aura's duration is not a
+    -- useful countdown for breaking Fangs. Keep every row at full width.
+    regions.bar:SetMinMaxValues(0, 1)
+    regions.bar:SetValue(1)
 
     regions.border:SetAllPoints(button)
     regions.border:SetBackdropBorderColor(0, 0, 0, 1)
@@ -222,24 +224,12 @@ function UlatekFangs:ConfigureButton(state, button)
     else
         regions.name:SetPoint("LEFT", regions.bar, "LEFT", 5, 0)
     end
-    regions.name:SetPoint("RIGHT", regions.bar, "RIGHT", -34, 0)
+    regions.name:SetPoint("RIGHT", regions.bar, "RIGHT", -5, 0)
     regions.name:SetFont([[Fonts\FRIZQT__.TTF]], fontSize, "OUTLINE")
     regions.name:SetJustifyH("LEFT")
     regions.name:SetText(state.displayName or "")
     regions.name:SetTextColor(getClassColor(state))
     regions.name:Show()
-
-    regions.duration:ClearAllPoints()
-    regions.duration:SetPoint("RIGHT", regions.bar, "RIGHT", -4, 0)
-    regions.duration:SetFont([[Fonts\FRIZQT__.TTF]], math.max(8, fontSize - 2), "OUTLINE")
-    regions.duration:SetJustifyH("RIGHT")
-    regions.duration:SetTextColor(1, 1, 1, 1)
-    regions.duration:Show()
-
-    button:SetDurationText(regions.duration)
-    button:SetDurationBar(regions.bar, {
-        direction = Enum.StatusBarTimerDirection.RemainingTime
-    })
 end
 
 function UlatekFangs:EnsureFrames()
@@ -405,8 +395,8 @@ function UlatekFangs:EnsureContainers()
             AnchorUtil.FlowDirection.Down
         )
         container:AddAuraGroup("UlatekGraspingFangs", "HARMFUL|!PLAYER|!DISPELLABLE", {
-            maxFrameCount = 2,
-            candidateFilters = {isBossOrRoleAura = true},
+            maxFrameCount = 1,
+            candidateFilters = {isBossAura = true},
             initializeFrame = function(button)
                 self:ConfigureButton(state, button)
             end,
@@ -465,8 +455,6 @@ function UlatekFangs:EnsurePreviewRows()
             local index = rowIndex + (column - 1) * ROWS
             local row = CreateFrame("Frame", nil, self.frames.columns[column], "BackdropTemplate")
             row.SetIcon = noop
-            row.SetDurationText = noop
-            row.SetDurationBar = noop
             row.fangsState = {
                 unit = "player",
                 column = column,
@@ -501,7 +489,6 @@ function UlatekFangs:LayoutPreviewRows()
             local regions = state.buttonRegions[row]
             if regions then
                 regions.icon:SetTexture(icon)
-                regions.bar:SetMinMaxValues(0, 1)
             end
 
             row:ClearAllPoints()
@@ -511,33 +498,6 @@ function UlatekFangs:LayoutPreviewRows()
                 row:SetPoint("TOPLEFT", self.frames.columns[column], "TOPLEFT", 0, 0)
             end
             previous = row
-        end
-    end
-end
-
-function UlatekFangs:UpdatePreviewBars()
-    if not self.previewRows then
-        return
-    end
-
-    local startedAt = self.previewStartedAt or GetTime()
-    local elapsed = (GetTime() - startedAt) % DURATION
-
-    for column, rows in ipairs(self.previewRows) do
-        for rowIndex, row in ipairs(rows) do
-            local index = rowIndex + (column - 1) * ROWS
-            local state = row.fangsState
-            local regions = state
-                and state.buttonRegions
-                and state.buttonRegions[row]
-
-            if regions then
-                local rowElapsed = (elapsed + (index - 1) * 2.5) % DURATION
-                local remaining = math.max(0, DURATION - rowElapsed)
-                regions.bar:SetMinMaxValues(0, 1)
-                regions.bar:SetValue(remaining / DURATION)
-                regions.duration:SetText(("%d"):format(math.ceil(remaining)))
-            end
         end
     end
 end
@@ -556,8 +516,7 @@ function UlatekFangs:CreateAnchorPreview()
         EnsurePreviewRows = UlatekFangs.EnsurePreviewRows,
         GetLayout = UlatekFangs.GetLayout,
         ConfigureButton = UlatekFangs.ConfigureButton,
-        LayoutPreviewRows = UlatekFangs.LayoutPreviewRows,
-        UpdatePreviewBars = UlatekFangs.UpdatePreviewBars
+        LayoutPreviewRows = UlatekFangs.LayoutPreviewRows
     }})
     preview:EnsurePreviewRows()
     local handle = {frame = frame}
@@ -574,10 +533,8 @@ function UlatekFangs:CreateAnchorPreview()
             column:SetSize(layout.columnWidth, layout.totalHeight)
         end
         preview:LayoutPreviewRows()
-        preview:UpdatePreviewBars()
     end
     function handle:Show()
-        preview.previewStartedAt = GetTime()
         self:Refresh()
         for _, rows in ipairs(preview.previewRows) do
             for _, row in ipairs(rows) do row:Show() end
@@ -587,48 +544,15 @@ function UlatekFangs:CreateAnchorPreview()
     function handle:Hide()
         frame:Hide()
     end
-    local elapsed = 0
-    frame:SetScript("OnUpdate", function(_, delta)
-        elapsed = elapsed + delta
-        if elapsed >= PREVIEW_UPDATE_INTERVAL then
-            elapsed = 0
-            preview:UpdatePreviewBars()
-        end
-    end)
     handle:Refresh()
     frame:Hide()
     return handle
-end
-
-function UlatekFangs:StartPreviewTicker()
-    if self.previewTicker then
-        return
-    end
-
-    self.previewStartedAt = GetTime()
-    self:UpdatePreviewBars()
-    self.previewTicker = C_Timer.NewTicker(PREVIEW_UPDATE_INTERVAL, function()
-        if self:IsEnabled() and self.editMode then
-            self:UpdatePreviewBars()
-        end
-    end)
-end
-
-function UlatekFangs:StopPreviewTicker()
-    if self.previewTicker then
-        self.previewTicker:Cancel()
-        self.previewTicker = nil
-    end
-    self.previewStartedAt = nil
 end
 
 function UlatekFangs:SetPreviewShown(shown)
     if shown then
         self:EnsurePreviewRows()
         self:LayoutPreviewRows()
-        self:StartPreviewTicker()
-    else
-        self:StopPreviewTicker()
     end
 
     for _, rows in pairs(self.previewRows or {}) do

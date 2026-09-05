@@ -1338,6 +1338,9 @@ function RaidBuffList:HideList()
 end
 
 function RaidBuffList:OnReadyCheck(_, _, timeout)
+    if self:IsTesting() then
+        self:HideList()
+    end
     self:ShowList(false, timeout)
 end
 
@@ -1401,9 +1404,10 @@ function RaidBuffList:SetUnlocked(value)
         self:HideList()
         return
     end
-    if self:IsTesting() or not self:IsEnabled() or InCombatLockdown() then
+    if not self:IsEnabled() or InCombatLockdown() then
         return
     end
+    local wasTesting = self:IsTesting()
 
     if self.refreshTimer then
         self.refreshTimer:Cancel()
@@ -1431,6 +1435,9 @@ function RaidBuffList:SetUnlocked(value)
     self:SeedLocalDurability()
     self:RefreshList()
     self:ScheduleRefresh(1)
+    if wasTesting and E.RefreshOptions then
+        E:RefreshOptions()
+    end
 end
 
 function RaidBuffList:Test()

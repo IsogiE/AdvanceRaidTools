@@ -233,8 +233,8 @@ local function getPlayerShortName()
     return nil
 end
 
-local function isPlayerReadyCheckStarter(starter)
-    if not starter or E:IsSecret(starter) then
+local function isPlayerReadyCheckUnit(starter)
+    if E:IsSecret(starter) or not starter then
         return false
     end
 
@@ -461,9 +461,10 @@ function ReadyCheckConsumables:SetUnlocked(value)
         self.unlocked = false
         return
     end
-    if value and self:IsTesting() then
+    if value and not self:IsEnabled() then
         return
     end
+    local wasTesting = self:IsTesting()
     self.unlocked = value
 
     if not self.unlocked then
@@ -481,6 +482,7 @@ function ReadyCheckConsumables:SetUnlocked(value)
         return
     end
 
+    self:CancelDeferredWork()
     self:CancelTimers()
     self.displaySerial = (self.displaySerial or 0) + 1
     self.displayMode = "unlock"
@@ -492,6 +494,9 @@ function ReadyCheckConsumables:SetUnlocked(value)
     frame.moveOverlay:Show()
     self:ShowDisplayOutOfCombat()
     self:StartRefreshTimers(self.displaySerial)
+    if wasTesting and E.RefreshOptions then
+        E:RefreshOptions()
+    end
 end
 
 function ReadyCheckConsumables:ResetPosition()
@@ -603,7 +608,7 @@ function ReadyCheckConsumables:AnchorDisplay(starter, forceCenter)
 
     if not forceCenter then
         local target = _G.ReadyCheckListenerFrame
-        if isPlayerReadyCheckStarter(starter) and _G.ReadyCheckFrame then
+        if isPlayerReadyCheckUnit(starter) and _G.ReadyCheckFrame then
             target = _G.ReadyCheckFrame
         end
 
@@ -910,7 +915,10 @@ function ReadyCheckConsumables:ShowForReadyCheck(starter, timeout, forceCenter)
 end
 
 function ReadyCheckConsumables:OnReadyCheck(_, starter, timeout)
-    if isPlayerReadyCheckStarter(starter) then
+    if self:IsTesting() then
+        self:HideDisplay(false)
+    end
+    if isPlayerReadyCheckUnit(starter) then
         if self.displayMode == "readyCheck" then
             self:HideDisplay(false)
         end
@@ -927,15 +935,12 @@ function ReadyCheckConsumables:OnReadyCheckFinished()
 end
 
 function ReadyCheckConsumables:OnReadyCheckConfirm(_, unit, ready)
-    if self.displayMode ~= "readyCheck" or ready ~= true then
-        return
-    end
-    if not unit then
+    if self.displayMode ~= "readyCheck" or E:IsSecret(ready) or
+        (ready ~= true and ready ~= 1) then
         return
     end
 
-    local ok, isPlayer = pcall(UnitIsUnit, unit, "player")
-    if ok and isPlayer then
+    if isPlayerReadyCheckUnit(unit) then
         self:HideDisplay(false)
     end
 end
