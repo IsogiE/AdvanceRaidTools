@@ -22,6 +22,7 @@ local DURATION = 30
 local ROWS = 3
 local COLUMN_GAP = 8
 local ROW_SPACING = 2
+local EMPTY_CONTAINER_HEIGHT = 1
 local TIMERS = {
     [15] = {180},
     [16] = {190}
@@ -148,6 +149,7 @@ function UlatekFangs:GetLayout()
         width = width,
         columnWidth = columnWidth,
         rowHeight = rowHeight,
+        containerHeight = rowHeight + ROW_SPACING + EMPTY_CONTAINER_HEIGHT,
         iconSize = iconSize,
         totalHeight = totalHeight,
         barWidth = math.max(1, columnWidth - iconSize)
@@ -185,11 +187,11 @@ function UlatekFangs:ConfigureButton(state, button)
     end
 
     local regions = state.buttonRegions[button]
-    button:SetSize(layout.columnWidth, layout.rowHeight)
+    button:SetSize(layout.columnWidth, state.container and layout.containerHeight or layout.rowHeight)
 
     regions.icon:SetSize(layout.iconSize, layout.iconSize)
     regions.icon:ClearAllPoints()
-    regions.icon:SetPoint("LEFT", button, "LEFT", 0, 0)
+    regions.icon:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
 
     regions.bar:SetSize(layout.barWidth, layout.rowHeight)
     regions.bar:ClearAllPoints()
@@ -197,12 +199,12 @@ function UlatekFangs:ConfigureButton(state, button)
     regions.bar:SetStatusBarTexture(E.media.blankTex)
     regions.bar:SetStatusBarColor(unpack(fillColor))
     regions.bar:SetBackdropColor(0, 0, 0, self.db.backgroundOpacity or 0.85)
-    -- This overview marks affected players; the aura's duration is not a
-    -- useful countdown for breaking Fangs. Keep every row at full width.
     regions.bar:SetMinMaxValues(0, 1)
     regions.bar:SetValue(1)
 
-    regions.border:SetAllPoints(button)
+    regions.border:ClearAllPoints()
+    regions.border:SetPoint("TOPLEFT", button, "TOPLEFT", 0, 0)
+    regions.border:SetSize(layout.columnWidth, layout.rowHeight)
     regions.border:SetBackdropBorderColor(0, 0, 0, 1)
 
     regions.role:ClearAllPoints()
@@ -289,7 +291,7 @@ function UlatekFangs:ApplySettings()
         for _, state in ipairs(self.containers) do
             state.container:SetAuraGroupLayout("UlatekGraspingFangs", {
                 elementWidth = layout.columnWidth,
-                elementHeight = layout.rowHeight + ROW_SPACING,
+                elementHeight = layout.containerHeight,
                 elementSpacing = 0,
                 lineSpacing = 0
             })
@@ -330,7 +332,7 @@ function UlatekFangs:LayoutContainers()
 
         state.container:ClearAllPoints()
         if previous[column] then
-            state.container:SetPoint("TOPLEFT", previous[column], "BOTTOMLEFT", 0, 0)
+            state.container:SetPoint("TOPLEFT", previous[column], "BOTTOMLEFT", 0, EMPTY_CONTAINER_HEIGHT)
         else
             state.container:SetPoint(
                 "TOPLEFT",
@@ -402,14 +404,14 @@ function UlatekFangs:EnsureContainers()
             end,
             layout = {
                 elementWidth = layout.columnWidth,
-                elementHeight = layout.rowHeight + ROW_SPACING,
+                elementHeight = layout.containerHeight,
                 elementSpacing = 0,
                 lineSpacing = 0
             }
         })
         container:SetEnabled(false)
         container:Hide()
-        container:SetSize(0, 0)
+        container:SetSize(1, EMPTY_CONTAINER_HEIGHT)
         self.containers[#self.containers + 1] = state
     end
 
@@ -432,7 +434,7 @@ function UlatekFangs:SetContainersShown(shown)
         state.container:SetShown(visible)
         state.container:SetEnabled(visible)
         if not visible then
-            state.container:SetSize(0, 0)
+            state.container:SetSize(1, EMPTY_CONTAINER_HEIGHT)
         end
     end
 
