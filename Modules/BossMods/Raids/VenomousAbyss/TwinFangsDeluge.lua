@@ -479,7 +479,7 @@ function PersonalMethods:ApplySettings()
     anchor:SetSize(geo.width, geo.height)
     anchor:SetScale(tonumber(self.db.scale) or 1)
     anchor:SetAlpha(tonumber(self.db.opacity) or 1)
-    E:ApplyFramePosition(anchor, self.db.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", anchor)
     styleStaticRow(self, row, false)
     if self.container and not areAurasRestricted() then
         for index = 1, self.container:GetAuraGroupFrameCount("ARTTwinFangsEternalVenom") do
@@ -591,7 +591,7 @@ function ListMethods:ApplySettings()
     anchor:SetSize(geo.width, MAX_RAID_ROWS * geo.height + (MAX_RAID_ROWS - 1) * spacing)
     anchor:SetScale(tonumber(self.db.scale) or 1)
     anchor:SetAlpha(tonumber(self.db.opacity) or 1)
-    E:ApplyFramePosition(anchor, self.db.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", anchor)
 
     local previous
     for _, row in ipairs(self.frames.rows) do
@@ -750,7 +750,7 @@ for name, method in pairs(ListMethods) do
 end
 
 E:RegisterBossModFeature("TwinFangsDelugeBar", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 56,
     bossKey = "TwinFangs",
     bossLabelKey = "BossMods_TwinFangs",
@@ -762,7 +762,7 @@ E:RegisterBossModFeature("TwinFangsDelugeBar", {
 })
 
 E:RegisterBossModFeature("TwinFangsDelugeList", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 57,
     bossKey = "TwinFangs",
     bossLabelKey = "BossMods_TwinFangs",

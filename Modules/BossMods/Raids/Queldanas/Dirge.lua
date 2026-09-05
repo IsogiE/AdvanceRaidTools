@@ -188,12 +188,8 @@ end
 
 -- Frame construction
 
-function Dirge:EnsureFrames()
-    if self.frames or InCombatLockdown() then
-        return self.frames ~= nil
-    end
-
-    local barAnchor = CreateFrame("Frame", "ART_Dirge_ButtonBar", UIParent, "SecureHandlerStateTemplate")
+local function createDirgeFrames(passive)
+    local barAnchor = CreateFrame("Frame", (not passive and "ART_Dirge_ButtonBar" or nil), UIParent, (not passive and "SecureHandlerStateTemplate" or nil))
     barAnchor:SetSize(220, 40)
     barAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
     barAnchor:Hide()
@@ -203,14 +199,18 @@ function Dirge:EnsureFrames()
     local buttonIcons = {}
 
     for i = 1, 5 do
-        local btn = CreateFrame("Button", "ART_Dirge_Btn" .. i, barAnchor, "SecureActionButtonTemplate")
+        local btn = CreateFrame((passive and "Frame" or "Button"), (not passive and ("ART_Dirge_Btn" .. i) or nil), barAnchor, (not passive and "SecureActionButtonTemplate" or nil))
         btn:SetSize(40, 40)
         btn:SetPoint("LEFT", barAnchor, "LEFT", (i - 1) * 45, 0)
-        btn:SetAttribute("type1", "macro")
-        btn:SetAttribute("macrotext1", CHAT_CHANNEL .. CHAT_MSGS[SHAPE_NAMES[i]])
-        btn:RegisterForClicks("AnyUp", "AnyDown")
-        btn:SetFrameStrata("MEDIUM")
-        btn:SetFrameLevel(5)
+        if not passive then
+            btn:SetAttribute("type1", "macro")
+            btn:SetAttribute("macrotext1", CHAT_CHANNEL .. CHAT_MSGS[SHAPE_NAMES[i]])
+            btn:RegisterForClicks("AnyUp", "AnyDown")
+            btn:SetFrameStrata("MEDIUM")
+            btn:SetFrameLevel(5)
+        else
+            btn:EnableMouse(false)
+        end
 
         local outer = btn:CreateTexture(nil, "BACKGROUND")
         outer:SetAllPoints()
@@ -227,10 +227,12 @@ function Dirge:EnsureFrames()
         icon:SetTexture(RUNE_ICON_IDS[i])
         buttonIcons[i] = icon
 
-        local hl = btn:CreateTexture(nil, "HIGHLIGHT")
-        hl:SetAllPoints()
-        hl:SetColorTexture(1, 1, 1, 0.3)
-        hl:SetBlendMode("ADD")
+        if not passive then
+            local hl = btn:CreateTexture(nil, "HIGHLIGHT")
+            hl:SetAllPoints()
+            hl:SetColorTexture(1, 1, 1, 0.3)
+            hl:SetBlendMode("ADD")
+        end
 
         local kb = btn:CreateFontString(nil, "OVERLAY")
         kb:SetFont([[Fonts\FRIZQT__.TTF]], 9, "OUTLINE")
@@ -242,7 +244,7 @@ function Dirge:EnsureFrames()
         secureButtons[i] = btn
     end
 
-    local squadAnchor = CreateFrame("Frame", "ART_Dirge_SquadAnchor", UIParent)
+    local squadAnchor = CreateFrame("Frame", (not passive and "ART_Dirge_SquadAnchor" or nil), UIParent)
     squadAnchor:SetSize(170, 170)
     squadAnchor:SetPoint("CENTER", UIParent, "CENTER", -200, 50)
 
@@ -283,7 +285,7 @@ function Dirge:EnsureFrames()
         squadBaseline[i] = bfs
     end
 
-    local seqBarAnchor = CreateFrame("Frame", "ART_Dirge_BarAnchor", UIParent)
+    local seqBarAnchor = CreateFrame("Frame", (not passive and "ART_Dirge_BarAnchor" or nil), UIParent)
     seqBarAnchor:SetSize(200, 64)
     seqBarAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 50)
 
@@ -307,7 +309,7 @@ function Dirge:EnsureFrames()
         barBaseline[i] = bfs
     end
 
-    self.frames = {
+    return {
         barAnchor = barAnchor,
         secureButtons = secureButtons,
         keybindTexts = keybindTexts,
@@ -321,7 +323,74 @@ function Dirge:EnsureFrames()
         barDisplay = barDisplay,
         barBaseline = barBaseline
     }
+end
+
+local function showSquadPreview(f)
+    f.squadFrame:Show()
+    for i = 1, 5 do
+        f.squadDisplay[i]:SetFormattedText("|T%s:28:28|t", CHAT_MSGS[SHAPE_NAMES[i]])
+        f.squadDisplay[i]:Show()
+        f.squadBaseline[i]:SetText("|cFF00FF00" .. i .. "|r")
+        f.squadBaseline[i]:Show()
+    end
+end
+
+local function showBarPreview(f)
+    f.barFrame:Show()
+    local startX = 102 - MAX_BAR_DISPLAY * 18
+    for i = 1, MAX_BAR_DISPLAY do
+        f.barDisplay[i]:ClearAllPoints()
+        f.barDisplay[i]:SetPoint("LEFT", f.barFrame, "LEFT", startX + (i - 1) * 36, 6)
+        f.barDisplay[i]:SetFormattedText("|T%s:24:24|t", CHAT_MSGS[SHAPE_NAMES[i]])
+        f.barDisplay[i]:Show()
+        f.barBaseline[i]:ClearAllPoints()
+        f.barBaseline[i]:SetPoint("TOP", f.barDisplay[i], "BOTTOM", 0, 2)
+        f.barBaseline[i]:SetText("|cFF00FF00" .. i .. "|r")
+        f.barBaseline[i]:Show()
+    end
+end
+
+function Dirge:EnsureFrames()
+    if self.frames or InCombatLockdown() then
+        return self.frames ~= nil
+    end
+    self.frames = createDirgeFrames(false)
     return true
+end
+
+function Dirge:CreateAnchorPreview(kind)
+    if kind ~= "buttons" and kind ~= "squad" and kind ~= "bar" then return end
+    local owner, frames = self, createDirgeFrames(true)
+    local frame = kind == "buttons" and frames.barAnchor
+        or kind == "squad" and frames.squadAnchor or frames.seqBarAnchor
+    frames.barAnchor:Hide()
+    frames.squadAnchor:Hide()
+    frames.seqBarAnchor:Hide()
+    frame:EnableMouse(false)
+    local handle = {frame = frame}
+    function handle:Refresh()
+        local settings = owner.db[kind]
+        frame:SetScale(settings.scale or 1)
+        if kind == "buttons" then
+            frame:SetAlpha(settings.opacity or 1)
+            Dirge.UpdateKeybindLabels({db = owner.db, frames = frames})
+        elseif kind == "squad" then
+            applyBackdrop(frames.squadFrame, settings.background.opacity, settings.border)
+            showSquadPreview(frames)
+        else
+            applyBackdrop(frames.barFrame, settings.background.opacity, settings.border)
+            showBarPreview(frames)
+        end
+    end
+    function handle:Show()
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    handle:Refresh()
+    return handle
 end
 
 -- Apply settings
@@ -338,7 +407,7 @@ function Dirge:ApplySettings()
         f.barAnchor:SetAlpha(db.buttons.opacity or 1)
 
         local pb = db.buttons.position
-        E:ApplyFramePosition(f.barAnchor, pb)
+        E:GetModule("BossMods").DisplayTemplates:Place(self, "buttons", f.barAnchor)
 
         for j = 1, 5 do
             f.secureButtons[j]:ClearAllPoints()
@@ -350,12 +419,12 @@ function Dirge:ApplySettings()
 
     f.squadAnchor:SetScale(db.squad.scale or 1)
     local ps = db.squad.position
-    E:ApplyFramePosition(f.squadAnchor, ps)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "squad", f.squadAnchor)
     applyBackdrop(f.squadFrame, db.squad.background.opacity, db.squad.border)
 
     f.seqBarAnchor:SetScale(db.bar.scale or 1)
     local pBar = db.bar.position
-    E:ApplyFramePosition(f.seqBarAnchor, pBar)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "bar", f.seqBarAnchor)
     applyBackdrop(f.barFrame, db.bar.background.opacity, db.bar.border)
 end
 
@@ -1060,13 +1129,7 @@ function Dirge:SetEditMode(v, visibleKeys)
     local f = self.frames
 
     if self.editVisible.squad then
-        f.squadFrame:Show()
-        for i = 1, 5 do
-            f.squadDisplay[i]:SetFormattedText("|T%s:28:28|t", CHAT_MSGS[SHAPE_NAMES[i]])
-            f.squadDisplay[i]:Show()
-            f.squadBaseline[i]:SetText("|cFF00FF00" .. i .. "|r")
-            f.squadBaseline[i]:Show()
-        end
+        showSquadPreview(f)
     elseif self.inEncounter and self.totalFilled > 0 then
         for i = 1, 5 do
             if not self.filledRunes[i] then
@@ -1084,18 +1147,7 @@ function Dirge:SetEditMode(v, visibleKeys)
     end
 
     if self.editVisible.bar then
-        f.barFrame:Show()
-        local startX = 102 - MAX_BAR_DISPLAY * 18
-        for i = 1, MAX_BAR_DISPLAY do
-            f.barDisplay[i]:ClearAllPoints()
-            f.barDisplay[i]:SetPoint("LEFT", f.barFrame, "LEFT", startX + (i - 1) * 36, 6)
-            f.barDisplay[i]:SetFormattedText("|T%s:24:24|t", CHAT_MSGS[SHAPE_NAMES[i]])
-            f.barDisplay[i]:Show()
-            f.barBaseline[i]:ClearAllPoints()
-            f.barBaseline[i]:SetPoint("TOP", f.barDisplay[i], "BOTTOM", 0, 2)
-            f.barBaseline[i]:SetText("|cFF00FF00" .. i .. "|r")
-            f.barBaseline[i]:Show()
-        end
+        showBarPreview(f)
     elseif self.inEncounter and self.totalFilled > 0 then
         for i = 1, 5 do
             if not self.filledRunes[i] then

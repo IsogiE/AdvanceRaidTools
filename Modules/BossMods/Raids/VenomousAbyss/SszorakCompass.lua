@@ -97,12 +97,8 @@ local function roundPixel(value)
     return math.ceil(value - 0.5)
 end
 
-function SszorakCompass:EnsureFrame()
-    if self.frame then
-        return true
-    end
-
-    local frame = CreateFrame("Frame", "ART_SszorakCompass", UIParent)
+local function createCompassFrame(name)
+    local frame = CreateFrame("Frame", name, UIParent)
     frame:SetSize(120, 120)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     frame:SetClampedToScreen(true)
@@ -121,9 +117,15 @@ function SszorakCompass:EnsureFrame()
         icons[index] = texture
     end
 
-    self.frame = frame
-    self.rotatingRing = rotatingRing
-    self.icons = icons
+    return frame, rotatingRing, icons
+end
+
+function SszorakCompass:EnsureFrame()
+    if self.frame then
+        return true
+    end
+
+    self.frame, self.rotatingRing, self.icons = createCompassFrame("ART_SszorakCompass")
     return true
 end
 
@@ -257,10 +259,37 @@ function SszorakCompass:ApplySettings()
         return
     end
 
-    E:ApplyFramePosition(self.frame, self.db.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", self.frame)
     self.frame:SetAlpha(self.db.opacity or 1)
     self.lastFacing = nil
     self:UpdateLayout(true)
+end
+
+function SszorakCompass:CreateAnchorPreview()
+    local owner = self
+    local frame, rotatingRing, icons = createCompassFrame()
+    local preview = setmetatable({
+        frame = frame, rotatingRing = rotatingRing, icons = icons
+    }, {__index = {
+        UpdateLayout = SszorakCompass.UpdateLayout,
+        ShowStaticMarkers = SszorakCompass.ShowStaticMarkers
+    }})
+    local handle = {frame = frame}
+    function handle:Refresh()
+        preview.db = owner.db
+        frame:SetAlpha(preview.db.opacity or 1)
+        preview:UpdateLayout(true)
+    end
+    function handle:Show()
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    handle:Refresh()
+    frame:Hide()
+    return handle
 end
 
 function SszorakCompass:NoteContainsCompassTag()
@@ -391,7 +420,7 @@ function SszorakCompass:OnDisable()
 end
 
 E:RegisterBossModFeature("SszorakCompass", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 60,
     bossKey = "Sszorak",
     bossLabelKey = "BossMods_Sszorak",

@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 local T = E.Templates
 
 local BossMods = E:GetModule("BossMods", true)
@@ -8,17 +8,16 @@ end
 
 local MODULE_NAME = "BossMods_AbilityAlertDefaults"
 local FEATURE_KEYS = {
-    "VoidspireDefaultAlertAppearance",
-    "VenomousAbyssDefaultAlertAppearance"
+    "DefaultAlertAppearance"
 }
 local ROW_GAP = 6
 local HEADER_GAP = 10
 
 local OUTLINE_VALUES = {
-    [""] = "None",
-    OUTLINE = "Outline",
-    THICKOUTLINE = "Thick Outline",
-    OUTLINE_SLUG = "Slug Outline"
+    [""] = L["None"],
+    OUTLINE = L["Outline"],
+    THICKOUTLINE = L["ThickOutline"],
+    OUTLINE_SLUG = L["BossMods_AAOptions_SlugOutline"]
 }
 
 local OUTLINE_SORTING = {
@@ -26,16 +25,6 @@ local OUTLINE_SORTING = {
     "OUTLINE",
     "THICKOUTLINE",
     "OUTLINE_SLUG"
-}
-
-local GROWTH_VALUES = {
-    DOWN = "Down",
-    UP = "Up"
-}
-
-local GROWTH_SORTING = {
-    "DOWN",
-    "UP"
 }
 
 local function fontValues()
@@ -47,15 +36,14 @@ local function statusBarValues()
 end
 
 local function refreshAbilityAlerts()
-    for _, moduleName in ipairs({
-        "BossMods_VenomousAbyssAbilityAlerts",
-        "BossMods_VoidspireAbilityAlerts"
-    }) do
-        local mod = E:GetModule(moduleName, true)
-        if mod and mod.CallIfEnabled then
+    for _, mod in E:IterateModules() do
+        if mod.GetBarAppearance and mod.CallIfEnabled then
             mod:CallIfEnabled("Refresh")
         end
     end
+    local custom = E:GetModule("BossMods_CustomBars", true)
+    if custom then custom:CallIfEnabled("Refresh") end
+    BossMods.DisplayTemplates:Refresh()
 end
 
 local function buildBody(parent, defaultsMod, isDisabled)
@@ -67,12 +55,6 @@ local function buildBody(parent, defaultsMod, isDisabled)
     local tracker = T:MakeTracker()
     local track = tracker.track
     local appearance = defaultsMod:GetAppearance()
-    local positionChangedCallback = function()
-        tracker.refresh()
-    end
-
-    defaultsMod.positionChangedCallback = positionChangedCallback
-
     local function row(y, widgets)
         return y + T:PlaceRow(parent, widgets, y, widthPx) + ROW_GAP
     end
@@ -171,28 +153,27 @@ local function buildBody(parent, defaultsMod, isDisabled)
     end
 
     local y = 0
-    local unlockCtrl
 
     y = full(y, track(T:Header(parent, {
-        text = "Default Alert Appearance"
+        text = L["BossMods_DefaultAlertAppearance"]
     })))
 
     y = full(y, track(T:Description(parent, {
-        text = "These appearance settings are used by every boss and every ability unless that ability has its own appearance override enabled.",
+        text = L["BossMods_DefaultAlertAppearanceDesc"],
         sizeDelta = 1
     })))
 
     local previewButton = button({
-        text = "Preview bar and text",
-        tooltip = "Shows a 30-second preview using the current default appearance.",
+        text = L["BossMods_DefaultPreview"],
+        tooltip = L["BossMods_DefaultPreviewTooltip"],
         onClick = function()
             defaultsMod:PreviewAppearance()
         end
     })
 
     local stopPreviewButton = button({
-        text = "Stop preview",
-        tooltip = "Stops and hides the current bar and text preview.",
+        text = L["BossMods_StopPreview"],
+        tooltip = L["BossMods_StopPreviewTooltip"],
         onClick = function()
             defaultsMod:StopPreview()
         end
@@ -201,25 +182,9 @@ local function buildBody(parent, defaultsMod, isDisabled)
     y = row(y, { previewButton, stopPreviewButton })
 
 
-    local unlockY
-    unlockY, unlockCtrl =
-        T:UnlockController(
-            parent,
-            y,
-            widthPx,
-            {
-                tracker = tracker,
-                isDisabled = isDisabled,
-                onEditModeChanged = function(value)
-                    defaultsMod:SetGroupEditMode(value)
-                end
-            }
-        )
-    y = unlockY
-
     local addPreviewBar = button({
-        text = "Add preview bar",
-        tooltip = "Adds another preview bar. Up to four bars can be shown at once.",
+        text = L["BossMods_AddPreviewBar"],
+        tooltip = L["BossMods_AddPreviewBarTooltip"],
         onClick = function()
             defaultsMod:SetPreviewCount(
                 "bar",
@@ -230,8 +195,8 @@ local function buildBody(parent, defaultsMod, isDisabled)
     })
 
     local removePreviewBar = button({
-        text = "Remove preview bar",
-        tooltip = "Removes one preview bar. At least one bar remains.",
+        text = L["BossMods_RemovePreviewBar"],
+        tooltip = L["BossMods_RemovePreviewBarTooltip"],
         onClick = function()
             defaultsMod:SetPreviewCount(
                 "bar",
@@ -242,8 +207,8 @@ local function buildBody(parent, defaultsMod, isDisabled)
     })
 
     local addPreviewText = button({
-        text = "Add preview text",
-        tooltip = "Adds another preview text alert. Up to four can be shown at once.",
+        text = L["BossMods_AddPreviewText"],
+        tooltip = L["BossMods_AddPreviewTextTooltip"],
         onClick = function()
             defaultsMod:SetPreviewCount(
                 "text",
@@ -254,8 +219,8 @@ local function buildBody(parent, defaultsMod, isDisabled)
     })
 
     local removePreviewText = button({
-        text = "Remove preview text",
-        tooltip = "Removes one preview text alert. At least one remains.",
+        text = L["BossMods_RemovePreviewText"],
+        tooltip = L["BossMods_RemovePreviewTextTooltip"],
         onClick = function()
             defaultsMod:SetPreviewCount(
                 "text",
@@ -268,72 +233,23 @@ local function buildBody(parent, defaultsMod, isDisabled)
     y = row(y, { addPreviewBar, removePreviewBar })
     y = row(y, { addPreviewText, removePreviewText })
 
-    y = section(y, "Default bar appearance")
-
-    local barGroup =
-        defaultsMod:GetGroupSettings("bar")
-
-    local barGrowth = dropdown({
-        label = "Grow bars",
-        values = GROWTH_VALUES,
-        sorting = GROWTH_SORTING,
-        get = function()
-            return barGroup.growth
-        end,
-        onChange = function(value)
-            barGroup.growth = value
-            refreshAbilityAlerts()
-        end
-    })
-
-    local barSpacing = slider({
-        label = "Spacing between bars",
-        min = 0,
-        max = 100,
-        step = 1,
-        get = function()
-            return barGroup.spacing
-        end,
-        onChange = function(value)
-            barGroup.spacing = math.floor(value)
-            refreshAbilityAlerts()
-        end
-    })
-
-    y = row(y, { barGrowth, barSpacing })
-
-    y = T:XYOffsetControls(parent, y, widthPx, {
-        tracker = tracker,
-        getPosition = function()
-            return barGroup
-        end,
-        setPosition = function(position)
-            barGroup.point = position.point or "CENTER"
-            barGroup.x = position.x or -400
-            barGroup.y = position.y or 80
-            defaultsMod:ApplyPreviewPositions()
-            refreshAbilityAlerts()
-        end,
-        disabled = isDisabled,
-        xInputLabel = "Bar anchor X value",
-        yInputLabel = "Bar anchor Y value"
-    })
+    y = section(y, L["BossMods_DefaultBarAppearance"])
 
     local barFont = dropdown({
-        label = "Font",
+        label = L["Font"],
         values = fontValues,
         get = function() return appearance.bar.font.name end,
         onChange = function(value) appearance.bar.font.name = value end
     })
 
     local barFontSize = slider({
-        label = "Font size", min = 8, max = 40,
+        label = L["BossMods_AAOptions_FontSize"], min = 8, max = 40,
         get = function() return appearance.bar.font.size end,
         onChange = function(value) appearance.bar.font.size = math.floor(value) end
     })
 
     local barFontOutline = dropdown({
-        label = "Font outline",
+        label = L["BossMods_AAOptions_FontOutline"],
         values = OUTLINE_VALUES,
         sorting = OUTLINE_SORTING,
         get = function() return appearance.bar.font.outline end,
@@ -343,19 +259,19 @@ local function buildBody(parent, defaultsMod, isDisabled)
     y = row(y, { barFont, barFontSize, barFontOutline })
 
     local barWidth = slider({
-        label = "Bar width", min = 100, max = 800, step = 5,
+        label = L["BossMods_AAOptions_BarWidth"], min = 100, max = 800, step = 5,
         get = function() return appearance.bar.width end,
         onChange = function(value) appearance.bar.width = math.floor(value) end
     })
 
     local barHeight = slider({
-        label = "Bar height", min = 10, max = 80,
+        label = L["BossMods_AAOptions_BarHeight"], min = 10, max = 80,
         get = function() return appearance.bar.height end,
         onChange = function(value) appearance.bar.height = math.floor(value) end
     })
 
     local barTexture = dropdown({
-        label = "Bar texture",
+        label = L["BossMods_AAOptions_BarTexture"],
         values = statusBarValues,
         get = function() return appearance.bar.texture end,
         onChange = function(value) appearance.bar.texture = value end
@@ -364,14 +280,14 @@ local function buildBody(parent, defaultsMod, isDisabled)
     y = row(y, { barWidth, barHeight, barTexture })
 
     local barIconEnabled = checkbox({
-        text = "Enable ability icon",
+        text = L["BossMods_AAOptions_EnableAbilityIcon"],
         labelTop = true,
         get = function() return appearance.bar.iconEnabled ~= false end,
         onChange = function(value) appearance.bar.iconEnabled = value end
     })
 
     local barIconSize = slider({
-        label = "Icon size", min = 8, max = 80,
+        label = L["BossMods_AAOptions_IconSize"], min = 8, max = 80,
         get = function() return appearance.bar.iconSize end,
         onChange = function(value) appearance.bar.iconSize = math.floor(value) end,
         disabled = function() return appearance.bar.iconEnabled == false end
@@ -380,7 +296,7 @@ local function buildBody(parent, defaultsMod, isDisabled)
     y = row(y, { barIconEnabled, barIconSize })
 
     local backgroundColor = color({
-        label = "Background color",
+        label = L["BossMods_AAOptions_BackgroundColor"],
         get = function() return appearance.bar.backgroundColor end,
         onChange = function(r, g, b, a)
             appearance.bar.backgroundColor = {r, g, b, a}
@@ -390,7 +306,7 @@ local function buildBody(parent, defaultsMod, isDisabled)
     })
 
     local backgroundOpacity = slider({
-        label = "Background opacity",
+        label = L["BossMods_AuraCircleBackgroundOpacity"],
         min = 0,
         max = 1,
         step = 0.05,
@@ -406,72 +322,23 @@ local function buildBody(parent, defaultsMod, isDisabled)
 
     y = row(y, { backgroundColor, backgroundOpacity })
 
-    y = section(y, "Default text appearance")
-
-    local textGroup =
-        defaultsMod:GetGroupSettings("text")
-
-    local textGrowth = dropdown({
-        label = "Grow text alerts",
-        values = GROWTH_VALUES,
-        sorting = GROWTH_SORTING,
-        get = function()
-            return textGroup.growth
-        end,
-        onChange = function(value)
-            textGroup.growth = value
-            refreshAbilityAlerts()
-        end
-    })
-
-    local textSpacing = slider({
-        label = "Spacing between text alerts",
-        min = 0,
-        max = 150,
-        step = 1,
-        get = function()
-            return textGroup.spacing
-        end,
-        onChange = function(value)
-            textGroup.spacing = math.floor(value)
-            refreshAbilityAlerts()
-        end
-    })
-
-    y = row(y, { textGrowth, textSpacing })
-
-    y = T:XYOffsetControls(parent, y, widthPx, {
-        tracker = tracker,
-        getPosition = function()
-            return textGroup
-        end,
-        setPosition = function(position)
-            textGroup.point = position.point or "CENTER"
-            textGroup.x = position.x or 0
-            textGroup.y = position.y or 200
-            defaultsMod:ApplyPreviewPositions()
-            refreshAbilityAlerts()
-        end,
-        disabled = isDisabled,
-        xInputLabel = "Text anchor X value",
-        yInputLabel = "Text anchor Y value"
-    })
+    y = section(y, L["BossMods_DefaultTextAppearance"])
 
     local textFont = dropdown({
-        label = "Font",
+        label = L["Font"],
         values = fontValues,
         get = function() return appearance.text.font.name end,
         onChange = function(value) appearance.text.font.name = value end
     })
 
     local textFontSize = slider({
-        label = "Font size", min = 8, max = 72,
+        label = L["BossMods_AAOptions_FontSize"], min = 8, max = 72,
         get = function() return appearance.text.font.size end,
         onChange = function(value) appearance.text.font.size = math.floor(value) end
     })
 
     local textFontOutline = dropdown({
-        label = "Font outline",
+        label = L["BossMods_AAOptions_FontOutline"],
         values = OUTLINE_VALUES,
         sorting = OUTLINE_SORTING,
         get = function() return appearance.text.font.outline end,
@@ -487,15 +354,6 @@ local function buildBody(parent, defaultsMod, isDisabled)
         height = totalHeight,
         Refresh = tracker.refresh,
         Release = function()
-            if defaultsMod.positionChangedCallback
-                == positionChangedCallback
-            then
-                defaultsMod.positionChangedCallback = nil
-            end
-
-            if unlockCtrl then
-                unlockCtrl:Release()
-            end
             tracker.release()
         end
     }

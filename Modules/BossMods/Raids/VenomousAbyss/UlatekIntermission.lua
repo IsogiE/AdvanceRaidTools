@@ -139,7 +139,7 @@ local function sequenceMarkup(sequence)
     for index, markerID in ipairs(sequence or {}) do
         result[#result + 1] = ASSIGNMENT_MARKER_MARKUP:format(markerID)
         if index < #sequence then
-            result[#result + 1] = " Into "
+            result[#result + 1] = L["BossMods_UlatekIntermissionSequenceConnector"]
         end
     end
 
@@ -249,47 +249,7 @@ function UlatekIntermission:CreateAnchor(name, enableMouse)
     return anchor
 end
 
-function UlatekIntermission:EnsureFrames()
-    if self.frames then
-        return true
-    end
-    if InCombatLockdown() then
-        return false
-    end
-
-    local barAnchor = self:CreateAnchor("ART_UlatekIntermissionBar", false)
-    local bar = CreateFrame("StatusBar", nil, barAnchor, "BackdropTemplate")
-    bar:SetAllPoints(barAnchor)
-    bar:SetMinMaxValues(0, DURATION)
-    bar:SetValue(0)
-    bar:SetBackdrop({
-        bgFile = E.media.blankTex or WHITE,
-        insets = {left = 0, right = 0, top = 0, bottom = 0}
-    })
-
-    local barLabel = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    barLabel:SetPoint("LEFT", bar, "LEFT", 6, 0)
-    barLabel:SetJustifyH("LEFT")
-
-    local barTime = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    barTime:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
-    barTime:SetJustifyH("RIGHT")
-
-    local barMarkers = {}
-    for index, data in ipairs(FIXED_MARKERS) do
-        local marker = bar:CreateTexture(nil, "OVERLAY", nil, 7)
-        marker:SetTexture(WHITE)
-        marker:SetVertexColor(
-            unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
-        )
-        E:DisableSharpening(marker)
-        barMarkers[index] = marker
-    end
-
-    local assignmentAnchor = self:CreateAnchor(
-        "ART_UlatekIntermissionAssignment",
-        false
-    )
+local function createAssignmentRegions(assignmentAnchor)
     local assignmentText = assignmentAnchor:CreateFontString(
         nil,
         "OVERLAY",
@@ -319,6 +279,195 @@ function UlatekIntermission:EnsureFrames()
         countdown:Hide()
         assignmentCountdowns[index] = countdown
     end
+
+    return assignmentText, assignmentMeasure, assignmentCountdowns
+end
+
+local function applyAssignmentAppearance(f, assignmentDB)
+    local assignmentSize = math.max(12, tonumber(assignmentDB.font.size) or 30)
+    local assignmentR, assignmentG, assignmentB, assignmentA = E:ColorTuple(
+        assignmentDB.font.color,
+        1,
+        1,
+        1,
+        1
+    )
+    local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
+    local rowHeight = math.max(40, assignmentSize + 10)
+    local assignmentHeight = rowHeight + countdownSize + 12
+    local assignmentWidth = 700
+
+    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
+
+    local assignmentFont = E:FetchFont(assignmentDB.font.name)
+    E:ApplyFontString(
+        f.assignmentText,
+        assignmentFont,
+        assignmentSize,
+        assignmentDB.font.outline
+    )
+    f.assignmentText:SetTextColor(
+        assignmentR,
+        assignmentG,
+        assignmentB,
+        assignmentA
+    )
+    f.assignmentText:ClearAllPoints()
+    f.assignmentText:SetPoint("TOP", f.assignmentAnchor, "TOP", 0, -2)
+    f.assignmentText:SetSize(assignmentWidth, rowHeight)
+
+    E:ApplyFontString(
+        f.assignmentMeasure,
+        assignmentFont,
+        assignmentSize,
+        assignmentDB.font.outline
+    )
+    f.assignmentMeasure:SetText(L["BossMods_UlatekIntermissionSequenceConnector"])
+
+    for _, countdown in ipairs(f.assignmentCountdowns or {}) do
+        E:ApplyFontString(
+            countdown,
+            assignmentFont,
+            countdownSize,
+            assignmentDB.font.outline
+        )
+        countdown:SetTextColor(
+            assignmentR,
+            assignmentG,
+            assignmentB,
+            assignmentA
+        )
+        countdown:SetSize(80, countdownSize + 4)
+    end
+
+    return {
+        connectorWidth = math.max(
+            assignmentSize * 1.2,
+            f.assignmentMeasure:GetStringWidth()
+        ),
+        countdownOffsetY = -(rowHeight + 17),
+        iconWidth = ASSIGNMENT_ICON_WIDTH,
+        width = assignmentWidth
+    }
+end
+
+local function createClickerArtwork(button, markerID, interactive)
+    local outer = button:CreateTexture(nil, "BACKGROUND")
+    outer:SetAllPoints()
+    outer:SetColorTexture(0.3, 0.3, 0.3, 1)
+
+    local inner = button:CreateTexture(nil, "BORDER")
+    inner:SetPoint("TOPLEFT", 1, -1)
+    inner:SetPoint("BOTTOMRIGHT", -1, 1)
+    inner:SetColorTexture(0, 0, 0, 1)
+
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -3)
+    icon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -3, 3)
+    icon:SetTexture(RAID_MARKER_TEXTURE:format(markerID))
+
+    if interactive then
+        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+        highlight:SetAllPoints(button)
+        highlight:SetColorTexture(1, 1, 1, 0.3)
+        highlight:SetBlendMode("ADD")
+    end
+end
+
+local function createBarRegions(barAnchor)
+    local bar = CreateFrame("StatusBar", nil, barAnchor, "BackdropTemplate")
+    bar:SetAllPoints(barAnchor)
+    bar:SetMinMaxValues(0, DURATION)
+    bar:SetValue(0)
+    bar:SetBackdrop({
+        bgFile = E.media.blankTex or WHITE,
+        insets = {left = 0, right = 0, top = 0, bottom = 0}
+    })
+
+    local barLabel = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    barLabel:SetPoint("LEFT", bar, "LEFT", 6, 0)
+    barLabel:SetJustifyH("LEFT")
+
+    local barTime = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    barTime:SetPoint("RIGHT", bar, "RIGHT", -6, 0)
+    barTime:SetJustifyH("RIGHT")
+
+    local barMarkers = {}
+    for index, data in ipairs(FIXED_MARKERS) do
+        local marker = bar:CreateTexture(nil, "OVERLAY", nil, 7)
+        marker:SetTexture(WHITE)
+        marker:SetVertexColor(
+            unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
+        )
+        E:DisableSharpening(marker)
+        barMarkers[index] = marker
+    end
+
+    return bar, barLabel, barTime, barMarkers
+end
+
+local function applyBarAppearance(f, barDB)
+    local barWidth = math.max(180, tonumber(barDB.width) or 420)
+    local barHeight = math.max(10, tonumber(barDB.height) or 26)
+    local markerWidth = math.max(1, tonumber(barDB.markerWidth) or 5)
+    local barR, barG, barB, barA = E:ColorTuple(barDB.color, 1, 1, 1, 1)
+    local textR, textG, textB, textA = E:ColorTuple(
+        barDB.font.color,
+        1,
+        1,
+        1,
+        1
+    )
+
+    f.barAnchor:SetSize(barWidth, barHeight)
+    f.barAnchor:SetScale(tonumber(barDB.scale) or 1)
+    f.barAnchor:SetAlpha(tonumber(barDB.opacity) or 1)
+
+    f.bar:SetMinMaxValues(0, DURATION)
+    f.bar:SetStatusBarTexture(E:FetchStatusBar(barDB.texture))
+    f.bar:SetStatusBarColor(barR, barG, barB, barA)
+    f.bar:SetBackdropColor(0, 0, 0, tonumber(barDB.backgroundOpacity) or 0.7)
+
+    local barFont = E:FetchFont(barDB.font.name)
+    E:ApplyFontString(f.barLabel, barFont, barDB.font.size, barDB.font.outline)
+    E:ApplyFontString(f.barTime, barFont, barDB.font.size, barDB.font.outline)
+    f.barLabel:SetText(L["BossMods_NoteUTIntermission"])
+    f.barLabel:SetTextColor(textR, textG, textB, textA)
+    f.barTime:SetTextColor(textR, textG, textB, textA)
+
+    for index, data in ipairs(FIXED_MARKERS) do
+        local marker = f.barMarkers[index]
+        if marker then
+            marker:SetVertexColor(
+                unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
+            )
+            local x = barWidth * data.remaining / DURATION
+            x = math.max(markerWidth / 2, math.min(barWidth - markerWidth / 2, x))
+
+            marker:ClearAllPoints()
+            marker:SetPoint("CENTER", f.bar, "LEFT", x, 0)
+            marker:SetSize(markerWidth, barHeight)
+        end
+    end
+end
+
+function UlatekIntermission:EnsureFrames()
+    if self.frames then
+        return true
+    end
+    if InCombatLockdown() then
+        return false
+    end
+
+    local barAnchor = self:CreateAnchor("ART_UlatekIntermissionBar", false)
+    local bar, barLabel, barTime, barMarkers = createBarRegions(barAnchor)
+
+    local assignmentAnchor = self:CreateAnchor(
+        "ART_UlatekIntermissionAssignment",
+        false
+    )
+    local assignmentText, assignmentMeasure, assignmentCountdowns =
+        createAssignmentRegions(assignmentAnchor)
 
     local clickerWidth = #BUTTON_ORDER * CLICKER_BUTTON_SIZE
         + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING
@@ -361,24 +510,7 @@ function UlatekIntermission:EnsureFrames()
         button:SetFrameStrata("MEDIUM")
         button:SetFrameLevel(5)
 
-        local outer = button:CreateTexture(nil, "BACKGROUND")
-        outer:SetAllPoints()
-        outer:SetColorTexture(0.3, 0.3, 0.3, 1)
-
-        local inner = button:CreateTexture(nil, "BORDER")
-        inner:SetPoint("TOPLEFT", 1, -1)
-        inner:SetPoint("BOTTOMRIGHT", -1, 1)
-        inner:SetColorTexture(0, 0, 0, 1)
-
-        local icon = button:CreateTexture(nil, "ARTWORK")
-        icon:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -3)
-        icon:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -3, 3)
-        icon:SetTexture(RAID_MARKER_TEXTURE:format(variation.markerID))
-
-        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints(button)
-        highlight:SetColorTexture(1, 1, 1, 0.3)
-        highlight:SetBlendMode("ADD")
+        createClickerArtwork(button, variation.markerID, true)
 
         clickerButtons[index] = button
     end
@@ -421,121 +553,16 @@ function UlatekIntermission:ApplySettings()
     local assignmentDB = self.db.assignment
     local clickDB = self.db.clicker
 
-    local barWidth = math.max(180, tonumber(barDB.width) or 420)
-    local barHeight = math.max(10, tonumber(barDB.height) or 26)
-    local markerWidth = math.max(1, tonumber(barDB.markerWidth) or 5)
-    local barR, barG, barB, barA = E:ColorTuple(barDB.color, 1, 1, 1, 1)
-    local textR, textG, textB, textA = E:ColorTuple(
-        barDB.font.color,
-        1,
-        1,
-        1,
-        1
-    )
+    applyBarAppearance(f, barDB)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "bar", f.barAnchor)
 
-    f.barAnchor:SetSize(barWidth, barHeight)
-    f.barAnchor:SetScale(tonumber(barDB.scale) or 1)
-    f.barAnchor:SetAlpha(tonumber(barDB.opacity) or 1)
-    E:ApplyFramePosition(f.barAnchor, barDB.position)
-
-    f.bar:SetMinMaxValues(0, DURATION)
-    f.bar:SetStatusBarTexture(E:FetchStatusBar(barDB.texture))
-    f.bar:SetStatusBarColor(barR, barG, barB, barA)
-    f.bar:SetBackdropColor(0, 0, 0, tonumber(barDB.backgroundOpacity) or 0.7)
-
-    local barFont = E:FetchFont(barDB.font.name)
-    E:ApplyFontString(f.barLabel, barFont, barDB.font.size, barDB.font.outline)
-    E:ApplyFontString(f.barTime, barFont, barDB.font.size, barDB.font.outline)
-    f.barLabel:SetText(L["BossMods_NoteUTIntermission"])
-    f.barLabel:SetTextColor(textR, textG, textB, textA)
-    f.barTime:SetTextColor(textR, textG, textB, textA)
-
-    for index, data in ipairs(FIXED_MARKERS) do
-        local marker = f.barMarkers[index]
-        if marker then
-            marker:SetVertexColor(
-                unpack(GROUP_COLORS[data.group] or DEFAULT_MARKER_COLOR)
-            )
-            local x = barWidth * data.remaining / DURATION
-            x = math.max(markerWidth / 2, math.min(barWidth - markerWidth / 2, x))
-
-            marker:ClearAllPoints()
-            marker:SetPoint("CENTER", f.bar, "LEFT", x, 0)
-            marker:SetSize(markerWidth, barHeight)
-        end
-    end
-
-    local assignmentSize = math.max(12, tonumber(assignmentDB.font.size) or 30)
-    local assignmentR, assignmentG, assignmentB, assignmentA = E:ColorTuple(
-        assignmentDB.font.color,
-        1,
-        1,
-        1,
-        1
-    )
-    local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
-    local rowHeight = math.max(40, assignmentSize + 10)
-    local assignmentHeight = rowHeight + countdownSize + 12
-    local assignmentWidth = 700
-
-    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
-    E:ApplyFramePosition(f.assignmentAnchor, assignmentDB.position)
-
-    local assignmentFont = E:FetchFont(assignmentDB.font.name)
-    E:ApplyFontString(
-        f.assignmentText,
-        assignmentFont,
-        assignmentSize,
-        assignmentDB.font.outline
-    )
-    f.assignmentText:SetTextColor(
-        assignmentR,
-        assignmentG,
-        assignmentB,
-        assignmentA
-    )
-    f.assignmentText:ClearAllPoints()
-    f.assignmentText:SetPoint("TOP", f.assignmentAnchor, "TOP", 0, -2)
-    f.assignmentText:SetSize(assignmentWidth, rowHeight)
-
-    E:ApplyFontString(
-        f.assignmentMeasure,
-        assignmentFont,
-        assignmentSize,
-        assignmentDB.font.outline
-    )
-    f.assignmentMeasure:SetText(" Into ")
-
-    for _, countdown in ipairs(f.assignmentCountdowns or {}) do
-        E:ApplyFontString(
-            countdown,
-            assignmentFont,
-            countdownSize,
-            assignmentDB.font.outline
-        )
-        countdown:SetTextColor(
-            assignmentR,
-            assignmentG,
-            assignmentB,
-            assignmentA
-        )
-        countdown:SetSize(80, countdownSize + 4)
-    end
-
-    self.assignmentLayout = {
-        connectorWidth = math.max(
-            assignmentSize * 1.2,
-            f.assignmentMeasure:GetStringWidth()
-        ),
-        countdownOffsetY = -(rowHeight + 17),
-        iconWidth = ASSIGNMENT_ICON_WIDTH,
-        width = assignmentWidth
-    }
+    self.assignmentLayout = applyAssignmentAppearance(f, assignmentDB)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "assignment", f.assignmentAnchor)
 
     if not InCombatLockdown() then
         f.clickerAnchor:SetScale(tonumber(clickDB.scale) or 1)
         f.clickerAnchor:SetAlpha(tonumber(clickDB.opacity) or 1)
-        E:ApplyFramePosition(f.clickerAnchor, clickDB.position)
+        E:GetModule("BossMods").DisplayTemplates:Place(self, "clicker", f.clickerAnchor)
     end
 end
 
@@ -840,6 +867,71 @@ function UlatekIntermission:HideDisplay()
     self:ApplyClickerVisibility()
 end
 
+function UlatekIntermission:CreateAnchorPreview(kind)
+    if kind ~= "assignment" and kind ~= "buttons" and kind ~= "bar" then return end
+    local owner = self
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:EnableMouse(false)
+    local preview = {frames = {}, HideAssignmentSlots = self.HideAssignmentSlots}
+    if kind == "bar" then
+        local bar, label, time, markers = createBarRegions(frame)
+        preview.frames = {barAnchor = frame, bar = bar, barLabel = label, barTime = time, barMarkers = markers}
+        frame:SetScript("OnUpdate", function()
+            if not preview.startedAt then return end
+            local remaining = DURATION - (GetTime() - preview.startedAt) % DURATION
+            bar:SetValue(remaining)
+            time:SetText(formatCountdown(remaining))
+        end)
+    elseif kind == "assignment" then
+        local text, measure, countdowns = createAssignmentRegions(frame)
+        preview.frames = {
+            assignmentAnchor = frame, assignmentText = text,
+            assignmentMeasure = measure, assignmentCountdowns = countdowns
+        }
+    else
+        frame:SetSize(#BUTTON_ORDER * CLICKER_BUTTON_SIZE
+            + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING, CLICKER_BUTTON_SIZE)
+        for index, variationKey in ipairs(BUTTON_ORDER) do
+            local button = CreateFrame("Frame", nil, frame)
+            button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
+            button:SetPoint("LEFT", frame, "LEFT",
+                (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING), 0)
+            button:EnableMouse(false)
+            createClickerArtwork(button, VARIATIONS[variationKey].markerID)
+        end
+    end
+    local handle = {frame = frame}
+    function handle:Refresh()
+        if kind == "bar" then
+            applyBarAppearance(preview.frames, owner.db.bar)
+            preview.frames.bar:SetShown(owner.db.textOnly ~= true)
+            if not preview.startedAt then
+                preview.frames.bar:SetValue(DURATION)
+                preview.frames.barTime:SetText(tostring(DURATION))
+            end
+        elseif kind == "assignment" then
+            preview.assignmentLayout = applyAssignmentAppearance(preview.frames, owner.db.assignment)
+            UlatekIntermission.UpdateAssignmentSlots(preview, CHAT_PAYLOADS.PINK, 1, 0)
+        else
+            frame:SetScale(tonumber(owner.db.clicker.scale) or 1)
+            frame:SetAlpha(tonumber(owner.db.clicker.opacity) or 1)
+        end
+    end
+    function handle:Show()
+        preview.startedAt = nil
+        self:Refresh()
+        preview.startedAt = GetTime()
+        frame:Show()
+    end
+    function handle:Hide()
+        preview.startedAt = nil
+        frame:Hide()
+    end
+    handle:Refresh()
+    frame:Hide()
+    return handle
+end
+
 function UlatekIntermission:UpdateDisplay()
     if not self.frames then
         return
@@ -1097,7 +1189,7 @@ function UlatekIntermission:OnDisable()
 end
 
 E:RegisterBossModFeature("UlatekIntermission", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 73,
     bossKey = "Ulatek",
     bossLabelKey = "BossMods_Ulatek",

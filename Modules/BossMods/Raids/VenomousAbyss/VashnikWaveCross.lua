@@ -441,7 +441,7 @@ function VashnikWaveCross:OnDisable()
 end
 
 E:RegisterBossModFeature("VashnikWaveCross", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 70,
     bossKey = "Vashnik",
     bossLabelKey = "BossMods_Vashnik",

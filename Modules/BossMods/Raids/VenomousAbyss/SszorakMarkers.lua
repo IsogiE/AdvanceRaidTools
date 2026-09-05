@@ -95,17 +95,13 @@ local function currentLocationIsSupported()
     return mapID == INSTANCE_ID
 end
 
-function SszorakMarkers:EnsureFrames()
-    if self.frames or InCombatLockdown() then
-        return self.frames ~= nil
-    end
-
+local function createMarkerFrames(passive)
     local buttonWidth = #MARKERS * 40 + (#MARKERS - 1) * 5
     local buttonAnchor = CreateFrame(
         "Frame",
-        "ART_SszorakMarkers_ButtonBar",
+        (not passive and "ART_SszorakMarkers_ButtonBar" or nil),
         UIParent,
-        "SecureHandlerStateTemplate"
+        (not passive and "SecureHandlerStateTemplate" or nil)
     )
     buttonAnchor:SetSize(buttonWidth, 40)
     buttonAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, -150)
@@ -116,18 +112,22 @@ function SszorakMarkers:EnsureFrames()
     for i, marker in ipairs(MARKERS) do
         local markerID = marker.id
         local button = CreateFrame(
-            "Button",
-            "ART_SszorakMarkers_Btn" .. i,
+            (passive and "Frame" or "Button"),
+            (not passive and ("ART_SszorakMarkers_Btn" .. i) or nil),
             buttonAnchor,
-            "SecureActionButtonTemplate"
+            (not passive and "SecureActionButtonTemplate" or nil)
         )
         button:SetSize(40, 40)
         button:SetPoint("LEFT", buttonAnchor, "LEFT", (i - 1) * 45, 0)
-        button:SetAttribute("type1", "macro")
-        button:SetAttribute("macrotext1", "/raid " .. marker.oppositeID)
-        button:RegisterForClicks("AnyUp", "AnyDown")
-        button:SetFrameStrata("MEDIUM")
-        button:SetFrameLevel(5)
+        if not passive then
+            button:SetAttribute("type1", "macro")
+            button:SetAttribute("macrotext1", "/raid " .. marker.oppositeID)
+            button:RegisterForClicks("AnyUp", "AnyDown")
+            button:SetFrameStrata("MEDIUM")
+            button:SetFrameLevel(5)
+        else
+            button:EnableMouse(false)
+        end
 
         local outer = button:CreateTexture(nil, "BACKGROUND")
         outer:SetAllPoints()
@@ -143,10 +143,12 @@ function SszorakMarkers:EnsureFrames()
         icon:SetPoint("BOTTOMRIGHT", -3, 3)
         icon:SetTexture(RAID_MARKER_TEXTURE:format(markerID))
 
-        local highlight = button:CreateTexture(nil, "HIGHLIGHT")
-        highlight:SetAllPoints()
-        highlight:SetColorTexture(1, 1, 1, 0.3)
-        highlight:SetBlendMode("ADD")
+        if not passive then
+            local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+            highlight:SetAllPoints()
+            highlight:SetColorTexture(1, 1, 1, 0.3)
+            highlight:SetBlendMode("ADD")
+        end
 
         local keybind = button:CreateFontString(nil, "OVERLAY")
         keybind:SetFont([[Fonts\FRIZQT__.TTF]], 9, "OUTLINE")
@@ -158,7 +160,7 @@ function SszorakMarkers:EnsureFrames()
         keybindTexts[i] = keybind
     end
 
-    local barAnchor = CreateFrame("Frame", "ART_SszorakMarkers_BarAnchor", UIParent)
+    local barAnchor = CreateFrame("Frame", (not passive and "ART_SszorakMarkers_BarAnchor" or nil), UIParent)
     barAnchor:SetSize(180, 76)
     barAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 50)
 
@@ -184,7 +186,7 @@ function SszorakMarkers:EnsureFrames()
         barLabels[i] = label
     end
 
-    self.frames = {
+    return {
         buttonAnchor = buttonAnchor,
         buttons = buttons,
         keybindTexts = keybindTexts,
@@ -193,7 +195,44 @@ function SszorakMarkers:EnsureFrames()
         barDisplays = barDisplays,
         barLabels = barLabels
     }
+end
+
+function SszorakMarkers:EnsureFrames()
+    if self.frames or InCombatLockdown() then
+        return self.frames ~= nil
+    end
+    self.frames = createMarkerFrames(false)
     return true
+end
+
+function SszorakMarkers:CreateAnchorPreview(kind)
+    if kind ~= "buttons" and kind ~= "bar" then return end
+    local owner, frames = self, createMarkerFrames(true)
+    local frame = kind == "buttons" and frames.buttonAnchor or frames.barAnchor
+    frames.buttonAnchor:Hide()
+    frames.barAnchor:Hide()
+    frame:EnableMouse(false)
+    local handle = {frame = frame}
+    function handle:Refresh()
+        local settings = owner.db[kind]
+        frame:SetScale(settings.scale or 1)
+        if kind == "buttons" then
+            frame:SetAlpha(settings.opacity or 1)
+            SszorakMarkers.UpdateKeybindLabels({db = owner.db, frames = frames})
+        else
+            applyBackdrop(frames.barFrame, settings.background.opacity, settings.border)
+            SszorakMarkers.UpdateDisplay({frames = frames, editVisible = {bar = true}})
+        end
+    end
+    function handle:Show()
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    handle:Refresh()
+    return handle
 end
 
 function SszorakMarkers:ApplySettings()
@@ -205,12 +244,12 @@ function SszorakMarkers:ApplySettings()
     if not InCombatLockdown() then
         f.buttonAnchor:SetScale(self.db.buttons.scale or 1)
         f.buttonAnchor:SetAlpha(self.db.buttons.opacity or 1)
-        E:ApplyFramePosition(f.buttonAnchor, self.db.buttons.position)
+        E:GetModule("BossMods").DisplayTemplates:Place(self, "buttons", f.buttonAnchor)
         self:ApplyClickthrough()
     end
 
     f.barAnchor:SetScale(self.db.bar.scale or 1)
-    E:ApplyFramePosition(f.barAnchor, self.db.bar.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "bar", f.barAnchor)
     applyBackdrop(f.barFrame, self.db.bar.background.opacity, self.db.bar.border)
 end
 
@@ -681,7 +720,7 @@ function SszorakMarkers:OnDisable()
 end
 
 E:RegisterBossModFeature("SszorakMarkers", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 55,
     bossKey = "Sszorak",
     bossLabelKey = "BossMods_Sszorak",

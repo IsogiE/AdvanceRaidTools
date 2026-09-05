@@ -105,7 +105,8 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         if type(isDisabled) == "function" then
             moduleDisabled = isDisabled()
         end
-        return moduleDisabled or not previewUnlocked
+        return moduleDisabled or not (previewUnlocked
+            or E:GetModule("BossMods").DisplayTemplates:IsModulePreviewing(mod))
     end
     local function refreshPreviewControls()
         local disabled = previewDisabled()
@@ -136,14 +137,19 @@ local function buildLuraMapBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled,
+        onChanged = refreshPreviewControls
+    }))
 
     fullPreview = checkbox({
         text = L["BossMods_LMFullP2Preview"] or "Full P2 circle preview",
         labelTop = true,
         tooltip = {
             title = L["BossMods_LMFullP2Preview"] or "Full P2 circle preview",
-            desc = L["BossMods_LMFullP2PreviewDesc"] or
-                "When frames are unlocked, the P2 maps show the complete circle instead of your current slice."
+            desc = "While previewing or moving frames, show the complete P2 circle instead of your current slice."
         },
         get = function()
             return mod.db.anchors.main.fullPreview

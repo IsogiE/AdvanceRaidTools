@@ -520,6 +520,52 @@ local function getAssignmentTextState(
     }
 end
 
+local function getAssignmentPreviewState(ability)
+    if ability.assignmentType == "ulatekStage2" then
+        local marker = "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_6:0|t"
+        return {
+            message = L["BossMods_VA_Assignment_GoToMarker"]:format(marker),
+            color = {1, 1, 1, 1},
+            side = "blue"
+        }
+    end
+    if ability.assignmentType == "guillotine" then
+        return {message = L["BossMods_VA_Assignment_SoakIn"], color = {1, 1, 1, 1}}
+    end
+    if ability.kind == "assignmentText"
+        and tonumber(ability.triggerSpellID) == GRASPING_DEPTHS_SPELL_ID
+    then
+        return {
+            message = L["BossMods_VA_Assignment_GroupGoingDown"],
+            color = {0.10, 0.90, 0.20, 1}
+        }
+    end
+end
+
+local function updateAssignmentPreviewVisual(alert, ability, state)
+    if ability.assignmentType ~= "ulatekStage2" or not state then return 0 end
+    local feature = E:GetModule(ULATEK_STAGE_TWO_FEATURE_MODULE, true)
+    local appearance = feature and feature.db and feature.db.arrow or {}
+    local size = tonumber(appearance.size) or ULATEK_SIDE_ARROW_SIZE
+    local x = tonumber(appearance.x) or 0
+    local y = tonumber(appearance.y) or ULATEK_SIDE_ARROW_Y
+    local color = appearance.color or {1, 0.82, 0.10, 1}
+    local arrow = alert.assignmentPreviewArrow
+    if not arrow then
+        arrow = alert.frame:CreateTexture(nil, "OVERLAY", nil, 7)
+        alert.assignmentPreviewArrow = arrow
+    end
+    arrow:ClearAllPoints()
+    arrow:SetPoint("CENTER", alert.frame, "CENTER", x, y)
+    arrow:SetSize(size, size)
+    arrow:SetTexture(ULATEK_SIDE_ARROW_TEXTURES[state.side])
+    arrow:SetVertexColor(color[1] or color.r or 1,
+        color[2] or color.g or 0.82, color[3] or color.b or 0.10,
+        color[4] or color.a or 1)
+    arrow:Show()
+    return math.abs(y) * 2 + size
+end
+
 local function isCoiledAltarNightfallBarEnabled(self)
     return self.db.coiledAltarNightfallBarEnabled ~= false
         and bossMods:IsFeatureEnabled(COILED_ALTAR_FEATURE_KEY)
@@ -604,7 +650,7 @@ local function ensureCoiledAltarNightfallBar(self)
         "coiledAltarNightfall",
         "CoiledAltar",
         COILED_ALTAR_NIGHTFALL_BAR_ORDER,
-        {manualFill = true}
+        {manualFill = true, displayLabel = L["BossMods_CoiledAltarNightfallBar"]}
     )
 
     if not self.coiledAltarNightfallBar then
@@ -899,7 +945,7 @@ local function ensureUlatekBars(self)
             "ulatekShrieker" .. row,
             "Ulatek",
             ULATEK_BAR_ORDER + row,
-            {manualFill = true}
+            {manualFill = true, displayLabel = L["BossMods_UlatekBrightscaleShrieker"] .. " " .. row}
         )
 
         if not self.ulatekShriekerBars[row] then
@@ -1106,6 +1152,34 @@ local function startUlatekWave(self, unit)
     reconcileUlatekUnits(self)
 end
 
+local function getEncounterPreviewBars(self, bossKey)
+    local bars = {}
+    if (not bossKey or bossKey == "CoiledAltar")
+        and self.db.coiledAltarNightfallBarEnabled ~= false
+    then
+        bars[#bars + 1] = {
+            key = "coiledAltarNightfall", bossKey = "CoiledAltar",
+            bossOrder = 70, order = COILED_ALTAR_NIGHTFALL_BAR_ORDER,
+            label = L["BossMods_CoiledAltarNightfallBar"],
+            duration = COILED_ALTAR_NIGHTFALL_DURATION, paceOffset = 0.12
+        }
+    end
+    if (not bossKey or bossKey == "Ulatek")
+        and self.db.ulatekShriekerBarEnabled ~= false
+    then
+        for row = 1, 2 do
+            bars[#bars + 1] = {
+                key = "ulatekShrieker" .. row, bossKey = "Ulatek",
+                bossOrder = 80, order = ULATEK_BAR_ORDER + row,
+                label = L["BossMods_UlatekBrightscaleShrieker"],
+                duration = ULATEK_CHECK_DURATION,
+                paceOffset = row == 1 and -0.12 or 0.12
+            }
+        end
+    end
+    return bars
+end
+
 local function testEncounterBars(self, bossKey)
     if bossKey == "CoiledAltar" then
         testCoiledAltarNightfallBar(self)
@@ -1273,6 +1347,7 @@ E:CreateAbilityAlertsModule({
     onEncounterStart = onEncounterStart,
     onFeatureEnabledChanged = onFeatureEnabledChanged,
     testEncounterBars = testEncounterBars,
+    getEncounterPreviewBars = getEncounterPreviewBars,
     refresh = refreshEncounterBars,
     getAbilityData = function()
         return E.VenomousAbyssAbilityData or {}
@@ -1288,6 +1363,8 @@ E:CreateAbilityAlertsModule({
     getAbilityAssignment = getAbilityAssignment,
     getAssignedHits = getAssignedHits,
     getAssignmentTextState = getAssignmentTextState,
+    getAssignmentPreviewState = getAssignmentPreviewState,
+    updateAssignmentPreviewVisual = updateAssignmentPreviewVisual,
     updateAssignmentVisual = updateUlatekStageTwoArrow,
     hideAssignmentVisual = function(self, ability)
         if ability and ability.assignmentType == "ulatekStage2" then

@@ -1,4 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Script file="DisplayTemplatesSettings.lua"/>
     <Script file="BossModsSettings.lua"/>
     <Script file="AbilityAlertDefaultsSettings.lua"/>
 

@@ -313,7 +313,7 @@ function CoiledAltarKicker:EnsureFrames()
         "GameFontNormalHuge"
     )
     nextText:SetPoint("CENTER", self.frames.nextTextAnchor, "CENTER", 0, 0)
-    nextText:SetText(L["BossMods_CAKYourKickNext"] or "Your kick next")
+    nextText:SetText(L["BossMods_CAKYourKickNext"])
     nextText:SetJustifyH("CENTER")
     self.frames.nextText = nextText
 
@@ -324,11 +324,8 @@ end
 function CoiledAltarKicker:ApplyPositions()
     self:EnsureDefaults()
     self:EnsureFrames()
-    E:ApplyFramePosition(self.frames.anchor, self.db.position)
-    E:ApplyFramePosition(
-        self.frames.nextTextAnchor,
-        self.db.nextTextPosition
-    )
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", self.frames.anchor)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "nextTextPosition", self.frames.nextTextAnchor)
 end
 
 function CoiledAltarKicker:SavePosition(pos, key)
@@ -450,6 +447,41 @@ function CoiledAltarKicker:SetBoxState(
         na = 1
     end
     frame.nameText:SetTextColor(nr, ng, nb, na)
+end
+
+function CoiledAltarKicker:CreateAnchorPreview(kind)
+    if kind == "nextTextPosition" then
+        local owner = self
+        local frame = CreateFrame("Frame", nil, UIParent)
+        frame:SetSize(260, 36)
+        frame:EnableMouse(false)
+        local text = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+        text:SetPoint("CENTER", frame, "CENTER", 0, 0)
+        text:SetJustifyH("CENTER")
+        text:SetText(L["BossMods_CAKYourKickNext"])
+        local handle = {frame = frame}
+        function handle:Refresh()
+            local config = owner.db.nextText
+            E:ApplyFontString(text, E:FetchFont(config.name), config.size, config.outline)
+            text:SetTextColor(colorValue(config.color, {1, 0.82, 0.08, 1}))
+        end
+        function handle:Show() self:Refresh(); frame:Show() end
+        function handle:Hide() frame:Hide() end
+        handle:Refresh()
+        frame:Hide()
+        return handle
+    end
+    local box = createKickBox(UIParent)
+    local owner = self
+    local handle = {frame = box}
+    function handle:Refresh()
+        owner:ApplyBoxAppearance(box, owner.db.box.size, owner.db.font.size)
+        owner:SetBoxState(box, "now", 1, UnitName("player") or L["Player"], PREVIEW_COLORS)
+        box:SetFrameStrata("DIALOG")
+    end
+    function handle:Show() self:Refresh(); box:Show() end
+    function handle:Hide() box:Hide() end
+    return handle
 end
 
 function CoiledAltarKicker:GetLineAssignment(line, count)
@@ -937,7 +969,7 @@ function CoiledAltarKicker:UpdatePreviewDisplay()
         local displayName, classFile = self:GetKickDisplayInfo(currentToken)
 
         if self.editMode then
-            currentToken = UnitName("player") or "Player"
+            currentToken = UnitName("player") or L["Player"]
             displayName, classFile = self:GetKickDisplayInfo(currentToken)
             if not classFile then
                 _, classFile = UnitClass("player")
@@ -1261,7 +1293,7 @@ function CoiledAltarKicker:SetEditMode(value)
     self.editMode = value and true or false
     if self.editMode then
         self.assignments = {{
-            UnitName("player") or "Player",
+            UnitName("player") or L["Player"],
             "Next"
         }, {}}
     else
@@ -1323,7 +1355,7 @@ function CoiledAltarKicker:OnDisable()
 end
 
 E:RegisterBossModFeature("CoiledAltarKicker", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 85,
     bossKey = "CoiledAltar",
     bossLabelKey = "BossMods_CoiledAltar",

@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 
 local MODULE_NAME = "BossMods_AbilityAlertDefaults"
 local Shared = E:GetModule("BossMods").Engines.Shared
@@ -159,6 +159,11 @@ function AlertDefaults:GetGroupSettings(kind)
         )
 
     return settings
+end
+
+function AlertDefaults:GetPreviewConfig(kind)
+    if kind == "bar" then return buildPreviewBarConfig(self:GetAppearance()) end
+    return buildPreviewTextConfig(self:GetAppearance())
 end
 
 function AlertDefaults:GetPreviewPosition(kind)
@@ -391,8 +396,8 @@ function AlertDefaults:SetGroupEditMode(enabled)
             preview:SetMode("label")
             preview:SetLabel(
                 index == 1
-                and "Bar group anchor — drag to move"
-                or "Attached bar preview " .. index
+                and L["BossMods_BarGroupAnchorHint"]
+                or L["BossMods_AttachedBarPreview"]:format(index)
             )
             preview:SetRight("30.0")
             preview.frame:Show()
@@ -402,8 +407,8 @@ function AlertDefaults:SetGroupEditMode(enabled)
             local preview = self.previewTexts[index]
             preview:SetText(
                 index == 1
-                and "Text group anchor — drag to move"
-                or "Attached text preview " .. index
+                and L["BossMods_TextGroupAnchorHint"]
+                or L["BossMods_AttachedTextPreview"]:format(index)
             )
             preview.frame:Show()
         end
@@ -444,14 +449,14 @@ function AlertDefaults:RestartPreviewFrames()
         end
 
         preview:SetMode("label")
-        preview:SetLabel("Default ability bar " .. index)
+        preview:SetLabel(L["BossMods_DefaultBarPreview"]:format(index))
         preview:SetRight(("%.1f"):format(duration))
         preview:Start({ total = duration })
     end
 
     for index = 1, self:GetPreviewCount("text") do
         local preview = self.previewTexts[index]
-        preview:SetText("Default text alert " .. index)
+        preview:SetText(L["BossMods_DefaultTextPreview"]:format(index))
         preview:Show()
     end
 
@@ -495,16 +500,9 @@ function AlertDefaults:RefreshPreview()
     end
 end
 
-E:RegisterBossModFeature("VoidspireDefaultAlertAppearance", {
-    tab = "Voidspire",
-    order = 1,
-    labelKey = "BossMods_DefaultAlertAppearance",
-    moduleName = MODULE_NAME
-})
-
-E:RegisterBossModFeature("VenomousAbyssDefaultAlertAppearance", {
-    tab = "VenomousAbyss",
-    order = 1,
+E:RegisterBossModFeature("DefaultAlertAppearance", {
+    tab = "General",
+    order = 2,
     labelKey = "BossMods_DefaultAlertAppearance",
     moduleName = MODULE_NAME
 })

@@ -903,7 +903,11 @@ end
 -------------------------------------------------------------------------------
 E:RegisterBossModFeature("VenomousAbyssNekzali", {
     tab = "VenomousAbyss",
-    order = 10,
+    order = 1,
+    bossKey = "Nekzali",
+    bossLabelKey = "BossMods_Nekzali",
+    bossOrder = 10,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_Nekzali",
     descKey = "BossMods_NekzaliDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -911,7 +915,11 @@ E:RegisterBossModFeature("VenomousAbyssNekzali", {
 
 E:RegisterBossModFeature("VenomousAbyssEntombedSentinels", {
     tab = "VenomousAbyss",
-    order = 20,
+    order = 1,
+    bossKey = "EntombedSentinels",
+    bossLabelKey = "BossMods_EntombedSentinels",
+    bossOrder = 20,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_EntombedSentinels",
     descKey = "BossMods_EntombedSentinelsDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -919,7 +927,11 @@ E:RegisterBossModFeature("VenomousAbyssEntombedSentinels", {
 
 E:RegisterBossModFeature("VenomousAbyssLostExplorers", {
     tab = "VenomousAbyss",
-    order = 30,
+    order = 1,
+    bossKey = "LostExplorers",
+    bossLabelKey = "BossMods_LostExplorers",
+    bossOrder = 30,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_LostExplorers",
     descKey = "BossMods_LostExplorersDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -927,7 +939,11 @@ E:RegisterBossModFeature("VenomousAbyssLostExplorers", {
 
 E:RegisterBossModFeature("VenomousAbyssVashnik", {
     tab = "VenomousAbyss",
-    order = 40,
+    order = 1,
+    bossKey = "Vashnik",
+    bossLabelKey = "BossMods_Vashnik",
+    bossOrder = 40,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_Vashnik",
     descKey = "BossMods_VashnikDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -935,7 +951,11 @@ E:RegisterBossModFeature("VenomousAbyssVashnik", {
 
 E:RegisterBossModFeature("VenomousAbyssSszorak", {
     tab = "VenomousAbyss",
-    order = 50,
+    order = 1,
+    bossKey = "Sszorak",
+    bossLabelKey = "BossMods_Sszorak",
+    bossOrder = 50,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_Sszorak",
     descKey = "BossMods_SszorakDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -943,7 +963,11 @@ E:RegisterBossModFeature("VenomousAbyssSszorak", {
 
 E:RegisterBossModFeature("VenomousAbyssTwinFangs", {
     tab = "VenomousAbyss",
-    order = 60,
+    order = 1,
+    bossKey = "TwinFangs",
+    bossLabelKey = "BossMods_TwinFangs",
+    bossOrder = 60,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_TwinFangs",
     descKey = "BossMods_TwinFangsDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -951,7 +975,11 @@ E:RegisterBossModFeature("VenomousAbyssTwinFangs", {
 
 E:RegisterBossModFeature("VenomousAbyssCoiledAltar", {
     tab = "VenomousAbyss",
-    order = 70,
+    order = 1,
+    bossKey = "CoiledAltar",
+    bossLabelKey = "BossMods_CoiledAltar",
+    bossOrder = 70,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_CoiledAltar",
     descKey = "BossMods_CoiledAltarDesc",
     moduleName = "BossMods_AssignmentReminders"
@@ -959,7 +987,11 @@ E:RegisterBossModFeature("VenomousAbyssCoiledAltar", {
 
 E:RegisterBossModFeature("VenomousAbyssUlatek", {
     tab = "VenomousAbyss",
-    order = 80,
+    order = 1,
+    bossKey = "Ulatek",
+    bossLabelKey = "BossMods_Ulatek",
+    bossOrder = 80,
+    navLabelKey = "BossMods_BossGeneral",
     labelKey = "BossMods_Ulatek",
     descKey = "BossMods_UlatekDesc",
     moduleName = "BossMods_AssignmentReminders"

@@ -286,7 +286,7 @@ function UlatekFangs:ApplySettings()
     f.anchor:SetSize(layout.width, layout.totalHeight)
     f.anchor:SetScale(self.db.scale or 1)
     f.anchor:SetAlpha(self.db.opacity or 1)
-    E:ApplyFramePosition(f.anchor, self.db.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", f.anchor)
 
     f.columns[1]:ClearAllPoints()
     f.columns[1]:SetPoint("TOPLEFT", f.anchor, "TOPLEFT", 0, 0)
@@ -542,6 +542,64 @@ function UlatekFangs:UpdatePreviewBars()
     end
 end
 
+function UlatekFangs:CreateAnchorPreview()
+    local owner = self
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:EnableMouse(false)
+    local preview = setmetatable({
+        db = owner.db,
+        frames = {anchor = frame, columns = {
+            CreateFrame("Frame", nil, frame), CreateFrame("Frame", nil, frame)
+        }}
+    }, {__index = {
+        EnsureFrames = UlatekFangs.EnsureFrames,
+        EnsurePreviewRows = UlatekFangs.EnsurePreviewRows,
+        GetLayout = UlatekFangs.GetLayout,
+        ConfigureButton = UlatekFangs.ConfigureButton,
+        LayoutPreviewRows = UlatekFangs.LayoutPreviewRows,
+        UpdatePreviewBars = UlatekFangs.UpdatePreviewBars
+    }})
+    preview:EnsurePreviewRows()
+    local handle = {frame = frame}
+    function handle:Refresh()
+        preview.db = owner.db
+        local layout = preview:GetLayout()
+        frame:SetSize(layout.width, layout.totalHeight)
+        frame:SetScale(preview.db.scale or 1)
+        frame:SetAlpha(preview.db.opacity or 1)
+        for index, column in ipairs(preview.frames.columns) do
+            column:ClearAllPoints()
+            local point = index == 1 and "TOPLEFT" or "TOPRIGHT"
+            column:SetPoint(point, frame, point, 0, 0)
+            column:SetSize(layout.columnWidth, layout.totalHeight)
+        end
+        preview:LayoutPreviewRows()
+        preview:UpdatePreviewBars()
+    end
+    function handle:Show()
+        preview.previewStartedAt = GetTime()
+        self:Refresh()
+        for _, rows in ipairs(preview.previewRows) do
+            for _, row in ipairs(rows) do row:Show() end
+        end
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    local elapsed = 0
+    frame:SetScript("OnUpdate", function(_, delta)
+        elapsed = elapsed + delta
+        if elapsed >= PREVIEW_UPDATE_INTERVAL then
+            elapsed = 0
+            preview:UpdatePreviewBars()
+        end
+    end)
+    handle:Refresh()
+    frame:Hide()
+    return handle
+end
+
 function UlatekFangs:StartPreviewTicker()
     if self.previewTicker then
         return
@@ -770,7 +828,7 @@ function UlatekFangs:OnDisable()
 end
 
 E:RegisterBossModFeature("UlatekFangs", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 65,
     bossKey = "Ulatek",
     bossLabelKey = "BossMods_Ulatek",

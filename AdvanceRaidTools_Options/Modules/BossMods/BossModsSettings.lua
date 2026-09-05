@@ -120,7 +120,7 @@ local function buildTabBody(parent, tabKey)
                 E:SetModuleEnabled(feature.moduleName, true)
             else
                 local keepModuleEnabled = false
-                for _, sibling in ipairs(BossMods:GetFeaturesForTab(tabKey)) do
+                for _, sibling in ipairs(BossMods.features:All()) do
                     if sibling.moduleName == feature.moduleName
                         and BossMods:IsFeatureEnabled(sibling.key)
                     then
@@ -489,6 +489,12 @@ local function buildTabGroup(tab)
                 order = 1,
                 width = "full",
                 build = function(parent)
+                    if tab.settingsKey then
+                        local builder = E:GetModule("BossMods"):GetSettingsBuilder(tab.settingsKey)
+                        local handle = builder(parent)
+                        handle.fullWidth = true
+                        return handle
+                    end
                     return buildTabBody(parent, tabKey)
                 end
             }
@@ -515,7 +521,7 @@ local function buildBossModsPanel()
 
     local tabs = {}
     for _, tab in ipairs(BossMods:GetTabs()) do
-        if #BossMods:GetFeaturesForTab(tab.key) > 0 then
+        if tab.settingsKey or #BossMods:GetFeaturesForTab(tab.key) > 0 then
             tabs[tab.key] = buildTabGroup(tab)
         end
     end

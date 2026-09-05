@@ -39,7 +39,6 @@ function Mod:GetAbilitySettings()
     local settings = abilityMod:GetAbilitySettings(ABILITY_ID)
     if settings and settings.text then
         settings.text.enabled = true
-        settings.text.unattached = true
     end
     return settings
 end
@@ -114,7 +113,7 @@ function Mod:OnDisable()
 end
 
 E:RegisterBossModFeature("UlatekStageTwoAssignment", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 74,
     bossKey = "Ulatek",
     bossLabelKey = "BossMods_Ulatek",

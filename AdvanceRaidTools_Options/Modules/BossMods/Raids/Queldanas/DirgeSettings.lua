@@ -120,6 +120,11 @@ local function buildDirgeBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     -- Buttons
     y = section(y, "BossMods_DirgeButtonsSection")

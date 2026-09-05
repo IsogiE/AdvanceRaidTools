@@ -234,6 +234,11 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     y = section(y, L["BossMods_NoteKickAssignments"])
     local boxSize = slider({

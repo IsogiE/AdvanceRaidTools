@@ -8,7 +8,7 @@ local CAUSTIC_WAVES_SPELL_ID = 1292188
 BossMods:RegisterTimelineSequenceFeature({
     moduleName = "BossMods_UlatekWaves",
     featureKey = "UlatekWaves",
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 72,
     bossKey = "Ulatek",
     bossLabelKey = "BossMods_Ulatek",

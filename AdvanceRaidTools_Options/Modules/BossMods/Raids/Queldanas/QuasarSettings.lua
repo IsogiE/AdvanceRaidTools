@@ -125,6 +125,11 @@ local function buildQuasarBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     -- General
     y = section(y, "General")

@@ -58,6 +58,11 @@ local function buildSszorakCompassBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     local iconSize = slider({
         label = L["BossMods_SCIconSize"],

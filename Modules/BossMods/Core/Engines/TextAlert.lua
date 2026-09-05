@@ -35,6 +35,8 @@ function Engines.TextAlert(config)
 
     function handle:SetText(t)
         text:SetText(t or "")
+        local entry = frame.artDisplayEntry
+        if entry then BossMods.DisplayTemplates:Layout(entry.definition.category) end
     end
 
     function handle:GetTextFontString()

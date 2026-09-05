@@ -103,6 +103,11 @@ local function buildBody(rightPanel, mod, isDisabled, options)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     y = section(y, L["BossMods_TFDelugeAppearance"])
     y = row(y, {

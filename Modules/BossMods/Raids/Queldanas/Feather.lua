@@ -50,12 +50,9 @@ function Feather:OnDisable()
     self.frame:Hide()
 end
 
-function Feather:EnsureFrame()
-    if self.frame then
-        return
-    end
-    local f = CreateFrame("Frame", "ART_BossMods_Feather", UIParent, "BackdropTemplate")
-    f:SetSize(self.db.iconSize, self.db.iconSize)
+local function createFeatherFrame(name, size)
+    local f = CreateFrame("Frame", name, UIParent, "BackdropTemplate")
+    f:SetSize(size, size)
     f:SetFrameStrata("MEDIUM")
     f:Hide()
 
@@ -63,7 +60,14 @@ function Feather:EnsureFrame()
     f.icon:SetAllPoints()
     f.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-    self.frame = f
+    return f
+end
+
+function Feather:EnsureFrame()
+    if self.frame then
+        return
+    end
+    self.frame = createFeatherFrame("ART_BossMods_Feather", self.db.iconSize)
 end
 
 function Feather:ApplyBackdrop()
@@ -87,11 +91,33 @@ function Feather:ApplyBackdrop()
     })
 end
 
+function Feather:CreateAnchorPreview()
+    local owner = self
+    local frame = createFeatherFrame(nil, self.db.iconSize)
+    frame:EnableMouse(false)
+    local handle = {frame = frame}
+    function handle:Refresh()
+        frame:SetSize(owner.db.iconSize, owner.db.iconSize)
+        Feather.ApplyBackdrop({frame = frame, db = owner.db})
+        frame.icon:SetTexture(C_Spell and C_Spell.GetSpellTexture
+            and C_Spell.GetSpellTexture(PLACEHOLDER_SPELL) or FALLBACK_ICON)
+    end
+    function handle:Show()
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    handle:Refresh()
+    return handle
+end
+
 function Feather:Apply()
     local db = self.db
     local f = self.frame
     f:SetSize(db.iconSize, db.iconSize)
-    E:ApplyFramePosition(f, db.position)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", f)
     self:ApplyBackdrop()
 end
 

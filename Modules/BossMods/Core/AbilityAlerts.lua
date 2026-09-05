@@ -868,6 +868,7 @@ function AbilityAlerts:EnsureManagedBar(key, bossKey, order, overrides)
     end
 
     entry.bossKey = bossKey
+    entry.label = overrides and overrides.displayLabel or key
     entry.order = tonumber(order) or 100
     entry.height = tonumber(appearance and appearance.height) or 24
     entry.overrides = overrides
@@ -1968,6 +1969,242 @@ local function buildTextConfig(settings)
             color = {1, 1, 1, 1}
         }
     }
+end
+
+function AbilityAlerts:CreateAnchorPreview(kind, spellID)
+    if kind ~= "bar" and kind ~= "text" then return end
+    spellID = tonumber(spellID)
+    local ability = self:GetAbility(spellID)
+    if not ability then return end
+    self.anchorPreviews = self.anchorPreviews or {}
+    local key = kind .. ":" .. spellID
+    if self.anchorPreviews[key] then return self.anchorPreviews[key] end
+
+    local owner = self
+    local engines = E:GetModule("BossMods").Engines
+    local renderer = kind == "bar"
+        and engines.Bar(buildBarConfig(self:GetBarAppearance(spellID), ability))
+        or engines.TextAlert(buildTextConfig(self:GetTextAppearance(spellID)))
+    local handle = {frame = renderer.frame, category = kind}
+    self.anchorPreviews[key] = handle
+    handle.frame:SetFrameStrata("DIALOG")
+    handle.frame:EnableMouse(false)
+
+    function handle:Update()
+        local settings = self.settings or {}
+        local duration = math.max(0.1, getSeconds(settings.secondsBefore, 5))
+        local remaining = duration - ((GetTime() - (self.startedAt or GetTime())) % duration)
+        local timeText = settings.showOneDecimal ~= false
+            and ("%.1f"):format(remaining)
+            or tostring(math.ceil(remaining))
+        local current = self.ability or ability
+        if kind == "bar" then
+            local name = current.barName or current.shortName or current.name
+            renderer:SetMode("label")
+            renderer:SetLabel(replaceVariables(getBarText(settings), {
+                shortName = name, name = name, hitNumber = 1
+            }, remaining, timeText))
+            renderer:SetRight(timeText)
+            renderer:SetValue(remaining / duration)
+        else
+            local state = self.assignmentState
+            local message = state and state.message
+                and state.message .. " " .. timeText
+                or replaceVariables(settings.message or "{spell} {time}", current,
+                    remaining, timeText)
+            renderer:SetText(message)
+            local text = renderer:GetTextFontString()
+            local color = state and state.color or {1, 1, 1, 1}
+            text:SetTextColor(color[1] or color.r or 1,
+                color[2] or color.g or 1, color[3] or color.b or 1,
+                color[4] or color.a or 1)
+            local height = text:GetStringHeight() or 0
+            if issecretvalue and issecretvalue(height) then height = 0 end
+            local visualHeight = config.updateAssignmentPreviewVisual
+                and config.updateAssignmentPreviewVisual(renderer, current, state) or 0
+            self.frame:SetHeight(math.max((self.fontSize or 34) + 8,
+                height + 8, visualHeight, 24))
+        end
+    end
+
+    function handle:Refresh()
+        self.ability = owner:GetAbility(spellID) or ability
+        local settings = owner:GetAbilitySettings(spellID) or {}
+        self.settings = settings[kind] or {}
+        if kind == "bar" then
+            renderer:Apply(buildBarConfig(owner:GetBarAppearance(spellID), self.ability))
+        else
+            local appearance = owner:GetTextAppearance(spellID)
+            self.fontSize = appearance.font and appearance.font.size or 34
+            renderer:Apply(buildTextConfig(appearance))
+            self.assignmentState = config.getAssignmentPreviewState
+                and config.getAssignmentPreviewState(self.ability) or nil
+        end
+        self.frame:SetFrameStrata("DIALOG")
+        self:Update()
+    end
+
+    function handle:Show()
+        if not self.frame:IsShown() then self.startedAt = GetTime() end
+        self:Refresh()
+        self.frame:SetScript("OnUpdate", function() self:Update() end)
+        renderer:Show()
+    end
+
+    function handle:Hide()
+        self.frame:SetScript("OnUpdate", nil)
+        self.startedAt = nil
+        renderer:Hide()
+    end
+
+    function handle:Release()
+        self:Hide()
+        renderer:Release()
+        owner.anchorPreviews[key] = nil
+    end
+
+    handle.frame:HookScript("OnHide", function()
+        handle.frame:SetScript("OnUpdate", nil)
+        handle.startedAt = nil
+    end)
+    handle.independent = function()
+        local settings = owner:GetAbilitySettings(spellID)
+        return settings and settings[kind] and settings[kind].unattached == true or false
+    end
+    handle.getPosition = function()
+        if handle.independent() then
+            local saved = kind == "bar" and owner:GetBarPosition(spellID)
+                or owner:GetTextPosition(spellID)
+            return {point = saved.point, relPoint = "CENTER", x = saved.x, y = saved.y}
+        end
+        local shared = E:GetModule("BossMods").DisplayTemplates:GetSettings(kind)
+        return {point = shared.point, relPoint = "CENTER", x = shared.x, y = shared.y}
+    end
+    handle:Refresh()
+    return handle
+end
+
+function AbilityAlerts:CreateManagedAnchorPreview(definition)
+    self.anchorPreviews = self.anchorPreviews or {}
+    local key = "managed:" .. definition.key
+    if self.anchorPreviews[key] then
+        self.anchorPreviews[key].definition = definition
+        return self.anchorPreviews[key]
+    end
+    local owner = self
+    local renderer = E:GetModule("BossMods").Engines.Bar(
+        buildBarConfig(self:GetBossDefaults(definition.bossKey).bar, nil))
+    local handle = {frame = renderer.frame, category = "bar", definition = definition}
+    self.anchorPreviews[key] = handle
+    handle.frame:SetFrameStrata("DIALOG")
+    handle.frame:EnableMouse(false)
+    function handle:Update()
+        local data = self.definition
+        local total = math.max(0.1, tonumber(data.duration) or 15)
+        local remaining = total - ((GetTime() - (self.startedAt or GetTime())) % total)
+        local required = remaining / total
+        renderer:SetMode("label")
+        renderer:SetLabel(data.label)
+        renderer:SetRight(("%.1f"):format(remaining))
+        renderer:SetValue(math.max(0, math.min(1, required + (data.paceOffset or 0))))
+        renderer:SetMarker(required)
+    end
+    function handle:Refresh()
+        renderer:Apply(buildBarConfig(owner:GetBossDefaults(self.definition.bossKey).bar, nil))
+        self.frame:SetFrameStrata("DIALOG")
+        self:Update()
+    end
+    function handle:Show()
+        if not self.frame:IsShown() then self.startedAt = GetTime() end
+        self:Refresh()
+        self.frame:SetScript("OnUpdate", function() self:Update() end)
+        renderer:Show()
+    end
+    function handle:Hide()
+        self.frame:SetScript("OnUpdate", nil)
+        self.startedAt = nil
+        renderer:Hide()
+    end
+    function handle:Release()
+        self:Hide()
+        renderer:Release()
+        owner.anchorPreviews[key] = nil
+    end
+    handle.frame:HookScript("OnHide", function()
+        handle.frame:SetScript("OnUpdate", nil)
+        handle.startedAt = nil
+    end)
+    handle.independent = function()
+        local displays = E:GetModule("BossMods").DisplayTemplates
+        local entry = displays:GetEntry(owner, key)
+        if entry then return displays:IsIndependent(entry) end
+        local override = owner.db.displayOverrides and owner.db.displayOverrides[key]
+        if override ~= nil then return override == true end
+        return owner.db.displayPositions and owner.db.displayPositions[key] ~= nil or false
+    end
+    handle.getPosition = function()
+        local displays = E:GetModule("BossMods").DisplayTemplates
+        local entry = displays:GetEntry(owner, key)
+        if entry then return displays:GetPosition(entry) end
+        local saved = handle.independent() and owner.db.displayPositions
+            and owner.db.displayPositions[key] or displays:GetSettings("bar")
+        return {point = saved.point, relPoint = "CENTER", x = saved.x, y = saved.y}
+    end
+    handle:Refresh()
+    return handle
+end
+
+function AbilityAlerts:CreateModulePreviews(bossKey, spellID)
+    local selected = tonumber(spellID)
+    local ordered = {}
+    for _, boss in ipairs(config.getAbilityData() or {}) do
+        if not bossKey or boss.bossKey == bossKey then
+            for _, definition in ipairs(boss.abilities or {}) do
+                local id = tonumber(definition.spellID)
+                local settings = id and self:GetAbilitySettings(id)
+                if settings and (not selected or id == selected)
+                    and (selected or not definition.hideInAbilityAlerts)
+                    and (selected or settings.enabled ~= false)
+                then
+                    for _, kind in ipairs({"bar", "text"}) do
+                        local enabled = settings[kind] and settings[kind].enabled == true
+                        if enabled or selected and kind == "text" then
+                            local handle = self:CreateAnchorPreview(kind, id)
+                            if handle then
+                                ordered[#ordered + 1] = {
+                                    handle = handle,
+                                    bossOrder = boss.bossOrder or 100,
+                                    abilityOrder = definition.order or 100,
+                                    id = id,
+                                    kind = kind
+                                }
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    if not selected and config.getEncounterPreviewBars then
+        for index, definition in ipairs(config.getEncounterPreviewBars(self, bossKey) or {}) do
+            ordered[#ordered + 1] = {
+                handle = self:CreateManagedAnchorPreview(definition),
+                bossOrder = definition.bossOrder or 100,
+                abilityOrder = definition.order or 100,
+                id = index,
+                kind = "bar"
+            }
+        end
+    end
+    table.sort(ordered, function(a, b)
+        if a.bossOrder ~= b.bossOrder then return a.bossOrder < b.bossOrder end
+        if a.abilityOrder ~= b.abilityOrder then return a.abilityOrder < b.abilityOrder end
+        if a.id ~= b.id then return a.id < b.id end
+        return a.kind < b.kind
+    end)
+    local handles = {}
+    for _, entry in ipairs(ordered) do handles[#handles + 1] = entry.handle end
+    return handles
 end
 
 function AbilityAlerts:EnsureTextAlert(spellID)
@@ -3676,274 +3913,62 @@ function AbilityAlerts:GetTextPosition(spellID)
 end
 
 function AbilityAlerts:ApplyPositions()
-    local defaultsMod =
-        E:GetModule(
-            "BossMods_AbilityAlertDefaults",
-            true
-        )
-
-    local barGroup =
-        defaultsMod
-        and defaultsMod:GetGroupSettings("bar")
-        or {
-            point = "CENTER",
-            x = -400,
-            y = 80,
-            growth = "DOWN",
-            spacing = 4
-        }
-
-    local textGroup =
-        defaultsMod
-        and defaultsMod:GetGroupSettings("text")
-        or {
-            point = "CENTER",
-            x = 0,
-            y = 200,
-            growth = "DOWN",
-            spacing = 8
-        }
-
-    local function sortedAttachedSpellIDs(
-        collection,
-        kind
-    )
-        local attached = {}
-
-        for spellID in pairs(collection) do
-            local settings =
-                self:GetAbilitySettings(spellID)
-
-            local typeSettings =
-                settings and settings[kind]
-
-            local object = collection[spellID]
-            local isActive = false
-
-            if kind == "bar" then
-                isActive =
-                    object
-                    and object.IsRunning
-                    and object:IsRunning()
-            else
-                isActive =
-                    object
-                    and object.frame
-                    and object.frame:IsShown()
-            end
-
-            if isActive
-                and not (
-                    typeSettings
-                    and typeSettings.unattached
-                )
-            then
-                attached[#attached + 1] = spellID
-            end
-        end
-
-        table.sort(attached, function(a, b)
-            local abilityA = self:GetAbility(a)
-            local abilityB = self:GetAbility(b)
-
-            local bossOrderA =
-                abilityA and abilityA.bossOrder or 100
-            local bossOrderB =
-                abilityB and abilityB.bossOrder or 100
-
-            if bossOrderA ~= bossOrderB then
-                return bossOrderA < bossOrderB
-            end
-
-            local orderA =
-                abilityA and abilityA.order or 100
-            local orderB =
-                abilityB and abilityB.order or 100
-
-            if orderA ~= orderB then
-                return orderA < orderB
-            end
-
-            return tonumber(a) < tonumber(b)
-        end)
-
-        return attached
-    end
-
-    local attachedBars =
-        sortedAttachedSpellIDs(
-            self.bars,
-            "bar"
-        )
-
-    local barDirection =
-        barGroup.growth == "UP" and 1 or -1
-
-    local barOffset = 0
-
-    for _, spellID in ipairs(attachedBars) do
-        local bar = self.bars[spellID]
-
-        bar.frame:ClearAllPoints()
-        bar.frame:SetPoint(
-            normalizeAnchorPoint(barGroup.point),
-            UIParent,
-            "CENTER",
-            barGroup.x or 0,
-            (barGroup.y or 80)
-                + barOffset * barDirection
-        )
-        updateAnchorPointMarker(
-            bar.frame,
-            barGroup.point
-        )
-
-        local appearance =
-            self:GetBarAppearance(spellID)
-
-        local barHeight =
-            tonumber(
-                appearance and appearance.height
-            ) or 24
-
-        barOffset =
-            barOffset
-            + barHeight
-            + (barGroup.spacing or 4)
-    end
-
-    local managedBars = {}
-
-    for _, entry in pairs(self.managedBars) do
-        if entry.bar and entry.bar:IsRunning() then
-            managedBars[#managedBars + 1] = entry
+    local displays = E:GetModule("BossMods").DisplayTemplates
+    displays:BeginUpdate()
+    for _, kind in ipairs({"bar", "text"}) do
+        local collection = kind == "bar" and self.bars or self.textAlerts
+        for spellID, object in pairs(collection or {}) do
+            local id, displayKind = spellID, kind
+            local ability = self:GetAbility(id)
+            local key = displayKind .. ":" .. id
+            displays:Register(self.moduleName, key, {
+                category = displayKind,
+                hidden = true,
+                label = ability and (ability.name or ability.label) or tostring(id),
+                order = (ability and ability.bossOrder or 100) * 1000
+                    + (ability and ability.order or 100),
+                getIndependent = function(mod)
+                    local settings = mod:GetAbilitySettings(id)
+                    return settings and settings[displayKind] and settings[displayKind].unattached
+                end,
+                setIndependent = function(mod, value)
+                    local settings = mod:GetAbilitySettings(id)
+                    if settings and settings[displayKind] then settings[displayKind].unattached = value end
+                end,
+                getPosition = function(mod)
+                    local saved = displayKind == "bar" and mod:GetBarPosition(id) or mod:GetTextPosition(id)
+                    return {point = saved.point, relPoint = "CENTER", x = saved.x, y = saved.y}
+                end,
+                setPosition = function(mod, pos)
+                    if displayKind == "bar" then mod:SaveBarPosition(id, pos)
+                    else mod:SaveTextPosition(id, pos) end
+                end,
+                getHeight = function(mod)
+                    if displayKind == "bar" then return mod:GetBarAppearance(id).height or 24 end
+                    local appearance = mod:GetTextAppearance(id)
+                    local text = object.GetTextFontString and object:GetTextFontString()
+                    local height = text and text:GetStringHeight() or 0
+                    if issecretvalue and issecretvalue(height) then height = 0 end
+                    return math.max((appearance.font and appearance.font.size or 34) + 8, height + 8, 24)
+                end
+            })
+            displays:Place(self, key, object.frame)
+            updateAnchorPointMarker(object.frame, displays:GetPosition(displays:GetEntry(self, key)).point)
         end
     end
-
-    table.sort(managedBars, function(a, b)
-        if a.order ~= b.order then
-            return a.order < b.order
-        end
-
-        return a.key < b.key
-    end)
-
-    for _, entry in ipairs(managedBars) do
-        local bar = entry.bar
-
-        bar.frame:ClearAllPoints()
-        bar.frame:SetPoint(
-            normalizeAnchorPoint(barGroup.point),
-            UIParent,
-            "CENTER",
-            barGroup.x or 0,
-            (barGroup.y or 80) + barOffset * barDirection
-        )
-        updateAnchorPointMarker(bar.frame, barGroup.point)
-
-        barOffset = barOffset
-            + (entry.height or 24)
-            + (barGroup.spacing or 4)
-    end
-
-    for spellID, bar in pairs(self.bars) do
-        local settings =
-            self:GetAbilitySettings(spellID)
-
-        if settings
-            and settings.bar
-            and settings.bar.unattached
-        then
-            local position =
-                self:GetBarPosition(spellID)
-
-            bar.frame:ClearAllPoints()
-            bar.frame:SetPoint(
-                normalizeAnchorPoint(position.point),
-                UIParent,
-                "CENTER",
-                position.x or 0,
-                position.y or 220
-            )
-            updateAnchorPointMarker(
-                bar.frame,
-                position.point
-            )
+    for key, entry in pairs(self.managedBars or {}) do
+        if entry.bar then
+            local displayKey = "managed:" .. key
+            displays:Register(self.moduleName, displayKey, {
+                category = "bar", label = entry.label or key, bossKey = entry.bossKey,
+                path = "displayPositions." .. displayKey,
+                order = 1000000 + (entry.order or 100),
+                getHeight = function() return entry.height or 24 end
+            })
+            displays:Place(self, displayKey, entry.bar.frame)
         end
     end
-
-    local attachedTexts =
-        sortedAttachedSpellIDs(
-            self.textAlerts,
-            "text"
-        )
-
-    local textDirection =
-        textGroup.growth == "UP" and 1 or -1
-
-    local textOffset = 0
-
-    for _, spellID in ipairs(attachedTexts) do
-        local alert = self.textAlerts[spellID]
-
-        alert.frame:ClearAllPoints()
-        alert.frame:SetPoint(
-            normalizeAnchorPoint(textGroup.point),
-            UIParent,
-            "CENTER",
-            textGroup.x or 0,
-            (textGroup.y or 20)
-                + textOffset * textDirection
-        )
-        updateAnchorPointMarker(
-            alert.frame,
-            textGroup.point
-        )
-
-        local appearance =
-            self:GetTextAppearance(spellID)
-
-        local fontSize =
-            tonumber(
-                appearance
-                and appearance.font
-                and appearance.font.size
-            ) or 34
-
-        local rowHeight =
-            math.max(fontSize + 8, 24)
-
-        textOffset =
-            textOffset
-            + rowHeight
-            + (textGroup.spacing or 8)
-    end
-
-    for spellID, alert in pairs(self.textAlerts) do
-        local settings =
-            self:GetAbilitySettings(spellID)
-
-        if settings
-            and settings.text
-            and settings.text.unattached
-        then
-            local position =
-                self:GetTextPosition(spellID)
-
-            alert.frame:ClearAllPoints()
-            alert.frame:SetPoint(
-                normalizeAnchorPoint(position.point),
-                UIParent,
-                "CENTER",
-                position.x or 0,
-                position.y or 120
-            )
-            updateAnchorPointMarker(
-                alert.frame,
-                position.point
-            )
-        end
-    end
+    displays:EndUpdate()
 end
 
 function AbilityAlerts:SaveBarPosition(
@@ -3974,6 +3999,8 @@ function AbilityAlerts:SaveBarPosition(
             or 220
     }
 
+    local settings = self:GetAbilitySettings(spellID)
+    if settings and settings.bar then settings.bar.unattached = true end
     self:ApplyPositions()
 
     if self.positionChangedCallback then
@@ -4015,11 +4042,26 @@ function AbilityAlerts:SaveTextPosition(
             or nil
     }
 
+    local settings = self:GetAbilitySettings(spellID)
+    if settings and settings.text then settings.text.unattached = true end
     self:ApplyPositions()
 
     if self.positionChangedCallback then
         self.positionChangedCallback("text", spellID)
     end
+end
+
+function AbilityAlerts:ResetDisplayPositions()
+    self:MigrateAbilitySettingsStorage()
+    self.db.barPositions, self.db.textPositions = {}, {}
+    for spellID in pairs(self.abilitiesBySpellID or {}) do
+        local settings = self:GetAbilitySettings(spellID)
+        if settings then
+            if settings.bar then settings.bar.unattached = false end
+            if settings.text then settings.text.unattached = false end
+        end
+    end
+    self:ApplyPositions()
 end
 
 function AbilityAlerts:EnsurePreviewFrames(spellID)
@@ -4153,7 +4195,6 @@ function AbilityAlerts:SetEditMode(enabled, bossKey, spellID)
             and settings
             and settings.bar
             and settings.bar.enabled
-            and settings.bar.unattached == true
 
         if self.editMode and shouldShow then
             bar:SetMode("label")
@@ -4194,7 +4235,6 @@ function AbilityAlerts:SetEditMode(enabled, bossKey, spellID)
             and settings
             and settings.text
             and settings.text.enabled
-            and settings.text.unattached == true
 
         if self.editMode and shouldShow then
             alert:SetText(

@@ -133,17 +133,11 @@ local function buildRavenousFeastSoakCircleBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
-    y = full(y, track(T:Checkbox(rightPanel, {
-        text = L["BossMods_RFSCPreview"],
-        get = function()
-            return mod.previewMode and true or false
-        end,
-        onChange = function(_, value)
-            mod:SetPreviewMode(value)
-            tracker.refresh()
-        end,
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
         disabled = isDisabled
-    })))
+    }))
 
     y = section(y, L["BossMods_RFSCTextAppearance"])
 

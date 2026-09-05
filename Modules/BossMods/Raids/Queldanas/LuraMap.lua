@@ -695,6 +695,80 @@ local function buildReadySpec(mod)
     }
 end
 
+function LuraMap:CreateAnchorPreview(kind)
+    kind = kind or "intermission"
+    local owner = self
+    local frame = CreateFrame("Frame", nil, UIParent)
+    frame:SetFrameStrata("DIALOG")
+    frame:EnableMouse(false)
+    frame:Hide()
+
+    local function previewSpec()
+        local spec = buildSpec(owner)
+        spec.parent = frame
+        if kind == "intermission" then
+            spec.anchors.main = nil
+            spec.layouts.main = nil
+            spec.layouts.mainAlt = nil
+        elseif kind == "main" then
+            spec.anchors.intermission = nil
+            spec.layouts.intermission = nil
+        end
+        for _, layout in pairs(spec.layouts) do
+            layout.noteBlock = nil
+            layout.fillEmptyNodes = true
+        end
+        return spec
+    end
+
+    local map = E:GetModule("BossMods").Engines.RaidMap(previewSpec())
+    for _, anchor in pairs(map.anchors) do
+        anchor:SetPoint("CENTER", frame, "CENTER")
+        anchor:SetFrameStrata("DIALOG")
+        anchor:EnableMouse(false)
+    end
+    local handle = {frame = frame}
+    function handle:Refresh()
+        map:HideAll()
+        map:Apply(previewSpec())
+        local selected = kind
+        if selected == "module" then
+            selected = owner.db.anchors.main.enabled ~= false and "main"
+                or owner.db.anchors.intermission.enabled ~= false and "intermission"
+                or nil
+        end
+        local anchor = selected and map.anchors[selected]
+        self.positionKey = selected
+        if not anchor then
+            frame:SetSize(1, 1)
+            return
+        end
+        local layout = selected == "main" and editP2Layout(owner.db) or selected
+        map:Show(layout, {editMode = true})
+        frame:SetSize(anchor:GetWidth() * anchor:GetScale(),
+            anchor:GetHeight() * anchor:GetScale())
+        if not self.shown then map:HideAll() end
+    end
+    function handle:Show()
+        self.shown = true
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        self.shown = false
+        map:HideAll()
+        frame:Hide()
+    end
+    function handle:Release()
+        self:Hide()
+        map:Release()
+        frame:ClearAllPoints()
+        frame:SetParent(nil)
+    end
+    handle:Refresh()
+    return handle
+end
+
 function LuraMap:EnsureMap()
     if self.map then
         return
@@ -774,7 +848,7 @@ function LuraMap:ApplyPositions()
     for key, anchor in pairs(self.map.anchors) do
         local pos = self.db.anchors[key] and self.db.anchors[key].position
         if pos then
-            E:ApplyFramePosition(anchor, pos)
+            E:GetModule("BossMods").DisplayTemplates:Place(self, key, anchor)
         end
     end
 end

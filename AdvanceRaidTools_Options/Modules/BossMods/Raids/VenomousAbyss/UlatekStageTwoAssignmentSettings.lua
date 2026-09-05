@@ -89,11 +89,11 @@ local function build(rightPanel, mod, isDisabled)
         onEditModeChanged = function(value) mod:SetEditMode(value) end
     })
     y = unlockY
-    y = full(y, track(T:Button(rightPanel, {
-        text = "Preview assignment and arrow",
-        onClick = function() mod:Preview() end,
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
         disabled = isDisabled
-    })))
+    }))
 
     y = full(y, track(T:Header(rightPanel, {text = "Active difficulties"})))
     y = row(y, {

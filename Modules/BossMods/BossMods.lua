@@ -53,7 +53,9 @@ function BossMods:RegisterRaidTab(key, opts)
 
     raidTabs:Register(key, {
         labelKey = opts.labelKey or key,
-        order = opts.order or 1000
+        order = opts.order or 1000,
+        hideFromInterface = opts.hideFromInterface,
+        settingsKey = opts.settingsKey
     })
 
     features:Resort()
@@ -127,7 +129,12 @@ function BossMods:GetSettingsBuilder(key)
 end
 
 function BossMods:GetTabs()
-    return raidTabs:All()
+    local _, _, _, interfaceVersion = GetBuildInfo()
+    interfaceVersion = tonumber(interfaceVersion)
+    return raidTabs:Filter(function(tab)
+        return not tab.hideFromInterface or not interfaceVersion
+            or interfaceVersion < tab.hideFromInterface
+    end)
 end
 
 function BossMods:GetFeaturesForTab(tab)
@@ -178,17 +185,25 @@ BossMods:RegisterRaidTab("Misc", {
 
 BossMods:RegisterRaidTab("General", {
     labelKey = "BossMods_General",
-    order = 15
+    order = 5
+})
+
+BossMods:RegisterRaidTab("RaidAnchors", {
+    labelKey = "BossMods_RaidAnchors",
+    order = 15,
+    settingsKey = "DisplayTemplates"
 })
 
 BossMods:RegisterRaidTab("Queldanas", {
     labelKey = "BossMods_Queldanas",
-    order = 20
+    order = 20,
+    hideFromInterface = 120100
 })
 
 BossMods:RegisterRaidTab("Voidspire", {
     labelKey = "BossMods_Season1",
-    order = 30
+    order = 30,
+    hideFromInterface = 120100
 })
 
 BossMods:RegisterRaidTab("Dreamrift", {
@@ -198,12 +213,8 @@ BossMods:RegisterRaidTab("Dreamrift", {
 
 BossMods:RegisterRaidTab("VenomousAbyss", {
     labelKey = "BossMods_VenomousAbyss",
-    order = 50
-})
-
-BossMods:RegisterRaidTab("AbyssCustom", {
-    labelKey = "BossMods_AbyssCustom",
-    order = 60
+    order = 50,
+    hideFromInterface = 120200
 })
 
 E:FlushModuleFeatureRegistrations("BossMods")

@@ -17,7 +17,7 @@ local function borderValues()
     return t
 end
 
-local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled, options)
+local function buildReadyAssignmentsBody(rightPanel, mod, isDisabled, requestLayout, options)
     options = options or {}
     local widthPx = rightPanel:GetWidth() or 0
     if widthPx <= 0 then

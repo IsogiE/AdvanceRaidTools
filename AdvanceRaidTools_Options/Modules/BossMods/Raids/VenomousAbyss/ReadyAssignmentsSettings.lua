@@ -8,8 +8,8 @@ if BossMods and BossMods.RegisterBossSettingsBuilder then
     if builder then
         BossMods:RegisterBossSettingsBuilder(
             "VenomousAbyssNekzali",
-            function(rightPanel, mod, isDisabled)
-                return builder(rightPanel, mod, isDisabled, {
+            function(rightPanel, mod, isDisabled, requestLayout)
+                return builder(rightPanel, mod, isDisabled, requestLayout, {
                     hideUnlockFrame = true
                 })
             end

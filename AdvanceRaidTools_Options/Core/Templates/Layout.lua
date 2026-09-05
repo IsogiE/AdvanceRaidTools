@@ -26,6 +26,50 @@ local setTemplate = P.setTemplate
 --   release()      -- Hide + unparent every tracked widget and wipes the
 --                     bookkeeping. Call from the builder's Release().
 -- =============================================================================
+function T:PreviewToggle(parent, opts)
+    local displays = E:GetModule("BossMods").DisplayTemplates
+    local mod, bossKey = opts.module, opts.bossKey
+    local button
+    local function disabled()
+        return InCombatLockdown() or evalMaybeFn(opts.disabled)
+    end
+    button = self:Button(parent, {
+        text = L["Preview"], width = 160,
+        tooltip = L["BossMods_ModulePreviewTooltip"],
+        disabled = disabled,
+        onClick = function()
+            displays:SetModulePreview(mod, not displays:IsModulePreviewing(mod, bossKey), bossKey)
+        end
+    })
+    local refresh = button.Refresh
+    button.Refresh = function()
+        if disabled() and displays:IsModulePreviewing(mod, bossKey) then
+            displays:SetModulePreview(mod, false, bossKey)
+        end
+        refresh()
+        button.SetLabel(displays:IsModulePreviewing(mod, bossKey) and L["HidePreview"] or L["Preview"])
+    end
+    local callbacks = E:NewCallbackHandle()
+    local function changed()
+        button.Refresh()
+        if opts.onChanged then opts.onChanged() end
+    end
+    local function listen()
+        callbacks:RegisterMessage("ART_DISPLAY_PREVIEW_CHANGED", changed)
+        callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", changed)
+        changed()
+    end
+    button.frame:HookScript("OnShow", listen)
+    button.frame:HookScript("OnHide", function()
+        callbacks:UnregisterAllEvents()
+        callbacks:UnregisterAllMessages()
+        displays:SetModulePreview(mod, false, bossKey)
+    end)
+    if button.frame:IsShown() then listen() end
+    if opts.tracker then opts.tracker.track(button) end
+    return button
+end
+
 function T:MakeTracker()
     local widgets = {}
     return {
@@ -490,6 +534,29 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
     assert(type(opts.getPosition) == "function", "PositionSection: getPosition required")
     assert(type(opts.setPosition) == "function", "PositionSection: setPosition required")
 
+    local originalGet, originalSet = opts.getPosition, opts.setPosition
+    local function displayEntry()
+        local anchor = evalMaybeFn(opts.anchor)
+        return anchor and anchor.artDisplayEntry
+    end
+    local function displays()
+        local bossMods = E:GetModule("BossMods", true)
+        return bossMods and bossMods.DisplayTemplates
+    end
+    opts.getPosition = function()
+        local entry = displayEntry()
+        return entry and displays():GetPosition(entry) or originalGet()
+    end
+    opts.setPosition = function(position)
+        local entry = displayEntry()
+        if entry then
+            displays():SetPosition(entry, position)
+            E:SendMessage("ART_DISPLAY_POSITION_CHANGED")
+        else
+            originalSet(position)
+        end
+    end
+
     local own = {}
     local outerTracker = opts.tracker
     local function trackOwn(w)
@@ -619,7 +686,9 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
     end
 
     resetBtn = trackOwn(T:LabelAlignedButton(parent, {
-        text = (L["Reset"] .. " " .. L["Position"]) or "Reset Position",
+        text = L["ResetPosition"],
+        confirm = opts.resetConfirm,
+        confirmTitle = opts.resetConfirmTitle,
         onClick = function()
             if opts.resetPosition then
                 opts.resetPosition()

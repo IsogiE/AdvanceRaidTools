@@ -131,6 +131,11 @@ local function buildLurakickBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     local enableBorder = checkbox({
         text = (L["Enable"] .. " " .. L["Border"]),

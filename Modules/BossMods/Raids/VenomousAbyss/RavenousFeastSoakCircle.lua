@@ -117,6 +117,7 @@ end
 function RavenousFeastSoakCircle:ApplyAppearance()
     self:EnsureDefaults()
     self:EnsureFrame()
+    BossMods.DisplayTemplates:Place(self, "position", self.frame)
 
     E:ApplyFontString(
         self.label,
@@ -362,7 +363,7 @@ function RavenousFeastSoakCircle:OnDisable()
 end
 
 E:RegisterBossModFeature("RavenousFeastSoakCircle", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 80,
     bossKey = "TwinFangs",
     bossLabelKey = "BossMods_TwinFangs",

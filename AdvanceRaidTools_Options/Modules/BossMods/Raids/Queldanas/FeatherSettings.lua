@@ -111,6 +111,11 @@ local function buildFeatherBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     -- Enables (bundled near the top)
     local enableBorder = checkbox({

@@ -125,6 +125,11 @@ local function buildSszorakMarkersBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     y = section(y, "BossMods_SMButtonsSection")
 

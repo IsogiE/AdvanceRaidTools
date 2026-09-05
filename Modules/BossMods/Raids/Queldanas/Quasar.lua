@@ -92,6 +92,31 @@ local function buildBarConfig(mod)
     }
 end
 
+function Quasar:CreateAnchorPreview()
+    local owner = self
+    local bar = E:GetModule("BossMods").Engines.Bar(buildBarConfig(self))
+    local handle = {frame = bar.frame}
+    function handle:Refresh()
+        bar:Apply(buildBarConfig(owner))
+        bar:SetLabel(L["BossMods_DQBarLabel"])
+        bar:SetMode("label")
+        bar:SetColor(unpack(owner.db.bar.dangerColor))
+        bar:SetRight("2.5")
+        bar:SetValue(0.5)
+        bar:SetMarker((NORMAL_TOTAL - NORMAL_SAFE) / NORMAL_TOTAL)
+    end
+    function handle:Show()
+        self:Refresh()
+        bar:Show()
+    end
+    function handle:Hide()
+        bar:Hide()
+    end
+    handle:Refresh()
+    bar:Hide()
+    return handle
+end
+
 function Quasar:EnsureBar()
     if self.bar then
         return
@@ -156,7 +181,7 @@ end
 function Quasar:ApplyPosition()
     local pos = self.db.position
     local f = self.bar.frame
-    E:ApplyFramePosition(f, pos)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", f)
 end
 
 function Quasar:Refresh()

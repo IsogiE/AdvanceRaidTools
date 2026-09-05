@@ -138,6 +138,11 @@ local function buildTimelineSequenceBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     y = full(y, track(T:Checkbox(rightPanel, {
         text = L["BossMods_TimelineSequenceTextOnly"],

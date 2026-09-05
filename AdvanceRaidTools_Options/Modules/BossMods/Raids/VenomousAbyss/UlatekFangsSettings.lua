@@ -58,6 +58,11 @@ local function buildUlatekFangsBody(rightPanel, mod, isDisabled)
         end
     })
     y = unlockY
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     local displayWidth = slider({
         label = L["Width"],

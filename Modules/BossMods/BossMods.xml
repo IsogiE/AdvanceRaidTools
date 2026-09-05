@@ -12,6 +12,9 @@
     <Script file="Core\Engines\AssignmentList.lua"/>
     <Script file="Core\Engines\TextAlert.lua"/>
     <Script file="AbilityAlertDefaults.lua"/>
+    <Script file="Core\DisplayTemplates.lua"/>
+    <Script file="Core\DisplayTemplatePreviews.lua"/>
+    <Script file="Core\DisplayTemplateBindings.lua"/>
     <Script file="Core\Engines\RaidMap.lua"/>
     <Script file="Core\BigWigs.lua"/>
     <Script file="Core\Alerts.lua"/>

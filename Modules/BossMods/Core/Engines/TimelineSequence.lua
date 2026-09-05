@@ -268,7 +268,11 @@ function Engines.TimelineSequence(config)
         state.anchor:SetSize(db.width, totalHeight)
         state.anchor:SetScale(db.scale)
         state.anchor:SetAlpha(db.opacity)
-        E:ApplyFramePosition(state.anchor, db.position)
+        if config.owner then
+            BossMods.DisplayTemplates:Place(config.owner, "position", state.anchor)
+        else
+            E:ApplyFramePosition(state.anchor, db.position)
+        end
 
         local offset = 0
         for _, entry in ipairs(state.bars) do
@@ -504,11 +508,16 @@ function BossMods:RegisterTimelineSequenceFeature(definition)
 
     local module = E:NewModule(definition.moduleName, "AceEvent-3.0")
     module.definition = definition
+    BossMods.DisplayTemplates:Register(definition.moduleName, "position", {
+        category = "bar", label = L[definition.labelKey or definition.featureKey],
+        defaultPosition = copyPosition(definition.position)
+    })
 
     function module:EnsureDisplay()
         if not self.display then
             self.display = Engines.TimelineSequence({
                 parent = UIParent,
+                owner = self,
                 definition = self.definition,
                 getSettings = function()
                     return self.db
@@ -734,7 +743,7 @@ function BossMods:RegisterTimelineSequenceFeature(definition)
     end
 
     E:RegisterBossModFeature(definition.featureKey, {
-        tab = definition.tab or "AbyssCustom",
+        tab = definition.tab or "General",
         order = definition.order or 100,
         bossKey = definition.bossKey,
         bossLabelKey = definition.bossLabelKey,

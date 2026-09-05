@@ -64,6 +64,38 @@ local function buildListConfig(mod)
     }
 end
 
+function Lurakick:CreateAnchorPreview()
+    local owner = self
+    local list = E:GetModule("BossMods").Engines.AssignmentList(buildListConfig(self))
+    local handle = {frame = list.frame}
+    function handle:Refresh()
+        list:Apply(buildListConfig(owner))
+        list.frame:SetWidth(owner.db.size.w)
+        list:SetTitle(L["BossMods_LKKickOrder"])
+        local rows = {}
+        for index = 1, 3 do
+            rows[index] = {
+                text = L["BossMods_LKPlaceholder"]:format(index),
+                state = index == 1 and "active" or "upcoming"
+            }
+        end
+        list:SetRows(rows)
+        list:SetHighlight(false)
+    end
+    function handle:Show()
+        self:Refresh()
+        list:Show()
+        list.frame:Show()
+    end
+    function handle:Hide()
+        list:Hide()
+        list.frame:Hide()
+    end
+    handle:Refresh()
+    handle:Hide()
+    return handle
+end
+
 function Lurakick:EnsureList()
     if self.list then
         return
@@ -152,7 +184,7 @@ end
 function Lurakick:ApplyPosition()
     local pos = self.db.position
     local f = self.list.frame
-    E:ApplyFramePosition(f, pos)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", f)
 end
 
 function Lurakick:SavePosition(pos)

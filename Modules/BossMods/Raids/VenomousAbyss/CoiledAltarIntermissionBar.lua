@@ -204,17 +204,10 @@ function Mod:ShareLayoutToChat()
     )
 end
 
-function Mod:EnsureFrame()
-    if self.frame then
-        return true
-    end
-    if InCombatLockdown() then
-        return false
-    end
-
+local function createIntermissionDisplay(name)
     local anchor = CreateFrame(
         "Frame",
-        "ART_CoiledAltarIntermissionBar",
+        name,
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
@@ -248,57 +241,41 @@ function Mod:EnsureFrame()
         markers[index] = {line = line, text = text}
     end
 
-    anchor:SetScript("OnUpdate", function()
-        self:UpdateDisplay()
-    end)
-
-    self.frame = anchor
-    self.bar = bar
-    self.label = label
-    self.countdown = countdown
-    self.markerFrames = markers
-    self:ApplySettings()
-    return true
+    return {frame = anchor, bar = bar, label = label, countdown = countdown, markerFrames = markers}
 end
 
-function Mod:ApplySettings()
-    if not self.frame then
-        return
-    end
-    self:EnsureDefaults()
-    local db = self.db
+local function applyIntermissionAppearance(display, db)
     local width = db.width
     local height = db.height
 
-    self.frame:SetSize(width, height)
-    self.frame:SetScale(db.scale)
-    self.frame:SetAlpha(db.opacity)
-    E:ApplyFramePosition(self.frame, db.position)
+    display.frame:SetSize(width, height)
+    display.frame:SetScale(db.scale)
+    display.frame:SetAlpha(db.opacity)
 
     local r, g, b, a = E:ColorTuple(db.color, 1, 1, 1, 1)
-    self.bar:SetStatusBarTexture(E:FetchStatusBar(db.texture))
-    self.bar:SetStatusBarColor(r, g, b, a)
+    display.bar:SetStatusBarTexture(E:FetchStatusBar(db.texture))
+    display.bar:SetStatusBarColor(r, g, b, a)
     local br, bg, bb, ba = E:ColorTuple(db.backgroundColor, 0, 0, 0, 0.72)
-    self.bar:SetBackdropColor(br, bg, bb, ba)
+    display.bar:SetBackdropColor(br, bg, bb, ba)
 
     local font = E:FetchFont(db.font.name)
-    E:ApplyFontString(self.label, font, db.font.size, db.font.outline)
-    E:ApplyFontString(self.countdown, font, db.font.size, db.font.outline)
+    E:ApplyFontString(display.label, font, db.font.size, db.font.outline)
+    E:ApplyFontString(display.countdown, font, db.font.size, db.font.outline)
     local fr, fg, fb, fa = E:ColorTuple(db.font.color, 1, 1, 1, 1)
-    self.label:SetTextColor(fr, fg, fb, fa)
-    self.countdown:SetTextColor(fr, fg, fb, fa)
+    display.label:SetTextColor(fr, fg, fb, fa)
+    display.countdown:SetTextColor(fr, fg, fb, fa)
 
     local markerFont = E:FetchFont(db.markerFont.name)
     local mr, mg, mb, ma = E:ColorTuple(db.markerColor, 1, 0.82, 0.1, 1)
     local tr, tg, tb, ta = E:ColorTuple(db.markerFont.color, 1, 1, 1, 1)
     for index, markerData in ipairs(db.markers) do
-        local marker = self.markerFrames[index]
+        local marker = display.markerFrames[index]
         local remainingAtMarker = DURATION - markerData.time
         local x = width * remainingAtMarker / DURATION
         x = math.max(db.markerWidth / 2, math.min(width - db.markerWidth / 2, x))
 
         marker.line:ClearAllPoints()
-        marker.line:SetPoint("CENTER", self.bar, "LEFT", x, 0)
+        marker.line:SetPoint("CENTER", display.bar, "LEFT", x, 0)
         marker.line:SetSize(db.markerWidth, height)
         marker.line:SetVertexColor(mr, mg, mb, ma)
 
@@ -312,6 +289,23 @@ function Mod:ApplySettings()
             marker.text:SetPoint("BOTTOM", marker.line, "TOP", 0, db.markerTextOffset)
         end
     end
+end
+
+function Mod:EnsureFrame()
+    if self.frame then return true end
+    if InCombatLockdown() then return false end
+    local display = createIntermissionDisplay("ART_CoiledAltarIntermissionBar")
+    for key, value in pairs(display) do self[key] = value end
+    self.frame:SetScript("OnUpdate", function() self:UpdateDisplay() end)
+    self:ApplySettings()
+    return true
+end
+
+function Mod:ApplySettings()
+    if not self.frame then return end
+    self:EnsureDefaults()
+    applyIntermissionAppearance(self, self.db)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", self.frame)
 end
 
 function Mod:UpdateDisplay()
@@ -340,6 +334,27 @@ function Mod:UpdateDisplay()
     self.bar:SetValue(remaining)
     self.countdown:SetText(remaining < 10 and ("%.1f"):format(remaining) or tostring(math.ceil(remaining)))
     self.frame:Show()
+end
+
+function Mod:CreateAnchorPreview()
+    local owner = self
+    local preview = createIntermissionDisplay()
+    local handle = {frame = preview.frame}
+    function handle:Refresh()
+        applyIntermissionAppearance(preview, normalizeLayout(owner.db))
+    end
+    function handle:Show()
+        preview.previewStartedAt = GetTime()
+        self:Refresh()
+        Mod.UpdateDisplay(preview)
+    end
+    function handle:Hide()
+        preview.previewStartedAt = nil
+        preview.frame:Hide()
+    end
+    preview.frame:SetScript("OnUpdate", function() Mod.UpdateDisplay(preview) end)
+    handle:Refresh()
+    return handle
 end
 
 function Mod:StartIntermissionBar(startedAt)
@@ -553,7 +568,7 @@ function Mod:OnDisable()
 end
 
 E:RegisterBossModFeature("CoiledAltarIntermissionBar", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 86,
     bossKey = "CoiledAltar",
     bossLabelKey = "BossMods_CoiledAltar",

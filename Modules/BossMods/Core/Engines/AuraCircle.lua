@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 
 local BossMods = E:GetModule("BossMods")
 local Engines = BossMods.Engines
@@ -551,7 +551,11 @@ function Engines.AuraCircle(config)
         local db = settings()
         state.anchor:SetSize(db.size, db.size)
         state.anchor:SetAlpha(db.opacity)
-        E:ApplyFramePosition(state.anchor, db.position)
+        if config.owner then
+            BossMods.DisplayTemplates:Place(config.owner, "position", state.anchor)
+        else
+            E:ApplyFramePosition(state.anchor, db.position)
+        end
         applyVisual(state.previewFrame, state.previewVisual)
         updateContainerLayout()
         applyAuraVisuals()
@@ -630,6 +634,10 @@ function BossMods:RegisterAuraCircleFeature(definition)
 
     local module = E:NewModule(definition.moduleName, "AceEvent-3.0")
     module.definition = definition
+    BossMods.DisplayTemplates:Register(definition.moduleName, "position", {
+        category = "indicator", label = L[definition.labelKey or definition.featureKey],
+        defaultPosition = copyPosition(definition.position)
+    })
 
     function module:EnsureDefaults()
         if not self.display then
@@ -642,6 +650,7 @@ function BossMods:RegisterAuraCircleFeature(definition)
         if not self.display then
             self.display = Engines.AuraCircle({
                 parent = UIParent,
+                owner = self,
                 definition = self.definition,
                 getSettings = function()
                     return self.db
@@ -834,7 +843,7 @@ function BossMods:RegisterAuraCircleFeature(definition)
     end
 
     E:RegisterBossModFeature(definition.featureKey, {
-        tab = definition.tab or "AbyssCustom",
+        tab = definition.tab or "General",
         order = definition.order or 100,
         bossKey = definition.bossKey,
         bossLabelKey = definition.bossLabelKey,

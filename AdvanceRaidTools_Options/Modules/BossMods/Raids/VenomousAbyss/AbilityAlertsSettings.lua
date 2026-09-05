@@ -778,35 +778,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         y = full(y, assignmentFiltering)
     end
 
-    local testAllAlerts = button({
-        text = L["BossMods_AAOptions_TestAllAlerts"],
-
-        tooltip = L["BossMods_AAOptions_TestAllAlertsTooltip"],
-
-        onClick = function()
-            for _, ability in ipairs(bossData.abilities or {}) do
-                local spellID = tonumber(ability.spellID)
-                local settings =
-                    spellID and not ability.hideInAbilityAlerts
-                    and ensureAbilitySettings(
-                        abilityMod,
-                        spellID
-                    )
-
-                if settings then
-                    abilityMod:TestAbility(spellID)
-                end
-            end
-
-            abilityMod:TestEncounterBars(bossKey)
-        end,
-
-        disabled = function()
-            return isDisabled()
-        end
-    })
-
-    y = full(y, testAllAlerts)
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = abilityMod,
+        bossKey = bossKey,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     if bossKey == "CoiledAltar" then
         if abilityMod and abilityMod.db then
@@ -1136,22 +1113,20 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             })
         })
 
-        local hasUnattachedFrame =
+        local hasDisplayFrame =
             (
                 (
                     settings.bar
                     and settings.bar.enabled
-                    and settings.bar.unattached == true
                 )
                 or
                 (
                     settings.text
                     and settings.text.enabled
-                    and settings.text.unattached == true
                 )
             )
 
-        if hasUnattachedFrame then
+        if hasDisplayFrame then
             local unlockY
 
             unlockY, unlockCtrl =
@@ -1285,27 +1260,6 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             })
 
             y = full(y, barFillColor)
-
-            local unattachBar = rebuildCheckbox({
-                text = L["BossMods_AAOptions_UnattachBar"],
-                labelTop = true,
-
-                get = function()
-                    return settings.bar.unattached == true
-                end,
-
-                onChange = function(value)
-                    settings.bar.unattached = value
-                    abilityMod:ApplyPositions()
-                end,
-
-                disabled = function()
-                    return isDisabled()
-                        or not settings.enabled
-                end
-            })
-
-            y = full(y, unattachBar)
 
             if settings.bar.unattached then
                 y = T:XYOffsetControls(rightPanel, y, widthPx, {
@@ -1932,27 +1886,6 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         y = full(y, enableText)
 
         if settings.text.enabled then
-            local unattachText = rebuildCheckbox({
-                text = L["BossMods_AAOptions_UnattachText"],
-                labelTop = true,
-
-                get = function()
-                    return settings.text.unattached == true
-                end,
-
-                onChange = function(value)
-                    settings.text.unattached = value
-                    abilityMod:ApplyPositions()
-                end,
-
-                disabled = function()
-                    return isDisabled()
-                        or not settings.enabled
-                end
-            })
-
-            y = full(y, unattachText)
-
             if settings.text.unattached then
                 y = T:XYOffsetControls(rightPanel, y, widthPx, {
                     tracker = tracker,

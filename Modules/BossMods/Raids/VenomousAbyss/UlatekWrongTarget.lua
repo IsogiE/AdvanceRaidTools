@@ -48,14 +48,10 @@ local function currentLocationIsSupported()
     return mapID == INSTANCE_ID
 end
 
-function UlatekWrongTarget:EnsureFrame()
-    if self.frame then
-        return true
-    end
-
+local function createWarningFrame(name)
     local frame = CreateFrame(
         "Frame",
-        "ART_UlatekWrongTarget",
+        name,
         UIParent,
         "DisableUntrustedLayoutScriptsTemplate"
     )
@@ -69,33 +65,56 @@ function UlatekWrongTarget:EnsureFrame()
     text:SetJustifyH("CENTER")
     text:SetJustifyV("MIDDLE")
 
-    self.frame = frame
-    self.text = text
+    return frame, text
+end
+
+local function applyWarningAppearance(frame, text, db)
+    local width = math.max(260, tonumber(db.width) or 760)
+    local height = math.max(40, tonumber(db.height) or 90)
+    local fontSize = math.max(12, tonumber(db.fontSize) or 48)
+
+    frame:SetSize(width, height)
+    frame:SetScale(tonumber(db.scale) or 1)
+    frame:SetAlpha(tonumber(db.opacity) or 1)
+
+    text:SetFont(
+        E:FetchModuleFont() or [[Fonts\FRIZQT__.TTF]],
+        fontSize,
+        "THICKOUTLINE"
+    )
+    text:SetText(L["BossMods_UlatekWrongTargetText"])
+    text:SetTextColor(1, 0, 0, 1)
+end
+
+function UlatekWrongTarget:EnsureFrame()
+    if self.frame then return true end
+    self.frame, self.text = createWarningFrame("ART_UlatekWrongTarget")
     self:ApplySettings()
     return true
 end
 
 function UlatekWrongTarget:ApplySettings()
-    if not self.frame then
-        return
+    if not self.frame then return end
+    applyWarningAppearance(self.frame, self.text, self.db)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "position", self.frame)
+end
+
+function UlatekWrongTarget:CreateAnchorPreview()
+    local owner = self
+    local frame, text = createWarningFrame()
+    local handle = {frame = frame}
+    function handle:Refresh()
+        applyWarningAppearance(frame, text, owner.db)
     end
-
-    local width = math.max(260, tonumber(self.db.width) or 760)
-    local height = math.max(40, tonumber(self.db.height) or 90)
-    local fontSize = math.max(12, tonumber(self.db.fontSize) or 48)
-
-    self.frame:SetSize(width, height)
-    self.frame:SetScale(tonumber(self.db.scale) or 1)
-    self.frame:SetAlpha(tonumber(self.db.opacity) or 1)
-    E:ApplyFramePosition(self.frame, self.db.position)
-
-    self.text:SetFont(
-        E:FetchModuleFont() or [[Fonts\FRIZQT__.TTF]],
-        fontSize,
-        "THICKOUTLINE"
-    )
-    self.text:SetText(L["BossMods_UlatekWrongTargetText"])
-    self.text:SetTextColor(1, 0, 0, 1)
+    function handle:Show()
+        self:Refresh()
+        frame:Show()
+    end
+    function handle:Hide()
+        frame:Hide()
+    end
+    handle:Refresh()
+    return handle
 end
 
 function UlatekWrongTarget:IsHeartActive()
@@ -349,7 +368,7 @@ function UlatekWrongTarget:OnDisable()
 end
 
 E:RegisterBossModFeature("UlatekWrongTarget", {
-    tab = "AbyssCustom",
+    tab = "VenomousAbyss",
     order = 66,
     bossKey = "Ulatek",
     bossLabelKey = "BossMods_Ulatek",

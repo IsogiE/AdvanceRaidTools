@@ -71,11 +71,6 @@ local function build(rightPanel, mod, isDisabled)
             disabled = isDisabled
         }))
     end
-    local function button(text, onClick)
-        return track(T:Button(rightPanel, {
-            text = text, onClick = onClick, disabled = isDisabled
-        }))
-    end
     local function fontSection(y, title, data)
         y = full(y, track(T:Header(rightPanel, {text = title})))
         y = row(y, {
@@ -110,10 +105,11 @@ local function build(rightPanel, mod, isDisabled)
         onEditModeChanged = function(value) mod:SetEditMode(value) end
     })
     y = unlockY
-    y = row(y, {
-        button("Preview 34 seconds", function() mod:Preview() end),
-        button("Stop preview", function() mod:StopPreview() end)
-    })
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     y = full(y, track(T:Header(rightPanel, {text = "Bar appearance"})))
     y = row(y, {

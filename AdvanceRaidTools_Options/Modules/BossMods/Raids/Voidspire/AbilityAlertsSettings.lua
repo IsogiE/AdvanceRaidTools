@@ -696,33 +696,12 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
 
     y = section(y, "Position")
 
-    local testAllAlerts = button({
-        text = "Test all alerts",
-
-        tooltip =
-            "Tests all enabled alerts for every ability on this boss at the same time.",
-
-        onClick = function()
-            for _, ability in ipairs(bossData.abilities or {}) do
-                local spellID = tonumber(ability.spellID)
-                local settings =
-                    spellID and ensureAbilitySettings(
-                        abilityMod,
-                        spellID
-                    )
-
-                if settings then
-                    abilityMod:TestAbility(spellID)
-                end
-            end
-        end,
-
-        disabled = function()
-            return isDisabled()
-        end
-    })
-
-    y = full(y, testAllAlerts)
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = abilityMod,
+        bossKey = bossKey,
+        tracker = tracker,
+        disabled = isDisabled
+    }))
 
     ---------------------------------------------------------------------------
     -- Abilities
@@ -774,22 +753,20 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             })
         })
 
-        local hasUnattachedFrame =
+        local hasDisplayFrame =
             (
                 (
                     settings.bar
                     and settings.bar.enabled
-                    and settings.bar.unattached == true
                 )
                 or
                 (
                     settings.text
                     and settings.text.enabled
-                    and settings.text.unattached == true
                 )
             )
 
-        if hasUnattachedFrame then
+        if hasDisplayFrame then
             local unlockY
 
             unlockY, unlockCtrl =
@@ -890,27 +867,6 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
             })
 
             y = full(y, barFillColor)
-
-            local unattachBar = rebuildCheckbox({
-                text = "Unattach from bar group anchor",
-                labelTop = true,
-
-                get = function()
-                    return settings.bar.unattached == true
-                end,
-
-                onChange = function(value)
-                    settings.bar.unattached = value
-                    abilityMod:ApplyPositions()
-                end,
-
-                disabled = function()
-                    return isDisabled()
-                        or not settings.enabled
-                end
-            })
-
-            y = full(y, unattachBar)
 
             if settings.bar.unattached then
                 y = T:XYOffsetControls(rightPanel, y, widthPx, {
@@ -1080,27 +1036,6 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         y = full(y, enableText)
 
         if settings.text.enabled then
-            local unattachText = rebuildCheckbox({
-                text = "Unattach from text group anchor",
-                labelTop = true,
-
-                get = function()
-                    return settings.text.unattached == true
-                end,
-
-                onChange = function(value)
-                    settings.text.unattached = value
-                    abilityMod:ApplyPositions()
-                end,
-
-                disabled = function()
-                    return isDisabled()
-                        or not settings.enabled
-                end
-            })
-
-            y = full(y, unattachText)
-
             if settings.text.unattached then
                 y = T:XYOffsetControls(rightPanel, y, widthPx, {
                     tracker = tracker,

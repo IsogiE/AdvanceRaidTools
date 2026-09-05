@@ -34,18 +34,11 @@ local function buildVashnikWaveCrossBody(rightPanel, mod, isDisabled)
         sizeDelta = 1
     })))
 
-    local preview = track(T:Checkbox(rightPanel, {
-        text = L["BossMods_VWCPreviewFrame"],
-        get = function()
-            return mod.previewMode and true or false
-        end,
-        onChange = function(_, value)
-            mod:SetPreviewMode(value)
-            tracker.refresh()
-        end,
+    y = full(y, T:PreviewToggle(rightPanel, {
+        module = mod,
+        tracker = tracker,
         disabled = isDisabled
     }))
-    y = full(y, preview)
 
     local displayTiming = track(T:Dropdown(rightPanel, {
         label = L["BossMods_VWCDisplayTiming"],
