@@ -1407,7 +1407,7 @@ L["BossMods_GlowProc"] = "Proc Glow"
 
 -- Updater
 L["Updater_Title"] = "New ART update available"
-L["Updater_Body"] = "Download now, or else :)"
+L["Updater_Body"] = "Reload now, or else :)"
 
 L["BossMods_DefaultAlertAppearance"] = "Default Alert Appearance"
 
