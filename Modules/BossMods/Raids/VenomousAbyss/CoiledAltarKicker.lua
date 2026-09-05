@@ -53,6 +53,7 @@ E:RegisterModuleDefaults("BossMods_CoiledAltarKicker", {
 
 local ENCOUNTER_ID = 3429
 local BIGWIGS_MODULE_NAME = "The Coiled Altar"
+local INTERMISSION_PHASE = 2.5
 local PHASE_THREE = 3
 local INTERRUPT_ADD_LEVEL = 92
 local LINE_COUNT = 2
@@ -1081,7 +1082,7 @@ function CoiledAltarKicker:OnBigWigsStage(module, stage)
     end
 
     self.currentPhase = phase
-    if not self.interruptActive then
+    if not self.interruptActive or phase == INTERMISSION_PHASE then
         return
     end
 
