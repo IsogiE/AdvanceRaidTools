@@ -482,48 +482,6 @@ local STRUCTURED_NOTE_RAID_MARKERS = {
     skull = 8
 }
 
-local STRUCTURED_NOTE_EVERYONE_TAGS = {
-    everyone = true,
-    all = true
-}
-
-local STRUCTURED_NOTE_ROLE_TAGS = {
-    tank = "TANK",
-    tanks = "TANK",
-    healer = "HEALER",
-    healers = "HEALER",
-    dps = "DAMAGER",
-    damager = "DAMAGER",
-    damagers = "DAMAGER"
-}
-
-local function getPlayerNoteRole()
-    local role = E.GetUnitRole and E:GetUnitRole("player") or nil
-    if not role and E.GetPlayerRole then
-        role = E:GetPlayerRole()
-    end
-    return role
-end
-
-local function structuredTagMatchesPlayer(tag)
-    tag = strlower(strtrim(E:StripColorCodes(tag or "")))
-    if tag == "" then
-        return false
-    end
-
-    local role = getPlayerNoteRole()
-    for token in tag:gmatch("[^,%s]+") do
-        if STRUCTURED_NOTE_EVERYONE_TAGS[token] then
-            return true
-        end
-        local wantedRole = STRUCTURED_NOTE_ROLE_TAGS[token]
-        if wantedRole and role == wantedRole then
-            return true
-        end
-    end
-    return false
-end
-
 local function parseStructuredNoteLine(line)
     if type(line) ~= "string" or not line:find("time:%d", 1, false) or not line:find("tag:", 1, true) or
         not (line:find("text:", 1, true) or line:find("spellid:", 1, true) or line:find("bossSpell:", 1, true)) then
@@ -661,17 +619,13 @@ local function buildPlayerNameAliases()
     return aliases
 end
 
-local function lineMentionsPlayer(line, aliases, fields)
+local function lineMentionsPlayer(line, aliases, fields, targets)
     if type(line) ~= "string" or line == "" then
         return false
     end
     fields = fields or parseStructuredNoteLine(line)
     if fields then
-        local tag = strtrim(E:StripColorCodes(fields.tag or ""))
-        if structuredTagMatchesPlayer(tag) then
-            return true
-        end
-        line = tag
+        return E.NoteTargets:MatchesPlayer(fields.tag, targets)
     end
 
     local plain = strlower(E:StripColorCodes(line))
@@ -776,7 +730,7 @@ local function formatStructuredNoteDisplay(text, display)
     return concat(out, "\n")
 end
 
-local function filterDisplayLines(text, display)
+local function filterDisplayLines(text, display, targets)
     if type(text) ~= "string" or text == "" then
         return text or ""
     end
@@ -800,7 +754,7 @@ local function filterDisplayLines(text, display)
         if display.hidePassedTimers and lineHasPassedTimer(line, encounterID, difficulty, fields) then
             hide = true
         end
-        if not hide and display.hideTimerLinesWithoutMe and lineHasTimer(line, fields) and not lineMentionsPlayer(line, playerAliases, fields) then
+        if not hide and display.hideTimerLinesWithoutMe and lineHasTimer(line, fields) and not lineMentionsPlayer(line, playerAliases, fields, targets) then
             hide = true
         end
         if not hide then
@@ -991,14 +945,14 @@ function Notes:ColorizeDisplayNames(text)
     return concat(out)
 end
 
-local function displayRenderKey(notes, display)
+local function displayRenderKey(notes, display, targets)
     local encounterStart = notes.encounterStartTime and string.format("%.3f", notes.encounterStartTime) or ""
-    local role = display and display.hideTimerLinesWithoutMe and (getPlayerNoteRole() or "") or ""
+    local targetKey = targets and E.NoteTargets:GetPlayerContextKey(targets) or ""
     return concat({
         notes.renderRevision or 0,
         notes.nicknameRevision or 0,
         notes.rosterRevision or 0,
-        role,
+        targetKey,
         notes.currentEncounterID or "",
         encounterStart,
         display and display.hidePassedTimers and 1 or 0,
@@ -1026,7 +980,8 @@ function Notes:ProcessDisplayText(slotIndex)
     end
 
     local display = slot.display or makeDefaultSlotDisplay()
-    local renderKey = displayRenderKey(self, display)
+    local targets = display.hideTimerLinesWithoutMe and E.NoteTargets:GetPlayerContext() or nil
+    local renderKey = displayRenderKey(self, display, targets)
     local usesTime = self:SlotUsesTime(slotIndex)
     local timeBucket = displayTimeBucket(self, usesTime)
     local cache = self.displayCache[slotIndex]
@@ -1054,7 +1009,7 @@ function Notes:ProcessDisplayText(slotIndex)
 
     local text = gsub(raw, "\r\n", "\n")
     text = stripRaidAssignmentMarkers(text)
-    text = filterDisplayLines(text, display)
+    text = filterDisplayLines(text, display, targets)
     text = formatStructuredNoteDisplay(text, display)
     text = self:RenderDisplayTimeTokens(text, display)
 
@@ -1300,7 +1255,7 @@ function Notes:MaybeWipeNoteOnGroupLeave(previousGroupState, groupState)
 end
 
 function Notes:OnExternalNoteAccessGroupChanged()
-    self:RefreshPlayerNoteRole()
+    self:RefreshPlayerNoteTargets()
 
     local previousGroupState = self._externalNoteAccessGroupState
     local previousExposed = self._externalNoteAccessExposed
@@ -1846,13 +1801,13 @@ function Notes:OnRosterChanged()
     end)
 end
 
-function Notes:RefreshPlayerNoteRole()
-    local role = getPlayerNoteRole() or ""
-    if self._playerNoteRole == role then
+function Notes:RefreshPlayerNoteTargets()
+    local targetKey = E.NoteTargets:GetPlayerContextKey()
+    if self._playerNoteTargetKey == targetKey then
         return false
     end
 
-    self._playerNoteRole = role
+    self._playerNoteTargetKey = targetKey
     wipe(self.displayCache)
     self:RefreshAllFrames()
     self:RefreshTimeTicker()
@@ -1863,7 +1818,7 @@ function Notes:OnPlayerSpecializationChanged(_, unit)
     if unit and unit ~= "player" then
         return
     end
-    self:RefreshPlayerNoteRole()
+    self:RefreshPlayerNoteTargets()
 end
 
 function Notes:OnCombatStateChanged()
@@ -2933,7 +2888,7 @@ function Notes:OnEnable()
 
     self:SyncReadOnlyDB()
     self:StoreExternalNoteAccessState()
-    self._playerNoteRole = getPlayerNoteRole() or ""
+    self._playerNoteTargetKey = E.NoteTargets:GetPlayerContextKey()
     self:Publish()
     self:BumpRenderRevision()
     self:RefreshAllFrames()
@@ -2962,7 +2917,7 @@ function Notes:OnDisable()
     wipe(self.displayCache)
     wipe(self.timerUsageCache)
     wipe(self.editVisibleSlots)
-    self._playerNoteRole = nil
+    self._playerNoteTargetKey = nil
     self.encounterStartTime = nil
     self:HideAllFrames()
     self:Unpublish()

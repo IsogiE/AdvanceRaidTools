@@ -28,6 +28,7 @@ Core\Database.lua
 Core\Modules.lua
 Core\PhaseTimers.lua
 Core\Roster.lua
+Core\NoteTargets.lua
 Core\Checker.lua
 Core\Slash.lua
 Core\Compartment.lua

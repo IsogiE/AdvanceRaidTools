@@ -128,36 +128,11 @@ function NoteBlock:Words(text)
 end
 
 function NoteBlock:GetPlayerIdentifiers()
-    local lname = (UnitName("player") or ""):lower()
-    local realmName = (GetRealmName() or ""):lower():gsub("%s+", "")
-    local full = lname .. "-" .. realmName
-    local nickname
-    if E.GetNickname then
-        local n = E:GetNickname("player")
-        if n and n ~= "" then
-            nickname = n:lower()
-        end
-    end
-    return {
-        name = lname,
-        full = full,
-        nickname = nickname
-    }
+    return E.NoteTargets:GetPlayerIdentifiers()
 end
 
 function NoteBlock:IsPlayerToken(token, ids)
-    if type(token) ~= "string" then
-        return false
-    end
-    local t = normalizedToken(token)
-    ids = ids or self:GetPlayerIdentifiers()
-    if t == ids.name or t == ids.full then
-        return true
-    end
-    if ids.nickname and t == ids.nickname then
-        return true
-    end
-    return false
+    return E.NoteTargets:IsPlayerToken(token, ids)
 end
 
 function NoteBlock:FindUnitByToken(token)

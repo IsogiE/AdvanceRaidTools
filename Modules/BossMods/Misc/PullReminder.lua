@@ -46,16 +46,16 @@ function Mod:ParseReminders(noteText)
     local reminders = {}
     noteText = E:SafeString(noteText)
     if not noteText then return reminders end
-    local identifiers = NoteBlock:GetPlayerIdentifiers()
+    local targets = E.NoteTargets:GetPlayerContext()
     for rawLine in noteText:gmatch("[^\r\n]+") do
         local line = E:StripColorCodes(rawLine)
-        local seconds, player, message = line:match(
+        local seconds, audience, message = line:match(
             "^%s*[Pp][Uu][Ll][Ll]%s*:%s*([%d%.]+)%s*:%s*([^:]-)%s*:%s*(.-)%s*$"
         )
         seconds = publicNumber(seconds)
-        player, message = trim(player), trim(message)
-        if seconds and seconds >= 0 and player ~= "" and message ~= ""
-            and NoteBlock:IsPlayerToken(player, identifiers)
+        audience, message = trim(audience), trim(message)
+        if seconds and seconds >= 0 and audience ~= "" and message ~= ""
+            and E.NoteTargets:MatchesPlayer(audience, targets)
         then
             reminders[#reminders + 1] = {
                 secondsRemaining = seconds,
@@ -298,7 +298,8 @@ end
 E:RegisterBossModNoteBlock("PullReminder", {
     blocks = {{
         tag = "Pull",
-        template = ("Pull:10:%s1:%s"):format(L["Player"], L["BossMods_PullReminderPreview"])
+        template = ("Pull:10:%s1:%s\nPull:10:everyone:Check your consumables\nPull:2:dps:Pre-pot")
+            :format(L["Player"], L["BossMods_PullReminderPreview"])
     }},
     moduleName = MODULE_NAME,
     tab = "Misc", order = 50,
