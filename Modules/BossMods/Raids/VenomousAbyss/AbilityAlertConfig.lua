@@ -809,6 +809,26 @@ local function testCoiledAltarNightfallBar(self)
     self:ApplyPositions()
 end
 
+local function startUlatekStageTwoAssignmentFromGate(self, duration)
+    if not self.ulatekEncounterActive
+        or self.ulatekBigWigsStage ~= 2
+    then
+        return
+    end
+
+    local targetDuration = math.max(0, (tonumber(duration) or 0) - 1)
+    if targetDuration <= 0 then return end
+
+    local ability = self:GetAbility(ULATEK_STAGE_TWO_ASSIGNMENT_ID)
+    local feature = E:GetModule(ULATEK_STAGE_TWO_FEATURE_MODULE, true)
+    local featureEnabled = bossMods
+        and bossMods:IsFeatureEnabled(ULATEK_STAGE_TWO_FEATURE_KEY)
+
+    if ability and featureEnabled and feature and feature:IsEnabled() then
+        self:StartAssignmentTextAlert(ability, targetDuration, false)
+    end
+end
+
 local function onVenomousAbyssBigWigsStartBar(
     self,
     spellID,
@@ -819,6 +839,20 @@ local function onVenomousAbyssBigWigsStartBar(
 )
     if tonumber(spellID) == COILED_ALTAR_NIGHTFALL_SPELL_ID then
         scheduleCoiledAltarNightfall(self, duration)
+        return
+    end
+
+    -- BigWigs uses the "stages" key for Gate open. During Ula'tek stage 2
+    -- this is the only short stages bar (4.1s from the timeline fallback or
+    -- 8.1s from the live targetability event). End the assignment countdown
+    -- when that bar has exactly one second remaining.
+    if self.ulatekEncounterActive
+        and self.ulatekBigWigsStage == 2
+        and spellKey == "stages"
+        and duration >= 3.5
+        and duration <= 9
+    then
+        startUlatekStageTwoAssignmentFromGate(self, duration)
         return
     end
 
@@ -1059,17 +1093,6 @@ local function onUlatekBigWigsStage(self, module, stage)
     end
 
     self.ulatekBigWigsStage = tonumber(stage)
-
-    if self.ulatekBigWigsStage == 2 then
-        local ability = self:GetAbility(ULATEK_STAGE_TWO_ASSIGNMENT_ID)
-        local feature = E:GetModule(ULATEK_STAGE_TWO_FEATURE_MODULE, true)
-        local featureEnabled = bossMods
-            and bossMods:IsFeatureEnabled(ULATEK_STAGE_TWO_FEATURE_KEY)
-
-        if ability and featureEnabled and feature and feature:IsEnabled() then
-            self:StartAssignmentTextAlert(ability, 5, false)
-        end
-    end
 
     if self.ulatekBigWigsStage
         and self.ulatekBigWigsStage >= 3

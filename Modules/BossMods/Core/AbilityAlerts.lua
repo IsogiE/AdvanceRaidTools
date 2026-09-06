@@ -2423,6 +2423,11 @@ function AbilityAlerts:StartAssignmentTextAlert(
         and getSeconds(settings.text.secondsBefore, 5)
         or 0
 
+    -- A reminder cannot begin before the timer that supplied its target.
+    -- Clamp short trigger bars so their displayed countdown still reaches
+    -- zero at the intended point instead of running past it.
+    seconds = math.min(seconds, getSeconds(duration, seconds))
+
     local token = ability.assignmentType == "guillotine"
         and self:CreateCustomTriggerToken()
         or self:InvalidateAbility(ability.spellID)
