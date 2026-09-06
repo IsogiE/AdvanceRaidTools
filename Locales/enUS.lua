@@ -848,6 +848,11 @@ L["BossMods_PullReminder"] = "Pull Reminders"
 L["BossMods_PullReminderDesc"] = "Reminders during BigWigs pull timers."
 L["BossMods_PullReminderPreview"] = "Mind Soothe Boss"
 
+-- BossMods: Focus Channel Timer
+L["BossMods_FocusChannelTimer"] = "Focus Channel Timer"
+L["BossMods_FocusChannelTimerDesc"] =
+    "Starts a configurable timer when a friendly focus target stops channeling, both in and out of combat."
+
 -- BossMods: Bress
 L["BossMods_Bress"] = "Battle Ress"
 L["BossMods_BressDesc"] = "Tracks battle ress charges"
