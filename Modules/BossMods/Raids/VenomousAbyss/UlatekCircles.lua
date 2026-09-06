@@ -9,7 +9,7 @@ local BOSS_ORDER = 80
 local SERPENTS_BITE_TIMER_ID = 1295905
 local SERPENTS_BITE_AURA_ID = 1288879
 local BLIGHT_VEIN_AURA_ID = 1311609
-local FURY_UNLEASHED_TIMER_ID = 1286905
+local VOLATILE_PURGE_AURA_ID = 1312967
 
 local DEFINITIONS = {
     {
@@ -26,8 +26,8 @@ local DEFINITIONS = {
         mode = "aura",
         auraSpellIDs = {SERPENTS_BITE_AURA_ID},
         timerSpellID = SERPENTS_BITE_TIMER_ID,
-        maxDuration = 8,
-        windowDuration = 8,
+        maxDuration = 15,
+        windowDuration = 15,
         color = {1, 0.08, 0.08, 0.95},
         position = {point = "CENTER", x = 0, y = 0}
     },
@@ -44,7 +44,7 @@ local DEFINITIONS = {
         order = 69,
         mode = "aura",
         auraSpellIDs = {BLIGHT_VEIN_AURA_ID},
-        maxDuration = 30,
+        maxDuration = 6,
         showStacks = true,
         stageWindow = 2,
         color = {1, 0.45, 0.05, 0.95},
@@ -61,10 +61,11 @@ local DEFINITIONS = {
         bossOrder = BOSS_ORDER,
         encounterID = ENCOUNTER_ID,
         order = 71,
-        mode = "timed",
-        timerSpellID = FURY_UNLEASHED_TIMER_ID,
-        triggerOffset = 20,
-        windowDuration = 5,
+        mode = "aura",
+        auraSpellIDs = {VOLATILE_PURGE_AURA_ID},
+        maxDuration = 5,
+        stageWindow = 3,
+        stageWindowEnd = 4,
         color = {0.1, 1, 0.2, 0.95},
         position = {point = "CENTER", x = 0, y = 0}
     }

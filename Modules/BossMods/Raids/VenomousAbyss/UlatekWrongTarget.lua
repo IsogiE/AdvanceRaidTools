@@ -17,12 +17,12 @@ E:RegisterModuleDefaults("BossMods_UlatekWrongTarget", {
 local ENCOUNTER_ID = 3492
 local INSTANCE_ID = 3004
 local HEART_UNIT = "boss2"
+local SPELL_RAGE_OF_THE_SHACKLED = 1286860
 local HEART_WINDOW_DURATION = 20
 local UPDATE_INTERVAL = 0.1
--- Venomous Heart active windows.
 local WRONG_TARGET_TIMERS = {
     [15] = {135.4, 284.5, 573.5},
-    [16] = {135.4, 284.5, 573.5}
+    [16] = {145.4, 294.5, 583.6}
 }
 
 local issecretvalue = issecretvalue or function()
@@ -249,7 +249,67 @@ function UlatekWrongTarget:CancelEncounterTimers()
         self:CancelTimer(timer)
     end
     self.encounterTimers = {}
+    self:CancelPendingRage()
     self:StopWindow()
+end
+
+function UlatekWrongTarget:CancelPendingRage()
+    if self.pendingRage then
+        self:CancelTimer(self.pendingRage.timer)
+        self.pendingRage = nil
+    end
+end
+
+function UlatekWrongTarget:OnBigWigsStartBar(key, text, duration, moduleInfo)
+    if not self.encounterActive
+        or tonumber(key) ~= SPELL_RAGE_OF_THE_SHACKLED
+        or not moduleInfo or moduleInfo.moduleName ~= "Ula'tek"
+    then
+        return
+    end
+
+    duration = tonumber(duration)
+    if not duration or duration < HEART_WINDOW_DURATION - 0.05 then
+        return
+    end
+
+    for _, timer in ipairs(self.encounterTimers or {}) do
+        self:CancelTimer(timer)
+    end
+    self.encounterTimers = {}
+    self:CancelPendingRage()
+
+    if math.abs(duration - HEART_WINDOW_DURATION) < 0.05 then
+        self:StartWindow(HEART_WINDOW_DURATION)
+        return
+    end
+
+    local pending = {text = text}
+    self.pendingRage = pending
+    pending.timer = self:ScheduleTimer(function()
+        if self.encounterActive and self.pendingRage == pending then
+            self.pendingRage = nil
+            self:StartWindow(HEART_WINDOW_DURATION)
+        end
+    end, duration)
+end
+
+function UlatekWrongTarget:HookBigWigs()
+    if self.bigWigsSubscription then return end
+    self.bigWigsSubscription = E:GetModule("BossMods").BigWigs:Subscribe({
+        owner = "UlatekWrongTarget",
+        spellKeys = {SPELL_RAGE_OF_THE_SHACKLED},
+        onStartBar = function(key, text, duration, moduleInfo)
+            self:OnBigWigsStartBar(key, text, duration, moduleInfo)
+        end,
+        onStopBar = function(text, moduleInfo)
+            if moduleInfo and moduleInfo.moduleName == "Ula'tek"
+                and self.pendingRage and self.pendingRage.text == text
+            then
+                self:CancelPendingRage()
+            end
+        end
+    })
 end
 
 function UlatekWrongTarget:ScheduleWindows(difficultyID)
@@ -353,10 +413,15 @@ function UlatekWrongTarget:OnEnable()
     self:RegisterEvent("UI_SCALE_CHANGED", "Refresh")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
+    self:HookBigWigs()
     self:UpdateAlert()
 end
 
 function UlatekWrongTarget:OnDisable()
+    if self.bigWigsSubscription then
+        self.bigWigsSubscription:Unsubscribe()
+        self.bigWigsSubscription = nil
+    end
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
     self.encounterActive = false

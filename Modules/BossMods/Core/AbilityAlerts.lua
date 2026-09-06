@@ -3665,7 +3665,7 @@ function AbilityAlerts:StartMarkerSequenceBar(
     )
 end
 
-function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
+function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, moduleInfo)
     local spellID = tonumber(spellKey)
 
     duration = tonumber(duration)
@@ -3677,13 +3677,19 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
     local ability = self:GetAbility(spellID)
 
     if config.resolveAbility then
-        ability, spellID = config.resolveAbility(
+        local resolvedDuration
+        ability, spellID, resolvedDuration = config.resolveAbility(
             self,
             ability,
             spellID,
             duration,
-            bigWigsText
+            bigWigsText,
+            moduleInfo
         )
+        if resolvedDuration ~= nil then
+            duration = tonumber(resolvedDuration)
+            if not duration or duration < 0 then return end
+        end
     end
     local suppressCast = self:ShouldSuppressCast(spellID)
 
@@ -4678,12 +4684,14 @@ function AbilityAlerts:OnEnable()
             onStartBar = function(
                 spellKey,
                 text,
-                duration
+                duration,
+                moduleInfo
             )
                 self:OnBigWigsStartBar(
                     spellKey,
                     text,
-                    duration
+                    duration,
+                    moduleInfo
                 )
             end,
 

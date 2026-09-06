@@ -9,6 +9,9 @@ local VENOM_COAGULATION_SPELL_ID = 1284251
 local UNSTABLE_MIASMA_SPELL_ID = 1288232
 local GRASPING_DEPTHS_SPELL_ID = 1293212
 local SPECTRAL_COILS_SPELL_ID = 1300530
+local ULATEK_SUBMERGE_P1_SPELL_ID = 1292999
+local ULATEK_SUBMERGE_P3_SPELL_ID = 1300635
+local ULATEK_MYTHIC_SOAK_TIMES = {right = 7.6, left = 10.9}
 
 local COILED_ALTAR_ENCOUNTER_ID = 3429
 local COILED_ALTAR_FEATURE_KEY = "VenomousAbyssCoiledAltar"
@@ -832,7 +835,36 @@ local function onVenomousAbyssBigWigsStartBar(
     end
 end
 
-local function getPostHitStageMarkers(_, ability, _, markers)
+local function resolveAbility(self, ability, spellID, duration, text, moduleInfo)
+    if spellID == ULATEK_SUBMERGE_P3_SPELL_ID then
+        spellID = ULATEK_SUBMERGE_P1_SPELL_ID
+        ability = self:GetAbility(spellID)
+    end
+
+    if spellID == SPECTRAL_COILS_SPELL_ID
+        and self.ulatekEncounterActive
+        and self.ulatekDifficultyID == 16
+        and self.ulatekBigWigsStage == 1
+        and moduleInfo and moduleInfo.moduleName == "Ula'tek"
+        and type(moduleInfo.GetRename) == "function"
+        and type(text) == "string"
+    then
+        for _, side in ipairs({{2, "left"}, {3, "right"}}) do
+            local ok, label = pcall(moduleInfo.GetRename, moduleInfo, spellID, side[1])
+            if ok and type(label) == "string" and label ~= "" then
+                local suffix = " " .. label
+                if text:sub(-#suffix) == suffix then
+                    duration = math.max(0, duration - ULATEK_MYTHIC_SOAK_TIMES[side[2]])
+                    break
+                end
+            end
+        end
+    end
+
+    return ability, spellID, duration
+end
+
+local function getPostHitStageMarkers(self, ability, _, markers)
     if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID then
         return markers
     end
@@ -848,6 +880,12 @@ local function getPostHitStageMarkers(_, ability, _, markers)
 
         for key, value in pairs(marker) do
             copy[key] = value
+        end
+
+        if self.ulatekDifficultyID == 16 then
+            copy.time = index == 1 and ULATEK_MYTHIC_SOAK_TIMES.right
+                or index == 2 and ULATEK_MYTHIC_SOAK_TIMES.left
+                or copy.time
         end
 
         if index == highlightedIndex then
@@ -880,7 +918,7 @@ local function configurePostHitStageBar(_, ability, bar)
     end
 end
 
-local function updatePostHitStageBar(_, ability, bar, elapsed)
+local function updatePostHitStageBar(self, ability, bar, elapsed)
     if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID
         or not bar.postHitAssignmentText
     then
@@ -888,9 +926,14 @@ local function updatePostHitStageBar(_, ability, bar, elapsed)
     end
 
     local assignment = bar.ulatekSlamAssignment
-    local targetTime = assignment == "right" and 8
-        or assignment == "left" and 11
-        or nil
+    local targetTime
+    if self.ulatekDifficultyID == 16 then
+        targetTime = ULATEK_MYTHIC_SOAK_TIMES[assignment]
+    else
+        targetTime = assignment == "right" and 8
+            or assignment == "left" and 11
+            or nil
+    end
     local remaining = targetTime and targetTime - (tonumber(elapsed) or 0)
 
     if not remaining or remaining <= 0 then
@@ -1236,11 +1279,12 @@ local function initializeEncounterBars(self, currentBossMods)
     shared = bossMods.Engines.Shared
 end
 
-local function onEncounterStart(self, encounterID)
+local function onEncounterStart(self, encounterID, _, difficultyID)
     if encounterID == ULATEK_ENCOUNTER_ID then
         self.ulatekEncounterActive = true
         self.ulatekFinalPhase = false
         self.ulatekBigWigsStage = 1
+        self.ulatekDifficultyID = tonumber(difficultyID)
     end
 
     if encounterID == COILED_ALTAR_ENCOUNTER_ID then
@@ -1279,6 +1323,7 @@ local function resetEncounterTracking(self)
     self.ulatekEncounterActive = false
     self.ulatekFinalPhase = false
     self.ulatekBigWigsStage = nil
+    self.ulatekDifficultyID = nil
     hideUlatekStageTwoArrow(self)
     stopUlatekWave(self)
     self.coiledAltarEncounterActive = false
@@ -1288,6 +1333,10 @@ end
 
 local function shouldSuppressCast(self, spellID)
     spellID = tonumber(spellID)
+
+    if spellID == SPECTRAL_COILS_SPELL_ID and self.ulatekEncounterActive then
+        return self.ulatekBigWigsStage ~= 1
+    end
 
     if spellID ~= VENOM_COAGULATION_SPELL_ID
         and spellID ~= UNSTABLE_MIASMA_SPELL_ID
@@ -1342,7 +1391,8 @@ E:CreateAbilityAlertsModule({
         UNIT_SPELLCAST_INTERRUPTED = onCoiledAltarNightfallSpellcastEnd
     },
     onBigWigsStartBar = onVenomousAbyssBigWigsStartBar,
-    extraSpellKeys = {"stages"},
+    resolveAbility = resolveAbility,
+    extraSpellKeys = {"stages", ULATEK_SUBMERGE_P3_SPELL_ID},
     onBigWigsStage = onBigWigsStage,
     onEncounterStart = onEncounterStart,
     onFeatureEnabledChanged = onFeatureEnabledChanged,

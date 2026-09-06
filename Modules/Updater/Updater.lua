@@ -8,6 +8,7 @@ local Mod = E:NewModule("Updater", "AceEvent-3.0")
 
 local COMM_PREFIX = "ARTUPD"
 local OFFICER_RANK_THRESHOLD = 2
+local ADDITIONAL_UPDATE_SENDER = "isogichi-draenor"
 local POPUP_KEY = "ART_UPDATE_NOTICE"
 local IMAGE_POOL = "Dreams"
 
@@ -39,15 +40,21 @@ local function isOfficerRank(rankIndex)
     return type(rankIndex) == "number" and rankIndex <= OFFICER_RANK_THRESHOLD
 end
 
-local function senderIsGuildOfficer(sender)
-    return isOfficerRank(getGuildRankIndexByName(sender))
-end
-
-local function iAmGuildOfficer()
+local function canSendUpdate(name)
     if not IsInGuild() then
         return false
     end
-    return isOfficerRank(getGuildRankIndexByName(UnitName("player")))
+
+    local fullName = E:SafeString(name)
+    if not fullName or fullName == "" then
+        return false
+    end
+    if not fullName:find("-", 1, true) then
+        fullName = fullName .. "-" .. (GetNormalizedRealmName() or "")
+    end
+
+    return fullName:lower() == ADDITIONAL_UPDATE_SENDER
+        or isOfficerRank(getGuildRankIndexByName(name))
 end
 
 function Mod:OnEnable()
@@ -64,7 +71,7 @@ function Mod:OnDisable()
 end
 
 function Mod:OnReceive(message, sender)
-    if not senderIsGuildOfficer(sender) then
+    if not canSendUpdate(sender) then
         return
     end
     local senderVersion = E:SafeString(message) or ""
@@ -75,7 +82,7 @@ function Mod:OnReceive(message, sender)
 end
 
 function Mod:Trigger()
-    if not iAmGuildOfficer() then
+    if not canSendUpdate(E:GetUnitFullName("player", true)) then
         return false
     end
     local Comms = E:GetEnabledModule("Comms")

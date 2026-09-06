@@ -35,14 +35,14 @@ local function dispatchStopPull(_, _, reason)
     dispatchPull("onStopPull", reason)
 end
 
-local function dispatchStartBar(_, _, key, text, time)
+local function dispatchStartBar(_, module, key, text, time)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub
             and sub.onStartBar
             and (not sub.spellKeys or sub.spellKeys[key])
         then
-            local ok, err = pcall(sub.onStartBar, key, text, time)
+            local ok, err = pcall(sub.onStartBar, key, text, time, module)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed: %s", sub.owner, tostring(err))
             end
@@ -82,11 +82,11 @@ local function dispatchTimer(
     end
 end
 
-local function dispatchStopBar(_, _, text)
+local function dispatchStopBar(_, module, text)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and sub.onStopBar then
-            local ok, err = pcall(sub.onStopBar, text)
+            local ok, err = pcall(sub.onStopBar, text, module)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed stopping a bar: %s", sub.owner, tostring(err))
             end

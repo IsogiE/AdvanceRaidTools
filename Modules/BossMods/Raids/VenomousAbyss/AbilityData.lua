@@ -727,6 +727,7 @@ E.VenomousAbyssAbilityData = {
                 defaultBarEnabled = false,
                 order = 60,
                 castTimeAdjustment = 4,
+                ignoreTriggerDuration = 4,
             },
             {
                 spellID = 1300530,
@@ -809,9 +810,31 @@ E.VenomousAbyssAbilityData = {
             {
                 spellID = 1301510,
                 settingsKey = "Circling Prey",
+                ignoreTriggerDuration = 8,
                 name = L["BossMods_VA_Ability_CirclingPrey"],
                 defaultBarEnabled = false,
                 order = 100,
+            },
+            {
+                spellID = 1310738,
+                settingsKey = "Toxic Womb",
+                name = C_Spell.GetSpellName(1310738) or "Toxic Womb",
+                defaultBarEnabled = false,
+                order = 101,
+            },
+            {
+                spellID = 1310763,
+                settingsKey = "Fester Burst",
+                name = C_Spell.GetSpellName(1310763) or "Fester Burst",
+                defaultBarEnabled = false,
+                order = 102,
+            },
+            {
+                spellID = 1299757,
+                settingsKey = "Toxic Incubation",
+                name = C_Spell.GetSpellName(1299757) or "Toxic Incubation",
+                defaultBarEnabled = false,
+                order = 103,
             },
             {
                 spellID = -3492006,
