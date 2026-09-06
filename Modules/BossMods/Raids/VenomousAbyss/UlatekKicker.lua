@@ -112,8 +112,7 @@ function Kicker:UpdateDisplay()
     self.frames.anchor:SetShown(self.editMode == true)
     local box = self.frames.kickBox
     box:ClearAllPoints()
-    box:SetPoint("CENTER", self.frames.anchor, "CENTER",
-        self.db.box.offsetX, self.db.box.offsetY)
+    box:SetPoint("CENTER", self.frames.anchor, "CENTER", 0, 0)
     if self.editMode then
         local name, class = self:GetKickDisplayInfo(UnitName("player"))
         self:SetBoxState(box, "now", 1, name, Display.previewColors, class)

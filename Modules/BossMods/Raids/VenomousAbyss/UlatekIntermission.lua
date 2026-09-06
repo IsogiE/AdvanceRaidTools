@@ -352,14 +352,10 @@ local function applyAssignmentAppearance(f, assignmentDB)
 end
 
 local function createClickerArtwork(button, markerID, interactive)
-    local outer = button:CreateTexture(nil, "BACKGROUND")
-    outer:SetAllPoints()
-    outer:SetColorTexture(0.3, 0.3, 0.3, 1)
-
-    local inner = button:CreateTexture(nil, "BORDER")
-    inner:SetPoint("TOPLEFT", 1, -1)
-    inner:SetPoint("BOTTOMRIGHT", -1, 1)
-    inner:SetColorTexture(0, 0, 0, 1)
+    local background = button:CreateTexture(nil, "BACKGROUND")
+    background:SetAllPoints(button)
+    background:SetColorTexture(0, 0, 0, 1)
+    E:CreatePixelBorder(button, {color = {0.3, 0.3, 0.3, 1}})
 
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -3)
@@ -368,13 +364,14 @@ local function createClickerArtwork(button, markerID, interactive)
 
     if interactive then
         local function clearHighlight()
-            outer:SetColorTexture(0.3, 0.3, 0.3, 1)
+            E:SetPixelBorderColor(button, 0.3, 0.3, 0.3, 1)
         end
         button:HookScript("OnEnter", function()
-            outer:SetColorTexture(0.7, 0.7, 0.7, 1)
+            E:SetPixelBorderColor(button, 0.7, 0.7, 0.7, 1)
         end)
         button:HookScript("OnLeave", clearHighlight)
         button:HookScript("OnHide", clearHighlight)
+        button:HookScript("OnShow", clearHighlight)
         button.artClearHighlight = clearHighlight
     end
 end

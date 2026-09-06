@@ -269,36 +269,38 @@ local function buildKickerBody(rightPanel, mod, isDisabled, featureKey)
     })
     y = row(y, {boxSize, opacity})
 
-    y = row(y, {
-        stepper({
-            label = L["OffsetX"],
-            min = -200,
-            max = 200,
-            get = function()
-                return mod.db.box.offsetX or -8
-            end,
-            set = function(value)
-                mod.db.box.offsetX = math.max(
-                    -200,
-                    math.min(200, tonumber(value) or -8)
-                )
-            end
-        }),
-        stepper({
-            label = L["OffsetY"],
-            min = -200,
-            max = 200,
-            get = function()
-                return mod.db.box.offsetY or 0
-            end,
-            set = function(value)
-                mod.db.box.offsetY = math.max(
-                    -200,
-                    math.min(200, tonumber(value) or 0)
-                )
-            end
+    if not focusOnly then
+        y = row(y, {
+            stepper({
+                label = L["OffsetX"],
+                min = -200,
+                max = 200,
+                get = function()
+                    return mod.db.box.offsetX or -8
+                end,
+                set = function(value)
+                    mod.db.box.offsetX = math.max(
+                        -200,
+                        math.min(200, tonumber(value) or -8)
+                    )
+                end
+            }),
+            stepper({
+                label = L["OffsetY"],
+                min = -200,
+                max = 200,
+                get = function()
+                    return mod.db.box.offsetY or 0
+                end,
+                set = function(value)
+                    mod.db.box.offsetY = math.max(
+                        -200,
+                        math.min(200, tonumber(value) or 0)
+                    )
+                end
+            })
         })
-    })
+    end
 
     y = section(y, L["Text"])
     y = row(y, {
