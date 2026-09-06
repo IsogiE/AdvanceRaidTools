@@ -178,6 +178,23 @@ local RECEIVE_GLOW_EDGE_ALPHA = 0.4
 local startReceiveGlow
 local isNameBoundary
 
+local RAID_MARKERS = {
+    star = 1,
+    circle = 2,
+    diamond = 3,
+    triangle = 4,
+    moon = 5,
+    square = 6,
+    cross = 7,
+    skull = 8
+}
+
+local function renderRaidMarker(token)
+    local clean = strlower(strtrim(token or ""))
+    local id = RAID_MARKERS[clean] or tonumber(clean:match("^rt([1-8])$"))
+    return id and "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_" .. id .. ":0:0:0:-1|t" or "{" .. token .. "}"
+end
+
 -- Utilities
 
 local function normalizeName(s)
@@ -261,6 +278,8 @@ end
 -- Built-in tokens
 
 local function registerBuiltinTokens()
+    Notes:RegisterToken("{([^}]+)}", renderRaidMarker)
+
     -- {spell:ID} / {spell:ID:size}
     Notes:RegisterToken("{spell:(%d+):?(%d*)}", function(idStr, sizeStr)
         local id = tonumber(idStr)
@@ -471,17 +490,6 @@ local function displayTimerColorHex(display)
     return string.format("%02x%02x%02x%02x", colorComponent(a), colorComponent(r), colorComponent(g), colorComponent(b))
 end
 
-local STRUCTURED_NOTE_RAID_MARKERS = {
-    star = 1,
-    circle = 2,
-    diamond = 3,
-    triangle = 4,
-    moon = 5,
-    square = 6,
-    cross = 7,
-    skull = 8
-}
-
 local function parseStructuredNoteLine(line)
     if type(line) ~= "string" or not line:find("time:%d", 1, false) or not line:find("tag:", 1, true) or
         not (line:find("text:", 1, true) or line:find("spellid:", 1, true) or line:find("bossSpell:", 1, true)) then
@@ -674,11 +682,7 @@ local function formatStructuredNoteDisplay(text, display)
             parts[#parts + 1] = tag
         end
         if fields.text and fields.text ~= "" then
-            parts[#parts + 1] = "- " .. (fields.text:gsub("{([^}]+)}", function(token)
-                local clean = strlower(strtrim(token or ""))
-                local id = STRUCTURED_NOTE_RAID_MARKERS[clean] or tonumber(clean:match("^rt([1-8])$"))
-                return id and "|TInterface\\TargetingFrame\\UI-RaidTargetingIcon_" .. id .. ":0|t" or "{" .. token .. "}"
-            end))
+            parts[#parts + 1] = "- " .. (fields.text:gsub("{([^}]+)}", renderRaidMarker))
         end
 
         if fields.spellid and fields.spellid ~= "" then

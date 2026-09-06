@@ -1371,6 +1371,12 @@ L["BossMods_UlatekStageTwoAssignment"] = "Stage 2 Side Assignment"
 L["BossMods_UlatekStageTwoAssignmentNav"] = "Stage 2 Side Assignment"
 L["BossMods_UlatekStageTwoAssignmentDesc"] =
     "Shows your #UTBlueside or #UTMoonside countdown and a rotating direction arrow when Ula'tek enters Stage 2."
+L["BossMods_UlatekKicker"] = "Ula'tek Kicker"
+L["BossMods_UlatekKickerNav"] = "Kicker"
+L["BossMods_UlatekKickerDesc"] =
+    "Kicks for Mythic"
+L["BossMods_UlatekKickerHideNameplate"] = "Hide nameplate box"
+L["BossMods_AR_TextUlaKick"] = "Focus {marker}: {kickIndex:ordinal} kick"
 L["BossMods_VA_Assignment_GoToMarker"] = "Go to %s"
 L["BossMods_VA_Assignment_SoakRightCountdown"] = "Soak Right %.1f"
 L["BossMods_VA_Assignment_SoakLeftCountdown"] = "Soak Left %.1f"

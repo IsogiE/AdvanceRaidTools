@@ -75,7 +75,9 @@ local function getNameplateAnchorSorting()
     return NAMEPLATE_ANCHOR_FALLBACK_SORTING
 end
 
-local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
+local function buildKickerBody(rightPanel, mod, isDisabled, featureKey)
+    featureKey = featureKey or "CoiledAltarKicker"
+    local focusOnly = featureKey == "UlatekKicker"
     local width = rightPanel:GetWidth() or 0
     if width <= 0 then
         return {}
@@ -219,10 +221,10 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
 
     local y = 0
     y = full(y, track(T:Header(rightPanel, {
-        text = L["BossMods_CoiledAltarKicker"]
+        text = L["BossMods_" .. featureKey]
     })))
     y = full(y, track(T:Description(rightPanel, {
-        text = L["BossMods_CoiledAltarKickerDesc"],
+        text = L["BossMods_" .. featureKey .. "Desc"],
         sizeDelta = 1
     })))
 
@@ -491,12 +493,17 @@ local function buildCoiledAltarKickerBody(rightPanel, mod, isDisabled)
         })
     })
     y = full(y, checkbox({
-        text = "Show All",
+        text = focusOnly and L["BossMods_UlatekKickerHideNameplate"] or "Show All",
         get = function()
+            if focusOnly then return mod.db.nameplate.hide == true end
             return mod.db.nameplate.showAll
         end,
         set = function(value)
-            mod.db.nameplate.showAll = value
+            if focusOnly then
+                mod.db.nameplate.hide = value
+            else
+                mod.db.nameplate.showAll = value
+            end
         end
     }))
 
@@ -681,6 +688,14 @@ local BossMods = E:GetModule("BossMods", true)
 if BossMods then
     BossMods:RegisterBossSettingsBuilder(
         "CoiledAltarKicker",
-        buildCoiledAltarKickerBody
+        function(rightPanel, mod, isDisabled)
+            return buildKickerBody(rightPanel, mod, isDisabled, "CoiledAltarKicker")
+        end
+    )
+    BossMods:RegisterBossSettingsBuilder(
+        "UlatekKicker",
+        function(rightPanel, mod, isDisabled)
+            return buildKickerBody(rightPanel, mod, isDisabled, "UlatekKicker")
+        end
     )
 end

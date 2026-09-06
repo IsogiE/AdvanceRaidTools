@@ -756,7 +756,10 @@ E.VenomousAbyssAbilityData = {
                 name = L["BossMods_VA_Ability_RageOfTheShackled"],
                 defaultBarEnabled = false,
                 order = 80,
-                ignoreTriggerDuration = 6.5,
+                -- BigWigs reuses the Rage key for both its 6.5 second cast
+                -- window and the 20 second Weakened cast. Neither is a new
+                -- Rage occurrence and must not start another ART follow-up bar.
+                ignoreTriggerDurations = { 6.5, 20 },
                 embeddedMechanicDefaultEnabled = true,
                 postHitStages = {
                     countDown = true,
@@ -787,17 +790,17 @@ E.VenomousAbyssAbilityData = {
                     countDown = true,
                     stages = {
                         {
-                            duration = 10,
+                            duration = 9,
                             barText = "",
                             showText = false,
                             markers = {
+                                {time = 3},
                                 {time = 4},
                                 {time = 5},
                                 {time = 6},
                                 {time = 7},
                                 {time = 8},
                                 {time = 9},
-                                {time = 10},
                             },
                         },
                     },

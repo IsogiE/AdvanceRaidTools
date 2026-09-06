@@ -637,6 +637,49 @@ AR({
 -- Ula'tek
 ---------------------------------------------------------------------------
 
+local function evaluateUlaKick(provider, ctx, out, api)
+    local mod = E:GetModule("BossMods_UlatekKicker", true)
+    local group = mod and mod:ParseGroup(ctx, provider.groupIndex)
+    if not group then return end
+    for index, token in ipairs(group.players) do
+        if api:TokenIsPlayer(token, ctx) then
+            api:Add(out, api:NewReminder(provider, {
+                key = provider.key,
+                type = provider.type,
+                marker = mod:MarkerText(group.marker),
+                kickIndex = index
+            }))
+            return
+        end
+    end
+end
+
+for groupIndex = 1, 4 do
+    local tag = "UlaKick" .. groupIndex
+    local key = "venomousAbyssUlaKick" .. groupIndex
+    Text:Register(key, withMeta({
+        key = key,
+        sheet = "VenomousAbyssUlatekKicks",
+        labelKey = "BossMods_NoteKickAssignments",
+        itemLabelKey = "BossMods_NoteKickAssignments",
+        tab = "VenomousAbyss",
+        order = 86 + groupIndex - 1,
+        tag = tag,
+        type = "venomousAbyssUlaKick",
+        textKey = "BossMods_AR_TextUlaKick",
+        priority = 70,
+        groupIndex = groupIndex,
+        evaluate = evaluateUlaKick,
+        values = {marker = "marker", kickIndex = "kickIndex"},
+        noteBlockSeparator = "\n",
+        note = {
+            tag = tag,
+            template = "#" .. tag .. " {rt" .. groupIndex
+                .. "} Player1 Player2 Player3"
+        }
+    }, BOSS_META.ulatek))
+end
+
 AR({
     boss = BOSS_META.ulatek,
 
@@ -894,7 +937,8 @@ E:RegisterBossModNoteBlock("VenomousAbyssUlatekIntermission", {
         entries = {
             "VenomousAbyssUlatekSides",
             "VenomousAbyssUlatekSoaks",
-            "VenomousAbyssUlatekIntermission"
+            "VenomousAbyssUlatekIntermission",
+            "VenomousAbyssUlatekKicks"
         }
     })
 end

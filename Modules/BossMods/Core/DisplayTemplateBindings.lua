@@ -12,6 +12,8 @@ display("SszorakMarkers", "bar", "panel", "BossMods_DisplayMarkerSelections", "b
 display("SszorakCompass", "position", "indicator", "BossMods_DisplayCompass")
 display("UlatekFangs", "position", "aura", "BossMods_DisplayFangsPlayerList")
 display("UlatekWrongTarget", "position", "text", "BossMods_DisplayWrongTargetReminder")
+display("UlatekKicker", "position", "icon", "BossMods_DisplayKickIndicator", nil, 10)
+display("UlatekKicker", "nextTextPosition", "text", "BossMods_DisplayNextKickReminder", nil, 20)
 display("UlatekIntermission", "bar", "bar", "BossMods_DisplayIntermissionTimer", "bar.position", 10)
 display("UlatekIntermission", "assignment", "panel", "BossMods_DisplayIntermissionAssignments", "assignment.position", 20)
 display("UlatekIntermission", "clicker", "buttons", "BossMods_DisplayIntermissionButtons", "clicker.position", 30)
@@ -30,4 +32,3 @@ display("Dirge", "squad", "panel", "BossMods_DisplaySquadAssignments", "squad.po
 display("Dirge", "bar", "panel", "BossMods_DisplayMarkerSequence", "bar.position", 30)
 display("LuraMap", "intermission", "map", "BossMods_DisplayIntermissionMap", "anchors.intermission.position", 10)
 display("LuraMap", "main", "map", "BossMods_DisplayMainMap", "anchors.main.position", 20)
-

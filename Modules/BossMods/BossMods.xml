@@ -22,6 +22,7 @@
     <Script file="Core\NoteBlock.lua"/>
     <Script file="Core\ReadyAssignmentText.lua"/>
     <Script file="Core\ReadyAssignments.lua"/>
+    <Script file="Core\KickDisplay.lua"/>
 
     <Script file="Raids\Queldanas\AbilityData.lua"/>
     <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
@@ -43,6 +44,7 @@
     <Script file="Raids\VenomousAbyss\UlatekWaves.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekIntermission.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekStageTwoAssignment.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekKicker.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCross.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircle.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDeluge.lua"/>

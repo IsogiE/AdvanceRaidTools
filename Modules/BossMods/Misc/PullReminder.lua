@@ -4,9 +4,10 @@ local NoteBlock = BossMods.NoteBlock
 local Shared = BossMods.Engines.Shared
 local MODULE_NAME = "BossMods_PullReminder"
 local DISPLAY_DURATION = 5
+local COUNTDOWN_LEAD = 3
 
 E:RegisterModuleDefaults(MODULE_NAME, {
-    enabled = false,
+    enabled = true,
     position = {point = "CENTER", x = 0, y = 120, coordSpace = "UIParent"},
     font = {
         name = "Friz Quadrata TT", size = 48, outline = "OUTLINE",
@@ -157,7 +158,11 @@ end
 function Mod:RefreshDisplay()
     if not self.display then return end
     local lines = {}
-    for _, reminder in ipairs(self.activeReminders or {}) do lines[#lines + 1] = reminder.text end
+    local now = GetTime()
+    for _, reminder in ipairs(self.activeReminders or {}) do
+        local countdown = math.max(0, math.ceil((reminder.targetAt or now) - now))
+        lines[#lines + 1] = reminder.text .. " " .. countdown
+    end
     if #lines == 0 and (self.editMode or self.previewMode) then
         lines[1] = L["BossMods_PullReminderPreview"]
     end
@@ -184,7 +189,18 @@ function Mod:OnDisplayUpdate(elapsed)
             changed = true
         end
     end
-    if changed then self:RefreshDisplay() end
+    local countdownSignature = {}
+    for _, reminder in ipairs(self.activeReminders) do
+        countdownSignature[#countdownSignature + 1] = math.max(
+            0,
+            math.ceil((reminder.targetAt or now) - now)
+        )
+    end
+    countdownSignature = table.concat(countdownSignature, ":")
+    if changed or countdownSignature ~= self.countdownSignature then
+        self.countdownSignature = countdownSignature
+        self:RefreshDisplay()
+    end
 end
 
 function Mod:CancelPullState()
@@ -192,6 +208,7 @@ function Mod:CancelPullState()
     for _, timer in ipairs(self.pendingTimers or {}) do timer:Cancel() end
     self.pendingTimers, self.activeReminders = {}, {}
     self.displayElapsed = 0
+    self.countdownSignature = nil
     self:RefreshDisplay()
 end
 
@@ -201,6 +218,7 @@ function Mod:ActivateReminder(reminder, generation)
     self.activeReminders[#self.activeReminders + 1] = {
         text = reminder.text,
         spellID = reminder.spellID,
+        targetAt = reminder.targetAt,
         expiresAt = GetTime() + DISPLAY_DURATION
     }
     self:RefreshDisplay()
@@ -218,8 +236,10 @@ function Mod:OnStartPull(duration)
     if duration <= 0 or InCombatLockdown() then return end
     local generation = self.pullGeneration
     for _, reminder in ipairs(self:ParseReminders(NoteBlock:GetMainNoteText())) do
-        local delay = duration - reminder.secondsRemaining
-        if delay >= 0 then
+        local timeUntilTarget = duration - reminder.secondsRemaining
+        if timeUntilTarget >= 0 then
+            reminder.targetAt = GetTime() + timeUntilTarget
+            local delay = math.max(0, timeUntilTarget - COUNTDOWN_LEAD)
             if delay == 0 then
                 self:ActivateReminder(reminder, generation)
             else

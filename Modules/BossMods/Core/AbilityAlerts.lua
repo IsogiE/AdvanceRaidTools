@@ -197,6 +197,30 @@ local function getSeconds(value, fallback)
     return math.max(0, value)
 end
 
+local function shouldIgnoreTriggerDuration(ability, duration)
+    duration = tonumber(duration)
+
+    if not ability or not duration then
+        return false
+    end
+
+    local ignoredDuration = tonumber(ability.ignoreTriggerDuration)
+
+    if ignoredDuration and math.abs(duration - ignoredDuration) < 0.05 then
+        return true
+    end
+
+    for _, value in ipairs(ability.ignoreTriggerDurations or {}) do
+        ignoredDuration = tonumber(value)
+
+        if ignoredDuration and math.abs(duration - ignoredDuration) < 0.05 then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function colorFromHex(value)
     value = type(value) == "string"
         and value:gsub("#", "")
@@ -309,6 +333,7 @@ function AbilityAlerts:BuildAbilityLookup()
                     ignoreTriggerDuration = tonumber(
                         ability.ignoreTriggerDuration
                     ),
+                    ignoreTriggerDurations = ability.ignoreTriggerDurations,
                     defaultBarColor = ability.defaultBarColor,
                     defaultBarEnabled = ability.defaultBarEnabled,
                     defaultTextEnabled = ability.defaultTextEnabled,
@@ -3408,14 +3433,7 @@ function AbilityAlerts:StartBeamBar(ability, duration, testMode)
         return
     end
 
-    local ignoredDuration = tonumber(ability.ignoreTriggerDuration)
-    local triggerDuration = tonumber(duration)
-
-    if not testMode
-        and ignoredDuration
-        and triggerDuration
-        and math.abs(triggerDuration - ignoredDuration) < 0.05
-    then
+    if not testMode and shouldIgnoreTriggerDuration(ability, duration) then
         return
     end
 
@@ -3668,12 +3686,8 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration)
         )
     end
     local suppressCast = self:ShouldSuppressCast(spellID)
-    local ignoredDuration = ability
-        and tonumber(ability.ignoreTriggerDuration)
 
-    if ignoredDuration
-        and math.abs(duration - ignoredDuration) < 0.05
-    then
+    if shouldIgnoreTriggerDuration(ability, duration) then
         suppressCast = true
     end
 
