@@ -2383,7 +2383,8 @@ function AbilityAlerts:StartAssignmentTextAlert(
     duration,
     testMode,
     bigWigsText,
-    triggerSpellID
+    triggerSpellID,
+    displaySecondsOverride
 )
     if not self:IsAbilityFeatureEnabled(ability) then
         return
@@ -2422,6 +2423,10 @@ function AbilityAlerts:StartAssignmentTextAlert(
     local seconds = textEnabled
         and getSeconds(settings.text.secondsBefore, 5)
         or 0
+
+    if textEnabled and displaySecondsOverride ~= nil then
+        seconds = getSeconds(displaySecondsOverride, seconds)
+    end
 
     -- A reminder cannot begin before the timer that supplied its target.
     -- Clamp short trigger bars so their displayed countdown still reaches

@@ -825,7 +825,14 @@ local function startUlatekStageTwoAssignmentFromGate(self, duration)
         and bossMods:IsFeatureEnabled(ULATEK_STAGE_TWO_FEATURE_KEY)
 
     if ability and featureEnabled and feature and feature:IsEnabled() then
-        self:StartAssignmentTextAlert(ability, targetDuration, false)
+        self:StartAssignmentTextAlert(
+            ability,
+            targetDuration,
+            false,
+            nil,
+            nil,
+            targetDuration
+        )
     end
 end
 
