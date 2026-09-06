@@ -816,7 +816,14 @@ local function startUlatekStageTwoAssignmentFromGate(self, duration)
         return
     end
 
-    local targetDuration = math.max(0, (tonumber(duration) or 0) - 1)
+    local side = getUlatekStageTwoAssignment()
+    if not side then return end
+
+    local targetRemaining = side == "blue" and 1 or 0
+    local targetDuration = math.max(
+        0,
+        (tonumber(duration) or 0) - targetRemaining
+    )
     if targetDuration <= 0 then return end
 
     local ability = self:GetAbility(ULATEK_STAGE_TWO_ASSIGNMENT_ID)
@@ -851,8 +858,8 @@ local function onVenomousAbyssBigWigsStartBar(
 
     -- BigWigs uses the "stages" key for Gate open. During Ula'tek stage 2
     -- this is the only short stages bar (4.1s from the timeline fallback or
-    -- 8.1s from the live targetability event). End the assignment countdown
-    -- when that bar has exactly one second remaining.
+    -- 8.1s from the live targetability event). Blue-side assignments end at
+    -- one second remaining; Moon-side assignments end when the bar expires.
     if self.ulatekEncounterActive
         and self.ulatekBigWigsStage == 2
         and spellKey == "stages"
