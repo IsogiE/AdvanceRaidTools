@@ -89,25 +89,25 @@ local VARIATIONS = {
     PINK = {
         markerID = 7,
         groups = {
-            {7, 2, 1},
-            {3, 8, 5},
-            {4, 6}
+            {7, 2, 1}, -- G1: Cross > Orange > Star
+            {3, 8, 5}, -- G2: Diamond > Skull > Moon
+            {4, 6} -- G3: Triangle > Square
         }
     },
     WHITE = {
         markerID = 4,
         groups = {
-            {2, 1, 8},
-            {4, 5, 6},
-            {7, 3}
+            {2, 1, 8}, -- G1: Orange > Star > Skull
+            {4, 5, 3}, -- G2: Triangle > Moon > Diamond
+            {7, 6} -- G3: Cross > Square
         }
     },
     RED = {
         markerID = 1,
         groups = {
-            {1, 8, 7},
-            {3, 4, 5},
-            {6, 2}
+            {1, 8, 2}, -- G1: Star > Skull > Orange
+            {3, 4, 5}, -- G2: Diamond > Triangle > Moon
+            {6, 7} -- G3: Square > Cross
         }
     }
 }
