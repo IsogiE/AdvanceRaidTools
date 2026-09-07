@@ -40,6 +40,16 @@ E:RegisterModuleDefaults(MODULE_NAME, {
             color = {1, 1, 1, 1}
         }
     },
+    careCircles = {
+        enabled = true,
+        position = {point = "CENTER", x = 0, y = 150},
+        font = {
+            name = "Friz Quadrata TT",
+            size = 30,
+            outline = "OUTLINE",
+            color = {1, 1, 1, 1}
+        }
+    },
     wave = {
         position = {point = "CENTER", x = 0, y = 150},
         font = {
@@ -66,6 +76,8 @@ local REMINDER_CLICK_START = 160
 local REMINDER_CLICK_END = 175
 local REMINDER_SHOW_AT = 275
 local REMINDER_DURATION = 10
+local CARE_CIRCLES_SHOW_AT = 200
+local CARE_CIRCLES_DURATION = 3
 local DUPLICATE_WINDOW = 2
 local CLICKER_BUTTON_SIZE = 40
 local CLICKER_BUTTON_SPACING = 5
@@ -269,17 +281,29 @@ local function currentLocationIsSupported()
     return mapID == INSTANCE_ID
 end
 
+local function getPlayerRaidSubgroup()
+    local raidIndex = UnitInRaid and UnitInRaid("player")
+    if E:IsSecret(raidIndex) or type(raidIndex) ~= "number" then return end
+
+    local subgroup = select(3, GetRaidRosterInfo(raidIndex))
+    if E:IsSecret(subgroup) or type(subgroup) ~= "number" then return end
+    return subgroup
+end
+
 function UlatekIntermission:EnsureDefaults()
     self.db.textOnly = self.db.textOnly == true
     self.db.bar = type(self.db.bar) == "table" and self.db.bar or {}
     self.db.assignment = type(self.db.assignment) == "table" and self.db.assignment or {}
     self.db.reminder = type(self.db.reminder) == "table" and self.db.reminder or {}
+    self.db.careCircles = type(self.db.careCircles) == "table" and self.db.careCircles or {}
+    self.db.careCircles.enabled = self.db.careCircles.enabled ~= false
     self.db.wave = type(self.db.wave) == "table" and self.db.wave or {}
     self.db.clicker = type(self.db.clicker) == "table" and self.db.clicker or {}
 
     ensurePosition(self.db.bar, "position", DEFAULT_BAR_POSITION)
     ensurePosition(self.db.assignment, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.reminder, "position", DEFAULT_ASSIGNMENT_POSITION)
+    ensurePosition(self.db.careCircles, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.wave, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.clicker, "position", DEFAULT_CLICKER_POSITION)
 
@@ -295,6 +319,7 @@ function UlatekIntermission:EnsureDefaults()
 
     self.db.assignment.font = ensureFont(self.db.assignment.font, 30)
     self.db.reminder.font = ensureFont(self.db.reminder.font, 30)
+    self.db.careCircles.font = ensureFont(self.db.careCircles.font, 30)
     self.db.wave.font = ensureFont(self.db.wave.font, 30)
 
     self.db.clicker.scale = tonumber(self.db.clicker.scale) or 1
@@ -609,6 +634,8 @@ function UlatekIntermission:EnsureFrames()
 
     local reminderAnchor = self:CreateAnchor("ART_UlatekMovementReminder", false)
     local reminderText = createReminderText(reminderAnchor)
+    local careCirclesAnchor = self:CreateAnchor("ART_UlatekCareCircles", false)
+    local careCirclesText = createReminderText(careCirclesAnchor)
     local waveAnchor = self:CreateAnchor("ART_UlatekWaveDirection", false)
     local waveText = createReminderText(waveAnchor)
 
@@ -687,6 +714,8 @@ function UlatekIntermission:EnsureFrames()
         assignmentCountdowns = assignmentCountdowns,
         reminderAnchor = reminderAnchor,
         reminderText = reminderText,
+        careCirclesAnchor = careCirclesAnchor,
+        careCirclesText = careCirclesText,
         waveAnchor = waveAnchor,
         waveText = waveText,
         clickerAnchor = clickerAnchor,
@@ -696,6 +725,7 @@ function UlatekIntermission:EnsureFrames()
     self.barAnchor = barAnchor
     self.assignmentAnchor = assignmentAnchor
     self.reminderAnchor = reminderAnchor
+    self.careCirclesAnchor = careCirclesAnchor
     self.waveAnchor = waveAnchor
     self.clickerAnchor = clickerAnchor
 
@@ -723,6 +753,8 @@ function UlatekIntermission:ApplySettings()
 
     applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment)
     E:GetModule("BossMods").DisplayTemplates:Place(self, "reminder", f.reminderAnchor)
+    applyReminderAppearance(f.careCirclesAnchor, f.careCirclesText, self.db.careCircles, self.db.assignment)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "careCircles", f.careCirclesAnchor)
     applyReminderAppearance(f.waveAnchor, f.waveText, self.db.wave, self.db.assignment)
     E:GetModule("BossMods").DisplayTemplates:Place(self, "wave", f.waveAnchor)
 
@@ -828,6 +860,10 @@ function UlatekIntermission:OnChatMsg(event, msg)
                 self.frames.reminderText:SetFormattedText(msg,
                     reminderMarkup(5, "BossMods_UlatekGoToMoon"),
                     reminderMarkup(6, "BossMods_UlatekGoToBlue"), "")
+                local subgroup = getPlayerRaidSubgroup()
+                self.frames.careCirclesText:SetFormattedText(msg,
+                    (subgroup == 3 or subgroup == 4) and L["BossMods_UlatekCareCircles"] or "",
+                    (subgroup == 1 or subgroup == 2) and L["BossMods_UlatekCareCircles"] or "", "")
             end
             return
         end
@@ -868,11 +904,22 @@ function UlatekIntermission:ResetReminder()
         self:CancelTimer(self.reminderHideTimer)
         self.reminderHideTimer = nil
     end
+    if self.careCirclesShowTimer then
+        self:CancelTimer(self.careCirclesShowTimer)
+        self.careCirclesShowTimer = nil
+    end
+    if self.careCirclesHideTimer then
+        self:CancelTimer(self.careCirclesHideTimer)
+        self.careCirclesHideTimer = nil
+    end
     self.encounterStartedAt = nil
     self.reminderVisible = false
+    self.careCirclesVisible = false
     if self.frames then
         self.frames.reminderAnchor:Hide()
         self.frames.reminderText:SetText("")
+        self.frames.careCirclesAnchor:Hide()
+        self.frames.careCirclesText:SetText("")
         self.frames.waveAnchor:Hide()
         self.frames.waveText:SetText("")
     end
@@ -898,6 +945,29 @@ function UlatekIntermission:UpdateReminderDisplay()
         f.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
     end
     f.reminderAnchor:SetShown(self.editMode or (self.encounterActive and self.reminderVisible) or false)
+end
+
+function UlatekIntermission:ShowCareCircles()
+    self.careCirclesShowTimer = nil
+    if not self.encounterActive then return end
+    self.careCirclesVisible = true
+    self:UpdateCareCirclesDisplay()
+end
+
+function UlatekIntermission:HideCareCircles()
+    self.careCirclesHideTimer = nil
+    self.careCirclesVisible = false
+    self:UpdateCareCirclesDisplay()
+end
+
+function UlatekIntermission:UpdateCareCirclesDisplay()
+    if not self.frames then return end
+    local f = self.frames
+    if self.editMode then
+        f.careCirclesText:SetText(L["BossMods_UlatekCareCircles"])
+    end
+    f.careCirclesAnchor:SetShown(self.db.careCircles.enabled ~= false
+        and (self.editMode or (self.encounterActive and self.careCirclesVisible)) or false)
 end
 
 function UlatekIntermission:UpdateWaveDisplay()
@@ -1147,7 +1217,7 @@ end
 
 function UlatekIntermission:CreateAnchorPreview(kind)
     if kind ~= "assignment" and kind ~= "buttons" and kind ~= "bar"
-        and kind ~= "reminder" and kind ~= "wave" then return end
+        and kind ~= "reminder" and kind ~= "careCircles" and kind ~= "wave" then return end
     local owner = self
     local frame = CreateFrame("Frame", nil, UIParent)
     frame:EnableMouse(false)
@@ -1167,7 +1237,7 @@ function UlatekIntermission:CreateAnchorPreview(kind)
             assignmentAnchor = frame, assignmentText = text,
             assignmentMeasure = measure, assignmentCountdowns = countdowns
         }
-    elseif kind == "reminder" or kind == "wave" then
+    elseif kind == "reminder" or kind == "careCircles" or kind == "wave" then
         preview.frames.reminderText = createReminderText(frame)
     else
         local buttons = {}
@@ -1206,6 +1276,9 @@ function UlatekIntermission:CreateAnchorPreview(kind)
         elseif kind == "reminder" then
             applyReminderAppearance(frame, preview.frames.reminderText, owner.db.reminder, owner.db.assignment)
             preview.frames.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
+        elseif kind == "careCircles" then
+            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.careCircles, owner.db.assignment)
+            preview.frames.reminderText:SetText(L["BossMods_UlatekCareCircles"])
         elseif kind == "wave" then
             applyReminderAppearance(frame, preview.frames.reminderText, owner.db.wave, owner.db.assignment)
             preview.frames.reminderText:SetText(L["BossMods_UlatekWaveLeft"])
@@ -1236,6 +1309,7 @@ function UlatekIntermission:UpdateDisplay()
     end
 
     self:UpdateReminderDisplay()
+    self:UpdateCareCirclesDisplay()
 
     local editMode = self.editMode == true
     self:UpdateWaveDisplay()
@@ -1407,6 +1481,8 @@ function UlatekIntermission:OnEncounterStart(_, encounterID, _, difficultyID)
     self.encounterActive = true
     self.reminderShowTimer = self:ScheduleTimer("ShowReminder", REMINDER_SHOW_AT)
     self.reminderHideTimer = self:ScheduleTimer("HideReminder", REMINDER_SHOW_AT + REMINDER_DURATION)
+    self.careCirclesShowTimer = self:ScheduleTimer("ShowCareCircles", CARE_CIRCLES_SHOW_AT)
+    self.careCirclesHideTimer = self:ScheduleTimer("HideCareCircles", CARE_CIRCLES_SHOW_AT + CARE_CIRCLES_DURATION)
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
     self.activeStartedAt = nil

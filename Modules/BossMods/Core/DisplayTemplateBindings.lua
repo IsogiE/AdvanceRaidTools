@@ -20,6 +20,7 @@ display("UlatekIntermission", "assignment", "panel", "BossMods_DisplayIntermissi
 display("UlatekIntermission", "clicker", "buttons", "BossMods_DisplayIntermissionButtons", "clicker.position", 30)
 display("UlatekIntermission", "reminder", "panel", "BossMods_UlatekMovementReminder", "reminder.position", 40, "assignment")
 display("UlatekIntermission", "wave", "panel", "BossMods_UlatekWaveLeft", "wave.position", 50, "assignment")
+display("UlatekIntermission", "careCircles", "panel", "BossMods_UlatekCareCircles", "careCircles.position", 60, "assignment")
 display("TwinFangsDelugeBar", "position", "bar", "BossMods_DisplayPersonalDelugeBar")
 display("TwinFangsDelugeList", "position", "aura", "BossMods_DisplayDelugePlayerList")
 display("CoiledAltarIntermissionBar", "position", "bar", "BossMods_DisplayIntermissionTimer")

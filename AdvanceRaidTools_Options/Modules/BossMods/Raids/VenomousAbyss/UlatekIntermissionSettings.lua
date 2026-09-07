@@ -15,6 +15,7 @@ local DEFAULT_POSITIONS = {
     bar = {point = "CENTER", x = 0, y = 220},
     assignment = {point = "CENTER", x = 0, y = 150},
     reminder = {point = "CENTER", x = 0, y = 150},
+    careCircles = {point = "CENTER", x = 0, y = 150},
     wave = {point = "CENTER", x = 0, y = 150},
     clicker = {point = "CENTER", x = 0, y = 80}
 }
@@ -211,6 +212,17 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
         disabled = isDisabled
     }))
     y = row(y, {textOnly, hideLeftRight})
+    y = full(y, track(T:Checkbox(rightPanel, {
+        text = L["BossMods_UlatekCareCirclesEnable"],
+        get = function()
+            return mod.db.careCircles.enabled ~= false
+        end,
+        onChange = function(_, value)
+            mod.db.careCircles.enabled = value and true or false
+            refreshLive()
+        end,
+        disabled = isDisabled
+    })))
 
     y = full(y, track(T:Header(rightPanel, {
         text = L["BossMods_UlatekIntermissionBarAppearance"]
@@ -321,6 +333,7 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
     y = fontControls(y, mod.db.bar, L["BossMods_UlatekIntermissionBarText"])
     y = fontControls(y, mod.db.assignment, L["BossMods_UlatekIntermissionAssignmentText"])
     y = fontControls(y, mod.db.reminder, L["BossMods_UlatekMovementReminder"])
+    y = fontControls(y, mod.db.careCircles, L["BossMods_UlatekCareCircles"])
     y = fontControls(y, mod.db.wave, L["BossMods_UlatekWaveLeft"])
 
     y = full(y, track(T:Header(rightPanel, {
@@ -371,6 +384,12 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
         "reminder",
         L["BossMods_UlatekMovementReminder"],
         frames.reminderAnchor
+    )
+    y = addPositionSection(
+        y,
+        "careCircles",
+        L["BossMods_UlatekCareCircles"],
+        frames.careCirclesAnchor
     )
     y = addPositionSection(
         y,

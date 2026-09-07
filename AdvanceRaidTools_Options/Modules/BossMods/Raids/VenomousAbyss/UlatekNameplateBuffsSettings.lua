@@ -25,6 +25,25 @@ local function build(rightPanel, mod, isDisabled)
 
     local y = full(0, track(T:Header(rightPanel, {text = L["BossMods_UlatekNameplateBuffs"]})))
     y = full(y, track(T:Description(rightPanel, {text = L["BossMods_UlatekNameplateBuffsDesc"]})))
+    y = full(y, track(T:Dropdown(rightPanel, {
+        label = L["QoL_Strata"],
+        values = {
+            BACKGROUND = L["Background"],
+            LOW = L["QoL_StrataLow"],
+            MEDIUM = L["QoL_StrataMedium"],
+            HIGH = L["QoL_StrataHigh"],
+            DIALOG = L["QoL_StrataDialog"]
+        },
+        sorting = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG"},
+        tooltip = {title = L["QoL_Strata"], desc = L["QoL_StrataDesc"]},
+        get = function() return mod.db.strata or "MEDIUM" end,
+        onChange = function(value)
+            mod.db.strata = value
+            mod:CallIfEnabled("Refresh")
+            tracker.refresh()
+        end,
+        disabled = isDisabled
+    })))
     y = full(y, slider(L["Size"], "size", 16, 80))
     y = full(y, slider(L["BossMods_UlatekNameplateBuffsMaxIcons"], "maxIcons", 1, 10))
     y = full(y, slider(L["QoL_XOffset"], "offsetX", -200, 200))

@@ -8,6 +8,7 @@ local ICON_SIZE = 30
 
 E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true,
+    strata = "MEDIUM",
     size = ICON_SIZE,
     offsetX = 8,
     offsetY = 0,
@@ -55,7 +56,7 @@ end
 
 function Buffs:CreateDisplay()
     local anchor = CreateFrame("Frame", nil, UIParent, "DisableUntrustedLayoutScriptsTemplate")
-    anchor:SetFrameStrata("HIGH")
+    anchor:SetFrameStrata(self.db.strata or "MEDIUM")
     anchor:SetFrameLevel(95)
     anchor:Hide()
     local container = CreateFrame("AuraContainer", nil, anchor,
@@ -77,6 +78,7 @@ end
 
 function Buffs:ApplyDisplaySettings(display)
     local size = math.max(16, math.min(80, tonumber(self.db.size) or ICON_SIZE))
+    display.anchor:SetFrameStrata(self.db.strata or "MEDIUM")
     display.anchor:SetSize(size, size)
     display.container:SetScale(size / ICON_SIZE)
     display.container:SetAuraGroupMaxFrameCount(GROUP_KEY,
