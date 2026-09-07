@@ -1149,6 +1149,9 @@ bar.frame:SetPoint(
         for _, text in ipairs(bar.postHitMarkerCountdownTexts or {}) do
             text:Hide()
         end
+        if bar.postHitMarkerCountdownFrame then
+            bar.postHitMarkerCountdownFrame:Hide()
+        end
         bar.postHitStageMarkers = nil
         bar.ulatekSlamAssignment = nil
         bar:Hide()

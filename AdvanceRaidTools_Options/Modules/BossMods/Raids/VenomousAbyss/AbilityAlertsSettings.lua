@@ -1085,10 +1085,34 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
         if ability.postHitMarkerCountdownTexts then
             settings.postHitMarkerCountdownText =
                 settings.postHitMarkerCountdownText or {}
+            local markerText = settings.postHitMarkerCountdownText
 
-            if settings.postHitMarkerCountdownText.enabled == nil then
-                settings.postHitMarkerCountdownText.enabled = false
+            if markerText.enabled == nil then
+                markerText.enabled = false
             end
+
+            markerText.position = markerText.position or {
+                point = "CENTER",
+                x = 0,
+                y = 120
+            }
+            markerText.position.point =
+                markerText.position.point or "CENTER"
+            markerText.position.x =
+                tonumber(markerText.position.x) or 0
+            markerText.position.y =
+                tonumber(markerText.position.y) or 120
+            markerText.font = markerText.font or {}
+            markerText.font.name =
+                markerText.font.name or "Friz Quadrata TT"
+            markerText.font.size =
+                tonumber(markerText.font.size) or 34
+            markerText.font.outline =
+                markerText.font.outline or "THICKOUTLINE"
+            markerText.font.color = copyColor(
+                markerText.font.color,
+                {1, 1, 1, 1}
+            )
         end
 
         y = section(y, ability.name or tostring(spellID))
@@ -1674,6 +1698,9 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                     })))
 
                     if ability.postHitMarkerCountdownTexts then
+                        local markerText =
+                            settings.postHitMarkerCountdownText
+
                         y = full(y, rebuildCheckbox({
                             text = L["BossMods_AAOptions_EnablePostHitMarkerCountdownTexts"],
                             tooltip = L["BossMods_AAOptions_PostHitMarkerCountdownTextsTooltip"],
@@ -1690,6 +1717,104 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                                     or not settings.bar.enabled
                             end
                         }))
+
+                        if markerText.enabled then
+                            y = T:XYOffsetControls(
+                                rightPanel,
+                                y,
+                                widthPx,
+                                {
+                                    tracker = tracker,
+                                    getPosition = function()
+                                        return markerText.position
+                                    end,
+                                    setPosition = function(position)
+                                        markerText.position = {
+                                            point = position.point or "CENTER",
+                                            x = tonumber(position.x) or 0,
+                                            y = tonumber(position.y) or 120
+                                        }
+                                        if abilityMod.Refresh then
+                                            abilityMod:Refresh()
+                                        end
+                                    end,
+                                    disabled = function()
+                                        return isDisabled()
+                                            or not settings.bar.enabled
+                                    end,
+                                    xInputLabel = L["BossMods_AAOptions_TextXValue"],
+                                    yInputLabel = L["BossMods_AAOptions_TextYValue"]
+                                }
+                            )
+
+                            local markerTextFont = dropdown({
+                                label = L["BossMods_AAOptions_Font"],
+                                values = fontValues,
+                                get = function()
+                                    return markerText.font.name
+                                end,
+                                onChange = function(value)
+                                    markerText.font.name = value
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            local markerTextSize = slider({
+                                label = L["BossMods_AAOptions_FontSize"],
+                                min = 8,
+                                max = 72,
+                                get = function()
+                                    return markerText.font.size
+                                end,
+                                onChange = function(value)
+                                    markerText.font.size = math.floor(value)
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            y = row(y, {markerTextFont, markerTextSize})
+
+                            local markerTextColor = color({
+                                label = L["BossMods_AAOptions_MarkerCountdownTextColor"],
+                                get = function()
+                                    return markerText.font.color
+                                end,
+                                onChange = function(r, g, b, a)
+                                    markerText.font.color = {r, g, b, a}
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            local markerTextOutline = dropdown({
+                                label = L["BossMods_AAOptions_FontOutline"],
+                                values = OUTLINE_VALUES,
+                                sorting = OUTLINE_SORTING,
+                                get = function()
+                                    return markerText.font.outline
+                                end,
+                                onChange = function(value)
+                                    markerText.font.outline = value
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            y = row(y, {
+                                markerTextColor,
+                                markerTextOutline
+                            })
+                        end
                     end
                 end
             end

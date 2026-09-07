@@ -1391,6 +1391,7 @@ L["BossMods_AAOptions_EnablePostHitMarkerCountdownTexts"] =
     "Show marker countdown texts"
 L["BossMods_AAOptions_PostHitMarkerCountdownTextsTooltip"] =
     "Shows separate Soak 1 and Soak 2 countdowns tied to the two markers on the Spectral Coils follow-up bar."
+L["BossMods_AAOptions_MarkerCountdownTextColor"] = "Countdown text color"
 L["BossMods_VA_Ability_SerpentsBite"] = "Serpent's Bite (Debuff)"
 L["BossMods_VA_Ability_FuryUnleashed"] = "Fury Unleashed (Enrage)"
 

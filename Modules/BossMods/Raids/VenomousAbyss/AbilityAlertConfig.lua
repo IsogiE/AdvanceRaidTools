@@ -967,45 +967,69 @@ local function configurePostHitStageBar(self, ability, bar)
 
     local settings = self:GetAbilitySettings(SPECTRAL_COILS_SPELL_ID) or {}
     local countdownSettings = settings.postHitMarkerCountdownText or {}
+    local position = countdownSettings.position or {}
+    local font = countdownSettings.font or {}
+    local color = font.color or {1, 1, 1, 1}
     local labels = ability.postHitMarkerCountdownTexts or {}
     bar.postHitMarkerCountdownTextsEnabled =
         countdownSettings.enabled == true
-    bar.postHitMarkerCountdownTexts =
-        bar.postHitMarkerCountdownTexts or {}
+    local frame = self.ulatekSpectralMarkerCountdownFrame
+
+    if not frame then
+        frame = CreateFrame("Frame", nil, UIParent)
+        frame:SetFrameStrata("HIGH")
+        frame:EnableMouse(false)
+        frame:Hide()
+        frame.texts = {}
+        self.ulatekSpectralMarkerCountdownFrame = frame
+    end
+
+    frame:ClearAllPoints()
+    frame:SetPoint(
+        position.point or "CENTER",
+        UIParent,
+        "CENTER",
+        tonumber(position.x) or 0,
+        tonumber(position.y) or 120
+    )
+
+    local fontSize = math.max(8, tonumber(font.size) or 34)
+    frame:SetSize(600, fontSize * 2 + 12)
+    bar.postHitMarkerCountdownFrame = frame
+    bar.postHitMarkerCountdownTexts = frame.texts
 
     for index = 1, #labels do
-        local text = bar.postHitMarkerCountdownTexts[index]
+        local text = frame.texts[index]
 
         if not text then
-            text = bar.frame:CreateFontString(
-                nil,
-                "OVERLAY",
-                "GameFontNormalHuge"
-            )
-            text:SetJustifyH(index == 1 and "LEFT" or "RIGHT")
-            text:SetTextColor(1, 1, 1, 1)
-            bar.postHitMarkerCountdownTexts[index] = text
+            text = frame:CreateFontString(nil, "OVERLAY")
+            text:SetJustifyH("CENTER")
+            frame.texts[index] = text
         end
 
+        text:SetFont(
+            E:FetchFont(font.name or "Friz Quadrata TT"),
+            fontSize,
+            font.outline or "THICKOUTLINE"
+        )
+        text:SetTextColor(
+            color[1] or color.r or 1,
+            color[2] or color.g or 1,
+            color[3] or color.b or 1,
+            color[4] or color.a or 1
+        )
         text:ClearAllPoints()
         text:SetPoint(
-            "BOTTOM",
-            bar.frame,
+            "TOP",
+            frame,
             "TOP",
             0,
-            index == 1 and 32 or 8
+            -(index - 1) * (fontSize + 4)
         )
         text:Hide()
     end
 
-    bar.postHitAssignmentText:ClearAllPoints()
-    bar.postHitAssignmentText:SetPoint(
-        "BOTTOM",
-        bar.frame,
-        "TOP",
-        0,
-        bar.postHitMarkerCountdownTextsEnabled and 56 or 8
-    )
+    frame:Hide()
 end
 
 local function updatePostHitStageBar(self, ability, bar, elapsed)
@@ -1015,6 +1039,8 @@ local function updatePostHitStageBar(self, ability, bar, elapsed)
 
     local labels = ability.postHitMarkerCountdownTexts or {}
     local markers = bar.postHitStageMarkers or {}
+
+    local anyMarkerTextShown = false
 
     for index, text in ipairs(bar.postHitMarkerCountdownTexts or {}) do
         local marker = markers[index]
@@ -1032,9 +1058,14 @@ local function updatePostHitStageBar(self, ability, bar, elapsed)
                 .. ("%.1f"):format(remaining)
             )
             text:Show()
+            anyMarkerTextShown = true
         else
             text:Hide()
         end
+    end
+
+    if bar.postHitMarkerCountdownFrame then
+        bar.postHitMarkerCountdownFrame:SetShown(anyMarkerTextShown)
     end
 
     if not bar.postHitAssignmentText then
@@ -1399,6 +1430,14 @@ local function onEncounterStart(self, encounterID, _, difficultyID)
 end
 
 local function refreshEncounterBars(self)
+    local spectralBar = self.bars
+        and self.bars[SPECTRAL_COILS_SPELL_ID]
+    local spectralAbility = self:GetAbility(SPECTRAL_COILS_SPELL_ID)
+
+    if spectralBar and spectralAbility and spectralBar.postHitStageActive then
+        configurePostHitStageBar(self, spectralAbility, spectralBar)
+    end
+
     if not isUlatekBarEnabled(self) then
         stopUlatekWave(self)
     end
