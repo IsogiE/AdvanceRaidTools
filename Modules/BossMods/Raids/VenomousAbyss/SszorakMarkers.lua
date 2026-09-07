@@ -134,9 +134,9 @@ local function createMarkerFrames(passive)
         outer:SetColorTexture(0.3, 0.3, 0.3, 1)
 
         local inner = button:CreateTexture(nil, "BORDER")
-        inner:SetPoint("TOPLEFT", 1, -1)
-        inner:SetPoint("BOTTOMRIGHT", -1, 1)
         inner:SetColorTexture(0, 0, 0, 1)
+        inner:SetSize(38, 38)
+        inner:SetPoint("CENTER", button, "CENTER", 0, 0)
 
         local icon = button:CreateTexture(nil, "ARTWORK")
         icon:SetPoint("TOPLEFT", 3, -3)

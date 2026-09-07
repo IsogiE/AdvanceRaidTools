@@ -14,6 +14,7 @@ local OUTLINE_ORDER = {"", "OUTLINE", "THICKOUTLINE", "OUTLINE_SLUG"}
 local DEFAULT_POSITIONS = {
     bar = {point = "CENTER", x = 0, y = 220},
     assignment = {point = "CENTER", x = 0, y = 150},
+    reminder = {point = "CENTER", x = 0, y = 150},
     clicker = {point = "CENTER", x = 0, y = 80}
 }
 
@@ -306,6 +307,7 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
 
     y = fontControls(y, mod.db.bar, L["BossMods_UlatekIntermissionBarText"])
     y = fontControls(y, mod.db.assignment, L["BossMods_UlatekIntermissionAssignmentText"])
+    y = fontControls(y, mod.db.reminder, L["BossMods_UlatekMovementReminder"])
 
     y = full(y, track(T:Header(rightPanel, {
         text = L["BossMods_UlatekIntermissionClickerAppearance"]
@@ -349,6 +351,12 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
         "assignment",
         L["BossMods_UlatekIntermissionAssignmentText"],
         frames.assignmentAnchor
+    )
+    y = addPositionSection(
+        y,
+        "reminder",
+        L["BossMods_UlatekMovementReminder"],
+        frames.reminderAnchor
     )
     y = addPositionSection(
         y,

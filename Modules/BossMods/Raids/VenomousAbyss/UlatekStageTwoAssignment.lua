@@ -119,7 +119,7 @@ E:RegisterBossModFeature("UlatekStageTwoAssignment", {
     bossLabelKey = "BossMods_Ulatek",
     bossOrder = 80,
     labelKey = "BossMods_UlatekStageTwoAssignment",
-    navLabelKey = "BossMods_UlatekStageTwoAssignmentNav",
+    navLabelKey = "BossMods_UlatekStageTwoAssignment",
     descKey = "BossMods_UlatekStageTwoAssignmentDesc",
     moduleName = MODULE_NAME
 })

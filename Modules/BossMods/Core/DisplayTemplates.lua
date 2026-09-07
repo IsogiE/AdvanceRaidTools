@@ -141,9 +141,18 @@ end
 
 function Displays:GetPosition(entry)
     if self:IsIndependent(entry) then return self:GetIndividualPosition(entry) end
+    local shared = self:GetSharedEntry(entry)
+    if shared then return self:GetPosition(shared) end
     local pos = copyPosition(self:GetSettings(entry.definition.category))
     pos.relPoint = "CENTER"
     return pos
+end
+
+function Displays:GetSharedEntry(entry)
+    local key = entry.definition.sharedAnchor
+    if key and not self:IsIndependent(entry) then
+        return self:GetEntry(entry.mod, key)
+    end
 end
 
 function Displays:Forget(mod, key)
@@ -225,7 +234,9 @@ function Displays:Place(mod, key, frame)
     if not frame.artDisplayHooks then
         local function changed()
             local current = frame.artDisplayEntry
-            if current then self:Layout(current.definition.category) end
+            if current and self.templates[current.definition.category].stack then
+                self:Layout(current.definition.category)
+            end
         end
         frame:HookScript("OnShow", changed)
         frame:HookScript("OnHide", changed)
@@ -267,13 +278,19 @@ function Displays:Layout(category)
         return ao < bo or ao == bo and a.id < b.id
     end)
     local edge
+    local sharedShown = {}
+    for _, entry in ipairs(entries) do
+        local shared = self:GetSharedEntry(entry)
+        if shared and entry.frame:IsShown() then sharedShown[shared.id] = true end
+    end
     local horizontal = settings.growth == "LEFT" or settings.growth == "RIGHT"
     local positive = settings.growth == "RIGHT" or settings.growth == "UP"
     for _, entry in ipairs(entries) do
         local frame = entry.frame
         local independent = self:IsIndependent(entry)
+        local shared = self:GetSharedEntry(entry)
         local position = self:GetPosition(entry)
-        if not independent and template.stack and frame:IsShown() then
+        if not independent and not shared and template.stack and (frame:IsShown() or sharedShown[entry.id]) then
             local height = entry.definition.getHeight and entry.definition.getHeight(entry.mod) or frame:GetHeight()
             local size = horizontal and frame:GetWidth() or height
             local scale = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
@@ -290,6 +307,9 @@ function Displays:Layout(category)
         end
         if InCombatLockdown() and frame.IsProtected and frame:IsProtected() then
             E:RunWhenOutOfCombat("BossMods:DisplayTemplates:" .. category, function() self:Layout(category) end)
+        elseif shared and shared.frame then
+            frame:ClearAllPoints()
+            frame:SetPoint("TOP", shared.frame, "TOP", 0, 0)
         else
             E:ApplyFramePosition(frame, position)
         end

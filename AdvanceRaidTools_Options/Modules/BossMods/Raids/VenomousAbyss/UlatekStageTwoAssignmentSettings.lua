@@ -160,7 +160,7 @@ local function build(rightPanel, mod, isDisabled)
     local positionY, positionHandle = T:PositionSection(rightPanel, y, width, {
         anchor = anchor,
         label = L["BossMods_UlatekStageTwoAssignment"],
-        headerText = (L["BossMods_UlatekStageTwoAssignment"] or "Stage 2 Side Assignment")
+        headerText = L["BossMods_UlatekStageTwoAssignment"]
             .. " " .. (L["Position"] or "Position"),
         tracker = tracker,
         getPosition = function()

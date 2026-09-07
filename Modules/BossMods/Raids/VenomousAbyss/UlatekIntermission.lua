@@ -31,6 +31,15 @@ E:RegisterModuleDefaults(MODULE_NAME, {
             color = {1, 1, 1, 1}
         }
     },
+    reminder = {
+        position = {point = "CENTER", x = 0, y = 150},
+        font = {
+            name = "Friz Quadrata TT",
+            size = 30,
+            outline = "OUTLINE",
+            color = {1, 1, 1, 1}
+        }
+    },
     clicker = {
         position = {point = "CENTER", x = 0, y = 80},
         scale = 1,
@@ -43,6 +52,10 @@ local INSTANCE_ID = 3004
 local SPELL_SPECTRAL_COILS = 1300530
 local DURATION = 25
 local CLICK_WINDOW = 5
+local REMINDER_CLICK_START = 160
+local REMINDER_CLICK_END = 170
+local REMINDER_SHOW_AT = 275
+local REMINDER_DURATION = 10
 local DUPLICATE_WINDOW = 2
 local CLICKER_BUTTON_SIZE = 40
 local CLICKER_BUTTON_SPACING = 5
@@ -112,6 +125,10 @@ local VARIATIONS = {
     }
 }
 local BUTTON_ORDER = {"PINK", "WHITE", "RED"}
+local REMINDER_BUTTONS = {
+    {markerID = 5, payload = "%s"},
+    {markerID = 6, payload = "%.0s%s"}
+}
 local CHAT_PAYLOADS = {
     PINK = "%s",
     WHITE = "%.0s%s",
@@ -213,10 +230,12 @@ function UlatekIntermission:EnsureDefaults()
     self.db.textOnly = self.db.textOnly == true
     self.db.bar = type(self.db.bar) == "table" and self.db.bar or {}
     self.db.assignment = type(self.db.assignment) == "table" and self.db.assignment or {}
+    self.db.reminder = type(self.db.reminder) == "table" and self.db.reminder or {}
     self.db.clicker = type(self.db.clicker) == "table" and self.db.clicker or {}
 
     ensurePosition(self.db.bar, "position", DEFAULT_BAR_POSITION)
     ensurePosition(self.db.assignment, "position", DEFAULT_ASSIGNMENT_POSITION)
+    ensurePosition(self.db.reminder, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.clicker, "position", DEFAULT_CLICKER_POSITION)
 
     self.db.bar.width = math.max(180, tonumber(self.db.bar.width) or 420)
@@ -230,6 +249,7 @@ function UlatekIntermission:EnsureDefaults()
     self.db.bar.font = ensureFont(self.db.bar.font, 14)
 
     self.db.assignment.font = ensureFont(self.db.assignment.font, 30)
+    self.db.reminder.font = ensureFont(self.db.reminder.font, 30)
 
     self.db.clicker.scale = tonumber(self.db.clicker.scale) or 1
     self.db.clicker.opacity = tonumber(self.db.clicker.opacity) or 1
@@ -352,10 +372,17 @@ local function applyAssignmentAppearance(f, assignmentDB)
 end
 
 local function createClickerArtwork(button, markerID, interactive)
-    local background = button:CreateTexture(nil, "BACKGROUND")
-    background:SetAllPoints(button)
+    local border = button:CreateTexture(nil, "BACKGROUND")
+    border:SetAllPoints(button)
+    border:SetColorTexture(1, 1, 1, 1)
+    border:SetVertexColor(0.3, 0.3, 0.3, 1)
+    E:DisableSharpening(border)
+
+    local background = button:CreateTexture(nil, "BORDER")
     background:SetColorTexture(0, 0, 0, 1)
-    E:CreatePixelBorder(button, {color = {0.3, 0.3, 0.3, 1}})
+    background:SetSize(CLICKER_BUTTON_SIZE - 2, CLICKER_BUTTON_SIZE - 2)
+    background:SetPoint("CENTER", button, "CENTER", 0, 0)
+    E:DisableSharpening(background)
 
     local icon = button:CreateTexture(nil, "ARTWORK")
     icon:SetPoint("TOPLEFT", button, "TOPLEFT", 3, -3)
@@ -364,16 +391,48 @@ local function createClickerArtwork(button, markerID, interactive)
 
     if interactive then
         local function clearHighlight()
-            E:SetPixelBorderColor(button, 0.3, 0.3, 0.3, 1)
+            border:SetVertexColor(0.3, 0.3, 0.3, 1)
         end
         button:HookScript("OnEnter", function()
-            E:SetPixelBorderColor(button, 0.7, 0.7, 0.7, 1)
+            border:SetVertexColor(0.7, 0.7, 0.7, 1)
         end)
         button:HookScript("OnLeave", clearHighlight)
         button:HookScript("OnHide", clearHighlight)
         button:HookScript("OnShow", clearHighlight)
         button.artClearHighlight = clearHighlight
     end
+end
+
+local function reminderMarkup(markerID, labelKey)
+    return ASSIGNMENT_MARKER_MARKUP:format(markerID) .. " " .. L[labelKey]
+end
+
+local function createReminderText(anchor)
+    local text = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetAllPoints(anchor)
+    text:SetJustifyH("CENTER")
+    text:SetJustifyV("MIDDLE")
+    return text
+end
+
+local function applyReminderAppearance(anchor, text, db, assignmentDB)
+    local assignmentSize = math.max(12, tonumber(assignmentDB.font.size) or 30)
+    local rowHeight = math.max(40, assignmentSize + 10)
+    local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
+    anchor:SetSize(700, math.max(60, rowHeight + countdownSize + 12))
+    text:ClearAllPoints()
+    text:SetPoint("TOP", anchor, "TOP", 0, -2)
+    text:SetSize(700, rowHeight)
+    E:ApplyFontString(text, E:FetchFont(db.font.name), db.font.size, db.font.outline)
+    text:SetTextColor(E:ColorTuple(db.font.color, 1, 1, 1, 1))
+end
+
+local function positionClickerButton(button, anchor, index, count, row)
+    local width = count * CLICKER_BUTTON_SIZE + (count - 1) * CLICKER_BUTTON_SPACING
+    button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
+    button:SetPoint("TOPLEFT", anchor, "TOP", -width / 2
+        + (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING),
+        -(row - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING))
 end
 
 local function createBarRegions(barAnchor)
@@ -471,6 +530,9 @@ function UlatekIntermission:EnsureFrames()
     local assignmentText, assignmentMeasure, assignmentCountdowns =
         createAssignmentRegions(assignmentAnchor)
 
+    local reminderAnchor = self:CreateAnchor("ART_UlatekMovementReminder", false)
+    local reminderText = createReminderText(reminderAnchor)
+
     local clickerWidth = #BUTTON_ORDER * CLICKER_BUTTON_SIZE
         + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING
     local clickerAnchor = CreateFrame(
@@ -479,7 +541,7 @@ function UlatekIntermission:EnsureFrames()
         UIParent,
         "SecureHandlerStateTemplate"
     )
-    clickerAnchor:SetSize(clickerWidth, CLICKER_BUTTON_SIZE)
+    clickerAnchor:SetSize(clickerWidth, 2 * CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING)
     clickerAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
     clickerAnchor:SetClampedToScreen(true)
     clickerAnchor:SetFrameStrata("HIGH")
@@ -494,14 +556,7 @@ function UlatekIntermission:EnsureFrames()
             clickerAnchor,
             "SecureActionButtonTemplate"
         )
-        button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
-        button:SetPoint(
-            "LEFT",
-            clickerAnchor,
-            "LEFT",
-            (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING),
-            0
-        )
+        positionClickerButton(button, clickerAnchor, index, #BUTTON_ORDER, 1)
         button:SetAttribute("type1", "macro")
         button:SetAttribute(
             "macrotext1",
@@ -515,6 +570,19 @@ function UlatekIntermission:EnsureFrames()
         createClickerArtwork(button, variation.markerID, true)
 
         clickerButtons[index] = button
+    end
+
+    for index, data in ipairs(REMINDER_BUTTONS) do
+        local button = CreateFrame("Button", "ART_UlatekReminder_Btn" .. index,
+            clickerAnchor, "SecureActionButtonTemplate")
+        positionClickerButton(button, clickerAnchor, index, #REMINDER_BUTTONS, 2)
+        button:SetAttribute("type1", "macro")
+        button:SetAttribute("macrotext1", (DEBUG_LOCAL_TEST and "/say " or "/raid ") .. data.payload)
+        button:RegisterForClicks("AnyUp", "AnyDown")
+        button:SetFrameStrata("MEDIUM")
+        button:SetFrameLevel(5)
+        createClickerArtwork(button, data.markerID, true)
+        clickerButtons[#clickerButtons + 1] = button
     end
 
     barAnchor:SetScript("OnUpdate", function()
@@ -531,12 +599,15 @@ function UlatekIntermission:EnsureFrames()
         assignmentText = assignmentText,
         assignmentMeasure = assignmentMeasure,
         assignmentCountdowns = assignmentCountdowns,
+        reminderAnchor = reminderAnchor,
+        reminderText = reminderText,
         clickerAnchor = clickerAnchor,
         clickerButtons = clickerButtons
     }
 
     self.barAnchor = barAnchor
     self.assignmentAnchor = assignmentAnchor
+    self.reminderAnchor = reminderAnchor
     self.clickerAnchor = clickerAnchor
 
     self:ApplySettings()
@@ -560,6 +631,9 @@ function UlatekIntermission:ApplySettings()
 
     self.assignmentLayout = applyAssignmentAppearance(f, assignmentDB)
     E:GetModule("BossMods").DisplayTemplates:Place(self, "assignment", f.assignmentAnchor)
+
+    applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment)
+    E:GetModule("BossMods").DisplayTemplates:Place(self, "reminder", f.reminderAnchor)
 
     if not InCombatLockdown() then
         f.clickerAnchor:SetScale(tonumber(clickDB.scale) or 1)
@@ -613,6 +687,18 @@ function UlatekIntermission:IsClickWindowOpen()
 end
 
 function UlatekIntermission:OnChatMsg(_, msg)
+    if self.encounterActive and self.encounterStartedAt then
+        local elapsed = GetTime() - self.encounterStartedAt
+        if elapsed >= REMINDER_CLICK_START and elapsed < REMINDER_CLICK_END then
+            if self.frames then
+                self.frames.reminderText:SetFormattedText(msg,
+                    reminderMarkup(5, "BossMods_UlatekGoToMoon"),
+                    reminderMarkup(6, "BossMods_UlatekGoToBlue"), "")
+            end
+            return
+        end
+    end
+
     if not DEBUG_LOCAL_TEST
         and (not self.encounterActive or not self:IsClickWindowOpen())
     then
@@ -631,6 +717,45 @@ function UlatekIntermission:OnChatMsg(_, msg)
 
     self.assignmentMessage = msg
     self:UpdateDisplay()
+end
+
+function UlatekIntermission:ResetReminder()
+    if self.reminderShowTimer then
+        self:CancelTimer(self.reminderShowTimer)
+        self.reminderShowTimer = nil
+    end
+    if self.reminderHideTimer then
+        self:CancelTimer(self.reminderHideTimer)
+        self.reminderHideTimer = nil
+    end
+    self.encounterStartedAt = nil
+    self.reminderVisible = false
+    if self.frames then
+        self.frames.reminderAnchor:Hide()
+        self.frames.reminderText:SetText("")
+    end
+end
+
+function UlatekIntermission:ShowReminder()
+    self.reminderShowTimer = nil
+    if not self.encounterActive then return end
+    self.reminderVisible = true
+    self:UpdateReminderDisplay()
+end
+
+function UlatekIntermission:HideReminder()
+    self.reminderHideTimer = nil
+    self.reminderVisible = false
+    self:UpdateReminderDisplay()
+end
+
+function UlatekIntermission:UpdateReminderDisplay()
+    if not self.frames then return end
+    local f = self.frames
+    if self.editMode then
+        f.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
+    end
+    f.reminderAnchor:SetShown(self.editMode or (self.encounterActive and self.reminderVisible) or false)
 end
 
 function UlatekIntermission:StartIntermissionBar()
@@ -871,7 +996,7 @@ function UlatekIntermission:HideDisplay()
 end
 
 function UlatekIntermission:CreateAnchorPreview(kind)
-    if kind ~= "assignment" and kind ~= "buttons" and kind ~= "bar" then return end
+    if kind ~= "assignment" and kind ~= "buttons" and kind ~= "bar" and kind ~= "reminder" then return end
     local owner = self
     local frame = CreateFrame("Frame", nil, UIParent)
     frame:EnableMouse(false)
@@ -891,16 +1016,23 @@ function UlatekIntermission:CreateAnchorPreview(kind)
             assignmentAnchor = frame, assignmentText = text,
             assignmentMeasure = measure, assignmentCountdowns = countdowns
         }
+    elseif kind == "reminder" then
+        preview.frames.reminderText = createReminderText(frame)
     else
         frame:SetSize(#BUTTON_ORDER * CLICKER_BUTTON_SIZE
-            + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING, CLICKER_BUTTON_SIZE)
+            + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING,
+            2 * CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING)
         for index, variationKey in ipairs(BUTTON_ORDER) do
             local button = CreateFrame("Frame", nil, frame)
-            button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
-            button:SetPoint("LEFT", frame, "LEFT",
-                (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING), 0)
+            positionClickerButton(button, frame, index, #BUTTON_ORDER, 1)
             button:EnableMouse(false)
             createClickerArtwork(button, VARIATIONS[variationKey].markerID)
+        end
+        for index, data in ipairs(REMINDER_BUTTONS) do
+            local button = CreateFrame("Frame", nil, frame)
+            positionClickerButton(button, frame, index, #REMINDER_BUTTONS, 2)
+            button:EnableMouse(false)
+            createClickerArtwork(button, data.markerID)
         end
     end
     local handle = {frame = frame}
@@ -915,6 +1047,9 @@ function UlatekIntermission:CreateAnchorPreview(kind)
         elseif kind == "assignment" then
             preview.assignmentLayout = applyAssignmentAppearance(preview.frames, owner.db.assignment)
             UlatekIntermission.UpdateAssignmentSlots(preview, CHAT_PAYLOADS.PINK, 1, 0)
+        elseif kind == "reminder" then
+            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.reminder, owner.db.assignment)
+            preview.frames.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
         else
             frame:SetScale(tonumber(owner.db.clicker.scale) or 1)
             frame:SetAlpha(tonumber(owner.db.clicker.opacity) or 1)
@@ -939,6 +1074,8 @@ function UlatekIntermission:UpdateDisplay()
     if not self.frames then
         return
     end
+
+    self:UpdateReminderDisplay()
 
     local editMode = self.editMode == true
     local elapsed = editMode
@@ -1101,7 +1238,11 @@ function UlatekIntermission:OnEncounterStart(_, encounterID)
         return
     end
 
+    self:ResetReminder()
+    self.encounterStartedAt = GetTime()
     self.encounterActive = true
+    self.reminderShowTimer = self:ScheduleTimer("ShowReminder", REMINDER_SHOW_AT)
+    self.reminderHideTimer = self:ScheduleTimer("HideReminder", REMINDER_SHOW_AT + REMINDER_DURATION)
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
     self.activeStartedAt = nil
@@ -1117,6 +1258,7 @@ function UlatekIntermission:OnEncounterEnd(_, encounterID)
         return
     end
 
+    self:ResetReminder()
     self.encounterActive = false
     self.waitingForIntermissionCoils = false
     self.intermissionCoilsClaimed = false
@@ -1162,6 +1304,7 @@ function UlatekIntermission:OnEnable()
 end
 
 function UlatekIntermission:OnDisable()
+    self:ResetReminder()
     self:UnhookBigWigs()
     self:StopChatListener()
     self:UnregisterAllEvents()

@@ -1,9 +1,10 @@
 local E, L = unpack(ART)
 local Displays = E:GetModule("BossMods").DisplayTemplates
 
-local function display(module, key, category, labelKey, path, order)
+local function display(module, key, category, labelKey, path, order, sharedAnchor)
     Displays:Register("BossMods_" .. module, key, {
-        category = category, label = L[labelKey], path = path or key, order = order
+        category = category, label = L[labelKey], path = path or key, order = order,
+        sharedAnchor = sharedAnchor
     })
 end
 
@@ -17,6 +18,7 @@ display("UlatekKicker", "nextTextPosition", "text", "BossMods_DisplayNextKickRem
 display("UlatekIntermission", "bar", "bar", "BossMods_DisplayIntermissionTimer", "bar.position", 10)
 display("UlatekIntermission", "assignment", "panel", "BossMods_DisplayIntermissionAssignments", "assignment.position", 20)
 display("UlatekIntermission", "clicker", "buttons", "BossMods_DisplayIntermissionButtons", "clicker.position", 30)
+display("UlatekIntermission", "reminder", "panel", "BossMods_UlatekMovementReminder", "reminder.position", 40, "assignment")
 display("TwinFangsDelugeBar", "position", "bar", "BossMods_DisplayPersonalDelugeBar")
 display("TwinFangsDelugeList", "position", "aura", "BossMods_DisplayDelugePlayerList")
 display("CoiledAltarIntermissionBar", "position", "bar", "BossMods_DisplayIntermissionTimer")

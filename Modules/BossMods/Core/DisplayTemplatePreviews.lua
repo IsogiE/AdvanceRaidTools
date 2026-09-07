@@ -36,12 +36,15 @@ end
 
 local function layoutHandles(handles, getPosition, isIndependent)
     local groups = {}
+    local sharedHandles = {}
     for _, handle in ipairs(handles) do
         local frame = handle.frame
         local category = handle.category
         local settings = Displays:GetSettings(category)
         local pos = getPosition(handle)
-        if frame:IsShown() and Displays.templates[category].stack and not isIndependent(handle) then
+        local shared = handle.entry and Displays:GetSharedEntry(handle.entry)
+        if shared then sharedHandles[handle] = shared end
+        if frame:IsShown() and Displays.templates[category].stack and not shared and not isIndependent(handle) then
             local horizontal = settings.growth == "LEFT" or settings.growth == "RIGHT"
             local sign = (settings.growth == "LEFT" or settings.growth == "DOWN") and -1 or 1
             local size = (horizontal and frame:GetWidth() or frame:GetHeight())
@@ -57,6 +60,15 @@ local function layoutHandles(handles, getPosition, isIndependent)
                 y = pos.y + (horizontal and 0 or offset * sign)}
         end
         E:ApplyFramePosition(frame, pos)
+    end
+    for handle, shared in pairs(sharedHandles) do
+        for _, target in ipairs(handles) do
+            if target.entry == shared then
+                handle.frame:ClearAllPoints()
+                handle.frame:SetPoint("TOP", target.frame, "TOP", 0, 0)
+                break
+            end
+        end
     end
 end
 

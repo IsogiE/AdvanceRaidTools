@@ -25,6 +25,7 @@
     <Script file="Raids\VenomousAbyss\UlatekWavesSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekIntermissionSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekStageTwoAssignmentSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\UlatekNameplateBuffsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDelugeSettings.lua"/>
