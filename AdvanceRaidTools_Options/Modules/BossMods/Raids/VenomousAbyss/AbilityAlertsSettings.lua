@@ -1082,6 +1082,15 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 tonumber(settings.castWindow.textOffsetY) or 0
         end
 
+        if ability.postHitMarkerCountdownTexts then
+            settings.postHitMarkerCountdownText =
+                settings.postHitMarkerCountdownText or {}
+
+            if settings.postHitMarkerCountdownText.enabled == nil then
+                settings.postHitMarkerCountdownText.enabled = false
+            end
+        end
+
         y = section(y, ability.name or tostring(spellID))
 
         y = section(y, L["BossMods_AAOptions_ActiveDifficulties"])
@@ -1663,6 +1672,25 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                             ),
                         sizeDelta = 0
                     })))
+
+                    if ability.postHitMarkerCountdownTexts then
+                        y = full(y, rebuildCheckbox({
+                            text = L["BossMods_AAOptions_EnablePostHitMarkerCountdownTexts"],
+                            tooltip = L["BossMods_AAOptions_PostHitMarkerCountdownTextsTooltip"],
+                            labelTop = true,
+                            get = function()
+                                return settings.postHitMarkerCountdownText.enabled
+                            end,
+                            onChange = function(value)
+                                settings.postHitMarkerCountdownText.enabled = value
+                            end,
+                            disabled = function()
+                                return isDisabled()
+                                    or not settings.enabled
+                                    or not settings.bar.enabled
+                            end
+                        }))
+                    end
                 end
             end
 

@@ -1385,6 +1385,12 @@ L["BossMods_AR_TextUlaKick"] = "Focus {marker}: {kickIndex:ordinal} kick"
 L["BossMods_VA_Assignment_GoToMarker"] = "Go to %s"
 L["BossMods_VA_Assignment_SoakRightCountdown"] = "Soak Right %.1f"
 L["BossMods_VA_Assignment_SoakLeftCountdown"] = "Soak Left %.1f"
+L["BossMods_VA_SpectralCoils_Soak1"] = "Soak 1"
+L["BossMods_VA_SpectralCoils_Soak2"] = "Soak 2"
+L["BossMods_AAOptions_EnablePostHitMarkerCountdownTexts"] =
+    "Show marker countdown texts"
+L["BossMods_AAOptions_PostHitMarkerCountdownTextsTooltip"] =
+    "Shows separate Soak 1 and Soak 2 countdowns tied to the two markers on the Spectral Coils follow-up bar."
 L["BossMods_VA_Ability_SerpentsBite"] = "Serpent's Bite (Debuff)"
 L["BossMods_VA_Ability_FuryUnleashed"] = "Fury Unleashed (Enrage)"
 

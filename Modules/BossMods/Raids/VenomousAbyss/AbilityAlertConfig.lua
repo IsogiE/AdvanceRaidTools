@@ -950,7 +950,7 @@ local function getPostHitStageMarkers(self, ability, _, markers)
     return result
 end
 
-local function configurePostHitStageBar(_, ability, bar)
+local function configurePostHitStageBar(self, ability, bar)
     if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID then
         return
     end
@@ -964,12 +964,80 @@ local function configurePostHitStageBar(_, ability, bar)
         text:Hide()
         bar.postHitAssignmentText = text
     end
+
+    local settings = self:GetAbilitySettings(SPECTRAL_COILS_SPELL_ID) or {}
+    local countdownSettings = settings.postHitMarkerCountdownText or {}
+    local labels = ability.postHitMarkerCountdownTexts or {}
+    bar.postHitMarkerCountdownTextsEnabled =
+        countdownSettings.enabled == true
+    bar.postHitMarkerCountdownTexts =
+        bar.postHitMarkerCountdownTexts or {}
+
+    for index = 1, #labels do
+        local text = bar.postHitMarkerCountdownTexts[index]
+
+        if not text then
+            text = bar.frame:CreateFontString(
+                nil,
+                "OVERLAY",
+                "GameFontNormalHuge"
+            )
+            text:SetJustifyH(index == 1 and "LEFT" or "RIGHT")
+            text:SetTextColor(1, 1, 1, 1)
+            bar.postHitMarkerCountdownTexts[index] = text
+        end
+
+        text:ClearAllPoints()
+        text:SetPoint(
+            "BOTTOM",
+            bar.frame,
+            "TOP",
+            0,
+            index == 1 and 32 or 8
+        )
+        text:Hide()
+    end
+
+    bar.postHitAssignmentText:ClearAllPoints()
+    bar.postHitAssignmentText:SetPoint(
+        "BOTTOM",
+        bar.frame,
+        "TOP",
+        0,
+        bar.postHitMarkerCountdownTextsEnabled and 56 or 8
+    )
 end
 
 local function updatePostHitStageBar(self, ability, bar, elapsed)
-    if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID
-        or not bar.postHitAssignmentText
-    then
+    if tonumber(ability and ability.spellID) ~= SPECTRAL_COILS_SPELL_ID then
+        return
+    end
+
+    local labels = ability.postHitMarkerCountdownTexts or {}
+    local markers = bar.postHitStageMarkers or {}
+
+    for index, text in ipairs(bar.postHitMarkerCountdownTexts or {}) do
+        local marker = markers[index]
+        local remaining = marker
+            and (tonumber(marker.time) or 0) - (tonumber(elapsed) or 0)
+
+        if bar.postHitMarkerCountdownTextsEnabled
+            and labels[index]
+            and remaining
+            and remaining > 0
+        then
+            text:SetText(
+                tostring(labels[index])
+                .. " "
+                .. ("%.1f"):format(remaining)
+            )
+            text:Show()
+        else
+            text:Hide()
+        end
+    end
+
+    if not bar.postHitAssignmentText then
         return
     end
 

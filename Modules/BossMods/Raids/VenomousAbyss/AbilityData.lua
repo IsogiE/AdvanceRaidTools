@@ -736,6 +736,10 @@ E.VenomousAbyssAbilityData = {
                 defaultBarEnabled = false,
                 order = 70,
                 embeddedMechanicDefaultEnabled = true,
+                postHitMarkerCountdownTexts = {
+                    L["BossMods_VA_SpectralCoils_Soak1"],
+                    L["BossMods_VA_SpectralCoils_Soak2"],
+                },
                 postHitStages = {
                     countDown = true,
                     stages = {

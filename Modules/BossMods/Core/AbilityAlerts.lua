@@ -329,6 +329,8 @@ function AbilityAlerts:BuildAbilityLookup()
                     embeddedMechanicDefaultEnabled =
                         ability.embeddedMechanicDefaultEnabled == true,
                     postHitStages = ability.postHitStages,
+                    postHitMarkerCountdownTexts =
+                        ability.postHitMarkerCountdownTexts,
                     mechanic = ability.mechanic,
                     ignoreTriggerDuration = tonumber(
                         ability.ignoreTriggerDuration
@@ -1144,6 +1146,10 @@ bar.frame:SetPoint(
         if bar.postHitAssignmentText then
             bar.postHitAssignmentText:Hide()
         end
+        for _, text in ipairs(bar.postHitMarkerCountdownTexts or {}) do
+            text:Hide()
+        end
+        bar.postHitStageMarkers = nil
         bar.ulatekSlamAssignment = nil
         bar:Hide()
         self:ApplyPositions()
@@ -2821,6 +2827,7 @@ function AbilityAlerts:SchedulePostHitStages(
                         end
 
                         if stageMarkers then
+                            bar.postHitStageMarkers = stageMarkers
                             local markerSettings =
                                 settings.timelineMarkers or {}
 
