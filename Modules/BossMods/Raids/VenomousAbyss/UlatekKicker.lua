@@ -3,7 +3,10 @@ local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_UlatekKicker"
 local ENCOUNTER_ID = 3492
 local TRACKING_START = 240
+local INTERRUPT_ADD_LEVEL = 92
+local INTERRUPT_CAST_WINDOW = 5
 local BOSS_UNITS = {"boss2", "boss3", "boss4", "boss5"}
+local SPELLCAST_EVENTS = {"UNIT_SPELLCAST_START", "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_STOP"}
 local MARKERS = {
     star = 1, circle = 2, diamond = 3, triangle = 4,
     moon = 5, square = 6, cross = 7, skull = 8
@@ -90,8 +93,16 @@ function Kicker:GetFocusedBossUnit()
         local bossUnit = "boss" .. bossIndex
         local isBoss = UnitIsUnit("focus", bossUnit)
         if issecretvalue(isBoss) then return end
-        if isBoss then return bossUnit end
+        if isBoss and UnitLevel(bossUnit) == INTERRUPT_ADD_LEVEL then return bossUnit end
     end
+end
+
+function Kicker:ConsumeInterruptCastStart(unit)
+    if UnitLevel(unit) ~= INTERRUPT_ADD_LEVEL then return false end
+    local startedAt = self.castStarts[unit]
+    if not startedAt then return false end
+    self.castStarts[unit] = nil
+    return GetTime() - startedAt <= INTERRUPT_CAST_WINDOW
 end
 
 function Kicker:ResetInterrupts()
@@ -100,8 +111,19 @@ function Kicker:ResetInterrupts()
     self:HideInterrupt()
 end
 
-function Kicker:OnBossInterrupted(_, unit)
+function Kicker:OnBossSpellcast(event, unit)
     if not self.trackingEnabled or unit == self.focusedBoss then return end
+    if event == "UNIT_SPELLCAST_START" then
+        if UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
+            self.castStarts[unit] = GetTime()
+        end
+        return
+    end
+    if event == "UNIT_SPELLCAST_STOP" then
+        self.castStarts[unit] = nil
+        return
+    end
+    if not self:ConsumeInterruptCastStart(unit) then return end
     local castCount = self.bossCounts[unit] + 1
     if castCount > self.Interrupts.max then
         castCount = 1
@@ -267,11 +289,15 @@ function Kicker:OnFocusEvent(event, unit)
         end
         self:UpdateNameplateDisplay()
     elseif event == "UNIT_SPELLCAST_START" and unit == "focus" then
-        if self.focusedBoss then
+        if self.focusedBoss and UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
+            self.castStarts[self.focusedBoss] = GetTime()
             self:InterruptOnCastStart(unit)
             self:UpdateNameplateDisplay()
         end
-    elseif event == "UNIT_SPELLCAST_INTERRUPTED" and unit == "focus" and self.focusedBoss then
+    elseif event == "UNIT_SPELLCAST_STOP" and unit == "focus" and self.focusedBoss then
+        self.castStarts[self.focusedBoss] = nil
+    elseif event == "UNIT_SPELLCAST_INTERRUPTED" and unit == "focus" and self.focusedBoss
+        and self:ConsumeInterruptCastStart(self.focusedBoss) then
         self:OnInterrupt(true)
         self.bossCounts[self.focusedBoss] = self.Interrupts.castCount
         self:UpdateNameplateDisplay()
@@ -288,13 +314,14 @@ function Kicker:RegisterSpellcastEvents()
     if not self.bossSpellcastFrame then
         self.bossSpellcastFrame = CreateFrame("Frame")
         self.bossSpellcastFrame:SetScript("OnEvent", function(_, event, unit)
-            self:OnBossInterrupted(event, unit)
+            self:OnBossSpellcast(event, unit)
         end)
     end
     self.spellcastFrame:RegisterEvent("PLAYER_FOCUS_CHANGED")
-    self.spellcastFrame:RegisterUnitEvent("UNIT_SPELLCAST_START", "focus")
-    self.spellcastFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "focus")
-    self.bossSpellcastFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", unpack(BOSS_UNITS))
+    for _, event in ipairs(SPELLCAST_EVENTS) do
+        self.spellcastFrame:RegisterUnitEvent(event, "focus")
+        self.bossSpellcastFrame:RegisterUnitEvent(event, unpack(BOSS_UNITS))
+    end
 end
 
 function Kicker:StopEncounter()
@@ -302,6 +329,7 @@ function Kicker:StopEncounter()
     self.trackingEnabled = false
     self.focusedBoss = nil
     self.bossCounts = nil
+    self.castStarts = nil
     if self.startTimer then
         self.startTimer:Cancel()
         self.startTimer = nil
@@ -320,6 +348,7 @@ function Kicker:OnEncounterStart(_, encounterID, _, difficultyID)
     self:ParseAssignments()
     self:ResetInterrupts()
     self.bossCounts = {boss2 = 1, boss3 = 1, boss4 = 1, boss5 = 1}
+    self.castStarts = {}
     self.focusedBoss = nil
     self.trackingEnabled = false
     self:RegisterSpellcastEvents()
@@ -327,6 +356,7 @@ function Kicker:OnEncounterStart(_, encounterID, _, difficultyID)
         self.startTimer = nil
         if not self.encounterActive then return end
         self.bossCounts = {boss2 = 1, boss3 = 1, boss4 = 1, boss5 = 1}
+        self.castStarts = {}
         self.trackingEnabled = true
         self:ResetInterrupts()
         self.focusedBoss = self:GetFocusedBossUnit()

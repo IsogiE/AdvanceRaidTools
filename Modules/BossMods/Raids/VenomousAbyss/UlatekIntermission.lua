@@ -51,6 +51,7 @@ E:RegisterModuleDefaults(MODULE_NAME, {
     },
     clicker = {
         position = {point = "CENTER", x = 0, y = 80},
+        hideLeftRight = false,
         scale = 1,
         opacity = 1
     }
@@ -60,9 +61,9 @@ local ENCOUNTER_ID = 3492
 local INSTANCE_ID = 3004
 local SPELL_SPECTRAL_COILS = 1300530
 local DURATION = 25
-local CLICK_WINDOW = 5
+local CLICK_WINDOW = 10
 local REMINDER_CLICK_START = 160
-local REMINDER_CLICK_END = 170
+local REMINDER_CLICK_END = 175
 local REMINDER_SHOW_AT = 275
 local REMINDER_DURATION = 10
 local DUPLICATE_WINDOW = 2
@@ -158,15 +159,24 @@ local REMINDER_BUTTONS = {
     {markerID = 5, payload = "%s"},
     {markerID = 6, payload = "%.0s%s"}
 }
-local WAVE_ROW_BUTTON_COUNT = #WAVE_BUTTONS + #REMINDER_BUTTONS
-local CLICKER_WIDTH = WAVE_ROW_BUTTON_COUNT * CLICKER_BUTTON_SIZE
-    + (WAVE_ROW_BUTTON_COUNT - 1) * CLICKER_BUTTON_SPACING
 local CLICKER_HEIGHT = 2 * CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING
 local CHAT_PAYLOADS = {
     PINK = "%s",
     WHITE = "%.0s%s",
     RED = "%.0s%.0s%s"
 }
+
+for buttonName, labelKey in pairs({
+    ART_UlatekP1_Btn1 = "BossMods_UlatekBindingLeft",
+    ART_UlatekP1_Btn2 = "BossMods_UlatekBindingRight",
+    ART_UlatekReminder_Btn1 = "BossMods_UlatekBindingMoon",
+    ART_UlatekReminder_Btn2 = "BossMods_UlatekBindingBlue",
+    ART_UlatekIntermission_Btn1 = "BossMods_UlatekBindingCross",
+    ART_UlatekIntermission_Btn2 = "BossMods_UlatekBindingTriangle",
+    ART_UlatekIntermission_Btn3 = "BossMods_UlatekBindingStar"
+}) do
+    _G["BINDING_NAME_CLICK " .. buttonName .. ":LeftButton"] = L[labelKey]
+end
 
 local UlatekIntermission = E:NewModule(MODULE_NAME, "AceEvent-3.0", "AceTimer-3.0")
 local BossMods
@@ -472,10 +482,34 @@ end
 
 local function positionClickerButton(button, anchor, index, count, row)
     local width = count * CLICKER_BUTTON_SIZE + (count - 1) * CLICKER_BUTTON_SPACING
+    button:ClearAllPoints()
     button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
     button:SetPoint("TOPLEFT", anchor, "TOP", -width / 2
         + (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING),
         -(row - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING))
+end
+
+local function layoutClickerButtons(anchor, buttons, hideLeftRight)
+    local waveCount = hideLeftRight and 0 or #WAVE_BUTTONS
+    local topRowCount = waveCount + #REMINDER_BUTTONS
+    local widestRowCount = math.max(topRowCount, #BUTTON_ORDER)
+    anchor:SetSize(widestRowCount * CLICKER_BUTTON_SIZE
+        + (widestRowCount - 1) * CLICKER_BUTTON_SPACING, CLICKER_HEIGHT)
+
+    for index = 1, #WAVE_BUTTONS do
+        local button = buttons[index]
+        button:SetShown(not hideLeftRight)
+        if not hideLeftRight then
+            positionClickerButton(button, anchor, index, topRowCount, 1)
+        end
+    end
+    for index = 1, #BUTTON_ORDER do
+        positionClickerButton(buttons[#WAVE_BUTTONS + index], anchor, index, #BUTTON_ORDER, 2)
+    end
+    for index = 1, #REMINDER_BUTTONS do
+        positionClickerButton(buttons[#WAVE_BUTTONS + #BUTTON_ORDER + index], anchor,
+            waveCount + index, topRowCount, 1)
+    end
 end
 
 local function createBarRegions(barAnchor)
@@ -584,7 +618,6 @@ function UlatekIntermission:EnsureFrames()
         UIParent,
         "SecureHandlerStateTemplate"
     )
-    clickerAnchor:SetSize(CLICKER_WIDTH, CLICKER_HEIGHT)
     clickerAnchor:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
     clickerAnchor:SetClampedToScreen(true)
     clickerAnchor:SetFrameStrata("HIGH")
@@ -594,7 +627,6 @@ function UlatekIntermission:EnsureFrames()
     for index, data in ipairs(WAVE_BUTTONS) do
         local button = CreateFrame("Button", "ART_UlatekP1_Btn" .. index,
             clickerAnchor, "SecureActionButtonTemplate")
-        positionClickerButton(button, clickerAnchor, index, WAVE_ROW_BUTTON_COUNT, 1)
         button:SetAttribute("type1", "macro")
         button:SetAttribute("macrotext1", data.macro)
         button:RegisterForClicks("AnyUp", "AnyDown")
@@ -612,7 +644,6 @@ function UlatekIntermission:EnsureFrames()
             clickerAnchor,
             "SecureActionButtonTemplate"
         )
-        positionClickerButton(button, clickerAnchor, index, #BUTTON_ORDER, 2)
         button:SetAttribute("type1", "macro")
         button:SetAttribute(
             "macrotext1",
@@ -631,7 +662,6 @@ function UlatekIntermission:EnsureFrames()
     for index, data in ipairs(REMINDER_BUTTONS) do
         local button = CreateFrame("Button", "ART_UlatekReminder_Btn" .. index,
             clickerAnchor, "SecureActionButtonTemplate")
-        positionClickerButton(button, clickerAnchor, #WAVE_BUTTONS + index, WAVE_ROW_BUTTON_COUNT, 1)
         button:SetAttribute("type1", "macro")
         button:SetAttribute("macrotext1", (DEBUG_LOCAL_TEST and "/say " or "/raid ") .. data.payload)
         button:RegisterForClicks("AnyUp", "AnyDown")
@@ -697,9 +727,16 @@ function UlatekIntermission:ApplySettings()
     E:GetModule("BossMods").DisplayTemplates:Place(self, "wave", f.waveAnchor)
 
     if not InCombatLockdown() then
+        layoutClickerButtons(f.clickerAnchor, f.clickerButtons, clickDB.hideLeftRight == true)
         f.clickerAnchor:SetScale(tonumber(clickDB.scale) or 1)
         f.clickerAnchor:SetAlpha(tonumber(clickDB.opacity) or 1)
         E:GetModule("BossMods").DisplayTemplates:Place(self, "clicker", f.clickerAnchor)
+    else
+        E:RunWhenOutOfCombat(UPDATE_STATE_KEY, function()
+            if self:IsEnabled() then
+                self:UpdateState()
+            end
+        end)
     end
 end
 
@@ -1133,24 +1170,25 @@ function UlatekIntermission:CreateAnchorPreview(kind)
     elseif kind == "reminder" or kind == "wave" then
         preview.frames.reminderText = createReminderText(frame)
     else
-        frame:SetSize(CLICKER_WIDTH, CLICKER_HEIGHT)
+        local buttons = {}
+        preview.frames.clickerButtons = buttons
         for index, data in ipairs(WAVE_BUTTONS) do
             local button = CreateFrame("Frame", nil, frame)
-            positionClickerButton(button, frame, index, WAVE_ROW_BUTTON_COUNT, 1)
             button:EnableMouse(false)
             createClickerArtwork(button, nil, false, data.label)
+            buttons[#buttons + 1] = button
         end
         for index, variationKey in ipairs(BUTTON_ORDER) do
             local button = CreateFrame("Frame", nil, frame)
-            positionClickerButton(button, frame, index, #BUTTON_ORDER, 2)
             button:EnableMouse(false)
             createClickerArtwork(button, VARIATIONS[variationKey].markerID)
+            buttons[#buttons + 1] = button
         end
         for index, data in ipairs(REMINDER_BUTTONS) do
             local button = CreateFrame("Frame", nil, frame)
-            positionClickerButton(button, frame, #WAVE_BUTTONS + index, WAVE_ROW_BUTTON_COUNT, 1)
             button:EnableMouse(false)
             createClickerArtwork(button, data.markerID)
+            buttons[#buttons + 1] = button
         end
     end
     local handle = {frame = frame}
@@ -1172,6 +1210,7 @@ function UlatekIntermission:CreateAnchorPreview(kind)
             applyReminderAppearance(frame, preview.frames.reminderText, owner.db.wave, owner.db.assignment)
             preview.frames.reminderText:SetText(L["BossMods_UlatekWaveLeft"])
         else
+            layoutClickerButtons(frame, preview.frames.clickerButtons, owner.db.clicker.hideLeftRight == true)
             frame:SetScale(tonumber(owner.db.clicker.scale) or 1)
             frame:SetAlpha(tonumber(owner.db.clicker.opacity) or 1)
         end

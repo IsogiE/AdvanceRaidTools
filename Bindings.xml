@@ -10,4 +10,11 @@
     <Binding name="CLICK ART_SszorakMarkers_Btn4:LeftButton" category="ART"/>
     <Binding name="CLICK ART_SszorakMarkers_Btn5:LeftButton" category="ART"/>
     <Binding name="CLICK ART_SszorakMarkers_Btn6:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekP1_Btn1:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekP1_Btn2:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekReminder_Btn1:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekReminder_Btn2:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekIntermission_Btn1:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekIntermission_Btn2:LeftButton" category="ART"/>
+    <Binding name="CLICK ART_UlatekIntermission_Btn3:LeftButton" category="ART"/>
 </Bindings>

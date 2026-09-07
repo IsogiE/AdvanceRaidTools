@@ -188,7 +188,7 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
         disabled = isDisabled
     }))
 
-    y = full(y, track(T:Checkbox(rightPanel, {
+    local textOnly = track(T:Checkbox(rightPanel, {
         text = L["BossMods_TimelineSequenceTextOnly"],
         get = function()
             return mod.db.textOnly == true
@@ -198,7 +198,19 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
             refreshLive()
         end,
         disabled = isDisabled
-    })))
+    }))
+    local hideLeftRight = track(T:Checkbox(rightPanel, {
+        text = L["BossMods_UlatekIntermissionHideLeftRight"],
+        get = function()
+            return mod.db.clicker.hideLeftRight == true
+        end,
+        onChange = function(_, value)
+            mod.db.clicker.hideLeftRight = value and true or false
+            refreshLive()
+        end,
+        disabled = isDisabled
+    }))
+    y = row(y, {textOnly, hideLeftRight})
 
     y = full(y, track(T:Header(rightPanel, {
         text = L["BossMods_UlatekIntermissionBarAppearance"]
