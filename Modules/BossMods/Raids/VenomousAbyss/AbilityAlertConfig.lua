@@ -973,6 +973,10 @@ local function configurePostHitStageBar(self, ability, bar)
     local labels = ability.postHitMarkerCountdownTexts or {}
     bar.postHitMarkerCountdownTextsEnabled =
         countdownSettings.enabled == true
+    bar.postHitMarkerCountdownTextEnabled = {
+        countdownSettings.soak1Enabled ~= false,
+        countdownSettings.soak2Enabled ~= false,
+    }
     local frame = self.ulatekSpectralMarkerCountdownFrame
 
     if not frame then
@@ -998,6 +1002,8 @@ local function configurePostHitStageBar(self, ability, bar)
     bar.postHitMarkerCountdownFrame = frame
     bar.postHitMarkerCountdownTexts = frame.texts
 
+    local visibleRow = 0
+
     for index = 1, #labels do
         local text = frame.texts[index]
 
@@ -1018,13 +1024,17 @@ local function configurePostHitStageBar(self, ability, bar)
             color[3] or color.b or 1,
             color[4] or color.a or 1
         )
+        local row = visibleRow
+        if bar.postHitMarkerCountdownTextEnabled[index] ~= false then
+            visibleRow = visibleRow + 1
+        end
         text:ClearAllPoints()
         text:SetPoint(
             "TOP",
             frame,
             "TOP",
             0,
-            -(index - 1) * (fontSize + 4)
+            -row * (fontSize + 4)
         )
         text:Hide()
     end
@@ -1048,6 +1058,8 @@ local function updatePostHitStageBar(self, ability, bar, elapsed)
             and (tonumber(marker.time) or 0) - (tonumber(elapsed) or 0)
 
         if bar.postHitMarkerCountdownTextsEnabled
+            and bar.postHitMarkerCountdownTextEnabled
+            and bar.postHitMarkerCountdownTextEnabled[index] ~= false
             and labels[index]
             and remaining
             and remaining > 0

@@ -1091,6 +1091,14 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 markerText.enabled = false
             end
 
+            if markerText.soak1Enabled == nil then
+                markerText.soak1Enabled = true
+            end
+
+            if markerText.soak2Enabled == nil then
+                markerText.soak2Enabled = true
+            end
+
             markerText.position = markerText.position or {
                 point = "CENTER",
                 x = 0,
@@ -1719,6 +1727,41 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                         }))
 
                         if markerText.enabled then
+                            local enableSoak1Text = checkbox({
+                                text = L["BossMods_AAOptions_EnableSoak1CountdownText"],
+                                labelTop = true,
+                                get = function()
+                                    return markerText.soak1Enabled ~= false
+                                end,
+                                onChange = function(value)
+                                    markerText.soak1Enabled = value
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            local enableSoak2Text = checkbox({
+                                text = L["BossMods_AAOptions_EnableSoak2CountdownText"],
+                                labelTop = true,
+                                get = function()
+                                    return markerText.soak2Enabled ~= false
+                                end,
+                                onChange = function(value)
+                                    markerText.soak2Enabled = value
+                                end,
+                                disabled = function()
+                                    return isDisabled()
+                                        or not settings.bar.enabled
+                                end
+                            })
+
+                            y = row(y, {
+                                enableSoak1Text,
+                                enableSoak2Text
+                            })
+
                             y = T:XYOffsetControls(
                                 rightPanel,
                                 y,
