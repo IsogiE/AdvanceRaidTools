@@ -1394,6 +1394,8 @@ L["BossMods_AAOptions_PostHitMarkerCountdownTextsTooltip"] =
 L["BossMods_AAOptions_MarkerCountdownTextColor"] = "Countdown text color"
 L["BossMods_AAOptions_EnableSoak1CountdownText"] = "Show Soak 1 countdown"
 L["BossMods_AAOptions_EnableSoak2CountdownText"] = "Show Soak 2 countdown"
+L["BossMods_AAOptions_AssignedSoakMarkerColor"] = "Assigned soak marker color"
+L["BossMods_AAOptions_OtherSoakMarkerColor"] = "Other soak marker color"
 L["BossMods_VA_Ability_SerpentsBite"] = "Serpent's Bite (Debuff)"
 L["BossMods_VA_Ability_FuryUnleashed"] = "Fury Unleashed (Enrage)"
 

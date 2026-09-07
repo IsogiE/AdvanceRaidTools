@@ -922,6 +922,12 @@ local function getPostHitStageMarkers(self, ability, _, markers)
         or assignment == "left" and 2
         or nil
     local result = {}
+    local settings = self:GetAbilitySettings(SPECTRAL_COILS_SPELL_ID) or {}
+    local markerSettings = settings.postHitMarkerCountdownText or {}
+    local assignedColor = markerSettings.assignedMarkerColor
+        or {0.1, 1, 0.2, 1}
+    local otherColor = markerSettings.otherMarkerColor
+        or {1, 1, 1, 0.35}
 
     for index, marker in ipairs(markers or {}) do
         local copy = {}
@@ -937,10 +943,10 @@ local function getPostHitStageMarkers(self, ability, _, markers)
         end
 
         if index == highlightedIndex then
-            copy.color = {0.1, 1, 0.2, 1}
+            copy.color = assignedColor
             copy.thickness = 10
         else
-            copy.color = {1, 1, 1, 0.35}
+            copy.color = otherColor
             copy.thickness = 4
         end
 
@@ -1447,6 +1453,32 @@ local function refreshEncounterBars(self)
     local spectralAbility = self:GetAbility(SPECTRAL_COILS_SPELL_ID)
 
     if spectralBar and spectralAbility and spectralBar.postHitStageActive then
+        local stage = spectralAbility.postHitStages
+            and spectralAbility.postHitStages.stages
+            and spectralAbility.postHitStages.stages[1]
+        local markers = stage and getPostHitStageMarkers(
+            self,
+            spectralAbility,
+            stage,
+            stage.markers
+        )
+
+        if markers then
+            local settings =
+                self:GetAbilitySettings(SPECTRAL_COILS_SPELL_ID) or {}
+            local markerAppearance = settings.timelineMarkers or {}
+            spectralBar.postHitStageMarkers = markers
+            self:SetTimelineMarkers(
+                spectralBar,
+                markers,
+                tonumber(stage.duration) or 12,
+                SPECTRAL_COILS_SPELL_ID,
+                tonumber(markerAppearance.markerThickness) or 5,
+                markerAppearance.markerColor,
+                tonumber(markerAppearance.textOffsetY) or 0
+            )
+        end
+
         configurePostHitStageBar(self, spectralAbility, spectralBar)
     end
 

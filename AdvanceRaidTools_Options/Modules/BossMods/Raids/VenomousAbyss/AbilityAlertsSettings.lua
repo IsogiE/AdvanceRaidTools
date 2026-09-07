@@ -1121,6 +1121,14 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                 markerText.font.color,
                 {1, 1, 1, 1}
             )
+            markerText.assignedMarkerColor = copyColor(
+                markerText.assignedMarkerColor,
+                {0.1, 1, 0.2, 1}
+            )
+            markerText.otherMarkerColor = copyColor(
+                markerText.otherMarkerColor,
+                {1, 1, 1, 0.35}
+            )
         end
 
         y = section(y, ability.name or tostring(spellID))
@@ -1858,6 +1866,39 @@ local abilityPicker = track(T:Dropdown(rightPanel, {
                                 markerTextOutline
                             })
                         end
+
+                        local assignedMarkerColor = color({
+                            label = L["BossMods_AAOptions_AssignedSoakMarkerColor"],
+                            get = function()
+                                return markerText.assignedMarkerColor
+                            end,
+                            onChange = function(r, g, b, a)
+                                markerText.assignedMarkerColor = {r, g, b, a}
+                            end,
+                            disabled = function()
+                                return isDisabled()
+                                    or not settings.bar.enabled
+                            end
+                        })
+
+                        local otherMarkerColor = color({
+                            label = L["BossMods_AAOptions_OtherSoakMarkerColor"],
+                            get = function()
+                                return markerText.otherMarkerColor
+                            end,
+                            onChange = function(r, g, b, a)
+                                markerText.otherMarkerColor = {r, g, b, a}
+                            end,
+                            disabled = function()
+                                return isDisabled()
+                                    or not settings.bar.enabled
+                            end
+                        })
+
+                        y = row(y, {
+                            assignedMarkerColor,
+                            otherMarkerColor
+                        })
                     end
                 end
             end
