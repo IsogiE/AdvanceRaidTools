@@ -48,7 +48,6 @@ end
 
 function Kicker:ParseAssignments()
     local Ready = BossMods.ReadyAssignments
-    local NoteBlock = BossMods.NoteBlock
     self.noteContext = Ready:BuildContext()
     self.Interrupts = self.Interrupts or {}
     self.Interrupts.assignTable = {}
@@ -59,41 +58,41 @@ function Kicker:ParseAssignments()
     self.Interrupts.max = 0
     self.Interrupts.myTable = {}
     self.Interrupts.disabled = true
-    local count = 1
     for groupIndex = 1, 4 do
         local group = self:ParseGroup(self.noteContext, groupIndex)
         if group then
-            count = count + 1
-            local num = 0
-            self.Interrupts.assignTable[count] = {}
-            for _, token in ipairs(group.players) do
-                local unit = NoteBlock:FindUnitByToken(token)
-                local name = unit and E:GetUnitFullName(unit, true)
-                if name and UnitInRaid(name) then
-                    num = num + 1
-                    table.insert(self.Interrupts.assignTable[count], name)
-                    if UnitIsUnit(name, "player") then
-                        self.Interrupts.disabled = false
-                        self.Interrupts.myID = count
-                        self.Interrupts.myKick = num
-                    end
-                    if count == self.Interrupts.myID then
-                        self.Interrupts.max = #self.Interrupts.assignTable[count]
-                    end
+            local id = groupIndex + 1
+            self.Interrupts.assignTable[id] = group.players
+            for index, token in ipairs(group.players) do
+                if self.Interrupts.myID == 0 and self:IsPlayerToken(token) then
+                    self.Interrupts.disabled = false
+                    self.Interrupts.myID = id
+                    self.Interrupts.myKick = index
                 end
             end
         end
     end
     self.Interrupts.myTrackedID = self.Interrupts.myID
     self.Interrupts.myTable = self.Interrupts.assignTable[self.Interrupts.myID] or {}
+    self.Interrupts.max = #self.Interrupts.myTable
+end
+
+function Kicker:IsPlayerToken(token)
+    return BossMods.ReadyAssignments:TokenIsPlayer(token, self.noteContext)
+end
+
+function Kicker:HasAssignment()
+    local interrupts = self.Interrupts
+    return interrupts and not interrupts.disabled and interrupts.myTrackedID ~= 0
+        and interrupts.max > 0 and #interrupts.myTable > 0
 end
 
 function Kicker:GetFocusedBossUnit()
     for bossIndex = 2, 5 do
         local bossUnit = "boss" .. bossIndex
         local isBoss = UnitIsUnit("focus", bossUnit)
-        if issecretvalue(isBoss) then return end
-        if isBoss and UnitLevel(bossUnit) == INTERRUPT_ADD_LEVEL then return bossUnit end
+        if not issecretvalue(isBoss) and isBoss
+            and UnitLevel(bossUnit) == INTERRUPT_ADD_LEVEL then return bossUnit end
     end
 end
 
@@ -111,8 +110,21 @@ function Kicker:ResetInterrupts()
     self:HideInterrupt()
 end
 
+function Kicker:SyncFocusedBoss()
+    local focusedBoss = self:GetFocusedBossUnit()
+    if focusedBoss == self.focusedBoss then return end
+    self.focusedBoss = focusedBoss
+    self:ResetInterrupts()
+    if focusedBoss then
+        self.Interrupts.castCount = self.bossCounts[focusedBoss] or 1
+        self:DisplayInterrupt(self.castStarts[focusedBoss] ~= nil)
+    end
+end
+
 function Kicker:OnBossSpellcast(event, unit)
-    if not self.trackingEnabled or unit == self.focusedBoss then return end
+    if not self.trackingEnabled then return end
+    self:SyncFocusedBoss()
+    if unit == self.focusedBoss then return end
     if event == "UNIT_SPELLCAST_START" then
         if UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
             self.castStarts[unit] = GetTime()
@@ -161,13 +173,14 @@ function Kicker:ApplySettings()
 end
 
 function Kicker:DisplayInterrupt(isCastStart)
+    if not self:HasAssignment() then
+        self:HideInterrupt()
+        return
+    end
     local myKick = self.Interrupts.myKick
     local castCount = self.Interrupts.castCount
-    local unit = self.Interrupts.myTable[castCount]
-    local name, class = "", nil
-    if unit and UnitExists(unit) then
-        name, class = self:GetKickDisplayInfo(unit)
-    end
+    local token = self.Interrupts.myTable[castCount]
+    local name, class = self:GetKickDisplayInfo(token)
     local state = "idle"
     if castCount == myKick then
         if isCastStart then
@@ -208,7 +221,7 @@ end
 
 function Kicker:UpdateNameplateDisplay()
     if not self.nameplateBox then return end
-    if self.editMode or not self.encounterActive then
+    if self.editMode or not self.encounterActive or not self.trackingEnabled then
         self.nameplateBox:Hide()
         return
     end
@@ -216,7 +229,7 @@ function Kicker:UpdateNameplateDisplay()
         self.nameplateBox:Hide()
         return
     end
-    if not self.Interrupts or self.Interrupts.disabled or self.Interrupts.myTrackedID == 0 then
+    if not self:HasAssignment() then
         self.nameplateBox:Hide()
         return
     end
@@ -226,9 +239,9 @@ function Kicker:UpdateNameplateDisplay()
     local currentName = #interruptNames > 0 and interruptNames[castCount] or nil
     local nextName = #interruptNames > 0 and interruptNames[castCount % #interruptNames + 1] or nil
     local state = "idle"
-    if currentName and UnitIsUnit(currentName, "player") then
+    if currentName and self:IsPlayerToken(currentName) then
         state = "now"
-    elseif nextName and UnitIsUnit(nextName, "player") then
+    elseif nextName and self:IsPlayerToken(nextName) then
         state = "next"
     end
     local name, class = self:GetKickDisplayInfo(currentName)
@@ -236,12 +249,14 @@ function Kicker:UpdateNameplateDisplay()
     local config = self.db.nameplate
     local plate = not config.hide and C_NamePlate.GetNamePlateForUnit("focus")
     if plate then
+        self.nameplateUnit = plate.namePlateUnitToken
         Display.AnchorToNameplate(self.nameplateBox, plate,
             config.anchor, config.offsetX, config.offsetY)
         self.nameplateBox:SetScale(plate:GetEffectiveScale() / UIParent:GetEffectiveScale())
         self:SetBoxState(self.nameplateBox, state, castCount, name, nil, class)
         self.nameplateBox:Show()
     else
+        self.nameplateUnit = nil
         self.nameplateBox:Hide()
     end
 end
@@ -257,8 +272,7 @@ function Kicker:PlayInterruptSound()
 end
 
 function Kicker:InterruptOnCastStart(unit)
-    if not self.Interrupts or self.Interrupts.disabled then return end
-    if self.Interrupts.myTrackedID == 0 then return end
+    if not self:HasAssignment() then return end
     if not UnitCastingInfo(unit) then return end
     self:DisplayInterrupt(true)
     if self.Interrupts.castCount == self.Interrupts.myKick then
@@ -267,8 +281,7 @@ function Kicker:InterruptOnCastStart(unit)
 end
 
 function Kicker:OnInterrupt(shouldCount)
-    if not self.Interrupts or self.Interrupts.disabled then return end
-    if self.Interrupts.myTrackedID == 0 then return end
+    if not self:HasAssignment() then return end
     if shouldCount then
         self.Interrupts.castCount = self.Interrupts.castCount + 1
         if self.Interrupts.castCount > self.Interrupts.max then
@@ -280,13 +293,19 @@ end
 
 function Kicker:OnFocusEvent(event, unit)
     if not self.trackingEnabled then return end
-    if event == "PLAYER_FOCUS_CHANGED" then
-        self.focusedBoss = self:GetFocusedBossUnit()
-        self:ResetInterrupts()
+    self:SyncFocusedBoss()
+    if event == "NAME_PLATE_UNIT_REMOVED" and unit == self.nameplateUnit then
+        self.nameplateUnit = nil
+        if self.nameplateBox then self.nameplateBox:Hide() end
+        return
+    end
+    if event == "PLAYER_FOCUS_CHANGED" or event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
         if self.focusedBoss then
             self.Interrupts.castCount = self.bossCounts[self.focusedBoss]
-            self:DisplayInterrupt()
+            self:DisplayInterrupt(self.castStarts[self.focusedBoss] ~= nil)
         end
+        self:UpdateNameplateDisplay()
+    elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
         self:UpdateNameplateDisplay()
     elseif event == "UNIT_SPELLCAST_START" and unit == "focus" then
         if self.focusedBoss and UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
@@ -318,6 +337,9 @@ function Kicker:RegisterSpellcastEvents()
         end)
     end
     self.spellcastFrame:RegisterEvent("PLAYER_FOCUS_CHANGED")
+    self.spellcastFrame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
+    self.spellcastFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    self.spellcastFrame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
     for _, event in ipairs(SPELLCAST_EVENTS) do
         self.spellcastFrame:RegisterUnitEvent(event, "focus")
         self.bossSpellcastFrame:RegisterUnitEvent(event, unpack(BOSS_UNITS))
@@ -330,6 +352,7 @@ function Kicker:StopEncounter()
     self.focusedBoss = nil
     self.bossCounts = nil
     self.castStarts = nil
+    self.nameplateUnit = nil
     if self.startTimer then
         self.startTimer:Cancel()
         self.startTimer = nil
@@ -357,10 +380,10 @@ function Kicker:OnEncounterStart(_, encounterID, _, difficultyID)
         if not self.encounterActive then return end
         self.bossCounts = {boss2 = 1, boss3 = 1, boss4 = 1, boss5 = 1}
         self.castStarts = {}
+        self:ParseAssignments()
         self.trackingEnabled = true
         self:ResetInterrupts()
-        self.focusedBoss = self:GetFocusedBossUnit()
-        if self.nameplateBox then self.nameplateBox:Hide() end
+        self:OnFocusEvent("PLAYER_FOCUS_CHANGED")
     end)
     self:UpdateNameplateDisplay()
 end
@@ -380,6 +403,16 @@ function Kicker:Refresh()
     self:UpdateDisplay()
 end
 
+function Kicker:OnAssignmentsChanged()
+    if self.encounterActive and not self.trackingEnabled then
+        self:ParseAssignments()
+    end
+end
+
+function Kicker:OnNoteChanged(_, slot)
+    if slot == 1 then self:OnAssignmentsChanged() end
+end
+
 function Kicker:OnInitialize()
     self:ApplySettings()
     self:HideDisplays()
@@ -388,6 +421,9 @@ end
 function Kicker:OnEnable()
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END", "OnEncounterEnd")
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnAssignmentsChanged")
+    self:RegisterMessage("ART_NOTE_CHANGED", "OnNoteChanged")
+    self:RegisterMessage("ART_NICKNAME_CHANGED", "OnAssignmentsChanged")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
     self:Refresh()
