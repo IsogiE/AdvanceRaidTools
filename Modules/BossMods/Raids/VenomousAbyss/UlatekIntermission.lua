@@ -150,10 +150,6 @@ for _, variation in pairs(VARIATIONS) do
     end
 end
 local BUTTON_ORDER = {"PINK", "WHITE", "RED"}
-local CLICKER_WIDTH = #BUTTON_ORDER * CLICKER_BUTTON_SIZE
-    + (#BUTTON_ORDER - 1) * CLICKER_BUTTON_SPACING
-local CLICKER_HEIGHT = 3 * CLICKER_BUTTON_SIZE + 2 * CLICKER_BUTTON_SPACING
-local WAVE_BUTTON_WIDTH = (CLICKER_WIDTH - CLICKER_BUTTON_SPACING) / 2
 local WAVE_BUTTONS = {
     {label = L["Left"], macro = "/rw Left"},
     {label = L["Right"], macro = "/raid Right"}
@@ -162,6 +158,10 @@ local REMINDER_BUTTONS = {
     {markerID = 5, payload = "%s"},
     {markerID = 6, payload = "%.0s%s"}
 }
+local WAVE_ROW_BUTTON_COUNT = #WAVE_BUTTONS + #REMINDER_BUTTONS
+local CLICKER_WIDTH = WAVE_ROW_BUTTON_COUNT * CLICKER_BUTTON_SIZE
+    + (WAVE_ROW_BUTTON_COUNT - 1) * CLICKER_BUTTON_SPACING
+local CLICKER_HEIGHT = 2 * CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING
 local CHAT_PAYLOADS = {
     PINK = "%s",
     WHITE = "%.0s%s",
@@ -470,12 +470,11 @@ local function applyReminderAppearance(anchor, text, db, assignmentDB)
     text:SetTextColor(E:ColorTuple(db.font.color, 1, 1, 1, 1))
 end
 
-local function positionClickerButton(button, anchor, index, count, row, buttonWidth)
-    buttonWidth = buttonWidth or CLICKER_BUTTON_SIZE
-    local width = count * buttonWidth + (count - 1) * CLICKER_BUTTON_SPACING
-    button:SetSize(buttonWidth, CLICKER_BUTTON_SIZE)
+local function positionClickerButton(button, anchor, index, count, row)
+    local width = count * CLICKER_BUTTON_SIZE + (count - 1) * CLICKER_BUTTON_SPACING
+    button:SetSize(CLICKER_BUTTON_SIZE, CLICKER_BUTTON_SIZE)
     button:SetPoint("TOPLEFT", anchor, "TOP", -width / 2
-        + (index - 1) * (buttonWidth + CLICKER_BUTTON_SPACING),
+        + (index - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING),
         -(row - 1) * (CLICKER_BUTTON_SIZE + CLICKER_BUTTON_SPACING))
 end
 
@@ -595,7 +594,7 @@ function UlatekIntermission:EnsureFrames()
     for index, data in ipairs(WAVE_BUTTONS) do
         local button = CreateFrame("Button", "ART_UlatekP1_Btn" .. index,
             clickerAnchor, "SecureActionButtonTemplate")
-        positionClickerButton(button, clickerAnchor, index, #WAVE_BUTTONS, 1, WAVE_BUTTON_WIDTH)
+        positionClickerButton(button, clickerAnchor, index, WAVE_ROW_BUTTON_COUNT, 1)
         button:SetAttribute("type1", "macro")
         button:SetAttribute("macrotext1", data.macro)
         button:RegisterForClicks("AnyUp", "AnyDown")
@@ -632,7 +631,7 @@ function UlatekIntermission:EnsureFrames()
     for index, data in ipairs(REMINDER_BUTTONS) do
         local button = CreateFrame("Button", "ART_UlatekReminder_Btn" .. index,
             clickerAnchor, "SecureActionButtonTemplate")
-        positionClickerButton(button, clickerAnchor, index, #REMINDER_BUTTONS, 3)
+        positionClickerButton(button, clickerAnchor, #WAVE_BUTTONS + index, WAVE_ROW_BUTTON_COUNT, 1)
         button:SetAttribute("type1", "macro")
         button:SetAttribute("macrotext1", (DEBUG_LOCAL_TEST and "/say " or "/raid ") .. data.payload)
         button:RegisterForClicks("AnyUp", "AnyDown")
@@ -764,9 +763,7 @@ function UlatekIntermission:HandleWaveInput(event)
     local elapsed = GetTime() - self.encounterStartedAt
     for _, window in ipairs(WAVE_INPUT_WINDOWS) do
         if elapsed >= window.start and elapsed < window.finish then
-            if window.kind == "submerge" then
-                self.submergeDirection = direction
-            elseif window.kind ~= "secondWave" or self.submergeDirection then
+            if window.kind ~= "submerge" then
                 self.waveDirection = direction
                 if self.waveHideTimer then self:CancelTimer(self.waveHideTimer) end
                 self.waveHideTimer = self:ScheduleTimer("HideWaveDirection", WAVE_DIRECTION_DURATION)
@@ -825,7 +822,6 @@ function UlatekIntermission:ResetReminder()
         self.waveHideTimer = nil
     end
     self.waveDirection = nil
-    self.submergeDirection = nil
     self.encounterDifficulty = nil
     if self.reminderShowTimer then
         self:CancelTimer(self.reminderShowTimer)
@@ -1140,7 +1136,7 @@ function UlatekIntermission:CreateAnchorPreview(kind)
         frame:SetSize(CLICKER_WIDTH, CLICKER_HEIGHT)
         for index, data in ipairs(WAVE_BUTTONS) do
             local button = CreateFrame("Frame", nil, frame)
-            positionClickerButton(button, frame, index, #WAVE_BUTTONS, 1, WAVE_BUTTON_WIDTH)
+            positionClickerButton(button, frame, index, WAVE_ROW_BUTTON_COUNT, 1)
             button:EnableMouse(false)
             createClickerArtwork(button, nil, false, data.label)
         end
@@ -1152,7 +1148,7 @@ function UlatekIntermission:CreateAnchorPreview(kind)
         end
         for index, data in ipairs(REMINDER_BUTTONS) do
             local button = CreateFrame("Frame", nil, frame)
-            positionClickerButton(button, frame, index, #REMINDER_BUTTONS, 3)
+            positionClickerButton(button, frame, #WAVE_BUTTONS + index, WAVE_ROW_BUTTON_COUNT, 1)
             button:EnableMouse(false)
             createClickerArtwork(button, data.markerID)
         end
