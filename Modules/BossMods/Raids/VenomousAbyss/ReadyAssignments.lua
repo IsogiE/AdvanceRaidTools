@@ -772,11 +772,23 @@ E:RegisterBossModNoteBlock("VenomousAbyssUlatekIntermission", {
         },
         {
             tag = "UTInt2",
-            template = "#UTInt2 Player1 Player2 Player3 Player4 Player5 Player6 Player7"
+            template = "#UTInt2 Player8 Player9 Player10 Player11 Player12"
         },
         {
             tag = "UTInt3",
-            template = "#UTInt3 Player1 Player2 Player3 Player4 Player5 Player6"
+            template = "#UTInt3 Player13 Player14 Player15 Player16"
+        },
+        {
+            tag = "UTInt4",
+            template = "#UTInt4 Player17"
+        },
+        {
+            tag = "UTInt5",
+            template = "#UTInt5 Player18 Player19"
+        },
+        {
+            tag = "UTInt6",
+            template = "#UTInt6 Player20"
         }
     },
     tab = "VenomousAbyss",
