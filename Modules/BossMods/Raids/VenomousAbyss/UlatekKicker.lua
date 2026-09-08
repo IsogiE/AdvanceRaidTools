@@ -110,20 +110,8 @@ function Kicker:ResetInterrupts()
     self:HideInterrupt()
 end
 
-function Kicker:SyncFocusedBoss()
-    local focusedBoss = self:GetFocusedBossUnit()
-    if focusedBoss == self.focusedBoss then return end
-    self.focusedBoss = focusedBoss
-    self:ResetInterrupts()
-    if focusedBoss then
-        self.Interrupts.castCount = self.bossCounts[focusedBoss] or 1
-        self:DisplayInterrupt()
-    end
-end
-
 function Kicker:OnBossSpellcast(event, unit)
     if not self.trackingEnabled then return end
-    self:SyncFocusedBoss()
     if unit == self.focusedBoss then return end
     if event == "UNIT_SPELLCAST_START" then
         if UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
@@ -273,19 +261,21 @@ end
 
 function Kicker:OnFocusEvent(event, unit)
     if not self.trackingEnabled then return end
-    self:SyncFocusedBoss()
     if event == "NAME_PLATE_UNIT_REMOVED" and unit == self.nameplateUnit then
         self.nameplateUnit = nil
         if self.nameplateBox then self.nameplateBox:Hide() end
         return
     end
-    if event == "PLAYER_FOCUS_CHANGED" or event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
+    if event == "PLAYER_FOCUS_CHANGED" then
+        self.focusedBoss = self:GetFocusedBossUnit()
+        self:ResetInterrupts()
         if self.focusedBoss then
             self.Interrupts.castCount = self.bossCounts[self.focusedBoss]
             self:DisplayInterrupt()
         end
         self:UpdateNameplateDisplay()
-    elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
+    elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED"
+        or event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
         self:UpdateNameplateDisplay()
     elseif event == "UNIT_SPELLCAST_START" and unit == "focus" then
         if self.focusedBoss and UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
