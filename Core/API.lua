@@ -461,7 +461,8 @@ function E:ApplySecretCompassRotation(texture)
     end
 
     local ok = pcall(function()
-        texture:SetRotation(MinimapCompassTexture:GetRotation())
+        local rotation = MinimapCompassTexture:GetRotation()
+        texture:SetRotation(rotation)
     end)
 
     return ok == true

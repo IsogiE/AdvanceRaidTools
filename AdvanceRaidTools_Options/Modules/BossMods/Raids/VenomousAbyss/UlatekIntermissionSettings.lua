@@ -14,6 +14,7 @@ local OUTLINE_ORDER = {"", "OUTLINE", "THICKOUTLINE", "OUTLINE_SLUG"}
 local DEFAULT_POSITIONS = {
     bar = {point = "CENTER", x = 0, y = 220},
     assignment = {point = "CENTER", x = 0, y = 150},
+    arrow = {point = "CENTER", x = 0, y = 50},
     reminder = {point = "CENTER", x = 0, y = 150},
     careCircles = {point = "CENTER", x = 0, y = 150},
     wave = {point = "CENTER", x = 0, y = 150},
@@ -332,6 +333,52 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
 
     y = fontControls(y, mod.db.bar, L["BossMods_UlatekIntermissionBarText"])
     y = fontControls(y, mod.db.assignment, L["BossMods_UlatekIntermissionAssignmentText"])
+
+    y = full(y, track(T:Header(rightPanel, {
+        text = L["BossMods_UlatekIntermissionArrow"]
+    })))
+    y = full(y, track(T:Description(rightPanel, {
+        text = L["BossMods_UlatekIntermissionArrowDesc"]
+    })))
+    y = full(y, track(T:Checkbox(rightPanel, {
+        text = L["BossMods_UlatekIntermissionArrowEnable"],
+        get = function()
+            return mod.db.arrow.enabled ~= false
+        end,
+        onChange = function(_, value)
+            mod.db.arrow.enabled = value and true or false
+            refreshLive()
+        end,
+        disabled = isDisabled
+    })))
+    local arrowDisabled = function()
+        return isDisabled() or mod.db.arrow.enabled == false
+    end
+    y = row(y, {
+        slider({
+            label = L["Size"],
+            min = 20,
+            max = 160,
+            step = 1,
+            get = function()
+                return mod.db.arrow.size
+            end,
+            set = function(value)
+                mod.db.arrow.size = math.floor(value + 0.5)
+            end,
+            disabled = arrowDisabled
+        }),
+        color({
+            label = L["Color"],
+            get = function()
+                return mod.db.arrow.color
+            end,
+            set = function(value)
+                mod.db.arrow.color = value
+            end,
+            disabled = arrowDisabled
+        })
+    })
     y = fontControls(y, mod.db.reminder, L["BossMods_UlatekMovementReminder"])
     y = fontControls(y, mod.db.careCircles, L["BossMods_UlatekCareCircles"])
     y = fontControls(y, mod.db.wave, L["BossMods_UlatekWaveLeft"])
@@ -378,6 +425,12 @@ local function buildUlatekIntermissionBody(rightPanel, mod, isDisabled)
         "assignment",
         L["BossMods_UlatekIntermissionAssignmentText"],
         frames.assignmentAnchor
+    )
+    y = addPositionSection(
+        y,
+        "arrow",
+        L["BossMods_UlatekIntermissionArrow"],
+        frames.arrowAnchor
     )
     y = addPositionSection(
         y,

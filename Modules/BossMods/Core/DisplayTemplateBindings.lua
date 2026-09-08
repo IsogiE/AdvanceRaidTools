@@ -17,6 +17,7 @@ display("UlatekKicker", "position", "icon", "BossMods_DisplayKickIndicator", nil
 display("UlatekKicker", "nextTextPosition", "text", "BossMods_DisplayNextKickReminder", nil, 20)
 display("UlatekIntermission", "bar", "bar", "BossMods_DisplayIntermissionTimer", "bar.position", 10)
 display("UlatekIntermission", "assignment", "panel", "BossMods_DisplayIntermissionAssignments", "assignment.position", 20)
+display("UlatekIntermission", "arrow", "indicator", "BossMods_UlatekIntermissionArrow", "arrow.position", 25)
 display("UlatekIntermission", "clicker", "buttons", "BossMods_DisplayIntermissionButtons", "clicker.position", 30)
 display("UlatekIntermission", "reminder", "panel", "BossMods_UlatekMovementReminder", "reminder.position", 40, "assignment")
 display("UlatekIntermission", "wave", "panel", "BossMods_UlatekWaveLeft", "wave.position", 50, "assignment")
