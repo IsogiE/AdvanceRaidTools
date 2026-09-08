@@ -117,7 +117,7 @@ function Kicker:SyncFocusedBoss()
     self:ResetInterrupts()
     if focusedBoss then
         self.Interrupts.castCount = self.bossCounts[focusedBoss] or 1
-        self:DisplayInterrupt(self.castStarts[focusedBoss] ~= nil)
+        self:DisplayInterrupt()
     end
 end
 
@@ -172,7 +172,7 @@ function Kicker:ApplySettings()
         config.numberFontSize * scale, config.nameFontSize * scale)
 end
 
-function Kicker:DisplayInterrupt(isCastStart)
+function Kicker:DisplayInterrupt()
     if not self:HasAssignment() then
         self:HideInterrupt()
         return
@@ -183,11 +183,7 @@ function Kicker:DisplayInterrupt(isCastStart)
     local name, class = self:GetKickDisplayInfo(token)
     local state = "idle"
     if castCount == myKick then
-        if isCastStart then
-            state = "now"
-        else
-            state = "next"
-        end
+        state = "now"
     elseif (castCount + 1 == myKick) or (myKick == 1 and castCount == self.Interrupts.max) then
         state = "next"
     end
@@ -266,27 +262,11 @@ function Kicker:UpdateDisplay()
     self:UpdateNameplateDisplay()
 end
 
-function Kicker:PlayInterruptSound()
-    self.lastAudioKey = nil
-    self:PlayConfiguredAudio(self.focusedBoss, self.Interrupts.castCount)
-end
-
-function Kicker:InterruptOnCastStart(unit)
+function Kicker:OnInterrupt()
     if not self:HasAssignment() then return end
-    if not UnitCastingInfo(unit) then return end
-    self:DisplayInterrupt(true)
-    if self.Interrupts.castCount == self.Interrupts.myKick then
-        self:PlayInterruptSound()
-    end
-end
-
-function Kicker:OnInterrupt(shouldCount)
-    if not self:HasAssignment() then return end
-    if shouldCount then
-        self.Interrupts.castCount = self.Interrupts.castCount + 1
-        if self.Interrupts.castCount > self.Interrupts.max then
-            self.Interrupts.castCount = 1
-        end
+    self.Interrupts.castCount = self.Interrupts.castCount + 1
+    if self.Interrupts.castCount > self.Interrupts.max then
+        self.Interrupts.castCount = 1
     end
     self:DisplayInterrupt()
 end
@@ -302,7 +282,7 @@ function Kicker:OnFocusEvent(event, unit)
     if event == "PLAYER_FOCUS_CHANGED" or event == "INSTANCE_ENCOUNTER_ENGAGE_UNIT" then
         if self.focusedBoss then
             self.Interrupts.castCount = self.bossCounts[self.focusedBoss]
-            self:DisplayInterrupt(self.castStarts[self.focusedBoss] ~= nil)
+            self:DisplayInterrupt()
         end
         self:UpdateNameplateDisplay()
     elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
@@ -310,14 +290,13 @@ function Kicker:OnFocusEvent(event, unit)
     elseif event == "UNIT_SPELLCAST_START" and unit == "focus" then
         if self.focusedBoss and UnitLevel(unit) == INTERRUPT_ADD_LEVEL then
             self.castStarts[self.focusedBoss] = GetTime()
-            self:InterruptOnCastStart(unit)
             self:UpdateNameplateDisplay()
         end
     elseif event == "UNIT_SPELLCAST_STOP" and unit == "focus" and self.focusedBoss then
         self.castStarts[self.focusedBoss] = nil
     elseif event == "UNIT_SPELLCAST_INTERRUPTED" and unit == "focus" and self.focusedBoss
         and self:ConsumeInterruptCastStart(self.focusedBoss) then
-        self:OnInterrupt(true)
+        self:OnInterrupt()
         self.bossCounts[self.focusedBoss] = self.Interrupts.castCount
         self:UpdateNameplateDisplay()
     end
