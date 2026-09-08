@@ -443,12 +443,9 @@ local function applyAssignmentAppearance(f, assignmentDB)
         1
     )
     local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
+    local countdownWidth = 80
     local rowHeight = math.max(40, assignmentSize + 10)
     local assignmentHeight = rowHeight + countdownSize + 12
-    local assignmentWidth = 700
-
-    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
-
     local assignmentFont = E:FetchFont(assignmentDB.font.name)
     E:ApplyFontString(
         f.assignmentText,
@@ -464,7 +461,6 @@ local function applyAssignmentAppearance(f, assignmentDB)
     )
     f.assignmentText:ClearAllPoints()
     f.assignmentText:SetPoint("TOP", f.assignmentAnchor, "TOP", 0, -2)
-    f.assignmentText:SetSize(assignmentWidth, rowHeight)
 
     E:ApplyFontString(
         f.assignmentMeasure,
@@ -472,7 +468,17 @@ local function applyAssignmentAppearance(f, assignmentDB)
         assignmentSize,
         assignmentDB.font.outline
     )
-    f.assignmentMeasure:SetText(L["BossMods_UlatekIntermissionSequenceConnector"])
+    local markerMarkup = ASSIGNMENT_MARKER_MARKUP:format(1)
+    f.assignmentMeasure:SetText(markerMarkup)
+    local iconWidth = f.assignmentMeasure:GetStringWidth()
+    f.assignmentMeasure:SetText(
+        markerMarkup .. L["BossMods_UlatekIntermissionSequenceConnector"] .. markerMarkup
+    )
+    local connectorWidth = f.assignmentMeasure:GetStringWidth() - 2 * iconWidth
+    local assignmentWidth = math.ceil((MAX_ASSIGNMENT_SLOTS - 1) * (iconWidth + connectorWidth)
+        + math.max(iconWidth, countdownWidth) + 8)
+    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
+    f.assignmentText:SetSize(assignmentWidth, rowHeight)
 
     for _, countdown in ipairs(f.assignmentCountdowns or {}) do
         E:ApplyFontString(
@@ -487,13 +493,13 @@ local function applyAssignmentAppearance(f, assignmentDB)
             assignmentB,
             assignmentA
         )
-        countdown:SetSize(80, countdownSize + 4)
+        countdown:SetSize(countdownWidth, countdownSize + 4)
     end
 
     return {
-        connectorWidth = f.assignmentMeasure:GetStringWidth(),
+        connectorWidth = connectorWidth,
         countdownOffsetY = -(rowHeight + 17),
-        iconWidth = ASSIGNMENT_ICON_WIDTH,
+        iconWidth = iconWidth,
         width = assignmentWidth
     }
 end
@@ -541,23 +547,42 @@ local function reminderMarkup(markerID, labelKey)
     return ASSIGNMENT_MARKER_MARKUP:format(markerID) .. " " .. L[labelKey]
 end
 
+local REMINDER_TEXTS = {
+    reminder = {
+        reminderMarkup(5, "BossMods_UlatekGoToMoon"),
+        reminderMarkup(6, "BossMods_UlatekGoToBlue")
+    },
+    careCircles = {L["BossMods_UlatekCareCircles"]},
+    wave = {L["BossMods_UlatekWaveLeft"], L["BossMods_UlatekWaveRight"]}
+}
+
 local function createReminderText(anchor)
     local text = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetAllPoints(anchor)
     text:SetJustifyH("CENTER")
     text:SetJustifyV("MIDDLE")
+    text.measure = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text.measure:Hide()
     return text
 end
 
-local function applyReminderAppearance(anchor, text, db, assignmentDB)
+local function applyReminderAppearance(anchor, text, db, assignmentDB, kind)
     local assignmentSize = math.max(12, tonumber(assignmentDB.font.size) or 30)
     local rowHeight = math.max(40, assignmentSize + 10)
     local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
-    anchor:SetSize(700, math.max(60, rowHeight + countdownSize + 12))
+    local font = E:FetchFont(db.font.name)
+    E:ApplyFontString(text.measure, font, db.font.size, db.font.outline)
+    local width = 0
+    for _, message in ipairs(REMINDER_TEXTS[kind]) do
+        text.measure:SetText(message)
+        width = math.max(width, text.measure:GetStringWidth())
+    end
+    width = math.ceil(width) + 8
+    anchor:SetSize(width, math.max(60, rowHeight + countdownSize + 12))
     text:ClearAllPoints()
     text:SetPoint("TOP", anchor, "TOP", 0, -2)
-    text:SetSize(700, rowHeight)
-    E:ApplyFontString(text, E:FetchFont(db.font.name), db.font.size, db.font.outline)
+    text:SetSize(width, rowHeight)
+    E:ApplyFontString(text, font, db.font.size, db.font.outline)
     text:SetTextColor(E:ColorTuple(db.font.color, 1, 1, 1, 1))
 end
 
@@ -818,11 +843,11 @@ function UlatekIntermission:ApplySettings()
     applyArrowAppearance(f, self.db.arrow)
     E:GetModule("BossMods").DisplayTemplates:Place(self, "arrow", f.arrowAnchor)
 
-    applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment)
+    applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment, "reminder")
     E:GetModule("BossMods").DisplayTemplates:Place(self, "reminder", f.reminderAnchor)
-    applyReminderAppearance(f.careCirclesAnchor, f.careCirclesText, self.db.careCircles, self.db.assignment)
+    applyReminderAppearance(f.careCirclesAnchor, f.careCirclesText, self.db.careCircles, self.db.assignment, "careCircles")
     E:GetModule("BossMods").DisplayTemplates:Place(self, "careCircles", f.careCirclesAnchor)
-    applyReminderAppearance(f.waveAnchor, f.waveText, self.db.wave, self.db.assignment)
+    applyReminderAppearance(f.waveAnchor, f.waveText, self.db.wave, self.db.assignment, "wave")
     E:GetModule("BossMods").DisplayTemplates:Place(self, "wave", f.waveAnchor)
 
     if not InCombatLockdown() then
@@ -1432,13 +1457,13 @@ function UlatekIntermission:CreateAnchorPreview(kind)
                 UlatekIntermission.UpdateAssignmentArrow(preview, CHAT_PAYLOADS.PINK, 1, 1)
             end
         elseif kind == "reminder" then
-            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.reminder, owner.db.assignment)
+            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.reminder, owner.db.assignment, kind)
             preview.frames.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
         elseif kind == "careCircles" then
-            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.careCircles, owner.db.assignment)
+            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.careCircles, owner.db.assignment, kind)
             preview.frames.reminderText:SetText(L["BossMods_UlatekCareCircles"])
         elseif kind == "wave" then
-            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.wave, owner.db.assignment)
+            applyReminderAppearance(frame, preview.frames.reminderText, owner.db.wave, owner.db.assignment, kind)
             preview.frames.reminderText:SetText(L["BossMods_UlatekWaveLeft"])
         else
             layoutClickerButtons(frame, preview.frames.clickerButtons, owner.db.clicker.hideLeftRight == true)
