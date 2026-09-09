@@ -104,6 +104,7 @@ local ASSIGNMENT_ICON_WIDTH = 30
 local ARROW_COMPASS_TOKEN = "UlatekIntermissionArrow"
 local ARROW_HIDE_BEFORE_SOAK = 2
 local ARROW_TEXTURE = [[Interface\Icons\misc_arrowright]]
+local ARROW_SELECTION_MARKUP = [[|TInterface\Buttons\WHITE8x8:1:1|t]]
 local ARROW_BEARINGS = {337.5, 22.5, 157.5, 202.5, 112.5, 247.5, 292.5, 67.5}
 
 local DEFAULT_BAR_POSITION = {point = "CENTER", x = 0, y = 220}
@@ -405,8 +406,10 @@ local function createArrowRegions(anchor)
         local layer = CreateFrame("Frame", nil, anchor, "DisableUntrustedLayoutScriptsTemplate")
         layer:SetAllPoints(anchor)
         layer:EnableMouse(false)
+        layer:SetAlpha(0)
         local arrow = layer:CreateTexture(nil, "OVERLAY", nil, 7)
         arrow:SetAllPoints(layer)
+        arrow:SetTexture(ARROW_TEXTURE)
         arrow:Hide()
         arrows[index] = arrow
 
@@ -419,6 +422,7 @@ local function createArrowRegions(anchor)
 
         local selector = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         selector:SetSize(1, 1)
+        selector:SetWordWrap(false)
         selector:Hide()
         selectors[index] = selector
     end
@@ -1231,10 +1235,10 @@ function UlatekIntermission:UpdateAssignmentArrow(formatMessage, group, index, t
     if changed then
         for layer, selector in ipairs(f.arrowSelectors) do
             selector:SetFormattedText(formatMessage,
-                layer == 1 and ARROW_TEXTURE or "",
-                layer == 2 and ARROW_TEXTURE or "",
-                layer == 3 and ARROW_TEXTURE or "")
-            f.assignmentArrows[layer]:SetTexture(selector:GetText())
+                layer == 1 and ARROW_SELECTION_MARKUP or "",
+                layer == 2 and ARROW_SELECTION_MARKUP or "",
+                layer == 3 and ARROW_SELECTION_MARKUP or "")
+            f.assignmentArrows[layer]:GetParent():SetAlpha(selector:GetStringWidth())
         end
         self.arrowSlot = index
         self.arrowGroup = group
