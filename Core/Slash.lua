@@ -7,6 +7,7 @@ local function printHelp()
     E:Printf("  /art map        %s", L["SlashHelpMap"])
     E:Printf("  /art pi         %s", L["SlashHelpPI"])
     E:Printf("  /art innervate  %s", L["SlashHelpInnervate"])
+    E:Printf("  /art unix       preview the raid timestamp")
     E:Printf("  /art reset      reset options window position")
     E:Printf("  /art help       %s", L["SlashHelpHelp"])
 end
@@ -268,6 +269,8 @@ local function handler(input)
         toggleNoteDisplay(1)
     elseif verb == "pnote" then
         toggleNoteDisplay(2)
+    elseif verb == "unix" then
+        E:PreviewReplayTimestamp()
     elseif verb == "reset" then
         resetOptionsWindowPosition()
     elseif spellCommand then
