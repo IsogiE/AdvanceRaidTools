@@ -18,6 +18,26 @@ local OUTLINE_SORTING = {
     "OUTLINE_SLUG"
 }
 
+local AUDIO_MODE_VALUES = {
+    sound = L["BossMods_AAOptions_SoundFile"] or "Sound file",
+    tts = L["TextToSpeech"] or "Text to Speech"
+}
+local AUDIO_MODE_SORTING = {"sound", "tts"}
+local SOUND_CHANNEL_VALUES = {
+    Master = "Master",
+    SFX = "Sound Effects",
+    Dialog = "Dialog",
+    Music = "Music",
+    Ambience = "Ambience"
+}
+local SOUND_CHANNEL_SORTING = {
+    "Master",
+    "SFX",
+    "Dialog",
+    "Music",
+    "Ambience"
+}
+
 local function buildAuraCircleBody(rightPanel, mod, isDisabled)
     local width = rightPanel:GetWidth() or 0
     if width <= 0 then
@@ -35,13 +55,16 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
     local tracker = T:MakeTracker()
     local track = tracker.track
 
-    local function refreshLive()
+    local function refreshLive(rebuild)
         if mod.CallIfEnabled then
             mod:CallIfEnabled("Refresh")
         elseif mod.Refresh then
             mod:Refresh()
         end
         tracker.refresh()
+        if rebuild and E.OptionsUI and E.OptionsUI.QueueRefresh then
+            E.OptionsUI:QueueRefresh("current")
+        end
     end
 
     local function full(y, widget)
@@ -65,9 +88,12 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
             get = opts.get,
             onChange = function(value)
                 opts.set(value)
-                refreshLive()
+                if opts.playSample then
+                    opts.playSample(value)
+                end
+                refreshLive(opts.rebuild)
             end,
-            disabled = isDisabled
+            disabled = opts.disabled or isDisabled
         }))
     end
 
@@ -267,6 +293,122 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
         showOffsets = true
     })
     y = positionY
+
+    if definition.audio then
+        mod.db.audio = mod.db.audio or {
+            enabled = false,
+            mode = "sound",
+            sound = "None",
+            channel = "Master",
+            ttsText = definition.audio.ttsText
+                or L[definition.labelKey]
+                or "Alert",
+            voiceID = 0
+        }
+
+        y = section(y, L["BossMods_AuraCircleAudio"] or "Audio")
+        y = full(y, track(T:Checkbox(rightPanel, {
+            text = L["BossMods_AuraCircleEnableAudio"]
+                or "Enable audio when circle appears",
+            get = function()
+                return mod.db.audio.enabled == true
+            end,
+            onChange = function(_, value)
+                mod.db.audio.enabled = value and true or false
+                refreshLive(true)
+            end,
+            disabled = isDisabled
+        })))
+
+        if mod.db.audio.enabled then
+            y = full(y, dropdown({
+                label = L["BossMods_AAOptions_AudioType"] or "Audio type",
+                values = AUDIO_MODE_VALUES,
+                sorting = AUDIO_MODE_SORTING,
+                get = function()
+                    return mod.db.audio.mode or "sound"
+                end,
+                set = function(value)
+                    mod.db.audio.mode = value == "tts" and "tts" or "sound"
+                end,
+                rebuild = true
+            }))
+
+            if mod.db.audio.mode == "tts" then
+                local message = track(T:EditBox(rightPanel, {
+                    label = L["BossMods_AAOptions_TextToSpeechMessage"]
+                        or "Text to Speech message",
+                    default = mod.db.audio.ttsText,
+                    get = function()
+                        return mod.db.audio.ttsText
+                    end,
+                    commitOn = "enter",
+                    onCommit = function(value)
+                        value = strtrim(value or "")
+                        mod.db.audio.ttsText = value ~= ""
+                            and value
+                            or definition.audio.ttsText
+                            or "Serpent's Bite"
+                        refreshLive(false)
+                    end,
+                    disabled = isDisabled
+                }))
+
+                local voice = dropdown({
+                    label = L["BossMods_AAOptions_TTSVoice"] or "TTS voice",
+                    values = function()
+                        return E:GetModule("BossMods").Alerts:GetTTSVoices()
+                    end,
+                    get = function()
+                        return mod.db.audio.voiceID or 0
+                    end,
+                    set = function(value)
+                        mod.db.audio.voiceID = tonumber(value) or 0
+                    end,
+                    playSample = function()
+                        E:GetModule("BossMods").Alerts:SpeakTTS({
+                            text = mod.db.audio.ttsText or "Serpent's Bite",
+                            voiceID = mod.db.audio.voiceID or 0
+                        })
+                    end
+                })
+                y = row(y, {message, voice})
+            else
+                local sound = dropdown({
+                    label = L["BossMods_AAOptions_SoundFile"] or "Sound file",
+                    values = function()
+                        return E:GetModule("BossMods").Alerts:GetSoundOptions()
+                    end,
+                    get = function()
+                        return mod.db.audio.sound or "None"
+                    end,
+                    set = function(value)
+                        mod.db.audio.sound = value
+                    end,
+                    playSample = function(value)
+                        E:GetModule("BossMods").Alerts:PlaySound({
+                            name = value,
+                            channel = mod.db.audio.channel or "Master"
+                        })
+                    end
+                })
+
+                local channel = dropdown({
+                    label = L["BossMods_AAOptions_SoundChannel"]
+                        or "Sound channel",
+                    values = SOUND_CHANNEL_VALUES,
+                    sorting = SOUND_CHANNEL_SORTING,
+                    get = function()
+                        return mod.db.audio.channel or "Master"
+                    end,
+                    set = function(value)
+                        mod.db.audio.channel = value
+                    end
+                })
+                y = row(y, {sound, channel})
+            end
+        end
+    end
 
     local totalHeight = math.max(y + 10, 1)
     rightPanel:SetHeight(totalHeight)

@@ -162,7 +162,44 @@ function Engines.AuraCircle(config)
         end
         db.font.color = copyColor(db.font.color, {1, 1, 1, 1})
 
+        if def.audio then
+            db.audio = db.audio or {}
+            db.audio.enabled = db.audio.enabled == true
+            db.audio.mode = db.audio.mode == "tts" and "tts" or "sound"
+            db.audio.sound = db.audio.sound or "None"
+            db.audio.channel = db.audio.channel or "Master"
+            db.audio.ttsText = db.audio.ttsText
+                or def.audio.ttsText
+                or L[def.labelKey]
+                or "Alert"
+            db.audio.voiceID = tonumber(db.audio.voiceID) or 0
+        end
+
         return db
+    end
+
+    local function playConfiguredAudio()
+        local def = definition()
+        if not def.audio then
+            return
+        end
+
+        local audio = settings().audio
+        if not audio or not audio.enabled then
+            return
+        end
+
+        if audio.mode == "tts" then
+            BossMods.Alerts:SpeakTTS({
+                text = audio.ttsText,
+                voiceID = audio.voiceID or 0
+            })
+        else
+            BossMods.Alerts:PlaySound({
+                name = audio.sound,
+                channel = audio.channel or "Master"
+            })
+        end
     end
 
     local function createVisual(parent)
@@ -302,6 +339,25 @@ function Engines.AuraCircle(config)
         end
 
         state.auraVisuals[button] = visual
+
+        if definition().audio and button.HookScript then
+            button:HookScript("OnShow", function()
+                if not state.active
+                    or not state.liveWindow
+                    or state.editMode
+                    or state.previewMode
+                then
+                    return
+                end
+
+                local now = GetTime()
+                if state.lastAudioAt and now - state.lastAudioAt < 1 then
+                    return
+                end
+                state.lastAudioAt = now
+                playConfiguredAudio()
+            end)
+        end
     end
 
     local function createAuraContainer()
@@ -617,7 +673,7 @@ function BossMods:RegisterAuraCircleFeature(definition)
     assert(type(definition.moduleName) == "string" and definition.moduleName ~= "",
         "RegisterAuraCircleFeature: moduleName required")
 
-    E:RegisterModuleDefaults(definition.moduleName, {
+    local defaults = {
         enabled = definition.defaultEnabled == true,
         position = copyPosition(definition.position),
         size = definition.size or 72,
@@ -630,7 +686,20 @@ function BossMods:RegisterAuraCircleFeature(definition)
             outline = "OUTLINE",
             color = {1, 1, 1, 1}
         }
-    })
+    }
+    if definition.audio then
+        defaults.audio = {
+            enabled = false,
+            mode = "sound",
+            sound = "None",
+            channel = "Master",
+            ttsText = definition.audio.ttsText
+                or L[definition.labelKey]
+                or "Alert",
+            voiceID = 0
+        }
+    end
+    E:RegisterModuleDefaults(definition.moduleName, defaults)
 
     local module = E:NewModule(definition.moduleName, "AceEvent-3.0")
     module.definition = definition
