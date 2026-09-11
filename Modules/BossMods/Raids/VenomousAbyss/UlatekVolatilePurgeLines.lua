@@ -39,8 +39,7 @@ function VolatilePurgeLines:EnsureFrame()
     local frame = CreateFrame(
         "Frame",
         "ART_UlatekVolatilePurgeLines",
-        UIParent,
-        "DisableUntrustedLayoutScriptsTemplate"
+        UIParent
     )
     frame:SetSize(1, 1)
     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
