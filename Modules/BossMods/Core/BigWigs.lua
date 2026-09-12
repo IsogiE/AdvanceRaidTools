@@ -51,7 +51,7 @@ local function dispatchStartBar(_, module, key, text, time)
 end
 
 local function dispatchTimer(
-    _, _, key, time, maxTime, text, count, icon, isApprox, isBarEnabled
+    _, module, key, time, maxTime, text, count, icon, isApprox, isBarEnabled
 )
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
@@ -68,7 +68,8 @@ local function dispatchTimer(
                 count,
                 icon,
                 isApprox,
-                isBarEnabled
+                isBarEnabled,
+                module
             )
             if not ok then
                 E:ChannelWarn(

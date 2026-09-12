@@ -153,14 +153,13 @@ function VolatilePurgeLines:UpdateRotation()
     end
 end
 
-function VolatilePurgeLines:CancelPendingWindow()
-    self.scheduleGeneration = (self.scheduleGeneration or 0) + 1
-    if self.showTimer then
-        self.showTimer:Cancel()
-        self.showTimer = nil
+function VolatilePurgeLines:CancelPendingWindow(text)
+    for window in pairs(self.pendingWindows or {}) do
+        if text == nil or window.text == text then
+            window.timer:Cancel()
+            self.pendingWindows[window] = nil
+        end
     end
-    self.serpentsBiteEndsAt = nil
-    self.serpentsBiteBarText = nil
 end
 
 function VolatilePurgeLines:StopWindow()
@@ -207,30 +206,28 @@ function VolatilePurgeLines:ScheduleWindow(duration, text)
         return
     end
 
-    self:CancelPendingWindow()
-    local generation = self.scheduleGeneration
-    self.serpentsBiteEndsAt = GetTime() + duration
-    self.serpentsBiteBarText = text
-    local endsAt = self.serpentsBiteEndsAt + SHOW_DELAY_AFTER_ZERO + DISPLAY_DURATION
-    self.showTimer = C_Timer.NewTimer(
+    self:CancelPendingWindow(text)
+    self.pendingWindows = self.pendingWindows or {}
+    local window = {
+        text = text,
+        serpentsBiteEndsAt = GetTime() + duration
+    }
+    self.pendingWindows[window] = true
+    local endsAt = window.serpentsBiteEndsAt + SHOW_DELAY_AFTER_ZERO + DISPLAY_DURATION
+    window.timer = C_Timer.NewTimer(
         duration + SHOW_DELAY_AFTER_ZERO,
         function()
-            if generation ~= self.scheduleGeneration
-                or not self.encounterActive
-                or self.stage ~= 3
-            then
+            if not self.pendingWindows[window] then
                 return
             end
 
-            self.showTimer = nil
-            self.serpentsBiteEndsAt = nil
-            self.serpentsBiteBarText = nil
+            self.pendingWindows[window] = nil
             self:StartWindow(endsAt)
         end
     )
 end
 
-function VolatilePurgeLines:OnBigWigsStartBar(key, text, duration, moduleInfo)
+function VolatilePurgeLines:OnBigWigsTimer(key, duration, text, moduleInfo)
     if not self.encounterActive
         or self.stage ~= 3
         or tonumber(key) ~= SERPENTS_BITE_SPELL_ID
@@ -258,8 +255,7 @@ end
 
 function VolatilePurgeLines:OnBigWigsStopBar(text, moduleInfo)
     if not self.encounterActive
-        or not self.serpentsBiteBarText
-        or text ~= self.serpentsBiteBarText
+        or not text
         or not moduleInfo
         or moduleInfo.moduleName ~= "Ula'tek"
     then
@@ -268,10 +264,11 @@ function VolatilePurgeLines:OnBigWigsStopBar(text, moduleInfo)
 
     -- A natural stop happens at zero. Only cancel when BigWigs removes the
     -- countdown early (for example because the encounter or stage ended).
-    if self.serpentsBiteEndsAt
-        and self.serpentsBiteEndsAt - GetTime() > 0.5
-    then
-        self:CancelPendingWindow()
+    for window in pairs(self.pendingWindows or {}) do
+        if window.text == text and window.serpentsBiteEndsAt - GetTime() > 0.5 then
+            self:CancelPendingWindow(text)
+            return
+        end
     end
 end
 
@@ -283,8 +280,8 @@ function VolatilePurgeLines:HookBigWigs()
     self.bigWigsSubscription = BossMods.BigWigs:Subscribe({
         owner = "UlatekVolatilePurgeLines",
         spellKeys = {SERPENTS_BITE_SPELL_ID},
-        onStartBar = function(key, text, duration, moduleInfo)
-            self:OnBigWigsStartBar(key, text, duration, moduleInfo)
+        onTimer = function(key, text, duration, _, _, _, _, _, moduleInfo)
+            self:OnBigWigsTimer(key, duration, text, moduleInfo)
         end,
         onStopBar = function(text, moduleInfo)
             self:OnBigWigsStopBar(text, moduleInfo)
@@ -348,7 +345,7 @@ function VolatilePurgeLines:OnInitialize()
     self.previewMode = false
     self.encounterActive = false
     self.windowActive = false
-    self.scheduleGeneration = 0
+    self.pendingWindows = {}
     self.windowGeneration = 0
     self:EnsureFrame()
     self:ApplyAppearance()
