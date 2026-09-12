@@ -934,9 +934,8 @@ function ReadyCheckConsumables:OnReadyCheckFinished()
     end
 end
 
-function ReadyCheckConsumables:OnReadyCheckConfirm(_, unit, ready)
-    if self.displayMode ~= "readyCheck" or E:IsSecret(ready) or
-        (ready ~= true and ready ~= 1) then
+function ReadyCheckConsumables:OnReadyCheckConfirm(_, unit)
+    if self.displayMode ~= "readyCheck" then
         return
     end
 
