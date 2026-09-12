@@ -18,11 +18,6 @@ local OUTLINE_SORTING = {
     "OUTLINE_SLUG"
 }
 
-local AUDIO_MODE_VALUES = {
-    sound = L["BossMods_AAOptions_SoundFile"] or "Sound file",
-    tts = L["TextToSpeech"] or "Text to Speech"
-}
-local AUDIO_MODE_SORTING = {"sound", "tts"}
 local SOUND_CHANNEL_VALUES = {
     Master = "Master",
     SFX = "Sound Effects",
@@ -297,19 +292,14 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
     if definition.audio then
         mod.db.audio = mod.db.audio or {
             enabled = false,
-            mode = "sound",
             sound = "None",
-            channel = "Master",
-            ttsText = definition.audio.ttsText
-                or L[definition.labelKey]
-                or "Alert",
-            voiceID = 0
+            channel = "Master"
         }
 
         y = section(y, L["BossMods_AuraCircleAudio"] or "Audio")
         y = full(y, track(T:Checkbox(rightPanel, {
             text = L["BossMods_AuraCircleEnableAudio"]
-                or "Enable audio when circle appears",
+                or "Enable sound when debuff is applied",
             get = function()
                 return mod.db.audio.enabled == true
             end,
@@ -321,92 +311,38 @@ local function buildAuraCircleBody(rightPanel, mod, isDisabled)
         })))
 
         if mod.db.audio.enabled then
-            y = full(y, dropdown({
-                label = L["BossMods_AAOptions_AudioType"] or "Audio type",
-                values = AUDIO_MODE_VALUES,
-                sorting = AUDIO_MODE_SORTING,
+            local sound = dropdown({
+                label = L["BossMods_AAOptions_SoundFile"] or "Sound file",
+                values = function()
+                    return E:GetModule("BossMods").Alerts:GetSoundOptions()
+                end,
                 get = function()
-                    return mod.db.audio.mode or "sound"
+                    return mod.db.audio.sound or "None"
                 end,
                 set = function(value)
-                    mod.db.audio.mode = value == "tts" and "tts" or "sound"
+                    mod.db.audio.sound = value
                 end,
-                rebuild = true
-            }))
+                playSample = function(value)
+                    E:GetModule("BossMods").Alerts:PlaySound({
+                        name = value,
+                        channel = mod.db.audio.channel or "Master"
+                    })
+                end
+            })
 
-            if mod.db.audio.mode == "tts" then
-                local message = track(T:EditBox(rightPanel, {
-                    label = L["BossMods_AAOptions_TextToSpeechMessage"]
-                        or "Text to Speech message",
-                    default = mod.db.audio.ttsText,
-                    get = function()
-                        return mod.db.audio.ttsText
-                    end,
-                    commitOn = "enter",
-                    onCommit = function(value)
-                        value = strtrim(value or "")
-                        mod.db.audio.ttsText = value ~= ""
-                            and value
-                            or definition.audio.ttsText
-                            or "Serpent's Bite"
-                        refreshLive(false)
-                    end,
-                    disabled = isDisabled
-                }))
-
-                local voice = dropdown({
-                    label = L["BossMods_AAOptions_TTSVoice"] or "TTS voice",
-                    values = function()
-                        return E:GetModule("BossMods").Alerts:GetTTSVoices()
-                    end,
-                    get = function()
-                        return mod.db.audio.voiceID or 0
-                    end,
-                    set = function(value)
-                        mod.db.audio.voiceID = tonumber(value) or 0
-                    end,
-                    playSample = function()
-                        E:GetModule("BossMods").Alerts:SpeakTTS({
-                            text = mod.db.audio.ttsText or "Serpent's Bite",
-                            voiceID = mod.db.audio.voiceID or 0
-                        })
-                    end
-                })
-                y = row(y, {message, voice})
-            else
-                local sound = dropdown({
-                    label = L["BossMods_AAOptions_SoundFile"] or "Sound file",
-                    values = function()
-                        return E:GetModule("BossMods").Alerts:GetSoundOptions()
-                    end,
-                    get = function()
-                        return mod.db.audio.sound or "None"
-                    end,
-                    set = function(value)
-                        mod.db.audio.sound = value
-                    end,
-                    playSample = function(value)
-                        E:GetModule("BossMods").Alerts:PlaySound({
-                            name = value,
-                            channel = mod.db.audio.channel or "Master"
-                        })
-                    end
-                })
-
-                local channel = dropdown({
-                    label = L["BossMods_AAOptions_SoundChannel"]
-                        or "Sound channel",
-                    values = SOUND_CHANNEL_VALUES,
-                    sorting = SOUND_CHANNEL_SORTING,
-                    get = function()
-                        return mod.db.audio.channel or "Master"
-                    end,
-                    set = function(value)
-                        mod.db.audio.channel = value
-                    end
-                })
-                y = row(y, {sound, channel})
-            end
+            local channel = dropdown({
+                label = L["BossMods_AAOptions_SoundChannel"]
+                    or "Sound channel",
+                values = SOUND_CHANNEL_VALUES,
+                sorting = SOUND_CHANNEL_SORTING,
+                get = function()
+                    return mod.db.audio.channel or "Master"
+                end,
+                set = function(value)
+                    mod.db.audio.channel = value
+                end
+            })
+            y = row(y, {sound, channel})
         end
     end
 

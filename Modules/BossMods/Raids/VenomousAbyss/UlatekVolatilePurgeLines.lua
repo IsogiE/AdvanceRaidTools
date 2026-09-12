@@ -87,15 +87,40 @@ function VolatilePurgeLines:ApplyRotation()
         return false
     end
 
-    if not E:AcquireCompassFacingSource(self, COMPASS_TOKEN) then
-        return false
+    if not self.rotationAcquired then
+        local ok, acquired = pcall(E.AcquireCompassFacingSource, E, self, COMPASS_TOKEN)
+        if not ok or not acquired then
+            return false
+        end
+        self.rotationAcquired = true
     end
 
     return E:ApplySecretCompassRotation(self.lines)
 end
 
 function VolatilePurgeLines:ReleaseRotation()
+    self.rotationAcquired = false
     E:ReleaseCompassFacingSource(self, COMPASS_TOKEN)
+end
+
+function VolatilePurgeLines:IsDisplayEnabled()
+    return self:IsEnabled() and self.db.enabled ~= false
+        and BossMods:IsEnabled() and BossMods:IsFeatureEnabled(COMPASS_TOKEN)
+end
+
+function VolatilePurgeLines:HideLines()
+    if self.updateTicker then
+        self.updateTicker:Cancel()
+        self.updateTicker = nil
+    end
+    if self.lines then
+        self.lines:SetAlpha(0)
+        self.lines:Hide()
+    end
+    if self.frame then
+        self.frame:Hide()
+    end
+    self:ReleaseRotation()
 end
 
 function VolatilePurgeLines:ApplyVisibility()
@@ -103,21 +128,28 @@ function VolatilePurgeLines:ApplyVisibility()
         return
     end
 
-    local shouldShow = self:IsEnabled()
-        and (self.previewMode or (self.encounterActive and self.windowActive))
+    local shouldShow = self:IsDisplayEnabled()
+        and (self.previewMode or (self.encounterActive and self.stage == 3 and self.windowActive))
 
-    if shouldShow then
+    if shouldShow and self:ApplyRotation() then
+        self.lines:SetAlpha(1)
+        self.lines:Show()
         self.frame:Show()
-        self:ApplyRotation()
+        if not self.updateTicker then
+            self.updateTicker = C_Timer.NewTicker(UPDATE_INTERVAL, function()
+                self:UpdateRotation()
+            end)
+        end
     else
-        self.frame:Hide()
-        self:ReleaseRotation()
+        self:HideLines()
     end
 end
 
 function VolatilePurgeLines:UpdateRotation()
-    if self.frame and self.frame:IsShown() then
-        self:ApplyRotation()
+    if self.windowActive and self.windowEndsAt and GetTime() >= self.windowEndsAt then
+        self:StopWindow()
+    else
+        self:ApplyVisibility()
     end
 end
 
@@ -138,32 +170,40 @@ function VolatilePurgeLines:StopWindow()
         self.hideTimer = nil
     end
     self.windowActive = false
+    self.windowEndsAt = nil
     self:ApplyVisibility()
 end
 
-function VolatilePurgeLines:StartWindow()
-    if not self.encounterActive then
+function VolatilePurgeLines:StartWindow(endsAt)
+    if not self:IsDisplayEnabled() or not self.encounterActive or self.stage ~= 3 then
         return
     end
 
     self:StopWindow()
     local generation = self.windowGeneration
+    self.windowEndsAt = endsAt or (GetTime() + DISPLAY_DURATION)
+    local remaining = self.windowEndsAt - GetTime()
+    if remaining <= 0 then
+        self.windowEndsAt = nil
+        return
+    end
     self.windowActive = true
-    self:ApplyVisibility()
 
-    self.hideTimer = C_Timer.NewTimer(DISPLAY_DURATION, function()
+    self.hideTimer = C_Timer.NewTimer(remaining, function()
         if generation ~= self.windowGeneration then
             return
         end
         self.hideTimer = nil
-        self.windowActive = false
-        self:ApplyVisibility()
+        self:StopWindow()
     end)
+    self:ApplyVisibility()
 end
 
 function VolatilePurgeLines:ScheduleWindow(duration, text)
     duration = tonumber(duration)
-    if not duration or duration <= 0 then
+    if not self:IsDisplayEnabled() or not self.encounterActive or self.stage ~= 3
+        or not duration or duration <= 0
+    then
         return
     end
 
@@ -171,11 +211,13 @@ function VolatilePurgeLines:ScheduleWindow(duration, text)
     local generation = self.scheduleGeneration
     self.serpentsBiteEndsAt = GetTime() + duration
     self.serpentsBiteBarText = text
+    local endsAt = self.serpentsBiteEndsAt + SHOW_DELAY_AFTER_ZERO + DISPLAY_DURATION
     self.showTimer = C_Timer.NewTimer(
         duration + SHOW_DELAY_AFTER_ZERO,
         function()
             if generation ~= self.scheduleGeneration
                 or not self.encounterActive
+                or self.stage ~= 3
             then
                 return
             end
@@ -183,13 +225,14 @@ function VolatilePurgeLines:ScheduleWindow(duration, text)
             self.showTimer = nil
             self.serpentsBiteEndsAt = nil
             self.serpentsBiteBarText = nil
-            self:StartWindow()
+            self:StartWindow(endsAt)
         end
     )
 end
 
 function VolatilePurgeLines:OnBigWigsStartBar(key, text, duration, moduleInfo)
     if not self.encounterActive
+        or self.stage ~= 3
         or tonumber(key) ~= SERPENTS_BITE_SPELL_ID
         or not moduleInfo
         or moduleInfo.moduleName ~= "Ula'tek"
@@ -198,6 +241,19 @@ function VolatilePurgeLines:OnBigWigsStartBar(key, text, duration, moduleInfo)
     end
 
     self:ScheduleWindow(duration, text)
+end
+
+function VolatilePurgeLines:OnBigWigsStage(moduleInfo, stage)
+    if not self.encounterActive or not moduleInfo or moduleInfo.moduleName ~= "Ula'tek" then
+        return
+    end
+    stage = tonumber(stage)
+    if not stage or stage == self.stage then
+        return
+    end
+    self.stage = stage
+    self:CancelPendingWindow()
+    self:StopWindow()
 end
 
 function VolatilePurgeLines:OnBigWigsStopBar(text, moduleInfo)
@@ -232,6 +288,9 @@ function VolatilePurgeLines:HookBigWigs()
         end,
         onStopBar = function(text, moduleInfo)
             self:OnBigWigsStopBar(text, moduleInfo)
+        end,
+        onStage = function(moduleInfo, stage)
+            self:OnBigWigsStage(moduleInfo, stage)
         end
     })
 end
@@ -244,12 +303,23 @@ function VolatilePurgeLines:UnhookBigWigs()
 end
 
 function VolatilePurgeLines:SetPreviewMode(value)
-    self.previewMode = value and true or false
+    self.previewMode = value == true and self:IsDisplayEnabled()
     self:ApplyVisibility()
 end
 
+function VolatilePurgeLines:OnFeatureEnabledChanged(_, key, enabled)
+    if key == COMPASS_TOKEN and not enabled then
+        self.previewMode = false
+        self:CancelPendingWindow()
+        self:StopWindow()
+    end
+end
+
 function VolatilePurgeLines:Refresh()
-    if not self:IsEnabled() then
+    if not self:IsDisplayEnabled() then
+        self.previewMode = false
+        self:CancelPendingWindow()
+        self:StopWindow()
         return
     end
     self:ApplyAppearance()
@@ -258,6 +328,8 @@ end
 
 function VolatilePurgeLines:OnEncounterStart(_, encounterID)
     self.encounterActive = tonumber(encounterID) == ENCOUNTER_ID
+    self.stage = self.encounterActive and 1 or nil
+    self.previewMode = false
     self:CancelPendingWindow()
     self:StopWindow()
 end
@@ -267,6 +339,7 @@ function VolatilePurgeLines:OnEncounterEnd(_, encounterID)
         return
     end
     self.encounterActive = false
+    self.stage = nil
     self:CancelPendingWindow()
     self:StopWindow()
 end
@@ -289,29 +362,20 @@ function VolatilePurgeLines:OnEnable()
     self:RegisterEvent("DISPLAY_SIZE_CHANGED", "Refresh")
     self:RegisterEvent("UI_SCALE_CHANGED", "Refresh")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
+    self:RegisterMessage("ART_BOSSMODS_FEATURE_ENABLED_CHANGED", "OnFeatureEnabledChanged")
     self:HookBigWigs()
-    self.updateTicker = C_Timer.NewTicker(UPDATE_INTERVAL, function()
-        self:UpdateRotation()
-    end)
     self:ApplyVisibility()
 end
 
 function VolatilePurgeLines:OnDisable()
-    if self.updateTicker then
-        self.updateTicker:Cancel()
-        self.updateTicker = nil
-    end
+    self.previewMode = false
+    self.encounterActive = false
+    self.stage = nil
     self:CancelPendingWindow()
     self:StopWindow()
     self:UnhookBigWigs()
     self:UnregisterAllEvents()
     self:UnregisterAllMessages()
-    self:ReleaseRotation()
-    self.previewMode = false
-    self.encounterActive = false
-    if self.frame then
-        self.frame:Hide()
-    end
 end
 
 E:RegisterBossModFeature("UlatekVolatilePurgeLines", {

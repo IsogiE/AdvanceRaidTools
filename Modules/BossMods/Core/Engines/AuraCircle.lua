@@ -68,6 +68,15 @@ local function areAurasRestricted()
     return not ok or restricted == true
 end
 
+local function areAuraSoundsRestricted()
+    local isRestricted = C_RestrictedActions and C_RestrictedActions.IsAddOnRestrictionActive
+    return isRestricted and (
+        isRestricted(Enum.AddOnRestrictionType.Encounter)
+        or (isRestricted(Enum.AddOnRestrictionType.ChallengeMode)
+            and isRestricted(Enum.AddOnRestrictionType.Combat))
+    )
+end
+
 local function auraSortMethod()
     return AuraContainerSortMethod
         and AuraContainerSortMethod.Expiration
@@ -136,6 +145,7 @@ function Engines.AuraCircle(config)
         liveWindow = false,
         pendingContainer = false,
         auraVisuals = {},
+        auraSoundIDs = {},
         config = config
     }
 
@@ -165,41 +175,69 @@ function Engines.AuraCircle(config)
         if def.audio then
             db.audio = db.audio or {}
             db.audio.enabled = db.audio.enabled == true
-            db.audio.mode = db.audio.mode == "tts" and "tts" or "sound"
             db.audio.sound = db.audio.sound or "None"
             db.audio.channel = db.audio.channel or "Master"
-            db.audio.ttsText = db.audio.ttsText
-                or def.audio.ttsText
-                or L[def.labelKey]
-                or "Alert"
-            db.audio.voiceID = tonumber(db.audio.voiceID) or 0
         end
 
         return db
     end
 
-    local function playConfiguredAudio()
+    local function clearAuraSounds()
+        for _, soundID in ipairs(state.auraSoundIDs) do
+            C_UnitAuras.RemoveAuraSound(soundID)
+        end
+        state.auraSoundIDs = {}
+        state.audioConfig = nil
+        state.pendingAudio = false
+    end
+
+    local function updateAuraSounds()
         local def = definition()
         if not def.audio then
             return
         end
 
         local audio = settings().audio
-        if not audio or not audio.enabled then
+        if not state.active or state.editMode or state.previewMode
+            or not audio.enabled or audio.sound == "None" or audio.sound == ""
+            or not C_UnitAuras or not C_UnitAuras.AddAuraSound
+        then
+            clearAuraSounds()
             return
         end
 
-        if audio.mode == "tts" then
-            BossMods.Alerts:SpeakTTS({
-                text = audio.ttsText,
-                voiceID = audio.voiceID or 0
-            })
-        else
-            BossMods.Alerts:PlaySound({
-                name = audio.sound,
-                channel = audio.channel or "Master"
-            })
+        local spellIDs = def.audio.spellIDs or def.auraSpellIDs or {}
+        local lsm = E.Libs.LSM
+        local sound = (lsm and lsm:Fetch("sound", audio.sound, true)) or audio.sound
+        local unit = def.unit or "player"
+        local channel = audio.channel
+        local key = table.concat({unit, tostring(sound), channel, table.concat(spellIDs, ",")}, "\n")
+        if state.audioConfig == key then
+            return
         end
+
+        clearAuraSounds()
+        if areAuraSoundsRestricted() then
+            state.pendingAudio = true
+            return
+        end
+
+        for spellID in pairs(buildSpellSet(spellIDs) or {}) do
+            local ok, soundID = pcall(C_UnitAuras.AddAuraSound, Enum.UnitAuraSoundTrigger.Added, {
+                unitToken = unit,
+                spellID = spellID,
+                soundFileName = type(sound) == "string" and sound or nil,
+                soundFileID = type(sound) == "number" and sound or nil,
+                outputChannel = channel
+            })
+            if not ok or not soundID then
+                clearAuraSounds()
+                state.pendingAudio = true
+                return
+            end
+            state.auraSoundIDs[#state.auraSoundIDs + 1] = soundID
+        end
+        state.audioConfig = key
     end
 
     local function createVisual(parent)
@@ -339,25 +377,6 @@ function Engines.AuraCircle(config)
         end
 
         state.auraVisuals[button] = visual
-
-        if definition().audio and button.HookScript then
-            button:HookScript("OnShow", function()
-                if not state.active
-                    or not state.liveWindow
-                    or state.editMode
-                    or state.previewMode
-                then
-                    return
-                end
-
-                local now = GetTime()
-                if state.lastAudioAt and now - state.lastAudioAt < 1 then
-                    return
-                end
-                state.lastAudioAt = now
-                playConfiguredAudio()
-            end)
-        end
     end
 
     local function createAuraContainer()
@@ -371,6 +390,8 @@ function Engines.AuraCircle(config)
             "CustomAuraContainerTemplate,DisableUntrustedLayoutScriptsTemplate"
         )
 
+        container:SetEnabled(false)
+        container:Hide()
         container:SetAllPoints(state.anchor)
         container:SetSize(db.size, db.size)
         container:SetUnit(def.unit or "player")
@@ -385,7 +406,7 @@ function Engines.AuraCircle(config)
             container:SetFlowLayoutMaximumLineSize(math.huge)
         end
 
-        container:AddAuraGroup(groupKey, def.filter or "HARMFUL", {
+        local options = {
             maxFrameCount = def.maxFrameCount or 1,
             candidateFilters = buildCandidateFilters(def),
             sortMethod = def.sortMethod or auraSortMethod(),
@@ -396,10 +417,14 @@ function Engines.AuraCircle(config)
                 elementWidth = db.size,
                 elementHeight = db.size
             }
-        })
-
-        container:SetEnabled(false)
-        container:Hide()
+        }
+        if options.maxFrameCount == 1 then
+            local button = container:AddAuraSlot(groupKey, def.filter or "HARMFUL", options)
+            button:SetPoint("CENTER", state.anchor, "CENTER")
+            state.singleSlot = true
+        else
+            container:AddAuraGroup(groupKey, def.filter or "HARMFUL", options)
+        end
 
         state.groupKey = groupKey
         state.container = container
@@ -433,7 +458,7 @@ function Engines.AuraCircle(config)
     end
 
     local function updateContainerLayout()
-        if not state.container or not state.groupKey then
+        if not state.container or not state.groupKey or state.singleSlot then
             return
         end
 
@@ -540,18 +565,21 @@ function Engines.AuraCircle(config)
         if state.active then
             ensureAuraContainer()
         end
+        updateAuraSounds()
         applyVisibility()
     end
 
     function handle:SetEditMode(value)
         state.editMode = value == true
         ensureFrames()
+        updateAuraSounds()
         applyVisibility()
     end
 
     function handle:SetPreviewMode(value)
         state.previewMode = value == true
         ensureFrames()
+        updateAuraSounds()
         applyVisibility()
     end
 
@@ -615,6 +643,7 @@ function Engines.AuraCircle(config)
         applyVisual(state.previewFrame, state.previewVisual)
         updateContainerLayout()
         applyAuraVisuals()
+        updateAuraSounds()
         applyVisibility()
     end
 
@@ -630,6 +659,7 @@ function Engines.AuraCircle(config)
         state.editMode = false
         state.previewMode = false
         state.liveWindow = false
+        clearAuraSounds()
         callbacks:UnregisterAllEvents()
         self:StopLive()
         stopPreviewTicker()
@@ -643,14 +673,14 @@ function Engines.AuraCircle(config)
     end
 
     callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-        if state.active and state.pendingContainer then
+        if state.active and (state.pendingContainer or state.pendingAudio) then
             handle:Refresh()
         end
     end)
 
     callbacks:RegisterEvent("ADDON_RESTRICTION_STATE_CHANGED", function(_, _, restrictionState)
         if state.active
-            and state.pendingContainer
+            and (state.pendingContainer or state.pendingAudio)
             and restrictionState == Enum.AddOnRestrictionState.Inactive
         then
             C_Timer.After(0, function()
@@ -690,13 +720,8 @@ function BossMods:RegisterAuraCircleFeature(definition)
     if definition.audio then
         defaults.audio = {
             enabled = false,
-            mode = "sound",
             sound = "None",
-            channel = "Master",
-            ttsText = definition.audio.ttsText
-                or L[definition.labelKey]
-                or "Alert",
-            voiceID = 0
+            channel = "Master"
         }
     end
     E:RegisterModuleDefaults(definition.moduleName, defaults)
