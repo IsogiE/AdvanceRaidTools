@@ -35,6 +35,11 @@ local function build(rightPanel, mod, isDisabled)
     local function row(y, widgets)
         return y + T:PlaceRow(rightPanel, widgets, y, width) + ROW_GAP
     end
+    local function button(text, onClick)
+        return track(T:Button(rightPanel, {
+            text = text, onClick = onClick, disabled = isDisabled
+        }))
+    end
     local function slider(label, low, high, step, get, set)
         return track(T:Slider(rightPanel, {
             label = label, min = low, max = high, step = step,
