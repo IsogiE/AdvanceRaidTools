@@ -28,9 +28,7 @@ local DEFINITIONS = {
         timerSpellID = SERPENTS_BITE_TIMER_ID,
         maxDuration = 15,
         windowDuration = 15,
-        audio = {
-            ttsText = "Serpent's Bite"
-        },
+        audio = {},
         color = {1, 0.08, 0.08, 0.95},
         position = {point = "CENTER", x = 0, y = 0}
     },
