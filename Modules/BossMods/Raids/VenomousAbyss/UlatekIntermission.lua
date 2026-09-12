@@ -176,6 +176,7 @@ for _, variation in pairs(VARIATIONS) do
     end
 end
 local BUTTON_ORDER = {"PINK", "WHITE", "RED"}
+local BUTTON_COLUMNS = {2, 1, 3}
 local WAVE_BUTTONS = {
     {label = L["Left"], macro = "/rw Left"},
     {label = L["Right"], macro = "/raid Right"}
@@ -614,7 +615,7 @@ local function layoutClickerButtons(anchor, buttons, hideLeftRight)
         end
     end
     for index = 1, #BUTTON_ORDER do
-        positionClickerButton(buttons[#WAVE_BUTTONS + index], anchor, index, #BUTTON_ORDER, 2)
+        positionClickerButton(buttons[#WAVE_BUTTONS + index], anchor, BUTTON_COLUMNS[index], #BUTTON_ORDER, 2)
     end
     for index = 1, #REMINDER_BUTTONS do
         positionClickerButton(buttons[#WAVE_BUTTONS + #BUTTON_ORDER + index], anchor,
