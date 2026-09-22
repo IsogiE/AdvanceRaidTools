@@ -283,29 +283,6 @@ AR({
     }
 })
 
--- Note-only switch for the Sszorak Compass. This is intentionally registered
--- directly instead of as a ready-check assignment, since the tag enables the
--- compass for the raid rather than assigning individual players.
-E:RegisterBossModNoteBlock("VenomousAbyssSszorakCompass", {
-    blocks = {
-        {
-            tag = "sszCompass",
-            template = "#sszCompass"
-        }
-    },
-    tab = "VenomousAbyss",
-    order = 53,
-    labelKey = "BossMods_SszorakCompass",
-    raidKey = "VenomousAbyss",
-    raidLabelKey = "BossMods_VenomousAbyss",
-    bossKey = "Sszorak",
-    bossLabelKey = "BossMods_Sszorak",
-    bossOrder = 50,
-    itemKey = "SszorakCompass",
-    itemLabelKey = "BossMods_SszorakCompass",
-    itemOrder = 53
-})
-
 ---------------------------------------------------------------------------
 -- The Twin Fangs: kick-position parser
 ---------------------------------------------------------------------------

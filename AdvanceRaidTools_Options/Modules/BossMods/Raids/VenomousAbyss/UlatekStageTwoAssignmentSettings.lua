@@ -60,21 +60,6 @@ local function build(rightPanel, mod, isDisabled)
             disabled = disabled or isDisabled
         }))
     end
-    local function color(label, get, set)
-        local value = get()
-        return track(T:ColorSwatch(rightPanel, {
-            label = label, labelTop = true, hasAlpha = true,
-            r = value[1] or value.r or 1,
-            g = value[2] or value.g or 1,
-            b = value[3] or value.b or 1,
-            a = value[4] or value.a or 1,
-            onChange = function(r, g, b, a)
-                set({r, g, b, a}); refresh()
-            end,
-            disabled = isDisabled
-        }))
-    end
-
     local y = 0
     y = full(y, track(T:Header(rightPanel, {
         text = L["BossMods_UlatekStageTwoAssignment"]
@@ -137,23 +122,6 @@ local function build(rightPanel, mod, isDisabled)
             function() return settings.text.font.outline or "" end,
             function(value) settings.text.font.outline = value or "" end,
             textDisabled)
-    })
-
-    y = full(y, track(T:Header(rightPanel, {text = "Arrow appearance"})))
-    y = row(y, {
-        slider("Arrow size", 20, 160, 1,
-            function() return mod.db.arrow.size end,
-            function(value) mod.db.arrow.size = math.floor(value + 0.5) end),
-        color("Arrow color", function() return mod.db.arrow.color end,
-            function(value) mod.db.arrow.color = value end)
-    })
-    y = row(y, {
-        slider("Arrow X offset", -300, 300, 1,
-            function() return mod.db.arrow.x end,
-            function(value) mod.db.arrow.x = math.floor(value + 0.5) end),
-        slider("Arrow Y offset", -300, 300, 1,
-            function() return mod.db.arrow.y end,
-            function(value) mod.db.arrow.y = math.floor(value + 0.5) end)
     })
 
     local anchor = mod:GetAnchor()

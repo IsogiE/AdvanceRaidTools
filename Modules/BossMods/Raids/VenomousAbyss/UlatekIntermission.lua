@@ -31,12 +31,6 @@ E:RegisterModuleDefaults(MODULE_NAME, {
             color = {1, 1, 1, 1}
         }
     },
-    arrow = {
-        enabled = true,
-        position = {point = "CENTER", x = 0, y = 50},
-        size = 80,
-        color = {1, 0.82, 0.10, 1}
-    },
     reminder = {
         position = {point = "CENTER", x = 0, y = 150},
         font = {
@@ -101,20 +95,12 @@ local WHITE = [[Interface\Buttons\WHITE8x8]]
 local RAID_MARKER_TEXTURE = [[Interface\TargetingFrame\UI-RaidTargetingIcon_%d]]
 local ASSIGNMENT_MARKER_MARKUP = [[|TInterface\TargetingFrame\UI-RaidTargetingIcon_%d:30:30|t]]
 local ASSIGNMENT_ICON_WIDTH = 30
-local ARROW_COMPASS_TOKEN = "UlatekIntermissionArrow"
-local ARROW_HIDE_BEFORE_SOAK = 2
-local ARROW_TEXTURE = [[Interface\Icons\misc_arrowright]]
-local ARROW_SELECTION_MARKUP = [[|TInterface\Buttons\WHITE8x8:1:1|t]]
-local ARROW_BEARINGS = {337.5, 22.5, 157.5, 202.5, 112.5, 247.5, 292.5, 67.5}
-
 local DEFAULT_BAR_POSITION = {point = "CENTER", x = 0, y = 220}
 local DEFAULT_ASSIGNMENT_POSITION = {point = "CENTER", x = 0, y = 150}
-local DEFAULT_ARROW_POSITION = {point = "CENTER", x = 0, y = 50}
 local DEFAULT_CLICKER_POSITION = {point = "CENTER", x = 0, y = 80}
 local DEFAULT_FONT_COLOR = {1, 1, 1, 1}
 local DEFAULT_BAR_COLOR = {0.16, 0.58, 0.92, 1}
 local DEFAULT_MARKER_COLOR = {1, 1, 1, 1}
-local DEFAULT_ARROW_COLOR = {1, 0.82, 0.10, 1}
 
 local GROUP_COLORS = {
     [1] = {0.92, 0.92, 0.86, 1},
@@ -308,7 +294,6 @@ function UlatekIntermission:EnsureDefaults()
     self.db.textOnly = self.db.textOnly == true
     self.db.bar = type(self.db.bar) == "table" and self.db.bar or {}
     self.db.assignment = type(self.db.assignment) == "table" and self.db.assignment or {}
-    self.db.arrow = type(self.db.arrow) == "table" and self.db.arrow or {}
     self.db.reminder = type(self.db.reminder) == "table" and self.db.reminder or {}
     self.db.careCircles = type(self.db.careCircles) == "table" and self.db.careCircles or {}
     self.db.careCircles.enabled = self.db.careCircles.enabled ~= false
@@ -317,7 +302,6 @@ function UlatekIntermission:EnsureDefaults()
 
     ensurePosition(self.db.bar, "position", DEFAULT_BAR_POSITION)
     ensurePosition(self.db.assignment, "position", DEFAULT_ASSIGNMENT_POSITION)
-    ensurePosition(self.db.arrow, "position", DEFAULT_ARROW_POSITION)
     ensurePosition(self.db.reminder, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.careCircles, "position", DEFAULT_ASSIGNMENT_POSITION)
     ensurePosition(self.db.wave, "position", DEFAULT_ASSIGNMENT_POSITION)
@@ -334,17 +318,6 @@ function UlatekIntermission:EnsureDefaults()
     self.db.bar.font = ensureFont(self.db.bar.font, 14)
 
     self.db.assignment.font = ensureFont(self.db.assignment.font, 30)
-    self.db.arrow.enabled = self.db.arrow.enabled ~= false
-    self.db.arrow.size = math.max(20, tonumber(self.db.arrow.size) or 80)
-    if not self.db.arrow.colorDefaultUpdated then
-        local color = self.db.arrow.color
-        if type(color) == "table" and color[1] == 0.1 and color[2] == 0.9
-            and color[3] == 1 and color[4] == 1 then
-            self.db.arrow.color = nil
-        end
-        self.db.arrow.colorDefaultUpdated = true
-    end
-    self.db.arrow.color = ensureColor(self.db.arrow.color, DEFAULT_ARROW_COLOR)
     self.db.reminder.font = ensureFont(self.db.reminder.font, 30)
     self.db.careCircles.font = ensureFont(self.db.careCircles.font, 30)
     self.db.wave.font = ensureFont(self.db.wave.font, 30)
@@ -399,43 +372,6 @@ local function createAssignmentRegions(assignmentAnchor)
     end
 
     return assignmentText, assignmentMeasure, assignmentCountdowns
-end
-
-local function createArrowRegions(anchor)
-    local arrows, selectors, rotations = {}, {}, {}
-    for index = 1, #BUTTON_ORDER do
-        local layer = CreateFrame("Frame", nil, anchor, "DisableUntrustedLayoutScriptsTemplate")
-        layer:SetAllPoints(anchor)
-        layer:EnableMouse(false)
-        layer:SetAlpha(0)
-        local arrow = layer:CreateTexture(nil, "OVERLAY", nil, 7)
-        arrow:SetAllPoints(layer)
-        arrow:SetTexture(ARROW_TEXTURE)
-        arrow:Hide()
-        arrows[index] = arrow
-
-        local animation = layer:CreateAnimationGroup()
-        local rotation = animation:CreateAnimation("Rotation")
-        rotation:SetOrigin("CENTER", 0, 0)
-        rotation:SetDuration(0)
-        rotation:SetEndDelay(1)
-        rotations[index] = {animation = animation, rotation = rotation}
-
-        local selector = anchor:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        selector:SetSize(1, 1)
-        selector:SetWordWrap(false)
-        selector:Hide()
-        selectors[index] = selector
-    end
-
-    return arrows, selectors, rotations
-end
-
-local function applyArrowAppearance(f, arrowDB)
-    f.arrowAnchor:SetSize(arrowDB.size, arrowDB.size)
-    for _, arrow in ipairs(f.assignmentArrows) do
-        arrow:SetVertexColor(E:ColorTuple(arrowDB.color, unpack(DEFAULT_ARROW_COLOR)))
-    end
 end
 
 local function applyAssignmentAppearance(f, assignmentDB)
@@ -718,8 +654,6 @@ function UlatekIntermission:EnsureFrames()
     local assignmentText, assignmentMeasure, assignmentCountdowns =
         createAssignmentRegions(assignmentAnchor)
 
-    local arrowAnchor = self:CreateAnchor("ART_UlatekIntermissionArrow", false)
-    local assignmentArrows, arrowSelectors, arrowRotations = createArrowRegions(arrowAnchor)
 
     local reminderAnchor = self:CreateAnchor("ART_UlatekMovementReminder", false)
     local reminderText = createReminderText(reminderAnchor)
@@ -801,10 +735,6 @@ function UlatekIntermission:EnsureFrames()
         assignmentText = assignmentText,
         assignmentMeasure = assignmentMeasure,
         assignmentCountdowns = assignmentCountdowns,
-        arrowAnchor = arrowAnchor,
-        assignmentArrows = assignmentArrows,
-        arrowSelectors = arrowSelectors,
-        arrowRotations = arrowRotations,
         reminderAnchor = reminderAnchor,
         reminderText = reminderText,
         careCirclesAnchor = careCirclesAnchor,
@@ -817,7 +747,6 @@ function UlatekIntermission:EnsureFrames()
 
     self.barAnchor = barAnchor
     self.assignmentAnchor = assignmentAnchor
-    self.arrowAnchor = arrowAnchor
     self.reminderAnchor = reminderAnchor
     self.careCirclesAnchor = careCirclesAnchor
     self.waveAnchor = waveAnchor
@@ -844,9 +773,6 @@ function UlatekIntermission:ApplySettings()
 
     self.assignmentLayout = applyAssignmentAppearance(f, assignmentDB)
     E:GetModule("BossMods").DisplayTemplates:Place(self, "assignment", f.assignmentAnchor)
-
-    applyArrowAppearance(f, self.db.arrow)
-    E:GetModule("BossMods").DisplayTemplates:Place(self, "arrow", f.arrowAnchor)
 
     applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment, "reminder")
     E:GetModule("BossMods").DisplayTemplates:Place(self, "reminder", f.reminderAnchor)
@@ -983,7 +909,6 @@ function UlatekIntermission:OnChatMsg(event, msg)
     end
 
     self.assignmentInput = {format = msg}
-    self.arrowSlot = nil
     self:UpdateDisplay()
 end
 
@@ -1203,75 +1128,7 @@ function UlatekIntermission:ApplyClickerVisibility()
     self:ApplyClickerInteraction()
 end
 
-function UlatekIntermission:HideAssignmentArrow(keepCompass)
-    if self.frames and self.frames.assignmentArrows then
-        for index, arrow in ipairs(self.frames.assignmentArrows) do
-            arrow:Hide()
-            self.frames.arrowRotations[index].animation:Stop()
-        end
-        if not self.arrowPreview then
-            self.frames.arrowAnchor:Hide()
-        end
-    end
-    self.arrowSlot = nil
-    self.arrowGroup = nil
-    if not keepCompass then
-        E:ReleaseCompassFacingSource(self, ARROW_COMPASS_TOKEN)
-    end
-end
-
-function UlatekIntermission:UpdateAssignmentArrow(formatMessage, group, index, timeLeft)
-    local f = self.frames
-    if not f or not f.assignmentArrows or not self.db.arrow.enabled then
-        self:HideAssignmentArrow()
-        return
-    end
-
-    if timeLeft and timeLeft <= ARROW_HIDE_BEFORE_SOAK then
-        self:HideAssignmentArrow(index < #GROUP_SOAKS[group])
-        return
-    end
-
-    local changed = self.arrowSlot ~= index or self.arrowGroup ~= group
-    if changed then
-        for layer, selector in ipairs(f.arrowSelectors) do
-            selector:SetFormattedText(formatMessage,
-                layer == 1 and ARROW_SELECTION_MARKUP or "",
-                layer == 2 and ARROW_SELECTION_MARKUP or "",
-                layer == 3 and ARROW_SELECTION_MARKUP or "")
-            f.assignmentArrows[layer]:GetParent():SetAlpha(selector:GetStringWidth())
-        end
-        self.arrowSlot = index
-        self.arrowGroup = group
-    end
-
-    if not E:AcquireCompassFacingSource(self, ARROW_COMPASS_TOKEN) then
-        self:HideAssignmentArrow()
-        return
-    end
-    for _, arrow in ipairs(f.assignmentArrows) do
-        if not E:ApplySecretCompassRotation(arrow) then
-            self:HideAssignmentArrow()
-            return
-        end
-        arrow:Show()
-    end
-    f.arrowAnchor:Show()
-    if changed then
-        for layer, variationKey in ipairs(BUTTON_ORDER) do
-            local markerID = VARIATIONS[variationKey].groups[group][index]
-            local rotation = f.arrowRotations[layer]
-            rotation.animation:Stop()
-            rotation.rotation:SetDegrees(90 - ARROW_BEARINGS[markerID])
-            rotation.animation:Play()
-            rotation.rotation:SetSmoothProgress(1)
-            rotation.animation:Pause()
-        end
-    end
-end
-
 function UlatekIntermission:HideAssignmentSlots()
-    self:HideAssignmentArrow()
     if not self.frames then
         return
     end
@@ -1362,7 +1219,6 @@ function UlatekIntermission:UpdateAssignmentSlots(formatMessage, group, elapsed)
         end
     end
 
-    self:UpdateAssignmentArrow(formatMessage, group, activeIndexes[1], activeTimeLeft[1])
     return true
 end
 
@@ -1378,7 +1234,7 @@ function UlatekIntermission:HideDisplay()
 end
 
 function UlatekIntermission:CreateAnchorPreview(kind)
-    if kind ~= "assignment" and kind ~= "arrow" and kind ~= "buttons" and kind ~= "bar"
+    if kind ~= "assignment" and kind ~= "buttons" and kind ~= "bar"
         and kind ~= "reminder" and kind ~= "careCircles" and kind ~= "wave" then return end
     local owner = self
     local frame = CreateFrame("Frame", nil, UIParent)
@@ -1387,10 +1243,7 @@ function UlatekIntermission:CreateAnchorPreview(kind)
     local preview = {
         frames = {},
         db = self.db,
-        arrowPreview = true,
-        HideAssignmentSlots = self.HideAssignmentSlots,
-        HideAssignmentArrow = self.HideAssignmentArrow,
-        UpdateAssignmentArrow = self.UpdateAssignmentArrow
+        HideAssignmentSlots = self.HideAssignmentSlots
     }
     if kind == "bar" then
         local bar, label, time, markers = createBarRegions(frame)
@@ -1407,18 +1260,6 @@ function UlatekIntermission:CreateAnchorPreview(kind)
             assignmentAnchor = frame, assignmentText = text,
             assignmentMeasure = measure, assignmentCountdowns = countdowns
         }
-    elseif kind == "arrow" then
-        local arrows, selectors, rotations = createArrowRegions(frame)
-        preview.frames = {
-            arrowAnchor = frame, assignmentArrows = arrows,
-            arrowSelectors = selectors, arrowRotations = rotations
-        }
-        frame:SetScript("OnUpdate", function()
-            UlatekIntermission.UpdateAssignmentArrow(preview, CHAT_PAYLOADS.PINK, 1, 1)
-        end)
-        frame:SetScript("OnHide", function()
-            UlatekIntermission.HideAssignmentArrow(preview)
-        end)
     elseif kind == "reminder" or kind == "careCircles" or kind == "wave" then
         preview.frames.reminderText = createReminderText(frame)
     else
@@ -1455,12 +1296,6 @@ function UlatekIntermission:CreateAnchorPreview(kind)
         elseif kind == "assignment" then
             preview.assignmentLayout = applyAssignmentAppearance(preview.frames, owner.db.assignment)
             UlatekIntermission.UpdateAssignmentSlots(preview, CHAT_PAYLOADS.PINK, 1, 0)
-        elseif kind == "arrow" then
-            preview.db = owner.db
-            applyArrowAppearance(preview.frames, owner.db.arrow)
-            if frame:IsShown() then
-                UlatekIntermission.UpdateAssignmentArrow(preview, CHAT_PAYLOADS.PINK, 1, 1)
-            end
         elseif kind == "reminder" then
             applyReminderAppearance(frame, preview.frames.reminderText, owner.db.reminder, owner.db.assignment, kind)
             preview.frames.reminderText:SetText(reminderMarkup(5, "BossMods_UlatekGoToMoon"))
@@ -1556,7 +1391,6 @@ function UlatekIntermission:SetEditMode(value)
     end
 
     self.editMode = value and true or false
-    self.arrowSlot = nil
 
     self:UpdateDisplay()
     self:ApplyClickerInteraction()

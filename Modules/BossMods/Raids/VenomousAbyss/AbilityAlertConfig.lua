@@ -30,16 +30,9 @@ local ULATEK_BAR_ORDER = 130
 local ULATEK_UNIT_REFRESH_INTERVAL = 0.1
 local ULATEK_EMPTY_GRACE = 0.2
 local ULATEK_BOSS_UNITS = {"boss2", "boss3"}
-local ULATEK_SIDE_ARROW_SIZE = 58
-local ULATEK_SIDE_ARROW_Y = -55
-local ULATEK_SIDE_ARROW_TEXTURES = {
-    blue = [[Interface\Icons\misc_arrowleft]],
-    moon = [[Interface\Icons\misc_arrowright]]
-}
 local ULATEK_STAGE_TWO_FEATURE_KEY = "UlatekStageTwoAssignment"
 local ULATEK_STAGE_TWO_FEATURE_MODULE =
     "BossMods_UlatekStageTwoAssignment"
-local ULATEK_STAGE_TWO_COMPASS_TOKEN = "UlatekStageTwoAssignment"
 
 local bossMods
 local shared
@@ -325,57 +318,6 @@ local function getUlatekStageTwoAssignment()
     end
 end
 
-local function hideUlatekStageTwoArrow(self)
-    if self.ulatekStageTwoArrow then self.ulatekStageTwoArrow:Hide() end
-    self.ulatekStageTwoArrowSide = nil
-    E:ReleaseCompassFacingSource(self, ULATEK_STAGE_TWO_COMPASS_TOKEN)
-end
-
-local function updateUlatekStageTwoArrow(self, ability, alert, state)
-    if not ability or ability.assignmentType ~= "ulatekStage2"
-        or not alert or not alert.frame or not state
-        or not ULATEK_SIDE_ARROW_TEXTURES[state.side]
-    then
-        return
-    end
-
-    if not self.ulatekStageTwoArrow then
-        local arrow = alert.frame:CreateTexture(nil, "OVERLAY", nil, 7)
-        self.ulatekStageTwoArrow = arrow
-    end
-
-    local arrow = self.ulatekStageTwoArrow
-    local feature = E:GetModule(ULATEK_STAGE_TWO_FEATURE_MODULE, true)
-    local appearance = feature and feature.db and feature.db.arrow or {}
-    local size = tonumber(appearance.size) or ULATEK_SIDE_ARROW_SIZE
-    local x = tonumber(appearance.x) or 0
-    local y = tonumber(appearance.y) or ULATEK_SIDE_ARROW_Y
-    local color = appearance.color or {1, 0.82, 0.10, 1}
-    arrow:ClearAllPoints()
-    arrow:SetPoint("CENTER", alert.frame, "CENTER", x, y)
-    arrow:SetSize(size, size)
-    arrow:SetVertexColor(
-        color[1] or color.r or 1,
-        color[2] or color.g or 0.82,
-        color[3] or color.b or 0.10,
-        color[4] or color.a or 1
-    )
-    if self.ulatekStageTwoArrowSide ~= state.side then
-        arrow:SetTexture(ULATEK_SIDE_ARROW_TEXTURES[state.side])
-        self.ulatekStageTwoArrowSide = state.side
-    end
-
-    if E:AcquireCompassFacingSource(self, ULATEK_STAGE_TWO_COMPASS_TOKEN)
-        and E:ApplySecretCompassRotation(arrow)
-    then
-        arrow:Show()
-        return
-    end
-
-    arrow:Hide()
-    E:ReleaseCompassFacingSource(self, ULATEK_STAGE_TWO_COMPASS_TOKEN)
-end
-
 local function getUlatekSlamAssignment()
     if findPlayerInUlatekTag("UTSoakright") then
         return "right"
@@ -543,30 +485,6 @@ local function getAssignmentPreviewState(ability)
             color = {0.10, 0.90, 0.20, 1}
         }
     end
-end
-
-local function updateAssignmentPreviewVisual(alert, ability, state)
-    if ability.assignmentType ~= "ulatekStage2" or not state then return 0 end
-    local feature = E:GetModule(ULATEK_STAGE_TWO_FEATURE_MODULE, true)
-    local appearance = feature and feature.db and feature.db.arrow or {}
-    local size = tonumber(appearance.size) or ULATEK_SIDE_ARROW_SIZE
-    local x = tonumber(appearance.x) or 0
-    local y = tonumber(appearance.y) or ULATEK_SIDE_ARROW_Y
-    local color = appearance.color or {1, 0.82, 0.10, 1}
-    local arrow = alert.assignmentPreviewArrow
-    if not arrow then
-        arrow = alert.frame:CreateTexture(nil, "OVERLAY", nil, 7)
-        alert.assignmentPreviewArrow = arrow
-    end
-    arrow:ClearAllPoints()
-    arrow:SetPoint("CENTER", alert.frame, "CENTER", x, y)
-    arrow:SetSize(size, size)
-    arrow:SetTexture(ULATEK_SIDE_ARROW_TEXTURES[state.side])
-    arrow:SetVertexColor(color[1] or color.r or 1,
-        color[2] or color.g or 0.82, color[3] or color.b or 0.10,
-        color[4] or color.a or 1)
-    arrow:Show()
-    return math.abs(y) * 2 + size
 end
 
 local function isCoiledAltarNightfallBarEnabled(self)
@@ -1512,7 +1430,6 @@ local function resetEncounterTracking(self)
     self.ulatekFinalPhase = false
     self.ulatekBigWigsStage = nil
     self.ulatekDifficultyID = nil
-    hideUlatekStageTwoArrow(self)
     stopUlatekWave(self)
     self.coiledAltarEncounterActive = false
     self.coiledAltarNightfallStartedAt = nil
@@ -1602,13 +1519,6 @@ E:CreateAbilityAlertsModule({
     getAssignedHits = getAssignedHits,
     getAssignmentTextState = getAssignmentTextState,
     getAssignmentPreviewState = getAssignmentPreviewState,
-    updateAssignmentPreviewVisual = updateAssignmentPreviewVisual,
-    updateAssignmentVisual = updateUlatekStageTwoArrow,
-    hideAssignmentVisual = function(self, ability)
-        if ability and ability.assignmentType == "ulatekStage2" then
-            hideUlatekStageTwoArrow(self)
-        end
-    end,
     getPostHitStageMarkers = getPostHitStageMarkers,
     configurePostHitStageBar = configurePostHitStageBar,
     updatePostHitStageBar = updatePostHitStageBar,

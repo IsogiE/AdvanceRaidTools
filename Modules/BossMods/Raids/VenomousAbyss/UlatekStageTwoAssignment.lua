@@ -5,13 +5,7 @@ local ABILITY_MODULE_NAME = "BossMods_VenomousAbyssAbilityAlerts"
 local ABILITY_ID = -3492006
 
 E:RegisterModuleDefaults(MODULE_NAME, {
-    enabled = true,
-    arrow = {
-        size = 58,
-        x = 0,
-        y = -55,
-        color = {1, 0.82, 0.10, 1}
-    }
+    enabled = true
 })
 
 local Mod = E:NewModule(MODULE_NAME)
@@ -85,15 +79,6 @@ function Mod:Refresh()
     elseif abilityMod:IsEnabled() then
         abilityMod:Refresh()
     end
-end
-
-function Mod:OnInitialize()
-    self.db.arrow = type(self.db.arrow) == "table" and self.db.arrow or {}
-    self.db.arrow.size = tonumber(self.db.arrow.size) or 58
-    self.db.arrow.x = tonumber(self.db.arrow.x) or 0
-    self.db.arrow.y = tonumber(self.db.arrow.y) or -55
-    self.db.arrow.color = type(self.db.arrow.color) == "table"
-        and self.db.arrow.color or {1, 0.82, 0.10, 1}
 end
 
 function Mod:OnEnable()

@@ -6,7 +6,6 @@ local samples = {
     text = {{"UlatekWrongTarget"}, {"CoiledAltarKicker", "nextTextPosition"}},
     buttons = {{"UlatekIntermission", "buttons"}},
     panel = {{"UlatekIntermission", "assignment"}},
-    indicator = {{"SszorakCompass"}},
     icon = {{"CoiledAltarKicker"}},
     aura = {{"UlatekFangs"}},
     map = {{"LuraMap", "intermission"}}

@@ -18,7 +18,6 @@
     <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkersSettings.lua"/>
-    <Script file="Raids\VenomousAbyss\SszorakCompassSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekCirclesSettings.lua"/>
@@ -26,8 +25,6 @@
     <Script file="Raids\VenomousAbyss\UlatekIntermissionSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekStageTwoAssignmentSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekNameplateBuffsSettings.lua"/>
-    <Script file="Raids\VenomousAbyss\UlatekVolatilePurgeLinesSettings.lua"/>
-    <Script file="Raids\VenomousAbyss\VashnikWaveCrossSettings.lua"/>
     <Script file="Raids\VenomousAbyss\RavenousFeastSoakCircleSettings.lua"/>
     <Script file="Raids\VenomousAbyss\TwinFangsDelugeSettings.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarKickerSettings.lua"/>
