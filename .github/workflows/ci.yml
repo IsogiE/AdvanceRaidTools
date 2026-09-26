@@ -20,6 +20,6 @@ jobs:
           sudo apt-get install -y lua5.1
           git ls-files -z '*.lua' | xargs -0 -r luac5.1 -p
       - name: Verify addon packaging without upload credentials
-        uses: BigWigsMods/packager@20a3713ec537df54db5c0d8b4822d88ee63c70e8
+        uses: BigWigsMods/packager@e50a250f8705041e40f2fa1ddcb280a686d65aa0
         with:
           args: -d
