@@ -624,7 +624,7 @@ end
 
 function ReadyCheckConsumables:UpdateDisplay()
     local frame = self.frame
-    if not frame or InCombatLockdown() then
+    if not frame or (not self.displayMode and not self.unlocked) or InCombatLockdown() then
         return
     end
 

@@ -235,7 +235,7 @@ function Displays:Place(mod, key, frame)
         local function changed()
             local current = frame.artDisplayEntry
             if current and self.templates[current.definition.category].stack then
-                self:Layout(current.definition.category)
+                self:Layout(current.definition.category, true)
             end
         end
         frame:HookScript("OnShow", changed)
@@ -255,21 +255,36 @@ function Displays:EndUpdate()
     if self.updateDepth > 0 then return end
     local dirty = self.dirtyCategories or {}
     self.dirtyCategories = {}
-    for category in pairs(dirty) do self:Layout(category) end
+    for category, visibleOnly in pairs(dirty) do self:Layout(category, visibleOnly) end
 end
 
-function Displays:Layout(category)
+function Displays:Layout(category, visibleOnly)
     if (self.updateDepth or 0) > 0 then
         self.dirtyCategories = self.dirtyCategories or {}
-        self.dirtyCategories[category] = true
+        if self.dirtyCategories[category] == nil or not visibleOnly then
+            self.dirtyCategories[category] = visibleOnly == true
+        end
         return
     end
     if self.layoutActive then return end
     self.layoutActive = true
     local settings, template = self:GetSettings(category), self.templates[category]
     local entries = {}
+    local sharedShown = {}
     for _, entry in pairs(self.entries) do
-        if entry.frame and entry.mod.db and entry.definition.category == category then
+        if entry.frame and entry.mod.db and entry.definition.category == category and entry.frame:IsShown() then
+            local shared = self:GetSharedEntry(entry)
+            local visited = {}
+            while shared and not visited[shared.id] do
+                visited[shared.id] = true
+                sharedShown[shared.id] = true
+                shared = self:GetSharedEntry(shared)
+            end
+        end
+    end
+    for _, entry in pairs(self.entries) do
+        if entry.frame and entry.mod.db and entry.definition.category == category
+            and (not visibleOnly or entry.frame:IsShown() or sharedShown[entry.id]) then
             entries[#entries + 1] = entry
         end
     end
@@ -278,11 +293,6 @@ function Displays:Layout(category)
         return ao < bo or ao == bo and a.id < b.id
     end)
     local edge
-    local sharedShown = {}
-    for _, entry in ipairs(entries) do
-        local shared = self:GetSharedEntry(entry)
-        if shared and entry.frame:IsShown() then sharedShown[shared.id] = true end
-    end
     local horizontal = settings.growth == "LEFT" or settings.growth == "RIGHT"
     local positive = settings.growth == "RIGHT" or settings.growth == "UP"
     for _, entry in ipairs(entries) do

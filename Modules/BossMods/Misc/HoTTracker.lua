@@ -178,12 +178,6 @@ end
 
 function HoTTracker:OnInitialize()
     BM = BM or E:GetModule("BossMods")
-    self:EnsureDisplay()
-    if self.display then
-        self.display:Apply(buildEngineConfig(self))
-        self:ApplyPosition()
-        self.display:SetActive(false)
-    end
 end
 
 function HoTTracker:OnEnable()

@@ -180,9 +180,16 @@ local function uniqueName(name, bars)
 end
 
 function Mod:GetBars()
-    self.db.bars = self.db.bars or {}
-    for i, bar in ipairs(self.db.bars) do self.db.bars[i] = normalizeBar(bar) end
-    return self.db.bars
+    local bars = self.db.bars
+    if type(bars) ~= "table" then
+        bars = {}
+        self.db.bars = bars
+    end
+    if self.normalizedBars ~= bars then
+        for i, bar in ipairs(bars) do bars[i] = normalizeBar(bar) end
+        self.normalizedBars = bars
+    end
+    return bars
 end
 
 function Mod:GetBar(index)
@@ -343,6 +350,18 @@ function Mod:ApplyPositions()
         local direction = group.growth == "UP" and 1 or -1
         item.handle.frame:ClearAllPoints()
         item.handle.frame:SetPoint(group.point or "CENTER", UIParent, "CENTER", group.x or -400, (group.y or 80) + (i - 1) * (height + (group.spacing or 4)) * direction)
+    end
+end
+
+function Mod:PreloadDisplays()
+    for _, bar in ipairs(self:GetBars()) do
+        if bar.enabled then
+            local handle = self:EnsureHandle(bar)
+            if not handle.frame:IsShown() then
+                self:ApplyMarkers(handle, bar)
+                clearMarkerWidgets(handle)
+            end
+        end
     end
 end
 
@@ -516,7 +535,8 @@ function Mod:RebuildSubscription()
     end
 end
 
-function Mod:Refresh()
+function Mod:Refresh(event)
+    if event == "ART_PROFILE_CHANGED" then self.normalizedBars = nil end
     for _, bar in ipairs(self:GetBars()) do
         local handle = self.handles and self.handles[bar.id]
         if handle then
@@ -528,6 +548,7 @@ function Mod:Refresh()
 end
 
 function Mod:Changed(rebuild)
+    self.normalizedBars = nil
     if rebuild then self:RebuildSubscription() end
     self:Refresh()
     E:SendMessage("ART_CUSTOM_BARS_CHANGED", self.db.selectedBar)
@@ -551,6 +572,7 @@ function Mod:OnInitialize()
 end
 
 function Mod:OnEnable()
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "PreloadDisplays")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
     self:RebuildSubscription()

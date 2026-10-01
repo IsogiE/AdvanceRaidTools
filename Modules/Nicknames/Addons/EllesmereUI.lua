@@ -191,7 +191,8 @@ addonLoadFrame:SetScript("OnEvent", function(_, event, addonName)
             return
         end
     end
-    if Nicknames.initialized and Nicknames.initialized[ADDON_KEY] then
+    if Nicknames.initialized and Nicknames.initialized[ADDON_KEY] and
+        Nicknames:IsIntegrationActive(ADDON_KEY) then
         QueueRefresh()
     end
 end)

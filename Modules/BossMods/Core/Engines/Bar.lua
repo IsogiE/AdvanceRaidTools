@@ -43,6 +43,8 @@ function Engines.Bar(config)
     local running = false
     local startTime, totalDuration, safeDuration
     local mode, markerRatio
+    local textUpdateInterval = 0
+    local nextTickUpdate
 
     local handle = {
         frame = frame
@@ -177,7 +179,8 @@ function Engines.Bar(config)
             frame:SetValue(math.max(0, math.min(1, progress)))
         end
 
-        if handle.onTick then
+        if handle.onTick and (not nextTickUpdate or now >= nextTickUpdate) then
+            nextTickUpdate = now + textUpdateInterval
             -- Callers use this for countdown text, TTS, and phase changes.
             handle.onTick(t, totalDuration, safeDuration)
         end
@@ -188,6 +191,7 @@ function Engines.Bar(config)
         totalDuration = opts.total or 0
         safeDuration = opts.safe
         startTime = GetTime() + (opts.lead or 0)
+        nextTickUpdate = nil
         running = true
         if showFill then
             frame:SetValue(1)
@@ -239,6 +243,7 @@ function Engines.Bar(config)
             end
         end
         local c = config
+        textUpdateInterval = math.max(0, tonumber(c.textUpdateInterval) or 0)
 
         if c.size and not c.autoSize then
             frame:SetSize(c.size.w or 100, c.size.h or 24)

@@ -366,18 +366,7 @@ local function createAuraContainer(module, parent, unit, row, isList)
     )
     container:SetFrameStrata("HIGH")
     container:SetUnit(unit)
-    container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal)
-    container:SetFlowLayoutAnchorPoint("TOPLEFT")
-    container:SetFlowLayoutGrowthDirection(
-        AnchorUtil.FlowDirection.Right,
-        AnchorUtil.FlowDirection.Down
-    )
-    container:AddAuraGroup("ARTTwinFangsEternalVenom", "HARMFUL", {
-        maxFrameCount = 1,
-        -- Harmful auras on friendly units cannot be identity-filtered while
-        -- aura secrecy is active. Eternal Venom is the permanent, non-role,
-        -- non-player aura in this encounter, so use the same safe filter and
-        -- expiration ordering as the working NSRT Twin Fangs overview.
+    row.auraButton = container:AddAuraSlot("ARTTwinFangsEternalVenom", "HARMFUL", {
         sortMethod = AuraContainerSortMethod.ExpirationOnly,
         sortDirection = AuraContainerSortDirection.Reverse,
         candidateFilters = {
@@ -386,13 +375,9 @@ local function createAuraContainer(module, parent, unit, row, isList)
         },
         initializeFrame = function(button)
             configureAuraButton(module, button, row, isList)
-        end,
-        layout = {
-            elementWidth = 1,
-            elementHeight = 1,
-            elementSpacing = 0,
-            lineSpacing = 0
-        }
+            button:ClearAllPoints()
+            button:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+        end
     })
     container:SetEnabled(false)
     container:Hide()
@@ -482,11 +467,8 @@ function PersonalMethods:ApplySettings()
     E:GetModule("BossMods").DisplayTemplates:Place(self, "position", anchor)
     styleStaticRow(self, row, false)
     if self.container and not areAurasRestricted() then
-        for index = 1, self.container:GetAuraGroupFrameCount("ARTTwinFangsEternalVenom") do
-            local button = self.container:GetAuraGroupFrame("ARTTwinFangsEternalVenom", index)
-            if button then
-                pcall(configureAuraButton, self, button, row, false)
-            end
+        if row.auraButton then
+            pcall(configureAuraButton, self, row.auraButton, row, false)
         end
     end
 end
@@ -606,13 +588,9 @@ function ListMethods:ApplySettings()
     end
 
     if self.containers and not areAurasRestricted() then
-        for index, container in ipairs(self.containers) do
-            local row = self.frames.rows[index]
-            for buttonIndex = 1, container:GetAuraGroupFrameCount("ARTTwinFangsEternalVenom") do
-                local button = container:GetAuraGroupFrame("ARTTwinFangsEternalVenom", buttonIndex)
-                if button then
-                    pcall(configureAuraButton, self, button, row, true)
-                end
+        for _, row in ipairs(self.frames.rows) do
+            if row.auraButton then
+                pcall(configureAuraButton, self, row.auraButton, row, true)
             end
         end
     end

@@ -1351,6 +1351,15 @@ local function initializeEncounterBars(self, currentBossMods)
     shared = bossMods.Engines.Shared
 end
 
+local function preloadEncounterBars(self)
+    if isCoiledAltarNightfallBarEnabled(self) then
+        ensureCoiledAltarNightfallBar(self)
+    end
+    if isUlatekBarEnabled(self) then
+        ensureUlatekBars(self)
+    end
+end
+
 local function onEncounterStart(self, encounterID, _, difficultyID)
     if encounterID == ULATEK_ENCOUNTER_ID then
         self.ulatekEncounterActive = true
@@ -1489,6 +1498,7 @@ E:CreateAbilityAlertsModule({
     moduleName = "BossMods_VenomousAbyssAbilityAlerts",
     featurePrefix = "VenomousAbyss",
     initialize = initializeEncounterBars,
+    preloadDisplays = preloadEncounterBars,
     events = {
         UNIT_SPELLCAST_START = onUlatekSpellcastStart,
         UNIT_SPELLCAST_STOP = onCoiledAltarNightfallSpellcastEnd,

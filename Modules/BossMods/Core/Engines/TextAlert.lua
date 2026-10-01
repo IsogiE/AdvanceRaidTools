@@ -36,7 +36,17 @@ function Engines.TextAlert(config)
     function handle:SetText(t)
         text:SetText(t or "")
         local entry = frame.artDisplayEntry
-        if entry then BossMods.DisplayTemplates:Layout(entry.definition.category) end
+        local height = text:GetStringHeight()
+        if issecretvalue and issecretvalue(height) then
+            if entry and frame:IsShown() then
+                BossMods.DisplayTemplates:Layout(entry.definition.category, true)
+            end
+        elseif height ~= state.textHeight then
+            state.textHeight = height
+            if entry and frame:IsShown() then
+                BossMods.DisplayTemplates:Layout(entry.definition.category, true)
+            end
+        end
     end
 
     function handle:GetTextFontString()

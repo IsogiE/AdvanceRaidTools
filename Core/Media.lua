@@ -21,7 +21,10 @@ E.media.normFont = FONTS["PT Sans Narrow"]
 local lsmSweepTarget = {}
 local lsmSweepPending = false
 
-local function scheduleLSMSweep()
+local function scheduleLSMSweep(_, mediaType)
+    if mediaType == "sound" then
+        return
+    end
     if lsmSweepPending then
         return
     end

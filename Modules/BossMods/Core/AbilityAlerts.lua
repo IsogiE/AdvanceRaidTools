@@ -894,10 +894,16 @@ function AbilityAlerts:EnsureManagedBar(key, bossKey, order, overrides)
         entry.bar:Apply(barConfig)
     end
 
+    local label = overrides and overrides.displayLabel or key
+    local displayOrder = tonumber(order) or 100
+    local height = tonumber(appearance and appearance.height) or 24
+    if entry.bossKey ~= bossKey or entry.label ~= label or entry.order ~= displayOrder or entry.height ~= height then
+        self.displayPositionsDirty = true
+    end
     entry.bossKey = bossKey
-    entry.label = overrides and overrides.displayLabel or key
-    entry.order = tonumber(order) or 100
-    entry.height = tonumber(appearance and appearance.height) or 24
+    entry.label = label
+    entry.order = displayOrder
+    entry.height = height
     entry.overrides = overrides
 
     return entry.bar
@@ -1159,6 +1165,7 @@ bar.frame:SetPoint(
     end
 
     self.bars[spellID] = bar
+    self.displayPositionsDirty = true
 
     return bar
 end
@@ -2241,7 +2248,7 @@ function AbilityAlerts:CreateModulePreviews(bossKey, spellID)
     return handles
 end
 
-function AbilityAlerts:EnsureTextAlert(spellID)
+function AbilityAlerts:EnsureTextAlert(spellID, deferPositions)
     spellID = tonumber(spellID)
 
     if self.textAlerts[spellID] then
@@ -2275,10 +2282,33 @@ alert.frame:SetPoint(
 alert:Hide()
 
 self.textAlerts[spellID] = alert
+self.displayPositionsDirty = true
 
-self:ApplyPositions()
+if not deferPositions then
+    self:ApplyPositions()
+end
 
 return alert
+end
+
+function AbilityAlerts:PreloadDisplays()
+    for spellID, ability in pairs(self.abilitiesBySpellID) do
+        local settings = self:GetAbilitySettings(spellID)
+        if settings and self:IsAbilityFeatureEnabled(ability) then
+            if settings.bar and settings.bar.enabled then
+                self:EnsureBar(spellID)
+            end
+            if settings.text and settings.text.enabled then
+                self:EnsureTextAlert(spellID, true)
+            end
+        end
+    end
+
+    if config.preloadDisplays then
+        config.preloadDisplays(self)
+    end
+
+    self:ApplyPositions(true)
 end
 
 function AbilityAlerts:ShowText(
@@ -2313,7 +2343,6 @@ function AbilityAlerts:ShowText(
     alert:SetText(message)
 
     alert:Show()
-    self:ApplyPositions()
 end
 
 function AbilityAlerts:StartTextCountdown(
@@ -3952,8 +3981,13 @@ function AbilityAlerts:GetTextPosition(spellID)
     return position
 end
 
-function AbilityAlerts:ApplyPositions()
+function AbilityAlerts:ApplyPositions(refreshAll)
     local displays = E:GetModule("BossMods").DisplayTemplates
+    if not refreshAll and self.displayPositionsReady and not self.displayPositionsDirty then
+        displays:Layout("bar", true)
+        displays:Layout("text", true)
+        return
+    end
     displays:BeginUpdate()
     for _, kind in ipairs({"bar", "text"}) do
         local collection = kind == "bar" and self.bars or self.textAlerts
@@ -4009,6 +4043,8 @@ function AbilityAlerts:ApplyPositions()
         end
     end
     displays:EndUpdate()
+    self.displayPositionsReady = true
+    self.displayPositionsDirty = nil
 end
 
 function AbilityAlerts:SaveBarPosition(
@@ -4041,7 +4077,7 @@ function AbilityAlerts:SaveBarPosition(
 
     local settings = self:GetAbilitySettings(spellID)
     if settings and settings.bar then settings.bar.unattached = true end
-    self:ApplyPositions()
+    self:ApplyPositions(true)
 
     if self.positionChangedCallback then
         self.positionChangedCallback("bar", spellID)
@@ -4084,7 +4120,7 @@ function AbilityAlerts:SaveTextPosition(
 
     local settings = self:GetAbilitySettings(spellID)
     if settings and settings.text then settings.text.unattached = true end
-    self:ApplyPositions()
+    self:ApplyPositions(true)
 
     if self.positionChangedCallback then
         self.positionChangedCallback("text", spellID)
@@ -4101,7 +4137,7 @@ function AbilityAlerts:ResetDisplayPositions()
             if settings.text then settings.text.unattached = false end
         end
     end
-    self:ApplyPositions()
+    self:ApplyPositions(true)
 end
 
 function AbilityAlerts:EnsurePreviewFrames(spellID)
@@ -4314,7 +4350,7 @@ function AbilityAlerts:SetEditMode(enabled, bossKey, spellID)
         end
     end
 
-    self:ApplyPositions()
+    self:ApplyPositions(true)
 end
 
 function AbilityAlerts:TestAbility(spellID)
@@ -4667,6 +4703,7 @@ end
 
 function AbilityAlerts:OnEnable()
     BossMods = BossMods or E:GetModule("BossMods")
+    self.displayPositionsReady = false
 
     self:BuildAbilityLookup()
     self:MigrateAbilitySettingsStorage()
@@ -4722,6 +4759,7 @@ function AbilityAlerts:OnEnable()
 
     self:RegisterEvent("ENCOUNTER_START")
     self:RegisterEvent("ENCOUNTER_END")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "PreloadDisplays")
 
     for event in pairs(config.events or {}) do
         if event ~= "ENCOUNTER_START" and event ~= "ENCOUNTER_END" then
@@ -4883,7 +4921,7 @@ end
         config.refresh(self)
     end
 
-    self:ApplyPositions()
+    self:ApplyPositions(true)
 
     if self.editMode then
         self:SetEditMode(true, self.editModeBossKey, self.editModeSpellID)

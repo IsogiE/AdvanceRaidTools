@@ -36,6 +36,7 @@ local VIEWER_CONFIG = {
 }
 
 local hooksInstalled = false
+local pendingCenteredViewers = setmetatable({}, {__mode = "k"})
 
 local function viewer(name)
     return _G[name]
@@ -257,15 +258,14 @@ local function isHorizontal(v)
 end
 
 local function centerViewer(self_, v, cfg)
-    local shown, hidden = {}, {}
+    pendingCenteredViewers[v] = nil
+    local shown = {}
     iterItems(v, function(c)
         if c:IsShown() then
             shown[#shown + 1] = c
-        else
-            hidden[#hidden + 1] = c
         end
     end)
-    if #shown == 0 and #hidden == 0 then
+    if #shown == 0 then
         return
     end
 
@@ -273,9 +273,8 @@ local function centerViewer(self_, v, cfg)
         return (a.layoutIndex or 0) < (b.layoutIndex or 0)
     end
     table.sort(shown, cmp)
-    table.sort(hidden, cmp)
 
-    local ref = shown[1] or hidden[1]
+    local ref = shown[1]
     local w, h = ref:GetSize()
     if not w or w <= 0 or not h or h <= 0 then
         return
@@ -284,10 +283,6 @@ local function centerViewer(self_, v, cfg)
     local padX = v.childXPadding or v.iconPadding or 0
     local padY = v.childYPadding or v.iconPadding or 0
     local horizontal = isHorizontal(v)
-
-    if #shown == 0 then
-        return
-    end
 
     -- Shared centered layout
     local stride = v.stride
@@ -324,6 +319,23 @@ local function centerViewer(self_, v, cfg)
     end
 end
 
+local function queueCenteredViewer(v, cfg)
+    if pendingCenteredViewers[v] then
+        return
+    end
+    local request = {}
+    pendingCenteredViewers[v] = request
+    C_Timer.After(0, function()
+        if pendingCenteredViewers[v] ~= request then
+            return
+        end
+        pendingCenteredViewers[v] = nil
+        if CDMTweaks:IsEnabled() and CDMTweaks.db[cfg.centerKey] then
+            centerViewer(CDMTweaks, v, cfg)
+        end
+    end)
+end
+
 local function onItemRefreshData(item)
     if not CDMTweaks:IsEnabled() then
         return
@@ -348,7 +360,7 @@ local function onItemActiveStateChanged(item)
     end
     local v = item:GetParent()
     if v then
-        centerViewer(CDMTweaks, v, cfg)
+        queueCenteredViewer(v, cfg)
     end
 end
 
