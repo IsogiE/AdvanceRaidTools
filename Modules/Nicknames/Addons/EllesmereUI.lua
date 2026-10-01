@@ -2,206 +2,126 @@ local E, L = unpack(ART)
 local Nicknames = E:GetModule("Nicknames")
 
 local ADDON_KEY = "EllesmereUI"
-local REFRESH_KEY = "Nicknames:EllesmereUI"
-
 local refreshPending = false
-local needsFullRefresh = false
-local liquidHooked = false
-local originalGetNicknameForEllesmereUI
-local originalNameUpdates = setmetatable({}, {
+local lookupMap
+local fullNames = {}
+local shortNames = {}
+local wrappedLiquidAPIs = setmetatable({}, {
     __mode = "k"
 })
-local wrappedTextTaggers = setmetatable({}, {
-    __mode = "k"
-})
-local wrappedBottomTextTaggers = setmetatable({}, {
-    __mode = "k"
-})
-local wrappedNameplateUpdaters = setmetatable({}, {
+local hookedNameplates = setmetatable({}, {
     __mode = "k"
 })
 
-local unitFrameNames = {
-    "EllesmereUIUnitFrames_Player",
-    "EllesmereUIUnitFrames_Target",
-    "EllesmereUIUnitFrames_Focus",
-    "EllesmereUIUnitFrames_TargetTarget",
-    "EllesmereUIUnitFrames_FocusTarget"
-}
-
-local function SafeLower(value)
-    if type(value) ~= "string" then
+local function SafeString(value)
+    if type(value) ~= "string" or (issecretvalue and issecretvalue(value)) then
         return nil
     end
-    if issecretvalue and issecretvalue(value) then
-        return nil
-    end
-    return value:lower()
+    return value ~= "" and value or nil
 end
 
-local function MatchesUnitName(unit, lowerName)
-    local name, realm = UnitNameUnmodified(unit)
-    if SafeLower(name) == lowerName then
-        return true
-    end
-    if name and realm and realm ~= "" and SafeLower(name .. "-" .. realm) == lowerName then
-        return true
-    end
-    return SafeLower(UnitName(unit)) == lowerName
-end
+local function RebuildNameLookup(map)
+    wipe(fullNames)
+    wipe(shortNames)
+    lookupMap = map
 
-local function FindUnit(characterName)
-    local lowerName = SafeLower(characterName)
-    if not lowerName then
-        return nil
-    end
-
-    if UnitExists("player") and MatchesUnitName("player", lowerName) then
-        return "player"
-    end
-
-    if IsInRaid() then
-        for i = 1, GetNumGroupMembers() do
-            local unit = "raid" .. i
-            if UnitExists(unit) and MatchesUnitName(unit, lowerName) then
-                return unit
-            end
-        end
-    elseif IsInGroup() then
-        for i = 1, GetNumSubgroupMembers() do
-            local unit = "party" .. i
-            if UnitExists(unit) and MatchesUnitName(unit, lowerName) then
-                return unit
+    for key, nickname in pairs(map) do
+        key = SafeString(key)
+        nickname = SafeString(nickname)
+        if key and nickname then
+            local lowerKey = key:lower()
+            fullNames[lowerKey] = nickname
+            local name = lowerKey:match("^([^-]+)-")
+            if name then
+                local previous = shortNames[name]
+                if previous == nil or previous == nickname then
+                    shortNames[name] = nickname
+                else
+                    shortNames[name] = false
+                end
             end
         end
     end
+end
+
+local function GetNicknameForName(characterName)
+    characterName = SafeString(characterName)
+    local map = Nicknames.db and Nicknames.db.map
+    if not characterName or not map then
+        return nil
+    end
+    if lookupMap ~= map then
+        RebuildNameLookup(map)
+    end
+    local lowerName = characterName:lower()
+    return fullNames[lowerName] or shortNames[lowerName] or nil
 end
 
 local function HookLiquidAPI()
-    local LiquidAPI = _G.LiquidAPI
-    if liquidHooked or not LiquidAPI then
+    local api = _G.LiquidAPI
+    if type(api) ~= "table" then
         return
     end
-
-    originalGetNicknameForEllesmereUI = LiquidAPI.GetNicknameForEllesmereUI
-
-    LiquidAPI.GetNicknameForEllesmereUI = function(...)
-        local first, second = ...
-        local characterName = type(first) == "table" and second or first
-
-        if Nicknames:IsIntegrationActive(ADDON_KEY) then
-            local unit = FindUnit(characterName)
-            local nickname = unit and Nicknames:GetIfAny(unit)
-            if nickname then
-                return nickname
-            end
-        end
-
-        if originalGetNicknameForEllesmereUI then
-            return originalGetNicknameForEllesmereUI(...)
-        end
-    end
-
-    liquidHooked = true
-end
-
-local function UpdateNameFontString(fontString)
-    local parent = fontString.parent
-    local unit = parent and (fontString.overrideUnit and parent.realUnit or parent.unit)
-    local nickname = Nicknames:IsIntegrationActive(ADDON_KEY) and unit and Nicknames:GetIfAny(unit)
-
-    if nickname then
-        fontString:SetText(nickname)
-        return
-    end
-
-    local originalUpdate = originalNameUpdates[fontString]
-    if originalUpdate then
-        return originalUpdate(fontString)
-    end
-
-    fontString:SetText(unit and UnitName(unit) or "")
-end
-
-local function PatchNameFontString(fontString)
-    if not fontString or fontString._curTag ~= "[name]" or type(fontString.UpdateTag) ~= "function" then
-        return
-    end
-    if fontString.UpdateTag == UpdateNameFontString then
-        return
-    end
-
-    originalNameUpdates[fontString] = fontString.UpdateTag
-    fontString.UpdateTag = UpdateNameFontString
-end
-
-local function RefreshNameFontString(fontString)
-    PatchNameFontString(fontString)
-    if fontString and fontString._curTag == "[name]" and fontString.UpdateTag then
-        fontString:UpdateTag()
-    end
-end
-
-local RefreshUnitFrame
-
-local function WrapTextTagger(owner, methodName, wrappedTable, refreshFrame)
-    local original = owner and owner[methodName]
-    if type(original) ~= "function" or original == wrappedTable[owner] then
+    local original = api.GetNicknameForEllesmereUI
+    if wrappedLiquidAPIs[api] and original == wrappedLiquidAPIs[api] then
         return
     end
 
     local wrapped = function(...)
-        local result = original(...)
-        RefreshUnitFrame(refreshFrame)
-        return result
+        local first, second = ...
+        local characterName = type(first) == "table" and second or first
+        if Nicknames:IsIntegrationActive(ADDON_KEY) then
+            local nickname = GetNicknameForName(characterName)
+            if nickname then
+                return nickname
+            end
+        end
+        if type(original) == "function" then
+            return original(...)
+        end
     end
-
-    wrappedTable[owner] = wrapped
-    owner[methodName] = wrapped
+    wrappedLiquidAPIs[api] = wrapped
+    api.GetNicknameForEllesmereUI = wrapped
+    return true
 end
 
-RefreshUnitFrame = function(frame)
-    if not frame then
-        return
-    end
-
-    WrapTextTagger(frame, "_applyTextTags", wrappedTextTaggers, frame)
-
-    RefreshNameFontString(frame.LeftText)
-    RefreshNameFontString(frame.RightText)
-    RefreshNameFontString(frame.CenterText)
-
-    local bottomTextBar = frame.BottomTextBar or frame._btb
-    if bottomTextBar then
-        WrapTextTagger(bottomTextBar, "_applyBTBTextTags", wrappedBottomTextTaggers, frame)
-        RefreshNameFontString(bottomTextBar.LeftText)
-        RefreshNameFontString(bottomTextBar.RightText)
-        RefreshNameFontString(bottomTextBar.CenterText)
-    end
+local function GetModuleNamespace(addonName)
+    local eui = _G.EllesmereUI
+    local modules = eui and eui._ModuleNS
+    return modules and modules[addonName]
 end
 
 local function RefreshUnitFrames()
-    for _, frameName in ipairs(unitFrameNames) do
-        RefreshUnitFrame(_G[frameName])
+    local ns = GetModuleNamespace("EllesmereUIUnitFrames")
+    if ns and type(ns.RefreshAllUnitNames) == "function" then
+        ns.RefreshAllUnitNames()
+    elseif type(_G._EUF_RefreshUnitNames) == "function" then
+        _G._EUF_RefreshUnitNames()
+    end
+end
+
+local function RefreshRaidFrames()
+    local ns = GetModuleNamespace("EllesmereUIRaidFrames")
+    if ns and type(ns.RefreshAllNames) == "function" then
+        ns.RefreshAllNames()
+        return
+    end
+    local erf = _G.EllesmereUIRaidFrames
+    if erf and type(erf.UpdateAllFrames) == "function" then
+        erf:UpdateAllFrames()
     end
 end
 
 local function ApplyNameplateNickname(plate)
-    if not plate or not plate.name then
+    if not plate or not plate.name or not Nicknames:IsIntegrationActive(ADDON_KEY) then
         return
     end
-
-    local unit = plate.unit
     local nameplate = plate.nameplate
-    if nameplate and nameplate.namePlateUnitToken then
-        unit = nameplate.namePlateUnitToken
-    end
-
-    local nickname = Nicknames:IsIntegrationActive(ADDON_KEY) and unit and Nicknames:GetIfAny(unit)
+    local unit = (nameplate and nameplate.namePlateUnitToken) or plate.unit
+    local nickname = unit and Nicknames:GetIfAny(unit)
     if not nickname then
         return
     end
-
     plate.name:SetText(nickname)
     if plate.UpdateNameWidth then
         plate:UpdateNameWidth()
@@ -212,19 +132,10 @@ local function RefreshNameplate(plate)
     if not plate or type(plate.UpdateName) ~= "function" then
         return
     end
-
-    if plate.UpdateName ~= wrappedNameplateUpdaters[plate] then
-        local originalUpdateName = plate.UpdateName
-        local wrapped = function(self, ...)
-            local result = originalUpdateName(self, ...)
-            ApplyNameplateNickname(self)
-            return result
-        end
-
-        wrappedNameplateUpdaters[plate] = wrapped
-        plate.UpdateName = wrapped
+    if plate.UpdateName ~= hookedNameplates[plate] then
+        hooksecurefunc(plate, "UpdateName", ApplyNameplateNickname)
+        hookedNameplates[plate] = plate.UpdateName
     end
-
     plate:UpdateName()
 end
 
@@ -233,100 +144,60 @@ local function RefreshNameplates()
     if not ns then
         return
     end
-
-    if ns.plates then
-        for _, plate in pairs(ns.plates) do
-            RefreshNameplate(plate)
-        end
-    end
-
-    if ns.friendlyPlates then
-        for _, plate in pairs(ns.friendlyPlates) do
+    for _, plates in pairs({ns.plates, ns.friendlyPlates}) do
+        for _, plate in pairs(plates) do
             RefreshNameplate(plate)
         end
     end
 end
 
-local function DoRefresh(fullRefresh)
-    HookLiquidAPI()
-    RefreshUnitFrames()
-    RefreshNameplates()
-
-    local ERF = _G.EllesmereUIRaidFrames
-    if ERF and ERF.UpdateAllFrames then
-        ERF:UpdateAllFrames()
-    end
-
-    if not fullRefresh or not _G._ERF_RefreshAll then
-        return
-    end
-
-    if InCombatLockdown() then
-        E:RunWhenOutOfCombat(REFRESH_KEY, function()
-            if _G._ERF_RefreshAll then
-                _G._ERF_RefreshAll()
-            end
-        end)
-    else
-        _G._ERF_RefreshAll()
-    end
-end
-
-local function QueueRefresh(fullRefresh)
-    needsFullRefresh = needsFullRefresh or fullRefresh
+local function QueueRefresh()
+    lookupMap = nil
     if refreshPending then
         return
     end
-
     refreshPending = true
     C_Timer.After(0, function()
-        local full = needsFullRefresh
         refreshPending = false
-        needsFullRefresh = false
-        DoRefresh(full)
+        HookLiquidAPI()
+        RefreshUnitFrames()
+        RefreshRaidFrames()
+        RefreshNameplates()
     end)
 end
 
 local function Update()
-    if not Nicknames:IsIntegrationActive(ADDON_KEY) then
-        return
+    if Nicknames:IsIntegrationActive(ADDON_KEY) then
+        QueueRefresh()
     end
-    HookLiquidAPI()
-    QueueRefresh(true)
 end
 
-local function OnToggle(_enabled)
+local function OnToggle()
     HookLiquidAPI()
-    QueueRefresh(true)
-end
-
-local function Init()
-    HookLiquidAPI()
-    QueueRefresh(true)
+    QueueRefresh()
 end
 
 local addonLoadFrame = CreateFrame("Frame")
 addonLoadFrame:RegisterEvent("ADDON_LOADED")
+addonLoadFrame:RegisterEvent("PLAYER_LOGIN")
+addonLoadFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+addonLoadFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 addonLoadFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 addonLoadFrame:SetScript("OnEvent", function(_, event, addonName)
-    if event == "NAME_PLATE_UNIT_ADDED" then
-        if Nicknames.initialized and Nicknames.initialized[ADDON_KEY] then
-            QueueRefresh(false)
+    if event == "ADDON_LOADED" then
+        local apiChanged = HookLiquidAPI()
+        if not apiChanged and addonName ~= "EllesmereUI" and addonName ~= "EllesmereUIRaidFrames" and
+            addonName ~= "EllesmereUIUnitFrames" and addonName ~= "EllesmereUINameplates" then
+            return
         end
-        return
     end
-
-    if addonName == "EllesmereUI" or addonName == "EllesmereUIRaidFrames" or addonName == "EllesmereUIUnitFrames" or
-        addonName == "EllesmereUINameplates" then
-        HookLiquidAPI()
-        if Nicknames.initialized and Nicknames.initialized[ADDON_KEY] then
-            QueueRefresh(true)
-        end
+    if Nicknames.initialized and Nicknames.initialized[ADDON_KEY] then
+        QueueRefresh()
     end
 end)
 
 Nicknames:RegisterIntegration(ADDON_KEY, {
-    Init = Init,
+    Init = OnToggle,
     Update = Update,
     OnToggle = OnToggle
 })
