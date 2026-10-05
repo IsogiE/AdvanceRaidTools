@@ -8,6 +8,7 @@ Data.FOOD_SPELLS = {
     [1305153] = true,
     [1305150] = true,
     [1305157] = true,
+    [1233703] = true,
     [1233724] = true,
     [1285644] = true,
     [308488] = true,
