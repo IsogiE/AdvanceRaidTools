@@ -173,14 +173,13 @@ local function createMarkerFrames(passive)
     for i = 1, MAX_SELECTIONS do
         local display = barFrame:CreateFontString(nil, "ARTWORK")
         display:SetFont([[Fonts\FRIZQT__.TTF]], 12)
-        display:SetSize(36, 36)
         display:SetPoint("TOP", barFrame, "TOP", (i - 2) * 52, -11)
         display:Hide()
         barDisplays[i] = display
 
         local label = barFrame:CreateFontString(nil, "OVERLAY")
         label:SetFont([[Fonts\FRIZQT__.TTF]], 14, "OUTLINE")
-        label:SetPoint("TOP", display, "BOTTOM", 0, -4)
+        label:SetPoint("TOP", barFrame, "TOP", (i - 2) * 52, -51)
         label:SetText(tostring(i))
         label:Hide()
         barLabels[i] = label
