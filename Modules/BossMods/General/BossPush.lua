@@ -42,6 +42,7 @@ local SHARE_TYPE = "bossPush"
 local SHARE_VERSION = "ART_BP1"
 local TICK_INTERVAL = 0.05
 local MAX_POINTS = 8
+local ROW_SPACING = 2
 
 local UNIT_VALUES = {
     boss1 = "Boss 1",
@@ -676,14 +677,15 @@ function Mod:LayoutRows()
 
     for _, row in ipairs(self.rows or {}) do
         if row:IsShown() then
+            local offset = -visible * (height + ROW_SPACING)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, 0)
-            row:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, 0)
+            row:SetPoint("TOPLEFT", self.frame, "TOPLEFT", 0, offset)
+            row:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", 0, offset)
             visible = visible + 1
         end
     end
 
-    self.frame:SetSize(width, height)
+    self.frame:SetSize(width, math.max(height, visible * height + (visible - 1) * ROW_SPACING))
 end
 
 function Mod:RenderRow(row, bar, elapsed)
@@ -820,8 +822,6 @@ function Mod:Start(trigger, encounterID, startTime)
         end
         return a.showAt < b.showAt
     end)
-
-    matches = {matches[1]}
 
     self:Stop()
     self.activeTrigger = trigger
