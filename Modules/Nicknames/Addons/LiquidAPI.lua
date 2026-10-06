@@ -34,7 +34,44 @@ for i = 1, 15 do
     unitIDs["boss" .. i .. "target"] = true
 end
 
+local function GetCharacterUnit(characterName)
+    local lowerName = characterName:lower()
+    if unitIDs[lowerName] then
+        return UnitExists(lowerName) and lowerName or nil
+    end
+
+    local prefix = IsInRaid() and "raid" or "party"
+    local num = IsInRaid() and GetNumGroupMembers() or GetNumSubgroupMembers()
+    local found, foundKey
+    for i = 0, num do
+        local unit = i == 0 and "player" or prefix .. i
+        if UnitExists(unit) then
+            local key = Nicknames.GetKey(unit)
+            local lowerKey = key and key:lower()
+            if lowerKey and (lowerKey == lowerName or lowerKey:match("^([^-]+)-") == lowerName) then
+                if foundKey and foundKey ~= lowerKey then
+                    return nil
+                end
+                found, foundKey = unit, lowerKey
+            end
+        end
+    end
+    return found
+end
+
 local LiquidAPI = {
+    GetNicknameForEllesmereUI = function(characterName)
+        if not Nicknames or not Nicknames:IsIntegrationActive("EllesmereUI") then
+            return nil
+        end
+        characterName = E:SafeString(characterName)
+        if not characterName or characterName == "" then
+            return nil
+        end
+        local unit = GetCharacterUnit(characterName)
+        return unit and Nicknames:GetIfAny(unit) or nil
+    end,
+
     GetName = function(_, characterName, formatting, atlasSize)
         if not characterName then
             error("LiquidAPI:GetName(characterName[, formatting, atlasSize]), characterName is nil")

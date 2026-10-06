@@ -764,12 +764,32 @@ function Nicknames:OnGroupLeft()
 end
 
 local liquidAPITable
+local liquidAPIHook
+
+local function publishLiquidAPI()
+    if not liquidAPITable then return end
+    local api = _G.LiquidAPI
+    if api == nil then
+        _G.LiquidAPI = liquidAPITable
+        return
+    end
+    if api == liquidAPITable or type(api) ~= "table" or
+        (liquidAPIHook and api.GetNicknameForEllesmereUI == liquidAPIHook.wrapped) then
+        return
+    end
+    local original = api.GetNicknameForEllesmereUI
+    local wrapped = function(characterName)
+        local nickname = liquidAPITable.GetNicknameForEllesmereUI(characterName)
+        if nickname then return nickname end
+        if type(original) == "function" then return original(characterName) end
+    end
+    liquidAPIHook = {api = api, original = original, wrapped = wrapped}
+    api.GetNicknameForEllesmereUI = wrapped
+end
 
 function Nicknames:RegisterLiquidAPI(api)
     liquidAPITable = api
-    if self:IsEnabled() and api and _G.LiquidAPI == nil then
-        _G.LiquidAPI = api
-    end
+    if self:IsEnabled() then publishLiquidAPI() end
 end
 
 function Nicknames:Publish()
@@ -788,9 +808,7 @@ function Nicknames:Publish()
         end
     })
 
-    if liquidAPITable and _G.LiquidAPI == nil then
-        _G.LiquidAPI = liquidAPITable
-    end
+    publishLiquidAPI()
 end
 
 function Nicknames:Unpublish()
@@ -800,6 +818,12 @@ function Nicknames:Unpublish()
     end
     if liquidAPITable and _G.LiquidAPI == liquidAPITable then
         _G.LiquidAPI = nil
+    end
+    if liquidAPIHook then
+        if liquidAPIHook.api.GetNicknameForEllesmereUI == liquidAPIHook.wrapped then
+            liquidAPIHook.api.GetNicknameForEllesmereUI = liquidAPIHook.original
+        end
+        liquidAPIHook = nil
     end
 end
 
