@@ -614,16 +614,16 @@ local function ensureCoiledAltarNightfallBar(self)
     return bar
 end
 
-local function clearCoiledAltarNightfallTimer(self)
-    if self.coiledAltarNightfallTimer then
-        self.coiledAltarNightfallTimer:Cancel()
-        self.coiledAltarNightfallTimer = nil
+local function clearCoiledAltarNightfallTimers(self)
+    for _, timer in pairs(self.coiledAltarNightfallTimers or {}) do
+        timer:Cancel()
     end
+    self.coiledAltarNightfallTimers = nil
 end
 
 local function stopCoiledAltarNightfall(self, keepScheduledStart)
     if not keepScheduledStart then
-        clearCoiledAltarNightfallTimer(self)
+        clearCoiledAltarNightfallTimers(self)
     end
 
     local bar = self.coiledAltarNightfallBar
@@ -659,8 +659,6 @@ local function startCoiledAltarNightfall(self)
         return
     end
 
-    clearCoiledAltarNightfallTimer(self)
-
     local bar = ensureCoiledAltarNightfallBar(self)
 
     if bar:IsRunning() then
@@ -681,26 +679,31 @@ local function startCoiledAltarNightfall(self)
     self:ApplyPositions()
 end
 
-local function scheduleCoiledAltarNightfall(self, duration)
+local function scheduleCoiledAltarNightfall(self, duration, text)
     if not self.coiledAltarEncounterActive
         or not isCoiledAltarNightfallBarEnabled(self)
     then
         return
     end
 
-    clearCoiledAltarNightfallTimer(self)
+    self.coiledAltarNightfallTimers = self.coiledAltarNightfallTimers or {}
+    local timers = self.coiledAltarNightfallTimers
+    local key = text or COILED_ALTAR_NIGHTFALL_SPELL_ID
 
-    local delay = math.max(0, tonumber(duration) or 0)
-
-    if delay <= COILED_ALTAR_NIGHTFALL_DURATION + 0.5 then
-        startCoiledAltarNightfall(self)
-        return
+    if timers[key] then
+        timers[key]:Cancel()
     end
 
-    self.coiledAltarNightfallTimer = C_Timer.NewTimer(delay, function()
-        self.coiledAltarNightfallTimer = nil
+    local delay = math.max(0, tonumber(duration) or 0)
+    local timer
+    timer = C_Timer.NewTimer(delay, function()
+        if self.coiledAltarNightfallTimers ~= timers or timers[key] ~= timer then
+            return
+        end
+        timers[key] = nil
         startCoiledAltarNightfall(self)
     end)
+    timers[key] = timer
 end
 
 local function testCoiledAltarNightfallBar(self)
@@ -764,13 +767,13 @@ end
 local function onVenomousAbyssBigWigsStartBar(
     self,
     spellID,
-    _,
+    text,
     duration,
     _,
     spellKey
 )
     if tonumber(spellID) == COILED_ALTAR_NIGHTFALL_SPELL_ID then
-        scheduleCoiledAltarNightfall(self, duration)
+        scheduleCoiledAltarNightfall(self, duration, text)
         return
     end
 
