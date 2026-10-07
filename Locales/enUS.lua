@@ -739,6 +739,7 @@ L["BossMods_Voidspire"] = "The Voidspire"
 L["BossMods_Season1"] = "Season 1"
 L["BossMods_Dreamrift"] = "The Dreamrift"
 L["BossMods_VenomousAbyss"] = "Venomous Abyss"
+L["BossMods_UnbindingOfKithix"] = "Unbinding of Kith'ix"
 L["BossMods_AbyssCustom"] = "Abyss Custom"
 L["BossMods_NoFeatures"] = "No modules in this tab"
 L["BossMods_PickFeature"] = "Pick a module"
@@ -979,6 +980,9 @@ L["BossMods_Chimaerus"] = "Chimaerus"
 L["BossMods_NoteGodSoaks"] = "God Soaks"
 L["BossMods_NoteGodSwappers"] = "God Swappers"
 L["BossMods_NoteGodFarKicks"] = "God Far Kicks"
+
+-- BossMods: The Unbinding of Kith'ix
+L["BossMods_Kithix"] = "Kith'ix"
 
 -- BossMods: Venomous Abyss
 L["BossMods_Nekzali"] = "Nek'zali"

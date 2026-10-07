@@ -51,6 +51,8 @@
     <Script file="Raids\VenomousAbyss\CoiledAltarKicker.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarIntermissionBar.lua"/>
 
+    <Script file="Raids\UnbindingOfKithix\ReadyAssignments.lua"/>
+
     <Script file="Misc\CombatTimer.lua"/>
     <Script file="Misc\HoTTracker.lua"/>
     <Script file="Misc\Bress.lua"/>
