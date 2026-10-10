@@ -27,7 +27,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: BigWigsMods/packager@20a3713ec537df54db5c0d8b4822d88ee63c70e8
+      - uses: BigWigsMods/packager@457c47679b7b454dcf7ca44127c647116bc31dd8
         env:
           CF_API_KEY: ${{ secrets.CF_API_KEY }}
           WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
