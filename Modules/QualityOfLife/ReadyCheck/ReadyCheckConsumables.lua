@@ -366,7 +366,6 @@ function ReadyCheckConsumables:CreateDisplay()
     frame:SetClampedToScreen(true)
     frame:Hide()
     frame.buttons = {}
-    self.frame = frame
     frame:SetScale(clamp(self.db.scale, 0.75, 1.5, 1))
 
     for _, key in ipairs(ICON_ORDER) do
@@ -416,6 +415,7 @@ function ReadyCheckConsumables:CreateDisplay()
     frame.moveOverlay.text:SetPoint("CENTER")
     frame.moveOverlay:Hide()
 
+    self.frame = frame
     self:ApplyTextAppearance()
     self:ApplyLayout()
     E:ApplyFramePosition(frame, DEFAULT_POSITION, UIParent)
