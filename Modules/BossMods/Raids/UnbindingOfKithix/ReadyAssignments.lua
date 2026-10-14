@@ -26,11 +26,43 @@ if Text and Text.Register then
     end
 
     local REMINDERS = {
-        -- Add Kith'ix assignment definitions here with key, sheet, labelKey,
-        -- source, tag or noteBlock, and textKey.
+        {
+            key = "kithixSoakOrange", tag = "SoakOrange",
+            textKey = "BossMods_AR_TextSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixOrangeSoakAssignment"}
+        },
+        {
+            key = "kithixSoakMoon", tag = "SoakMoon",
+            textKey = "BossMods_AR_TextSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixMoonSoakAssignment"}
+        },
+        {
+            key = "kithixBackupOrange", tag = "BackupOrange",
+            textKey = "BossMods_AR_TextBackupSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixOrangeSoakAssignment"}
+        },
+        {
+            key = "kithixBackupMoon", tag = "BackupMoon",
+            textKey = "BossMods_AR_TextBackupSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixMoonSoakAssignment"}
+        },
+        {key = "kithixDispellCross", tag = "DispellCross", textKey = "BossMods_AR_KithixDispelCross"},
+        {key = "kithixDispellStar", tag = "DispellStar", textKey = "BossMods_AR_KithixDispelStar"},
+        {key = "kithixDispellSkull", tag = "DispellSkull", textKey = "BossMods_AR_KithixDispelSkull"},
+        {key = "kithixCCBeetle", tag = "CCBeetle", textKey = "BossMods_AR_KithixCCBeetle"}
     }
 
-    for _, def in ipairs(REMINDERS) do
+    for index, def in ipairs(REMINDERS) do
+        def.sheet = "KithixAssignments"
+        def.labelKey = "BossMods_Kithix"
+        def.itemLabelKey = "BossMods_NoteFull"
+        def.source = "hashtag"
+        def.type = def.key
+        def.order = 10
+        def.priority = 80 - index
+        def.hashtagMultiline = true
+        def.noteBlockSeparator = "\n"
+        def.note = {tag = def.tag, template = "#" .. def.tag .. "\nPlayer1\nPlayer2\nPlayer3"}
         Text:Register(def.key, withMeta(def))
     end
 end
