@@ -26,14 +26,30 @@ if Text and Text.Register then
     end
 
     local REMINDERS = {
-        {key = "kithixSoakOrange", tag = "SoakOrange", textKey = "BossMods_AR_KithixSoakOrange"},
-        {key = "kithixSoakMoon", tag = "SoakMoon", textKey = "BossMods_AR_KithixSoakMoon"},
-        {key = "kithixBackupOrange", tag = "BackupOrange", textKey = "BossMods_AR_KithixBackupOrange"},
-        {key = "kithixBackupMoon", tag = "BackupMoon", textKey = "BossMods_AR_KithixBackupMoon"},
-        {key = "kithixDispellCross", tag = "DispellCross", textKey = "BossMods_AR_KithixDispellCross"},
-        {key = "kithixDispellStar", tag = "DispellStar", textKey = "BossMods_AR_KithixDispellStar"},
-        {key = "kithixDispellSkull", tag = "DispellSkull", textKey = "BossMods_AR_KithixDispellSkull"},
-        {key = "kithixCCBeetle", tag = "CCBeetle", textKey = "BossMods_AR_KithixCCBeetle"},
+        {
+            key = "kithixSoakOrange", tag = "SoakOrange",
+            textKey = "BossMods_AR_TextSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixOrangeSoakAssignment"}
+        },
+        {
+            key = "kithixSoakMoon", tag = "SoakMoon",
+            textKey = "BossMods_AR_TextSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixMoonSoakAssignment"}
+        },
+        {
+            key = "kithixBackupOrange", tag = "BackupOrange",
+            textKey = "BossMods_AR_TextBackupSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixOrangeSoakAssignment"}
+        },
+        {
+            key = "kithixBackupMoon", tag = "BackupMoon",
+            textKey = "BossMods_AR_TextBackupSoakAssignment",
+            localeValues = {assignment = "BossMods_KithixMoonSoakAssignment"}
+        },
+        {key = "kithixDispellCross", tag = "DispellCross", textKey = "BossMods_AR_KithixDispelCross"},
+        {key = "kithixDispellStar", tag = "DispellStar", textKey = "BossMods_AR_KithixDispelStar"},
+        {key = "kithixDispellSkull", tag = "DispellSkull", textKey = "BossMods_AR_KithixDispelSkull"},
+        {key = "kithixCCBeetle", tag = "CCBeetle", textKey = "BossMods_AR_KithixCCBeetle"}
     }
 
     for index, def in ipairs(REMINDERS) do

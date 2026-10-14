@@ -1,4 +1,4 @@
-local E = unpack(ART)
+local E, L = unpack(ART)
 local T = E.Templates
 local BossMods = E:GetModule("BossMods")
 BossMods:RegisterAuraCircleSettingsBuilder("KithixAddSoakCircle")
@@ -8,9 +8,9 @@ BossMods:RegisterBossSettingsBuilder("KithixOrbPickup", function(parent, mod, is
     if width <= 0 then return {} end
     mod:EnsureDisplay()
     local tracker = T:MakeTracker()
-    local y = T:PlaceFull(parent, tracker.track(T:Header(parent, {text = "Orb Pickup"})), 0, width) + 10
+    local y = T:PlaceFull(parent, tracker.track(T:Header(parent, {text = L["BossMods_PickUpOrb"]})), 0, width) + 10
     y = y + T:PlaceFull(parent, tracker.track(T:Description(parent, {
-        text = "Visible during the final 8 seconds of Extinguish. Counts down to one second before it ends. Red until a player debuff lasting up to 8 seconds is present, then green."
+        text = L["BossMods_KithixOrbPickupDesc"]
     })), y, width) + 10
     local unlock
     y, unlock = T:UnlockController(parent, y, width, {
@@ -21,29 +21,29 @@ BossMods:RegisterBossSettingsBuilder("KithixOrbPickup", function(parent, mod, is
         module = mod, tracker = tracker, disabled = isDisabled
     }), y, width) + 10
     y = y + T:PlaceFull(parent, tracker.track(T:Dropdown(parent, {
-        label = "Font",
+        label = L["Font"],
         values = function() return E:MediaList("font") end,
         get = function() return mod.db.font.name end,
         onChange = function(value) mod.db.font.name = value; mod:Refresh(); tracker.refresh() end,
         disabled = isDisabled
     })), y, width) + 10
     y = y + T:PlaceFull(parent, tracker.track(T:Dropdown(parent, {
-        label = "Font outline",
-        values = {[""] = "None", OUTLINE = "Outline", THICKOUTLINE = "Thick Outline", OUTLINE_SLUG = "Slug Outline"},
+        label = L["Outline"],
+        values = {[""] = L["None"], OUTLINE = L["Outline"], THICKOUTLINE = L["ThickOutline"], OUTLINE_SLUG = L["BossMods_AAOptions_SlugOutline"]},
         sorting = {"", "OUTLINE", "THICKOUTLINE", "OUTLINE_SLUG"},
         get = function() return mod.db.font.outline end,
         onChange = function(value) mod.db.font.outline = value; mod:Refresh(); tracker.refresh() end,
         disabled = isDisabled
     })), y, width) + 10
     y = y + T:PlaceFull(parent, tracker.track(T:Slider(parent, {
-        label = "Text size", min = 12, max = 72, step = 1,
+        label = L["Size"], min = 12, max = 72, step = 1,
         value = mod.db.font.size, get = function() return mod.db.font.size end,
         onChange = function(value) mod.db.font.size = value; mod:Refresh() end,
         disabled = isDisabled
     })), y, width) + 10
     local position
     y, position = T:PositionSection(parent, y, width, {
-        anchor = mod:GetAnchor(), label = "Orb Pickup", tracker = tracker,
+        anchor = mod:GetAnchor(), label = L["BossMods_PickUpOrb"], tracker = tracker,
         getPosition = function() return mod.db.position end,
         setPosition = function(value) mod:SavePosition(value) end,
         defaultPosition = {point = "CENTER", x = 0, y = 120},
