@@ -740,7 +740,6 @@ L["BossMods_Season1"] = "Season 1"
 L["BossMods_Dreamrift"] = "The Dreamrift"
 L["BossMods_VenomousAbyss"] = "Venomous Abyss"
 L["BossMods_UnbindingOfKithix"] = "Unbinding of Kith'ix"
-L["BossMods_Kathix"] = "Kith'ix"
 L["BossMods_AbyssCustom"] = "Abyss Custom"
 L["BossMods_NoFeatures"] = "No modules in this tab"
 L["BossMods_PickFeature"] = "Pick a module"
@@ -984,6 +983,9 @@ L["BossMods_NoteGodFarKicks"] = "God Far Kicks"
 
 -- BossMods: The Unbinding of Kith'ix
 L["BossMods_Kithix"] = "Kith'ix"
+L["BossMods_PickUpOrb"] = "Pick up orb"
+L["BossMods_KithixOrbPickupDesc"] = "Counts down to one second before Extinguish hits."
+L["BossMods_KithixAddSoakCircleDesc"] = "Highlights short, non-dispellable debuffs during the add phase."
 
 -- BossMods: Venomous Abyss
 L["BossMods_Nekzali"] = "Nek'zali"

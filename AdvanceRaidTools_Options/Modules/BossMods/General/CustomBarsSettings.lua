@@ -48,7 +48,7 @@ local function abilityValues()
     addRaid("Quel'Danas", E.QueldanasAbilityData)
     addRaid("Sporefall", E.SporefallAbilityData)
     addRaid("Venomous Abyss", E.VenomousAbyssAbilityData)
-    addRaid("Kith'ix", E.UnbindingOfKithixAbilityData)
+    addRaid(L["BossMods_Kithix"], E.UnbindingOfKithixAbilityData)
     table.sort(sorting, function(a, b) return values[a] < values[b] end)
     return values, sorting
 end

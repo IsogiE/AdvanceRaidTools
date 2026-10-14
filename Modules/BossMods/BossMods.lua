@@ -218,7 +218,7 @@ BossMods:RegisterRaidTab("VenomousAbyss", {
 })
 
 BossMods:RegisterRaidTab("UnbindingOfKithix", {
-    labelKey = "BossMods_Kathix",
+    labelKey = "BossMods_Kithix",
     order = 60
 })
 
