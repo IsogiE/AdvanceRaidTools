@@ -36,13 +36,77 @@ function Mod:EnsureDisplay()
     BossMods.DisplayTemplates:Place(self, "position", self.display.frame)
 end
 
+function Mod:EnsureAuraContainer()
+    if self.container then return end
+
+    local container = CreateFrame("AuraContainer", nil, self.display.frame,
+        "CustomAuraContainerTemplate,DisableUntrustedLayoutScriptsTemplate")
+    container:SetEnabled(false)
+    container:Hide()
+    container:SetAllPoints(self.display.frame)
+    container:SetFrameLevel(self.display.frame:GetFrameLevel() + 1)
+    container:SetUnit("player")
+    self.greenDuration = C_DurationUtil.CreateDuration()
+    local button = container:AddAuraSlot("ARTKithixOrbPickup", "HARMFUL", {
+        candidateFilters = {isBossAura = true, maxDuration = WINDOW_DURATION},
+        sortMethod = AuraContainerSortMethod.Expiration,
+        sortDirection = AuraContainerSortDirection.Normal,
+        initializeFrame = function(auraButton)
+            auraButton:SetSize(400, 80)
+            local text = auraButton:CreateFontString(nil, "OVERLAY")
+            text:SetPoint("CENTER")
+            text:SetTextColor(0.1, 1, 0.2, 1)
+            self.greenText = text
+            local formatter = C_StringUtil.CreateNumericRuleFormatter()
+            formatter:SetBreakpoints({{
+                threshold = 0, format = "%.1f", step = 0.1,
+                rounding = Enum.NumericRuleFormatRounding.Up
+            }})
+            self.greenFormatter = formatter
+            local binding = C_DurationUtil.CreateDurationTextBinding()
+            binding:SetFontString(text)
+            binding:SetDuration(self.greenDuration)
+            binding:SetExpiredText("")
+            binding:SetZeroDurationText("")
+            binding:SetEnabled(false)
+            self.greenBinding = binding
+        end
+    })
+    button:SetPoint("CENTER", self.display.frame, "CENTER")
+    self.container = container
+    self.listening = false
+end
+
+function Mod:SetListening(value)
+    if not self.container or self.listening == value then return end
+    self.listening = value
+    self.greenBinding:SetEnabled(value)
+    self.container:SetEnabled(value)
+    self.container:SetShown(value)
+end
+
+function Mod:ScheduleWindow(deadline)
+    if self.windowDeadline == deadline then return end
+    if self.windowTimer then self.windowTimer:Cancel(); self.windowTimer = nil end
+    self.windowDeadline = deadline
+    if not deadline then return end
+    local timer
+    timer = C_Timer.NewTimer(math.max(0, deadline - GetTime()), function()
+        if self.windowTimer ~= timer then return end
+        self.windowTimer = nil
+        self.windowDeadline = nil
+        self:UpdateText()
+    end)
+    self.windowTimer = timer
+end
+
 function Mod:UpdateText()
     local preview = self.editMode or self.previewMode
     local now = GetTime()
     if not preview then
         local nextText, nextTime
         for text, deadline in pairs(self.pendingBars or {}) do
-            if deadline <= now then
+            if deadline - 1 <= now then
                 self.pendingBars[text] = nil
             elseif not nextTime or deadline < nextTime then
                 nextText, nextTime = text, deadline
@@ -56,6 +120,16 @@ function Mod:UpdateText()
         return
     end
     local visible = preview or remaining <= WINDOW_DURATION
+    self:ScheduleWindow(not preview and self.extinguishTime
+        and (visible and self.extinguishTime - 1 or self.extinguishTime - WINDOW_DURATION) or nil)
+    if self.greenDeadline ~= self.extinguishTime then
+        self.greenDeadline = self.extinguishTime
+        if self.extinguishTime then
+            self.greenDuration:SetTimeFromEnd(self.extinguishTime - 1, COUNTDOWN_DURATION)
+            self.greenBinding:SetDuration(self.greenDuration)
+        end
+    end
+    self:SetListening(not preview and visible and self.encounterActive == true)
     if visible then
         local countdown = preview and ((self.previewEndsAt or now) - now) or (remaining - 1)
         countdown = math.ceil(math.max(0, countdown) * 10) / 10
@@ -71,7 +145,14 @@ end
 
 function Mod:Refresh()
     self:EnsureDisplay()
+    self:EnsureAuraContainer()
     self.display:Apply({parent = UIParent, strata = "HIGH", font = self.db.font})
+    local font = self.db.font
+    self.greenText:SetFont(BossMods.Engines.Shared.FetchFont(font.name), font.size, font.outline)
+    self.greenBinding:SetTextFormat(L["BossMods_PickUpOrb"] .. " ({})", {{
+        property = Enum.DurationTextBindingProperty.RemainingDuration,
+        formatter = self.greenFormatter
+    }})
     BossMods.DisplayTemplates:Place(self, "position", self.display.frame)
     if self.editMode or self.previewMode then
         self.previewEndsAt = GetTime() + COUNTDOWN_DURATION
@@ -102,11 +183,14 @@ function Mod:SetPreviewMode(value)
 end
 
 function Mod:StopCountdown()
+    self:ScheduleWindow(nil)
+    self:SetListening(false)
     self.pendingBars = {}
     self.extinguishTime = nil
     self.barText = nil
     self.previewEndsAt = nil
     self.lastText = nil
+    self.greenDeadline = nil
     if self.updateFrame then self.updateFrame:Hide() end
     if self.display then
         self.display:SetText("")
@@ -139,11 +223,11 @@ function Mod:OnEnable()
             if not self.encounterActive or not duration or duration <= 0 then return end
             self.pendingBars = self.pendingBars or {}
             self.pendingBars[text] = GetTime() + duration
-            self:Refresh()
+            self:UpdateText()
         end,
         onStopBar = function(text)
             if self.pendingBars then self.pendingBars[text] = nil end
-            if self.display then self:Refresh() end
+            self:UpdateText()
         end,
         onStage = function(module, stage)
             if self.encounterActive and module and module.moduleName == "Kith'ix"
