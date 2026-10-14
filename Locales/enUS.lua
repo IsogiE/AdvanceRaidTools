@@ -740,7 +740,18 @@ L["BossMods_Season1"] = "Season 1"
 L["BossMods_Dreamrift"] = "The Dreamrift"
 L["BossMods_VenomousAbyss"] = "Venomous Abyss"
 L["BossMods_UnbindingOfKithix"] = "Unbinding of Kith'ix"
+<<<<<<< Updated upstream
 L["BossMods_Kathix"] = "Kith'ix"
+=======
+L["BossMods_AR_KithixSoakOrange"] = "You're assigned to soak Orange in Intermission 1 and 2"
+L["BossMods_AR_KithixSoakMoon"] = "You're assigned to soak Moon in Intermission 2"
+L["BossMods_AR_KithixBackupOrange"] = "You're assigned to Backup Orange in intermission 1 and 2"
+L["BossMods_AR_KithixBackupMoon"] = "You're assigned to Backup Moon in intermission 2"
+L["BossMods_AR_KithixDispellCross"] = "You're assigned to dispell Healer/Cross"
+L["BossMods_AR_KithixDispellStar"] = "You're assigned to dispell Melee/Star"
+L["BossMods_AR_KithixDispellSkull"] = "You're assigned ti dispell Ranged/Skull"
+L["BossMods_AR_KithixCCBeetle"] = "You're assigned to CC the beetles"
+>>>>>>> Stashed changes
 L["BossMods_AbyssCustom"] = "Abyss Custom"
 L["BossMods_NoFeatures"] = "No modules in this tab"
 L["BossMods_PickFeature"] = "Pick a module"
