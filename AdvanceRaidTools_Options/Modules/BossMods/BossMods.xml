@@ -16,6 +16,7 @@
     <Script file="General\TimelineSequenceSettings.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignmentsSettings.lua"/>
     <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
+    <Script file="Raids\UnbindingOfKithix\CustomSettings.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkersSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>

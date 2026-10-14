@@ -19,7 +19,8 @@ local BOSS_FEATURES = {
     { featureKey = "DreamriftChimaerus", bossKey = "Chimaerus" },
     { featureKey = "QueldanasBeloren", bossKey = "Beloren" },
     { featureKey = "QueldanasLura", bossKey = "Lura" },
-    { featureKey = "SporefallRotmire", bossKey = "Rotmire" }
+    { featureKey = "SporefallRotmire", bossKey = "Rotmire" },
+    { featureKey = "UnbindingOfKithixKithix", bossKey = "Kithix", moduleName = "BossMods_KithixAbilityAlerts" }
 }
 
 local ROW_GAP = 6
@@ -81,7 +82,8 @@ local function getBossData(bossKey)
         E.VoidspireAbilityData,
         E.DreamriftAbilityData,
         E.QueldanasAbilityData,
-        E.SporefallAbilityData
+        E.SporefallAbilityData,
+        E.UnbindingOfKithixAbilityData
     }) do
         for _, boss in ipairs(source or {}) do
             if boss.bossKey == bossKey then
@@ -1437,10 +1439,10 @@ end
 -- Register Ability Alerts for every boss served by the compatibility module.
 -------------------------------------------------------------------------------
 
-local function createBossBuilder(bossKey)
+local function createBossBuilder(bossKey, moduleName)
     return function(rightPanel, assignmentMod, isDisabled, requestLayout)
         local abilityMod =
-            E:GetModule(MODULE_NAME, true)
+            E:GetModule(moduleName or MODULE_NAME, true)
 
         if not abilityMod then
             return {}
@@ -1558,5 +1560,5 @@ end
 
 for _, bossFeature in ipairs(BOSS_FEATURES) do
     BossMods.settingsBuilders[bossFeature.featureKey] =
-        createBossBuilder(bossFeature.bossKey)
+        createBossBuilder(bossFeature.bossKey, bossFeature.moduleName)
 end

@@ -217,4 +217,9 @@ BossMods:RegisterRaidTab("VenomousAbyss", {
     hideFromInterface = 120200
 })
 
+BossMods:RegisterRaidTab("UnbindingOfKithix", {
+    labelKey = "BossMods_Kathix",
+    order = 60
+})
+
 E:FlushModuleFeatureRegistrations("BossMods")
