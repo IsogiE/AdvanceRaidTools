@@ -6,25 +6,6 @@ local EXTINGUISH = 1304424
 local WINDOW_DURATION = 8
 local COUNTDOWN_DURATION = WINDOW_DURATION - 1
 
-local function bindCountdown(text, duration)
-    local formatter = C_StringUtil.CreateNumericRuleFormatter()
-    formatter:SetBreakpoints({{
-        threshold = 0, format = "%.1f", step = 0.1,
-        rounding = Enum.NumericRuleFormatRounding.Up
-    }})
-    local binding = C_DurationUtil.CreateDurationTextBinding()
-    binding:SetFontString(text)
-    binding:SetDuration(duration)
-    binding:SetTextFormat(L["BossMods_PickUpOrb"] .. " ({})", {{
-        property = Enum.DurationTextBindingProperty.RemainingDuration,
-        formatter = formatter
-    }})
-    binding:SetExpiredText(L["BossMods_PickUpOrb"] .. " (0.0)")
-    binding:SetZeroDurationText("")
-    binding:Disable()
-    return binding
-end
-
 E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true,
     position = {point = "CENTER", x = 0, y = 120},
@@ -43,8 +24,6 @@ function Mod:EnsureDisplay()
         parent = UIParent, strata = "HIGH", font = self.db.font
     })
     self.display:GetTextFontString():SetTextColor(1, 0.08, 0.08, 1)
-    self.duration = C_DurationUtil.CreateDuration()
-    self.countdownBinding = bindCountdown(self.display:GetTextFontString(), self.duration)
     self.updateFrame = CreateFrame("Frame")
     self.updateFrame:Hide()
     local elapsed = 0
@@ -69,13 +48,7 @@ function Mod:UpdateText()
                 nextText, nextTime = text, deadline
             end
         end
-        if nextText ~= self.barText or nextTime ~= self.extinguishTime then
-            self.barText, self.extinguishTime = nextText, nextTime
-            if nextTime then
-                self.duration:SetTimeFromEnd(nextTime - 1, COUNTDOWN_DURATION)
-                self.countdownBinding:SetDuration(self.duration)
-            end
-        end
+        self.barText, self.extinguishTime = nextText, nextTime
     end
     local remaining = self.extinguishTime and self.extinguishTime - now
     if not preview and (not remaining or remaining <= 0) then
@@ -83,7 +56,15 @@ function Mod:UpdateText()
         return
     end
     local visible = preview or remaining <= WINDOW_DURATION
-    self.countdownBinding:SetEnabled(visible)
+    if visible then
+        local countdown = preview and ((self.previewEndsAt or now) - now) or (remaining - 1)
+        countdown = math.ceil(math.max(0, countdown) * 10) / 10
+        local text = ("%s (%.1f)"):format(L["BossMods_PickUpOrb"], countdown)
+        if text ~= self.lastText then
+            self.lastText = text
+            self.display:SetText(text)
+        end
+    end
     self.display.frame:SetShown(visible)
     self.updateFrame:Show()
 end
@@ -93,8 +74,7 @@ function Mod:Refresh()
     self.display:Apply({parent = UIParent, strata = "HIGH", font = self.db.font})
     BossMods.DisplayTemplates:Place(self, "position", self.display.frame)
     if self.editMode or self.previewMode then
-        self.duration:SetTimeFromStart(GetTime(), COUNTDOWN_DURATION)
-        self.countdownBinding:SetDuration(self.duration)
+        self.previewEndsAt = GetTime() + COUNTDOWN_DURATION
     end
     self:UpdateText()
 end
@@ -125,9 +105,13 @@ function Mod:StopCountdown()
     self.pendingBars = {}
     self.extinguishTime = nil
     self.barText = nil
+    self.previewEndsAt = nil
+    self.lastText = nil
     if self.updateFrame then self.updateFrame:Hide() end
-    if self.countdownBinding then self.countdownBinding:Disable() end
-    if self.display then self.display:Hide() end
+    if self.display then
+        self.display:SetText("")
+        self.display:Hide()
+    end
 end
 
 function Mod:OnEncounterStart(_, encounterID)
