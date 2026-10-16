@@ -47,15 +47,18 @@ function Mod:EnsureAuraContainer()
     container:SetFrameLevel(self.display.frame:GetFrameLevel() + 1)
     container:SetUnit("player")
     self.greenDuration = C_DurationUtil.CreateDuration()
-    local button = container:AddAuraSlot("ARTKithixOrbPickup", "HARMFUL", {
+    container:AddAuraSlot("ARTKithixOrbPickup", "HARMFUL", {
         candidateFilters = {isBossAura = true, maxDuration = WINDOW_DURATION},
         sortMethod = AuraContainerSortMethod.Expiration,
         sortDirection = AuraContainerSortDirection.Normal,
         initializeFrame = function(auraButton)
             auraButton:SetSize(400, 80)
+            auraButton:SetPoint("CENTER", self.display.frame, "CENTER")
             local text = auraButton:CreateFontString(nil, "OVERLAY")
             text:SetPoint("CENTER")
             text:SetTextColor(0.1, 1, 0.2, 1)
+            local font = self.db.font
+            text:SetFont(BossMods.Engines.Shared.FetchFont(font.name), font.size, font.outline)
             self.greenText = text
             local formatter = C_StringUtil.CreateNumericRuleFormatter()
             formatter:SetBreakpoints({{
@@ -72,7 +75,6 @@ function Mod:EnsureAuraContainer()
             self.greenBinding = binding
         end
     })
-    button:SetPoint("CENTER", self.display.frame, "CENTER")
     self.container = container
     self.listening = false
 end
@@ -147,8 +149,10 @@ function Mod:Refresh()
     self:EnsureDisplay()
     self:EnsureAuraContainer()
     self.display:Apply({parent = UIParent, strata = "HIGH", font = self.db.font})
-    local font = self.db.font
-    self.greenText:SetFont(BossMods.Engines.Shared.FetchFont(font.name), font.size, font.outline)
+    if self.greenText:CanBeAccessedInContext() then
+        local font = self.db.font
+        self.greenText:SetFont(BossMods.Engines.Shared.FetchFont(font.name), font.size, font.outline)
+    end
     self.greenBinding:SetTextFormat(L["BossMods_PickUpOrb"] .. " ({})", {{
         property = Enum.DurationTextBindingProperty.RemainingDuration,
         formatter = self.greenFormatter
