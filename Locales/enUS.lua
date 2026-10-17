@@ -577,7 +577,7 @@ L["QoL_ReadyCheckAttackPower"] = "Attack Power"
 L["QoL_ReadyCheckVersatility"] = "Versatility"
 L["QoL_ReadyCheckMastery"] = "Mastery"
 L["QoL_ReadyCheckBlessingOfTheBronze"] = "Blessing of the Bronze"
-L["QoL_RaidBuffList"] = "Raid Buff List"
+L["QoL_RaidBuffList"] = "Ready Check"
 L["QoL_RaidBuffListDesc"] =
     "Shows the raid's food, flask, rune, buff, and durability status for the duration of a ready check"
 L["QoL_RaidBuffListResetPosition"] = "Reset Position"

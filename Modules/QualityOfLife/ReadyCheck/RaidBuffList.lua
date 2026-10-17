@@ -424,7 +424,7 @@ function RaidBuffList:ResizeForRoster(rosterCount)
 end
 
 function RaidBuffList:GetBaseTitle()
-    return text("QoL_RaidBuffList", "Raid Buff List")
+    return text("QoL_RaidBuffList", "Ready Check")
 end
 
 function RaidBuffList:GetPreviewPlayer()
@@ -782,7 +782,7 @@ function RaidBuffList:CreateFrame()
         height = FRAME_FIXED_HEIGHT + DEFAULT_ROW_HEIGHT,
         strata = "DIALOG",
         template = "Transparent",
-        title = text("QoL_RaidBuffList", "Raid Buff List"),
+        title = text("QoL_RaidBuffList", "Ready Check"),
         canMove = function()
             return not InCombatLockdown()
         end,
