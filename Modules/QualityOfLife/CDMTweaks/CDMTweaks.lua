@@ -42,6 +42,19 @@ local function viewer(name)
     return _G[name]
 end
 
+local function isManagedElsewhere(item, v)
+    v = v or viewer(item.artCDMViewer)
+    if not v or item:GetParent() ~= v then
+        return true
+    end
+
+    local eui = _G.EllesmereUI
+    local modules = eui and eui._ModuleNS
+    local cdm = modules and modules.EllesmereUICooldownManager
+    local frames = cdm and cdm._hookFrameData
+    return frames and frames[item] ~= nil or false
+end
+
 local function iterItems(v, fn)
     if not v then
         return
@@ -76,6 +89,26 @@ local function collectStackFontStrings(item)
 end
 
 -- Stack font override
+local function forgetOriginalFontState(fs)
+    fs.artSavedOnce = nil
+    fs.artOrigFontObject = nil
+    fs.artOrigFont = nil
+    fs.artOrigColor = nil
+    fs.artAppliedFont = nil
+    fs.artAppliedColor = nil
+end
+
+local function hasFont(fs, font)
+    local path, size, flags = fs:GetFont()
+    return font and path == font[1] and size == font[2] and (flags or "") == (font[3] or "")
+end
+
+local function hasColor(fs, color)
+    local r, g, b, a = fs:GetTextColor()
+    return color and not E:IsSecret(r) and not E:IsSecret(g) and not E:IsSecret(b) and not E:IsSecret(a) and
+        r == color[1] and g == color[2] and b == color[3] and a == color[4]
+end
+
 local function saveOriginalFontState(fs)
     if fs.artSavedOnce then
         return
@@ -95,15 +128,18 @@ local function restoreOriginalFontState(fs)
         return
     end
 
-    if fs.artOrigFont and fs.artOrigFont[1] then
-        fs:SetFont(fs.artOrigFont[1], fs.artOrigFont[2], fs.artOrigFont[3] or "")
-    elseif fs.artOrigFontObject then
-        fs:SetFontObject(fs.artOrigFontObject)
+    if hasFont(fs, fs.artAppliedFont) then
+        if fs.artOrigFont and fs.artOrigFont[1] then
+            fs:SetFont(fs.artOrigFont[1], fs.artOrigFont[2], fs.artOrigFont[3] or "")
+        elseif fs.artOrigFontObject then
+            fs:SetFontObject(fs.artOrigFontObject)
+        end
     end
 
-    if fs.artOrigColor then
+    if fs.artOrigColor and hasColor(fs, fs.artAppliedColor) then
         fs:SetTextColor(fs.artOrigColor[1], fs.artOrigColor[2], fs.artOrigColor[3], fs.artOrigColor[4] or 1)
     end
+    forgetOriginalFontState(fs)
 end
 
 local function getStackConfig(self_, viewerName)
@@ -125,17 +161,30 @@ local function applyFontToItem(self_, item)
     end
     local font = E:FetchModuleFont()
     local r, g, b, a = E:ColorTuple(cfg.color, 1, 1, 1, 1)
+    local desiredFont = {font, cfg.size or 14, "OUTLINE"}
+    local desiredColor = {r, g, b, a}
 
     for _, fs in ipairs(collectStackFontStrings(item)) do
         saveOriginalFontState(fs)
-        fs:SetFont(font, cfg.size or 14, "OUTLINE")
-        fs:SetTextColor(r, g, b, a)
+        if not hasFont(fs, desiredFont) then
+            fs:SetFont(unpack(desiredFont))
+        end
+        if not hasColor(fs, desiredColor) then
+            fs:SetTextColor(r, g, b, a)
+        end
+        fs.artAppliedFont = desiredFont
+        fs.artAppliedColor = desiredColor
     end
 end
 
 local function restoreFontOnItem(item)
+    local managedElsewhere = isManagedElsewhere(item)
     for _, fs in ipairs(collectStackFontStrings(item)) do
-        restoreOriginalFontState(fs)
+        if managedElsewhere then
+            forgetOriginalFontState(fs)
+        else
+            restoreOriginalFontState(fs)
+        end
     end
 end
 
@@ -145,7 +194,7 @@ local function wantsFontOverride(self_, viewerName)
 end
 
 local function maybeApplyFontToItem(self_, item)
-    if wantsFontOverride(self_, item.artCDMViewer) then
+    if not isManagedElsewhere(item) and wantsFontOverride(self_, item.artCDMViewer) then
         applyFontToItem(self_, item)
     else
         restoreFontOnItem(item)
@@ -154,6 +203,9 @@ end
 
 -- Aura CD override
 local function shouldOverrideAura(item)
+    if isManagedElsewhere(item) then
+        return false
+    end
     local info = item.cooldownInfo
     if not info then
         return false
@@ -225,9 +277,6 @@ local function applyAuraOverrideToItem(item)
         return
     end
 
-    -- Force the icon back to the spell's own texture
-    applyIconOverrideToItem(item)
-
     local cf = item.Cooldown
     if not cf or cf.artUpdating then
         return
@@ -261,7 +310,7 @@ local function centerViewer(self_, v, cfg)
     pendingCenteredViewers[v] = nil
     local shown = {}
     iterItems(v, function(c)
-        if c:IsShown() then
+        if not isManagedElsewhere(c, v) and c:IsShown() then
             shown[#shown + 1] = c
         end
     end)
@@ -342,12 +391,17 @@ local function onItemRefreshData(item)
     end
     maybeApplyFontToItem(CDMTweaks, item)
     if CDMTweaks.db.auraOverride then
-        applyAuraOverrideToItem(item)
+        if not item.RefreshSpellCooldownInfo then
+            applyAuraOverrideToItem(item)
+        end
+        if not item.RefreshSpellTexture then
+            applyIconOverrideToItem(item)
+        end
     end
 end
 
 local function onItemActiveStateChanged(item)
-    if not CDMTweaks:IsEnabled() then
+    if not CDMTweaks:IsEnabled() or isManagedElsewhere(item) then
         return
     end
     local name = item.artCDMViewer
@@ -358,52 +412,36 @@ local function onItemActiveStateChanged(item)
     if not CDMTweaks.db[cfg.centerKey] then
         return
     end
-    local v = item:GetParent()
+    local v = viewer(name)
     if v then
         queueCenteredViewer(v, cfg)
     end
 end
 
 local function hookItem(item, cfg, name)
+    item.artCDMViewer = name
     if item.artCDMHooked then
         return
     end
     item.artCDMHooked = true
-    item.artCDMViewer = name
 
     if item.RefreshData then
         hooksecurefunc(item, "RefreshData", onItemRefreshData)
     end
 
-    -- Aura override
-    if cfg.kind == "cooldown" and item.Cooldown and item.Cooldown.SetCooldown then
-        hooksecurefunc(item.Cooldown, "SetCooldown", function(cf)
-            if cf.artUpdating then
-                return
+    if cfg.kind == "cooldown" and item.RefreshSpellCooldownInfo then
+        hooksecurefunc(item, "RefreshSpellCooldownInfo", function()
+            if CDMTweaks:IsEnabled() and CDMTweaks.db.auraOverride then
+                applyAuraOverrideToItem(item)
             end
-            if not CDMTweaks:IsEnabled() then
-                return
-            end
-            if not CDMTweaks.db.auraOverride then
-                return
-            end
-            applyAuraOverrideToItem(item)
         end)
     end
 
-    -- Icon texture override
-    if cfg.kind == "cooldown" and item.Icon and type(item.Icon.SetTexture) == "function" then
-        hooksecurefunc(item.Icon, "SetTexture", function(icon)
-            if icon.artUpdating then
-                return
+    if cfg.kind == "cooldown" and item.RefreshSpellTexture then
+        hooksecurefunc(item, "RefreshSpellTexture", function()
+            if CDMTweaks:IsEnabled() and CDMTweaks.db.auraOverride then
+                applyIconOverrideToItem(item)
             end
-            if not CDMTweaks:IsEnabled() then
-                return
-            end
-            if not CDMTweaks.db.auraOverride then
-                return
-            end
-            applyIconOverrideToItem(item)
         end)
     end
 
@@ -422,6 +460,7 @@ local function scanViewer(self_, name, cfg, v)
         maybeApplyFontToItem(self_, item)
         if cfg.kind == "cooldown" and self_.db.auraOverride then
             applyAuraOverrideToItem(item)
+            applyIconOverrideToItem(item)
         end
     end)
 end
@@ -485,6 +524,7 @@ function CDMTweaks:InstallHooks()
                     maybeApplyFontToItem(CDMTweaks, itemFrame)
                     if cfg.kind == "cooldown" and CDMTweaks.db.auraOverride then
                         applyAuraOverrideToItem(itemFrame)
+                        applyIconOverrideToItem(itemFrame)
                     end
                 end)
             end

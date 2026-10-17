@@ -21,6 +21,27 @@ E.media.normFont = FONTS["PT Sans Narrow"]
 local lsmSweepTarget = {}
 local lsmSweepPending = false
 
+local function flushLSMSweep()
+    if InCombatLockdown() then
+        E:RunWhenOutOfCombat("Media:LSMSweep", flushLSMSweep)
+        return
+    end
+
+    lsmSweepPending = false
+    local Home = E.GetModule and E:GetModule("HomeSettings", true)
+    if Home and Home.SyncMediaTable then
+        Home:SyncMediaTable()
+    end
+    if E.RebuildImagePools then
+        E:RebuildImagePools()
+    end
+    if E.UpdateMedia then
+        E:UpdateMedia()
+    elseif E.SendMessage then
+        E:SendMessage("ART_MEDIA_UPDATED")
+    end
+end
+
 local function scheduleLSMSweep(_, mediaType)
     if mediaType == "sound" then
         return
@@ -29,26 +50,14 @@ local function scheduleLSMSweep(_, mediaType)
         return
     end
     lsmSweepPending = true
-    C_Timer.After(0.2, function()
-        lsmSweepPending = false
-        local Home = E.GetModule and E:GetModule("HomeSettings", true)
-        if Home and Home.SyncMediaTable then
-            Home:SyncMediaTable()
-        end
-        if E.RebuildImagePools then
-            E:RebuildImagePools()
-        end
-        if E.UpdateMedia then
-            E:UpdateMedia()
-        elseif E.SendMessage then
-            E:SendMessage("ART_MEDIA_UPDATED")
-        end
-    end)
+    C_Timer.After(0.2, flushLSMSweep)
 end
 
 -- Font shenanigans 
 local fontPreloader
 local preloadedFonts = {}
+local pendingFonts = {}
+local fontPreloadPending = false
 local function ensureFontPreloader()
     if fontPreloader then
         return fontPreloader
@@ -59,20 +68,43 @@ local function ensureFontPreloader()
     return fontPreloader
 end
 
-local function cacheFont(name, path)
-    if not name or preloadedFonts[name] then
-        return
-    end
-    if type(path) ~= "string" or path == "" then
-        return
-    end
+local function cacheFont(path)
     local fs = ensureFontPreloader():CreateFontString(nil, "ARTWORK")
     fs:SetAllPoints()
-    local ok = pcall(fs.SetFont, fs, path, 14)
-    if ok then
+    local ok, loaded = pcall(fs.SetFont, fs, path, 14)
+    if ok and loaded then
         pcall(fs.SetText, fs, "cache")
         pcall(fs.GetStringWidth, fs)
-        preloadedFonts[name] = fs
+        preloadedFonts[path] = fs
+    end
+end
+
+local function preloadNextFont()
+    if InCombatLockdown() then
+        E:RunWhenOutOfCombat("Media:PreloadFonts", preloadNextFont)
+        return
+    end
+
+    local path = next(pendingFonts)
+    if path then
+        pendingFonts[path] = nil
+        cacheFont(path)
+    end
+    if next(pendingFonts) then
+        C_Timer.After(0, preloadNextFont)
+    else
+        fontPreloadPending = false
+    end
+end
+
+local function queueFont(path)
+    if type(path) ~= "string" or path == "" or preloadedFonts[path] then
+        return
+    end
+    pendingFonts[path] = true
+    if not fontPreloadPending then
+        fontPreloadPending = true
+        C_Timer.After(0, preloadNextFont)
     end
 end
 
@@ -84,9 +116,17 @@ local function preloadAllFonts()
     if not hash then
         return
     end
-    for name, path in pairs(hash) do
-        cacheFont(name, path)
+    for _, path in pairs(hash) do
+        queueFont(path)
     end
+end
+
+local function onLSMMediaChanged(event, mediaType, key)
+    if mediaType == "font" then
+        local fonts = LSM:HashTable("font")
+        queueFont(fonts and fonts[key])
+    end
+    scheduleLSMSweep(event, mediaType)
 end
 
 function E:RegisterMedia()
@@ -104,23 +144,11 @@ function E:RegisterMedia()
     end
 
     if LSM.RegisterCallback then
-        LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_Registered", scheduleLSMSweep)
-        LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_SetGlobal", scheduleLSMSweep)
+        LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_Registered", onLSMMediaChanged)
+        LSM.RegisterCallback(lsmSweepTarget, "LibSharedMedia_SetGlobal", onLSMMediaChanged)
     end
 
-    -- Preload everything LSM knows about right now, then hook future
     preloadAllFonts()
-    if not E._lsmRegisterHooked and hooksecurefunc then
-        E._lsmRegisterHooked = true
-        hooksecurefunc(LSM, "Register", function(_, mediaType, key, data)
-            if type(mediaType) ~= "string" then
-                return
-            end
-            if mediaType:lower() == "font" then
-                cacheFont(key, data)
-            end
-        end)
-    end
 end
 
 function E:Fetch(mediaType, name)
