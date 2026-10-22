@@ -19,11 +19,14 @@ local function trim(value)
     return (value:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function isNoteBlockBoundary(line)
+local function isNoteSectionBoundary(line)
     if type(line) ~= "string" then
         return false
     end
-    return line:match("^%S+Start$") ~= nil or line:match("^%S+End$") ~= nil
+    if line:match("^%S+Start$") or line:match("^%S+End$") then
+        return true
+    end
+    return line:match("^[%w_]+%s*:") ~= nil or line:match("^%{time:") ~= nil
 end
 
 local function copyInto(dst, src)
@@ -127,11 +130,12 @@ function Ready:ParseHashSections(noteText)
         return sections, byTag
     end
 
-    for raw in noteText:gmatch("[^\r\n]+") do
+    noteText = noteText:gsub("\r\n", "\n"):gsub("\r", "\n")
+    for raw in (noteText .. "\n"):gmatch("([^\n]*)\n") do
         local line = trim(raw)
         if line == "" then
             finish()
-        elseif isNoteBlockBoundary(line) then
+        elseif isNoteSectionBoundary(line) then
             finish()
         else
             local tag, rest = line:match("^#(%S+)%s*(.*)$")
