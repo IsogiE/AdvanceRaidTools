@@ -39,6 +39,7 @@
 
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
     <Script file="Raids\VenomousAbyss\UnitFrameAuras.lua"/>
+    <Script file="Raids\VenomousAbyss\SentinelsRange.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertConfig.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
@@ -66,6 +67,7 @@
     <Script file="Misc\Bress.lua"/>
     <Script file="Misc\BreakTimer.lua"/>
     <Script file="Misc\PullReminder.lua"/>
+    <Script file="Misc\PullTools.lua"/>
     <Script file="Misc\FocusChannelTimer.lua"/>
     <Script file="Misc\GeneralPack.lua"/>
 

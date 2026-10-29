@@ -10,6 +10,7 @@ end
 
 display("SszorakMarkers", "buttons", "buttons", "BossMods_DisplayMarkerButtons", "buttons.position", 10)
 display("SszorakMarkers", "bar", "panel", "BossMods_DisplayMarkerSelections", "bar.position", 20)
+display("SentinelsRange", "position", "panel", "BossMods_SentinelsRange")
 display("UlatekFangs", "position", "aura", "BossMods_DisplayFangsPlayerList")
 display("UlatekWrongTarget", "position", "text", "BossMods_DisplayWrongTargetReminder")
 display("UlatekKicker", "position", "icon", "BossMods_DisplayKickIndicator", nil, 10)

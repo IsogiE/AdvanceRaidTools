@@ -9,10 +9,12 @@ local NAV_VISIBLE_ROWS = 15
 local NAV_INNER_HEIGHT = NAV_VISIBLE_ROWS * NAV_ROW_H + (NAV_VISIBLE_ROWS - 1) * NAV_ROW_GAP
 local NAV_MIN_HEIGHT = NAV_INNER_HEIGHT + NAV_PAD * 2
 local COL_GAP = 8
+local FILTER_WIDTH = 140
+local TOOLBAR_GAP = 8
 
-local BODY_SCROLLBAR_GUTTER = 18
 local navCollapsedState = {}
 local sectionStates, selectedFeatures = {}, {}
+local navigationFilters = {}
 
 local function getSectionState(key)
     sectionStates[key] = sectionStates[key] or {}
@@ -41,6 +43,17 @@ local function localized(key, fallback)
     return text or fallback
 end
 
+local function searchText(feature)
+    local parts = {}
+    for _, field in ipairs({"labelKey", "navLabelKey", "groupLabelKey", "bossLabelKey", "descKey"}) do
+        parts[#parts + 1] = localized(feature[field], "")
+    end
+    for _, field in ipairs({"navLabel", "groupLabel", "bossName", "key", "bossKey"}) do
+        parts[#parts + 1] = feature[field] or ""
+    end
+    return table.concat(parts, " "):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):lower()
+end
+
 local function buildTabBody(parent, tabKey)
     local BossMods = E:GetModule("BossMods", true)
     if not BossMods then
@@ -58,22 +71,46 @@ local function buildTabBody(parent, tabKey)
     local outerScroll = parent.GetParent and parent:GetParent()
     local scrollW = (outerScroll and outerScroll.GetWidth and outerScroll:GetWidth()) or 0
     local availW = math.max(scrollW, parent:GetWidth() or 0)
-    local bodyContentW = availW - NAV_WIDTH - COL_GAP - BODY_SCROLLBAR_GUTTER
-    if bodyContentW < 1 then
-        bodyContentW = 1
-    end
-
     local container = CreateFrame("Frame", nil, parent)
+    local toolbarHeight = 0
     container:SetHeight(NAV_MIN_HEIGHT)
 
     local isBossModsEnabled
     local isFeatureActive
     local selectFeature
+    local updateNavigation
+    navigationFilters[tabKey] = navigationFilters[tabKey] or {query = "", status = "all"}
+    local filter = navigationFilters[tabKey]
+    local function isFiltered()
+        return filter.query:find("%S") ~= nil or filter.status ~= "all"
+    end
+    local search = T:EditBox(container, {
+        label = L["BossMods_SearchFeatures"], default = filter.query,
+        showCommitButton = false, commitOn = "change", maxLetters = 100, height = 24,
+        onChange = function(value)
+            filter.query = value
+            if updateNavigation then updateNavigation() end
+        end
+    })
+    search.frame:SetPoint("TOPLEFT", 0, 0)
+    search.frame:SetWidth(NAV_WIDTH)
+    local statusFilter = T:Dropdown(container, {
+        label = L["BossMods_FeatureFilter"],
+        buttonHeight = 24,
+        values = {all = L["BossMods_AllFeatures"], enabled = L["BossMods_EnabledFeatures"], disabled = L["BossMods_DisabledFeatures"]},
+        sorting = {"all", "enabled", "disabled"}, get = function() return filter.status end,
+        onChange = function(value)
+            filter.status = value
+            if updateNavigation then updateNavigation() end
+        end
+    })
+    statusFilter.frame:SetPoint("TOPLEFT", container, "TOPLEFT", NAV_WIDTH + COL_GAP, 0)
+    statusFilter.frame:SetWidth(FILTER_WIDTH)
 
     local body = T:ScrollFrame(container, {
         chrome = false,
         autoWidth = true,
-        minContentWidth = bodyContentW,
+        minContentWidth = 1,
         mouseWheelStep = 40
     })
     local state = {
@@ -115,8 +152,9 @@ local function buildTabBody(parent, tabKey)
         scrollbarWidth = 10,
         scrollbarGap = 4,
         mouseWheelStep = NAV_ROW_H + NAV_ROW_GAP,
-        emptyText = L["BossMods_NoFeatures"],
+        emptyText = function() return isFiltered() and L["BossMods_NoMatchingFeatures"] or L["BossMods_NoFeatures"] end,
         collapsedState = getNavCollapsedState(tabKey),
+        forceExpanded = isFiltered,
         itemKey = function(feature)
             return feature.key
         end,
@@ -166,6 +204,7 @@ local function buildTabBody(parent, tabKey)
             if fb and fb.handle and fb.handle.Refresh then
                 pcall(fb.handle.Refresh)
             end
+            if filter.status ~= "all" then updateNavigation() end
         end,
         itemToggleDisabled = function()
             return not (isBossModsEnabled and isBossModsEnabled())
@@ -185,13 +224,31 @@ local function buildTabBody(parent, tabKey)
             return feature.groupOrder or feature.bossOrder or feature.order or 100
         end
     })
-    nav.frame:SetPoint("TOPLEFT", 0, 0)
-
-    expand.frame:SetPoint("TOPLEFT", nav.frame, "TOPRIGHT", COL_GAP, 0)
     collapse.frame:SetPoint("LEFT", expand.frame, "RIGHT", 6, 0)
-    body.frame:SetPoint("TOPLEFT", nav.frame, "TOPRIGHT", COL_GAP, -30)
     body.frame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", 0, 0)
     body.scroll:HookScript("OnSizeChanged", body.ApplyAutoWidth)
+
+    local function layoutToolbar()
+        local width = container:GetWidth()
+        if not width or width <= 0 then width = availW end
+        local controlsHeight = math.max(search.frame:GetHeight(), statusFilter.frame:GetHeight())
+        local buttonsX, buttonsY = NAV_WIDTH + COL_GAP + FILTER_WIDTH + COL_GAP, 16
+        local buttonsWidth = expand.frame:GetWidth() + 6 + collapse.frame:GetWidth()
+        if buttonsX + buttonsWidth > width then
+            buttonsX, buttonsY = NAV_WIDTH + COL_GAP, controlsHeight + 6
+        end
+        toolbarHeight = math.max(controlsHeight,
+            buttonsY + math.max(expand.frame:GetHeight(), collapse.frame:GetHeight())) + TOOLBAR_GAP
+        expand.frame:ClearAllPoints()
+        expand.frame:SetPoint("TOPLEFT", container, "TOPLEFT", buttonsX, -buttonsY)
+        nav.frame:ClearAllPoints()
+        nav.frame:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -toolbarHeight)
+        body.frame:ClearAllPoints()
+        body.frame:SetPoint("TOPLEFT", container, "TOPLEFT", NAV_WIDTH + COL_GAP, -toolbarHeight)
+        body.frame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", 0, 0)
+    end
+    layoutToolbar()
+    container:SetHeight(NAV_MIN_HEIGHT + toolbarHeight)
 
     isBossModsEnabled = function()
         return BossMods:IsEnabled()
@@ -382,7 +439,7 @@ local function buildTabBody(parent, tabKey)
         end
 
         if not key then
-            showPlaceholder(L["BossMods_PickFeature"])
+            showPlaceholder(isFiltered() and L["BossMods_NoMatchingFeatures"] or L["BossMods_PickFeature"])
             return
         end
 
@@ -402,7 +459,7 @@ local function buildTabBody(parent, tabKey)
         end
 
         fb.wrapper:Show()
-        local h = applyFeatureBodyHeight(fb, container:GetHeight())
+        local h = applyFeatureBodyHeight(fb, body.scroll:GetHeight())
         body.content:SetHeight(math.max(1, h))
         body.scroll:UpdateScrollChildRect()
         if resetScroll then
@@ -423,13 +480,22 @@ local function buildTabBody(parent, tabKey)
     end
 
     local function rebuildNav()
-        local features = BossMods:GetFeaturesForTab(tabKey)
+        local features = {}
+        for _, feature in ipairs(BossMods:GetFeaturesForTab(tabKey)) do
+            local active = isFeatureActive(feature)
+            local matches = filter.status == "all" or (filter.status == "enabled" and active)
+                or (filter.status == "disabled" and not active)
+            local text = searchText(feature)
+            for term in filter.query:lower():gmatch("%S+") do
+                if not text:find(term, 1, true) then matches = false; break end
+            end
+            if matches then features[#features + 1] = feature end
+        end
         nav:SetItems(features)
 
         if #features == 0 then
             state.activeFeature = nil
             nav:SetSelectedKey(nil)
-            showPlaceholder(L["BossMods_NoFeatures"])
             return
         end
 
@@ -444,27 +510,35 @@ local function buildTabBody(parent, tabKey)
         if not foundActive then
             state.activeFeature = features[1].key
         end
-        selectedFeatures[tabKey] = state.activeFeature
+        if not isFiltered() then selectedFeatures[tabKey] = state.activeFeature end
 
         nav:SetSelectedKey(state.activeFeature)
     end
 
+    updateNavigation = function()
+        if not isFiltered() then state.activeFeature = selectedFeatures[tabKey] end
+        rebuildNav()
+        showFeatureBody(state.activeFeature, true)
+    end
+
     container:SetScript("OnShow", function()
-        if state.activeFeature then
-            body.ApplyAutoWidth()
-            showFeatureBody(state.activeFeature)
-        end
+        layoutToolbar()
+        body.ApplyAutoWidth()
+        showFeatureBody(state.activeFeature)
     end)
 
     rebuildNav()
 
+    local api
     local function resizeContent(height)
-        local targetH = math.max(NAV_MIN_HEIGHT, tonumber(height) or container:GetHeight() or NAV_MIN_HEIGHT)
+        layoutToolbar()
+        local targetH = math.max(NAV_MIN_HEIGHT + toolbarHeight, tonumber(height) or container:GetHeight() or NAV_MIN_HEIGHT)
+        if api then api.minHeight = NAV_MIN_HEIGHT + toolbarHeight end
         container:SetHeight(targetH)
         if nav.SetHeight then
-            nav:SetHeight(targetH)
+            nav:SetHeight(targetH - toolbarHeight)
         else
-            nav.frame:SetHeight(targetH)
+            nav.frame:SetHeight(targetH - toolbarHeight)
             nav._relayout()
         end
         body.ApplyAutoWidth()
@@ -477,18 +551,17 @@ local function buildTabBody(parent, tabKey)
         local fb = state.activeFeature and state.featureBodies[state.activeFeature]
         if fb and fb.wrapper then
             fb.wrapper:Show()
-            body.content:SetHeight(applyFeatureBodyHeight(fb, targetH))
+            body.content:SetHeight(applyFeatureBodyHeight(fb, body.scroll:GetHeight()))
             body.scroll:UpdateScrollChildRect()
         elseif state.activeFeature then
             showFeatureBody(state.activeFeature)
         end
     end
 
-    local api
     api = {
         frame = container,
-        height = NAV_MIN_HEIGHT,
-        minHeight = NAV_MIN_HEIGHT,
+        height = NAV_MIN_HEIGHT + toolbarHeight,
+        minHeight = NAV_MIN_HEIGHT + toolbarHeight,
         fillViewport = true,
         fullWidth = true,
         SetHeight = function(selfOrHeight, maybeHeight)
@@ -501,7 +574,9 @@ local function buildTabBody(parent, tabKey)
             resizeContent()
         end,
         Refresh = function()
-            nav.Refresh()
+            local previous = state.activeFeature
+            rebuildNav()
+            if previous ~= state.activeFeature then showFeatureBody(state.activeFeature, true) end
             if not state.activeFeature then
                 return
             end

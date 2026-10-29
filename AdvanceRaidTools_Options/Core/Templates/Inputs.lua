@@ -176,14 +176,15 @@ function T:EditBox(parent, opts)
         return true
     end
 
-    local function commitNow()
+    local function commitNow(keepFocus)
         local text = eb:GetText() or ""
+        local cursor = keepFocus and eb:GetCursorPosition() or 0
         if not doValidate(text) then
             state.committed = true
             eb:SetText(state.original)
-            eb:SetCursorPosition(0)
+            eb:SetCursorPosition(math.min(cursor, #state.original))
             showOK(false)
-            eb:ClearFocus()
+            if not keepFocus then eb:ClearFocus() end
             return
         end
         state.committed = true
@@ -194,11 +195,11 @@ function T:EditBox(parent, opts)
             if (eb:GetText() or "") ~= state.original then
                 eb:SetText(state.original)
             end
-            eb:SetCursorPosition(0)
+            eb:SetCursorPosition(math.min(cursor, #state.original))
         else
             state.original = eb:GetText() or text
         end
-        eb:ClearFocus()
+        if not keepFocus then eb:ClearFocus() end
     end
 
     local function revert()
@@ -265,7 +266,7 @@ function T:EditBox(parent, opts)
             refreshOK()
             safeCall("EditBox.onChange", opts.onChange, self:GetText() or "", true)
             if commitOn == "change" then
-                commitNow()
+                commitNow(true)
             end
         end
     end)
@@ -323,7 +324,7 @@ function T:EditBox(parent, opts)
         ClearFocus = function()
             eb:ClearFocus()
         end,
-        Commit = commitNow,
+        Commit = function() commitNow() end,
         Revert = revert,
         SetLabel = function(t)
             if labelFS then

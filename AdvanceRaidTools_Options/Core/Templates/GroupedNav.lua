@@ -268,6 +268,7 @@ function T:GroupedNavList(parent, opts)
                 if collapsed == nil then
                     collapsed = defaultCollapsed
                 end
+                if evalMaybeFn(opts.forceExpanded) then collapsed = false end
 
                 rows[#rows + 1] = {
                     type = "group",
@@ -412,7 +413,7 @@ function T:GroupedNavList(parent, opts)
         end)
         row:SetScript("OnClick", function(self)
             local group = self._group
-            if not group then
+            if not group or evalMaybeFn(opts.forceExpanded) then
                 return
             end
             PlaySound(856)

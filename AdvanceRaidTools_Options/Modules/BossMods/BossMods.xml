@@ -8,6 +8,7 @@
     <Script file="Misc\BressSettings.lua"/>
     <Script file="Misc\BreakTimerSettings.lua"/>
     <Script file="Misc\PullReminderSettings.lua"/>
+    <Script file="Misc\PullToolsSettings.lua"/>
     <Script file="Misc\FocusChannelTimerSettings.lua"/>
     <Script file="Misc\GeneralPackSettings.lua"/>
 
@@ -20,6 +21,7 @@
     <Script file="Raids\UnbindingOfKithix\CustomSettings.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkersSettings.lua"/>
+    <Script file="Raids\VenomousAbyss\SentinelsRangeSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekFangsSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekWrongTargetSettings.lua"/>
     <Script file="Raids\VenomousAbyss\UlatekCirclesSettings.lua"/>

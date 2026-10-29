@@ -3,7 +3,7 @@ local E, L = unpack(ART)
 E:RegisterModuleDefaults("BossMods", {
     enabled = true,
     activeTab = "Misc",
-    featureEnabled = {}
+    featureEnabled = {PullTools = true}
 })
 
 local BossMods = E:NewModule("BossMods", "AceEvent-3.0")
