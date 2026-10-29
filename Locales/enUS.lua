@@ -7,6 +7,27 @@ local L = addonTable.Locales["enUS"]
 
 L["LOCALE_NAME"] = "English"
 
+L["BossMods_RaidFrameAuras"] = "Raidframe auras"
+L["BossMods_RaidFrameAurasDesc"] = "Boss debuffs on group frames."
+L["BossMods_RaidFrameAurasAllRoles"] = "Show regardless of my role"
+L["BossMods_RaidFrameAurasCooldown"] = "Show cooldown swipe"
+L["BossMods_RaidFrameAurasCountdown"] = "Show remaining seconds"
+L["BossMods_AuraSounds"] = "Aura sounds"
+L["BossMods_AuraSoundsDesc"] = "Sound cues for buffs and debuffs."
+L["BossMods_Aura"] = "Aura"
+L["BossMods_AddAuraSpellID"] = "Add spell ID"
+L["BossMods_AuraSoundAction"] = "Sound"
+L["BossMods_AuraSoundWhen"] = "Trigger"
+L["BossMods_AuraApplied"] = "Applied"
+L["BossMods_AuraRemoved"] = "Removed"
+L["BossMods_AuraStackGained"] = "Stack gained"
+L["BossMods_AuraSoundTargets"] = "Targets (names, player, cotank)"
+L["BossMods_AuraSoundChannel"] = "Channel"
+L["BossMods_AuraSoundRepeat"] = "Repeats"
+L["BossMods_AddAuraSound"] = "Add sound"
+L["BossMods_DebuffList"] = "Debuff list"
+L["BossMods_DebuffListDesc"] = "Important debuffs with names and timers."
+
 --[[
 ====== ADVANCERAIDTOOLS ======
 --]]

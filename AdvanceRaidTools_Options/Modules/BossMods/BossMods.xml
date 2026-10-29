@@ -13,6 +13,7 @@
 
     <Script file="General\ReadyAssignmentsSettings.lua"/>
     <Script file="General\AuraCircleSettings.lua"/>
+    <Script file="General\UnitFrameAuraSettings.lua"/>
     <Script file="General\TimelineSequenceSettings.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignmentsSettings.lua"/>
     <Script file="Raids\Voidspire\AbilityAlertsSettings.lua"/>
@@ -34,6 +35,8 @@
     <Script file="General\BossPushSettings.lua"/>
     <Script file="General\CustomBarsSettings.lua"/>
     <Script file="General\PrivateAuraListSettings.lua"/>
+    <Script file="General\DebuffListSettings.lua"/>
+    <Script file="General\AuraSoundSettings.lua"/>
     <Script file="General\WhisperKickAlertSettings.lua"/>
 
     <Script file="Raids\Queldanas\FeatherSettings.lua"/>

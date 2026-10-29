@@ -7,6 +7,8 @@
     <Script file="Core\Engines\Bar.lua"/>
     <Script file="Core\Engines\AuraDisplay.lua"/>
     <Script file="Core\Engines\AuraCircle.lua"/>
+    <Script file="Core\Engines\UnitFrameAura.lua"/>
+    <Script file="Core\Engines\FilteredAuraList.lua"/>
     <Script file="Core\Engines\TimelineSequence.lua"/>
     <Script file="Core\Engines\PrivateAuraList.lua"/>
     <Script file="Core\Engines\AssignmentList.lua"/>
@@ -17,6 +19,7 @@
     <Script file="Core\DisplayTemplateBindings.lua"/>
     <Script file="Core\Engines\RaidMap.lua"/>
     <Script file="Core\BigWigs.lua"/>
+    <Script file="Core\UnitFrameAuras.lua"/>
     <Script file="Core\Alerts.lua"/>
     <Script file="Core\AbilityAlerts.lua"/>
     <Script file="Core\NoteBlock.lua"/>
@@ -35,6 +38,7 @@
     <Script file="Raids\Voidspire\AbilityAlertConfig.lua"/>
 
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
+    <Script file="Raids\VenomousAbyss\UnitFrameAuras.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityAlertConfig.lua"/>
     <Script file="Raids\VenomousAbyss\ReadyAssignments.lua"/>
     <Script file="Raids\VenomousAbyss\SszorakMarkers.lua"/>
@@ -69,6 +73,9 @@
     <Script file="General\BossPush.lua"/>
     <Script file="General\CustomBars.lua"/>
     <Script file="General\PrivateAuraList.lua"/>
+    <Script file="General\DebuffList.lua"/>
+    <Script file="General\AuraSoundData.lua"/>
+    <Script file="General\AuraSounds.lua"/>
     <Script file="General\WhisperKickAlert.lua"/>
 
     <Script file="Raids\Queldanas\Feather.lua"/>

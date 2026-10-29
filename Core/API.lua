@@ -289,11 +289,17 @@ function E:GetUnitFullName(unit, stripSpaces)
 end
 
 function E:GetPlayerRole()
-    local specIndex = GetSpecialization and GetSpecialization()
+    local getSpec = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or GetSpecialization
+    local specIndex = getSpec and getSpec()
     if not specIndex then
         return nil
     end
-    local role = GetSpecializationRole and GetSpecializationRole(specIndex)
+    local role
+    if C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo then
+        role = select(5, C_SpecializationInfo.GetSpecializationInfo(specIndex))
+    elseif GetSpecializationRole then
+        role = GetSpecializationRole(specIndex)
+    end
     return role
 end
 

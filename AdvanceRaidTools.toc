@@ -19,6 +19,7 @@ Locales\Locales.xml
 Core\Core.lua
 Core\API.lua
 Core\Callbacks.lua
+Core\UnitFrames.lua
 Core\Media.lua
 Core\Utils\SoundPreload.lua
 Core\Utils\QuestWatchCleanup.lua
@@ -33,6 +34,7 @@ Core\NoteTargets.lua
 Core\Checker.lua
 Core\Slash.lua
 Core\Compartment.lua
+Core\GameMenu.lua
 Core\Comms.lua
 Core\SpecProfiles.lua
 Core\Sharing.lua

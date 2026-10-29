@@ -510,6 +510,10 @@ function Engines.PrivateAuraList(config)
     end
 
     local function rebuildRows(force)
+        if InCombatLockdown() or (C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret()) then
+            state.pendingForce = true
+            return
+        end
         wipe(state.rowData)
 
         if state.editMode then
@@ -634,6 +638,12 @@ function Engines.PrivateAuraList(config)
 
     callbacks:RegisterEvent("GROUP_ROSTER_UPDATE", function()
         queueRebuild(false)
+    end)
+    callbacks:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+        queueRebuild(state.pendingForce)
+    end)
+    callbacks:RegisterEvent("READY_CHECK", function()
+        if state.active then rebuildRows(true) end
     end)
     callbacks:RegisterEvent("UNIT_NAME_UPDATE", function()
         queueRebuild(false)

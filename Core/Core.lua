@@ -91,6 +91,7 @@ function E:OnInitialize()
     self:InitializePixelPerfect()
     self:RegisterSlashCommands()
     self:InitializeMinimapIcon()
+    self:InitializeGameMenuButton()
 
     self:InitializeAllModules()
     self:FlushAllModuleFeatureRegistrations()
