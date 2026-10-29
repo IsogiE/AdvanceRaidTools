@@ -12,6 +12,12 @@ local COL_GAP = 8
 
 local BODY_SCROLLBAR_GUTTER = 18
 local navCollapsedState = {}
+local sectionStates, selectedFeatures = {}, {}
+
+local function getSectionState(key)
+    sectionStates[key] = sectionStates[key] or {}
+    return sectionStates[key]
+end
 
 local function optionsResizeActive()
     return E.OptionsUI and E.OptionsUI.IsResizing and E.OptionsUI:IsResizing()
@@ -71,10 +77,30 @@ local function buildTabBody(parent, tabKey)
         mouseWheelStep = 40
     })
     local state = {
-        activeFeature = nil,
+        activeFeature = selectedFeatures[tabKey],
         featureBodies = {},
         placeholder = nil
     }
+    local function currentSections()
+        local feature = state.activeFeature and state.featureBodies[state.activeFeature]
+        return feature and feature.sections
+    end
+    local function sectionsDisabled()
+        local sections = currentSections()
+        return not sections or not sections:HasSections()
+    end
+    local expand = T:Button(container, {
+        text = L["ExpandAll"], disabled = sectionsDisabled,
+        onClick = function() local sections = currentSections(); if sections then sections:SetAll(false) end end
+    })
+    local collapse = T:Button(container, {
+        text = L["CollapseAll"], disabled = sectionsDisabled,
+        onClick = function() local sections = currentSections(); if sections then sections:SetAll(true) end end
+    })
+    local function refreshSectionButtons()
+        expand.Refresh()
+        collapse.Refresh()
+    end
 
     local nav
     nav = T:GroupedNavList(container, {
@@ -161,7 +187,9 @@ local function buildTabBody(parent, tabKey)
     })
     nav.frame:SetPoint("TOPLEFT", 0, 0)
 
-    body.frame:SetPoint("TOPLEFT", nav.frame, "TOPRIGHT", COL_GAP, 0)
+    expand.frame:SetPoint("TOPLEFT", nav.frame, "TOPRIGHT", COL_GAP, 0)
+    collapse.frame:SetPoint("LEFT", expand.frame, "RIGHT", 6, 0)
+    body.frame:SetPoint("TOPLEFT", nav.frame, "TOPRIGHT", COL_GAP, -30)
     body.frame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", 0, 0)
     body.scroll:HookScript("OnSizeChanged", body.ApplyAutoWidth)
 
@@ -190,6 +218,7 @@ local function buildTabBody(parent, tabKey)
             body.content:SetHeight(h)
             body.scroll:UpdateScrollChildRect()
         end
+        refreshSectionButtons()
 
         return h
     end
@@ -273,17 +302,25 @@ local function buildTabBody(parent, tabKey)
             )
         end
 
+        local sections
         local function requestLayout()
+            if sections then sections:Apply() end
             requestFeatureLayout(featureKey)
         end
 
+        sections = T:CollapsibleSections(wrapper, {
+            state = getSectionState(tabKey .. ":" .. featureKey), refreshLayout = true,
+            onChanged = function() requestFeatureLayout(featureKey) end
+        })
         local handle = builder(wrapper, mod, isDisabled, requestLayout) or {}
+        sections:Bind(handle)
         local h = handle.height or wrapper:GetHeight() or 30
         wrapper:SetHeight(math.max(1, h))
 
         local fb = {
             wrapper = wrapper,
             handle = handle,
+            sections = sections,
             mod = mod,
             builtAtWidth = contentW
         }
@@ -312,6 +349,7 @@ local function buildTabBody(parent, tabKey)
 
     local function showPlaceholder(text)
         destroyPlaceholder()
+        refreshSectionButtons()
         local contentW = body.content:GetWidth() or 0
         if contentW <= 0 then
             body.content:SetHeight(1)
@@ -375,6 +413,7 @@ local function buildTabBody(parent, tabKey)
     selectFeature = function(key)
         local changed = key ~= state.activeFeature
         state.activeFeature = key
+        selectedFeatures[tabKey] = key
         showFeatureBody(key, changed)
         nav:SetSelectedKey(key)
         local fb = state.featureBodies[key]
@@ -405,6 +444,7 @@ local function buildTabBody(parent, tabKey)
         if not foundActive then
             state.activeFeature = features[1].key
         end
+        selectedFeatures[tabKey] = state.activeFeature
 
         nav:SetSelectedKey(state.activeFeature)
     end
@@ -491,7 +531,14 @@ local function buildTabGroup(tab)
                 build = function(parent)
                     if tab.settingsKey then
                         local builder = E:GetModule("BossMods"):GetSettingsBuilder(tab.settingsKey)
+                        local sections = T:CollapsibleSections(parent, {
+                            state = getSectionState("tab:" .. tabKey),
+                            onChanged = function()
+                                if E.OptionsUI and E.OptionsUI.QueueRefresh then E.OptionsUI:QueueRefresh("current") end
+                            end
+                        })
                         local handle = builder(parent)
+                        sections:Bind(handle)
                         handle.fullWidth = true
                         return handle
                     end

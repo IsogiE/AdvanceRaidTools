@@ -50,13 +50,41 @@ end
 function T:Header(parent, opts)
     opts = opts or {}
     local height = opts.height or H_HEADER
+    local collapsible = type(opts.onToggle) == "function"
+    local collapsed = evalMaybeFn(opts.collapsed) == true
 
-    local f = CreateFrame("Frame", nil, parent)
+    local f = CreateFrame("Button", nil, parent)
     f:SetHeight(height)
+    f:EnableMouse(collapsible)
 
     local label = newFont(f, opts.sizeDelta or 1)
     label:SetPoint("CENTER")
-    label:SetText(tostring(evalMaybeFn(opts.text) or ""))
+    local function isCollapsed()
+        if type(opts.collapsed) == "function" then return evalMaybeFn(opts.collapsed) == true end
+        return collapsed
+    end
+    local function setText(text)
+        local prefix = collapsible and (isCollapsed() and "+ " or "- ") or ""
+        label:SetText(prefix .. tostring(text or ""))
+    end
+    setText(evalMaybeFn(opts.text))
+
+    local highlight = f:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.05)
+    highlight:SetShown(collapsible)
+    local function setCollapsed(value)
+        value = value == true
+        if not collapsible or value == isCollapsed() then return end
+        collapsed = value
+        safeCall("Header.onToggle", opts.onToggle, collapsed)
+        setText(evalMaybeFn(opts.text))
+    end
+    f:SetScript("OnClick", function()
+        if not collapsible or optionsResizeActive() then return end
+        PlaySound(856)
+        setCollapsed(not isCollapsed())
+    end)
 
     if opts.color then
         applyTextColor(label, opts.color)
@@ -83,11 +111,23 @@ function T:Header(parent, opts)
         height = height,
         label = label,
         fullWidth = true,
+        isHeader = true,
+        IsCollapsible = function() return collapsible end,
+        IsCollapsed = isCollapsed,
+        SetCollapsed = setCollapsed,
+        GetText = function() return tostring(evalMaybeFn(opts.text) or "") end,
+        SetCollapseHandler = function(callback, getCollapsed)
+            opts.onToggle, opts.collapsed = callback, getCollapsed
+            collapsible = type(callback) == "function"
+            f:EnableMouse(collapsible)
+            highlight:SetShown(collapsible)
+            setText(evalMaybeFn(opts.text))
+        end,
         SetText = function(text)
-            label:SetText(text or "")
+            setText(text)
         end,
         Refresh = function()
-            label:SetText(tostring(evalMaybeFn(opts.text) or ""))
+            setText(evalMaybeFn(opts.text))
         end
     }
 end

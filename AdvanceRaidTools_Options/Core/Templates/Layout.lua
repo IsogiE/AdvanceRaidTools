@@ -148,6 +148,7 @@ function T:PlaceRow(parent, widgets, yOffset, widthPx, opts)
         if h > rowH then
             rowH = h
         end
+        if T.RecordSectionPlacement then T:RecordSectionPlacement(parent, w, yOffset) end
         x = x + share + gap
     end
     return rowH
@@ -163,6 +164,7 @@ function T:PlaceFull(parent, widget, yOffset, widthPx, opts)
     if widget._relayout then
         widget._relayout()
     end
+    if T.RecordSectionPlacement then T:RecordSectionPlacement(parent, widget, yOffset) end
     return f:GetHeight() or 22
 end
 
@@ -671,9 +673,11 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             positionChanged()
         end
 
-        posHeader = trackOwn(T:Header(parent, {
-            text = opts.headerText or L["Position"]
-        }))
+        if not opts.hideHeader then
+            posHeader = trackOwn(T:Header(parent, {
+                text = opts.headerText or L["Position"]
+            }))
+        end
 
         xStepper = trackOwn(T:NumericStepper(parent, {
             label = L["QoL_XOffset"],
@@ -754,6 +758,8 @@ function T:PositionSection(parent, yOffset, widthPx, opts)
             nextY = nextY +
                 T:PlaceFull(parent, posHeader, nextY, nextWidth) +
                 POSITION_SECTION_HEADER_GAP
+        end
+        if xStepper then
             nextY = nextY +
                 T:PlaceRow(
                     parent,

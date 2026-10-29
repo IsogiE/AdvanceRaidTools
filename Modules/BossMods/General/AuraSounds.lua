@@ -11,6 +11,12 @@ local function canRegister()
         and not (C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown())
 end
 
+local function getLayerCount(action)
+    local count = tonumber(action.repeatCount) or 1
+    if count ~= count then count = 1 end
+    return math.max(1, math.min(10, math.floor(count)))
+end
+
 function Mod:GetCategories()
     local categories = {}
     for _, category in ipairs(BossMods.AuraSoundPresets or {}) do categories[#categories + 1] = category end
@@ -106,12 +112,10 @@ function Mod:Refresh()
                     local trigger = triggers[action.condition or "show"]
                     if sound and trigger then
                         E:RegisterSoundPreload(sound)
-                        local repeats = tonumber(action.repeatCount) or 1
-                        if repeats ~= repeats then repeats = 1 end
-                        repeats = math.max(1, math.min(10, math.floor(repeats)))
+                        local layers = getLayerCount(action)
                         for _, unit in ipairs(self:ResolveUnits(action.unit)) do
                             for _, spellID in ipairs(aura.spellIDs or {aura.spellID}) do
-                                for _ = 1, repeats do
+                                for _ = 1, layers do
                                     local ok, id = pcall(C_UnitAuras.AddAuraSound, trigger, {
                                         unitToken = unit, spellID = spellID,
                                         soundFileName = type(sound) == "string" and sound or nil,
@@ -142,12 +146,17 @@ function Mod:Preview(action)
     self:StopPreview()
     local sound = self:ResolveSound(action)
     if not sound then return end
-    local _, handle = PlaySoundFile(sound, CHANNELS[action.outputChannel] and action.outputChannel or "Master")
-    self.previewHandle = handle
+    self.previewHandles = {}
+    local channel = CHANNELS[action.outputChannel] and action.outputChannel or "Master"
+    for _ = 1, getLayerCount(action) do
+        local played, handle = PlaySoundFile(sound, channel)
+        if played and handle then self.previewHandles[#self.previewHandles + 1] = handle end
+    end
 end
 
 function Mod:StopPreview()
-    if self.previewHandle then StopSound(self.previewHandle); self.previewHandle = nil end
+    for _, handle in ipairs(self.previewHandles or {}) do StopSound(handle) end
+    self.previewHandles = nil
 end
 
 function Mod:OnInitialize()

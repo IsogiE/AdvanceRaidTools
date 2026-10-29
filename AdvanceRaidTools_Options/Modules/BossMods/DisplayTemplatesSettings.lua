@@ -83,8 +83,9 @@ local function buildTemplates(host)
     for _, category in ipairs(Displays.templateOrder) do
         local key = category
         local template = Displays.templates[key]
+        ui:header(template.label)
         ui:full(T:PositionSectionWidget(parent, {
-            headerText = template.label,
+            hideHeader = true,
             showOffsets = true,
             hideUnlock = true,
             lockOnHide = false,

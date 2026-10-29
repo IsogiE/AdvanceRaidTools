@@ -6,8 +6,10 @@ addonTable.Locales["enUS"] = {}
 local L = addonTable.Locales["enUS"]
 
 L["LOCALE_NAME"] = "English"
+L["ExpandAll"] = "Expand all"
+L["CollapseAll"] = "Collapse all"
 
-L["BossMods_RaidFrameAuras"] = "Raidframe auras"
+L["BossMods_RaidFrameAuras"] = "Raidframe Auras"
 L["BossMods_RaidFrameAurasDesc"] = "Boss debuffs on group frames."
 L["BossMods_RaidFrameAurasAllRoles"] = "Show regardless of my role"
 L["BossMods_RaidFrameAurasCooldown"] = "Show cooldown swipe"
@@ -23,7 +25,8 @@ L["BossMods_AuraRemoved"] = "Removed"
 L["BossMods_AuraStackGained"] = "Stack gained"
 L["BossMods_AuraSoundTargets"] = "Targets (names, player, cotank)"
 L["BossMods_AuraSoundChannel"] = "Channel"
-L["BossMods_AuraSoundRepeat"] = "Repeats"
+L["BossMods_AuraSoundRepeat"] = "Volume boost"
+L["BossMods_AuraSoundRepeatDesc"] = "Layers the sound to boost loudness. 1 = normal."
 L["BossMods_AddAuraSound"] = "Add sound"
 L["BossMods_DebuffList"] = "Debuff list"
 L["BossMods_DebuffListDesc"] = "Important debuffs with names and timers."

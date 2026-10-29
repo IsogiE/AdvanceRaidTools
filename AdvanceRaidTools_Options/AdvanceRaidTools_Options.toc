@@ -17,6 +17,7 @@ Core\Templates\GroupedNav.lua
 Core\Templates\Inputs.lua
 Core\Templates\Dropdown.lua
 Core\Templates\Layout.lua
+Core\Templates\Sections.lua
 Core\Templates\Popups.lua
 Core\Templates\CheckerPanel.lua
 Core\OptionsUI.lua
