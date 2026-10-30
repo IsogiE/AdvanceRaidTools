@@ -56,6 +56,7 @@
     <Script file="Raids\VenomousAbyss\TwinFangsDeluge.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarKicker.lua"/>
     <Script file="Raids\VenomousAbyss\CoiledAltarIntermissionBar.lua"/>
+    <Script file="Raids\VenomousAbyss\CoiledAltarWrongTarget.lua"/>
 
     <Script file="Raids\UnbindingOfKithix\ReadyAssignments.lua"/>
     <Script file="Raids\UnbindingOfKithix\AbilityAlertConfig.lua"/>

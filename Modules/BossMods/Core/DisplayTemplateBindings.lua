@@ -26,6 +26,7 @@ display("TwinFangsDelugeList", "position", "aura", "BossMods_DisplayDelugePlayer
 display("CoiledAltarIntermissionBar", "position", "bar", "BossMods_DisplayIntermissionTimer")
 display("CoiledAltarKicker", "position", "icon", "BossMods_DisplayKickIndicator", nil, 10)
 display("CoiledAltarKicker", "nextTextPosition", "text", "BossMods_DisplayNextKickReminder", nil, 20)
+display("CoiledAltarWrongTarget", "position", "text", "BossMods_DisplayWrongTargetReminder")
 display("RavenousFeastSoakCircle", "position", "indicator", "BossMods_DisplaySoakCircle")
 
 display("Feather", "position", "icon", "BossMods_DisplayFeatherIndicator")
