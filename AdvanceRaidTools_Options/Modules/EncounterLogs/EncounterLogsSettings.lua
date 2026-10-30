@@ -215,11 +215,15 @@ end
 
 local registered = false
 local function registerPanel()
-    if registered then return end
     local mod = E:GetModule("EncounterLogs", true)
-    if not mod or not mod:IsCollector() then return end
-    registered = true
-    E:RegisterOptions("EncounterLogs", 41, build)
+    local collector = mod and mod:IsCollector() or false
+    if collector == registered then return end
+    registered = collector
+    if collector then
+        E:RegisterOptions("EncounterLogs", 41, build)
+    else
+        E.optionsContributions["EncounterLogs"] = nil
+    end
     if E.OptionsUI and E.OptionsUI.mainFrame then E:RebuildOptions() end
 end
 

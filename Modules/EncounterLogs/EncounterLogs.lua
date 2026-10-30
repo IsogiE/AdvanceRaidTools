@@ -69,14 +69,19 @@ local function errorSnapshot()
     return snapshot
 end
 
-function Mod:GetOwnGuildRank()
-    local _, _, rankIndex = GetGuildInfo("player")
-    return number(rankIndex)
+function Mod:GetOwnGuild()
+    if not IsInGuild() then return nil end
+    local guildName, _, rankIndex, guildRealm = GetGuildInfo("player")
+    guildName = normalizeName(guildName)
+    if not guildName or guildName == "" then return nil end
+    local realm = normalizeName(guildRealm)
+    if not realm or realm == "" then realm = normalizeName(GetNormalizedRealmName and GetNormalizedRealmName() or GetRealmName()) end
+    return guildName .. "-" .. (realm or ""), number(rankIndex)
 end
 
 function Mod:ComputeCollector()
     if COLLECTOR_CHARACTERS[normalizeName(E:GetUnitFullName("player", true)) or ""] then return true end
-    local rank = self:GetOwnGuildRank()
+    local guild, rank = self:GetOwnGuild()
     return rank ~= nil and rank <= MAX_COLLECTOR_RANK
 end
 
