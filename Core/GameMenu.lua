@@ -1,7 +1,59 @@
 local E, L = unpack(ART)
 local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Core/GameMenu")
 local callbacks = E:NewCallbackHandle()
-local button, layoutTimer
+local button, layoutTimer, skinned
+
+local function wanted()
+    return E.db.profile.general.showGameMenuButton ~= false
+end
+
+local function skinElvUI()
+    local elv = type(_G.ElvUI) == "table" and _G.ElvUI[1]
+    local skins = elv and elv.GetModule and elv:GetModule("Skins", true)
+    if not skins or type(skins.HandleButton) ~= "function" then return false end
+    local blizzard = elv.private and elv.private.skins and elv.private.skins.blizzard
+    if blizzard and (blizzard.enable == false or blizzard.misc == false) then return false end
+    skins:HandleButton(button, nil, nil, nil, true)
+    if button.backdrop and button.backdrop.SetInside then button.backdrop:SetInside(nil, 1, 1) end
+    return true
+end
+
+local function skinEllesmere()
+    local ellesmere, db = _G.EllesmereUI, _G.EllesmereUIDB
+    if not ellesmere or not C_AddOns.IsAddOnLoaded("EllesmereUIBlizzardSkin") or (db and db.reskinGameMenu == false) then return false end
+    for index = 1, select("#", button:GetRegions()) do
+        local region = select(index, button:GetRegions())
+        if region:IsObjectType("Texture") then
+            region:SetAlpha(0)
+            hooksecurefunc(region, "SetAlpha", function(self, alpha)
+                if alpha > 0 then self:SetAlpha(0) end
+            end)
+        end
+    end
+    local inset = CreateFrame("Frame", nil, button)
+    inset:SetPoint("TOPLEFT", 2, -2)
+    inset:SetPoint("BOTTOMRIGHT", -2, 2)
+    inset:SetFrameLevel(button:GetFrameLevel())
+    local background = inset:CreateTexture(nil, "BACKGROUND", nil, -6)
+    background:SetAllPoints()
+    local color = db and db.popupMenuButtonBackgroundColor or {r = 0.1, g = 0.1, b = 0.1, a = 0.8}
+    background:SetColorTexture(color.r, color.g, color.b, color.a or 0.8)
+    if type(ellesmere._applyBlizzardConfiguredBorder) == "function" then
+        ellesmere._applyBlizzardConfiguredBorder(inset, "popupMenuButton", 1)
+    end
+    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints(inset)
+    highlight:SetColorTexture(1, 1, 1, 0.1)
+    local fontString = button:GetFontString()
+    local fontPath = type(ellesmere.GetFontPath) == "function" and ellesmere.GetFontPath("blizzardSkin")
+    if fontString and fontPath then fontString:SetFont(fontPath, 13, "") end
+    return true
+end
+
+local function applySkin()
+    if skinned then return end
+    skinned = skinElvUI() or skinEllesmere()
+end
 
 function E:InitializeGameMenuButton()
     if button then return end
@@ -17,10 +69,8 @@ function E:InitializeGameMenuButton()
         return
     end
     callbacks:UnregisterEvent("ADDON_LOADED")
-    local host = CreateFrame("Frame", nil, menu)
-    host.ignoreInLayout = true
-    host:SetAllPoints(menu)
-    button = CreateFrame("Button", "AdvanceRaidTools_GameMenuButton", host, "MainMenuFrameButtonTemplate")
+    button = CreateFrame("Button", "AdvanceRaidTools_GameMenuButton", menu, "MainMenuFrameButtonTemplate")
+    button.ignoreInLayout = true
     button:SetSize(200, 36)
     button:SetText(C_AddOns.GetAddOnMetadata(self.addonName, "Title") or L["AdvanceRaidTools"])
     button:Hide()
@@ -33,7 +83,8 @@ function E:InitializeGameMenuButton()
 
     local function placeButton()
         layoutTimer = nil
-        if not menu:IsShown() or InCombatLockdown() then return end
+        if not menu:IsShown() or InCombatLockdown() or not wanted() then return end
+        applySkin()
         local logoutText = menu.GetLogoutText and menu:GetLogoutText() or LOG_OUT
         local anchor, exitButton
         for entry in menu.buttonPool:EnumerateActive() do
@@ -75,4 +126,9 @@ function E:InitializeGameMenuButton()
         if menu:IsShown() then menu:MarkDirty() end
     end)
     if menu:IsShown() then menu:MarkDirty() end
+end
+
+function E:UpdateGameMenuButton()
+    local menu = _G.GameMenuFrame
+    if button and menu and menu:IsShown() then menu:MarkDirty() end
 end

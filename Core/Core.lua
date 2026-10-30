@@ -37,6 +37,7 @@ local P = {
         minimapIcon = {
             hide = false
         },
+        showGameMenuButton = true,
         locale = nil,
         scale = 1.0,
         optionsWindow = {

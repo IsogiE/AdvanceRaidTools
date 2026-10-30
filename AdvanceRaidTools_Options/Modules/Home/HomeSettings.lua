@@ -171,6 +171,27 @@ local function generalGroup()
                         end
                     })
                 end
+            },
+
+            gameMenu = {
+                order = 13,
+                width = "full",
+                build = function(parent)
+                    return T:Checkbox(parent, {
+                        text = L["ShowGameMenuButton"],
+                        tooltip = {
+                            title = L["ShowGameMenuButton"],
+                            desc = L["GameMenuButtonDesc"]
+                        },
+                        get = function()
+                            return general().showGameMenuButton ~= false
+                        end,
+                        onChange = function(_, v)
+                            general().showGameMenuButton = v
+                            E:UpdateGameMenuButton()
+                        end
+                    })
+                end
             }
         }
     }
