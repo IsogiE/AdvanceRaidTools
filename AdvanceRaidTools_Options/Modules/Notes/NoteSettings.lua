@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/Notes/NoteSettings")
 local T = E.Templates
 
 local MAIN_SLOT = 1
@@ -642,6 +643,8 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     activeRow:SetPoint("TOPRIGHT", actionRow, "BOTTOMRIGHT", 0, -GAP)
     activeRow:SetHeight(ACTIVE_ROW_H)
 
+    local resizeEditorArea
+    local findHeight = 0
     local editor = T:MultilineEditBox(editorCol, {
         lines = EDITOR_LINES,
         forwardWheelToOuter = true,
@@ -669,6 +672,71 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     editor.frame:SetPoint("TOPLEFT", activeRow, "BOTTOMLEFT", 0, -GAP)
     editor.frame:SetPoint("TOPRIGHT", activeRow, "BOTTOMRIGHT", 0, -GAP)
     editorRef = editor
+
+    local findRow = CreateFrame("Frame", nil, editorCol)
+    findRow:SetPoint("TOPLEFT", activeRow, "BOTTOMLEFT", 0, -GAP)
+    findRow:SetPoint("TOPRIGHT", activeRow, "BOTTOMRIGHT", 0, -GAP)
+    findRow:SetHeight(62)
+    findRow:Hide()
+    local findBox, replaceBox, replaceButton, matchCount
+    local function refreshMatches()
+        local _, count = mod:ReplacePlayerNames(mod:GetSlotText(clampEditingSlot(mod)), findBox.GetText())
+        matchCount:SetText(L["Notes_ReplaceMatches"]:format(count))
+        replaceButton.SetDisabled(isModuleDisabled() or count == 0 or strtrim(replaceBox.GetText()) == "")
+    end
+    findBox = T:EditBox(findRow, {
+        label = L["Notes_FindPlayer"], commitOn = "change", showCommitButton = false, maxLetters = 100,
+        disabled = isModuleDisabled, onChange = function() if matchCount then refreshMatches() end end
+    })
+    replaceBox = T:EditBox(findRow, {
+        label = L["Notes_ReplaceWith"], commitOn = "change", showCommitButton = false, maxLetters = 100,
+        disabled = isModuleDisabled, onChange = function() if matchCount then refreshMatches() end end
+    })
+    replaceButton = T:Button(findRow, {
+        text = L["Notes_ReplaceAll"], width = 100, height = 22,
+        onClick = function()
+            if isModuleDisabled() then return end
+            local idx = clampEditingSlot(mod)
+            if mod:ReplacePlayerInSlot(idx, findBox.GetText(), replaceBox.GetText()) > 0 then
+                reloadEditor(mod)
+                refreshPanel()
+            end
+            refreshMatches()
+        end
+    })
+    matchCount = E:CreateFontString(findRow, nil, "OVERLAY")
+    matchCount:SetPoint("BOTTOMLEFT", 0, 2)
+    matchCount:SetPoint("BOTTOMRIGHT", 0, 2)
+    matchCount:SetJustifyH("LEFT")
+    local function layoutFind()
+        local width = math.max(40, (findRow:GetWidth() - 100 - GAP * 2) / 2)
+        findBox.frame:SetPoint("TOPLEFT", 0, 0)
+        findBox.frame:SetWidth(width)
+        replaceBox.frame:SetPoint("TOPLEFT", findBox.frame, "TOPRIGHT", GAP, 0)
+        replaceBox.frame:SetWidth(width)
+        replaceButton.frame:SetPoint("TOPRIGHT", 0, -16)
+    end
+    findRow:SetScript("OnSizeChanged", layoutFind)
+    local function showFind(show)
+        findHeight = show and findRow:GetHeight() + GAP or 0
+        findRow:SetShown(show)
+        editor.frame:ClearAllPoints()
+        local anchor = show and findRow or activeRow
+        editor.frame:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -GAP)
+        editor.frame:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -GAP)
+        if resizeEditorArea then resizeEditorArea() end
+        if show then layoutFind(); refreshMatches(); findBox.SetFocus()
+        else findBox.ClearFocus(); replaceBox.ClearFocus() end
+    end
+    local findToggle = T:Button(activeRow, {
+        text = L["Notes_FindReplace"], width = 125, height = ACTIVE_ROW_H,
+        onClick = function() showFind(not findRow:IsShown()) end,
+        disabled = isModuleDisabled
+    })
+    findToggle.frame:SetPoint("RIGHT", activeRow, "RIGHT", 0, 0)
+    editor.editBox:HookScript("OnKeyDown", function(_, key)
+        if key == "F" and IsControlKeyDown() and not isModuleDisabled() then showFind(true) end
+    end)
 
     local function insertAtCursor(text, options)
         if isModuleDisabled() then
@@ -980,7 +1048,7 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
     })
     activeChk.frame:ClearAllPoints()
     activeChk.frame:SetPoint("LEFT", activeRow, "LEFT", 0, 0)
-    activeChk.frame:SetPoint("RIGHT", activeRow, "RIGHT", 0, 0)
+    activeChk.frame:SetPoint("RIGHT", findToggle.frame, "LEFT", -GAP, 0)
 
     local mrtBtn = T:Button(actionCol, {
         text = L["Notes_ImportFromMRT"],
@@ -1149,11 +1217,11 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         rebuildRoster()
     end)
 
-    local function resizeEditorArea(height)
+    resizeEditorArea = function(height)
         local targetH = math.max(EDITOR_HEIGHT, tonumber(height) or container:GetHeight() or EDITOR_HEIGHT)
         container:SetHeight(targetH)
 
-        local editorH = math.max(EDITOR_INNER_H, targetH - PRE_EDITOR_H)
+        local editorH = math.max(180, targetH - PRE_EDITOR_H - findHeight)
         if editor.SetHeight then
             editor:SetHeight(editorH)
         else
@@ -1194,6 +1262,10 @@ local function buildEditorArea(parent, mod, isModuleDisabled)
         if undoBtn.Refresh then
             undoBtn.Refresh()
         end
+        findToggle.Refresh()
+        findBox.Refresh()
+        replaceBox.Refresh()
+        if findRow:IsShown() then refreshMatches() end
         refreshActionButtons()
         if rosterScroll.scrollbar and rosterScroll.scrollbar.Refresh then
             rosterScroll.scrollbar.Refresh()

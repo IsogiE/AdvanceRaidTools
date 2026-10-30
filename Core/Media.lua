@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Core/Media")
 
 local LSM = E.Libs.LSM
 

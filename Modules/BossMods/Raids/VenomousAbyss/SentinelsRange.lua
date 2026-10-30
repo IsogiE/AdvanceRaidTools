@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/VenomousAbyss/SentinelsRange")
 local BossMods = E:GetModule("BossMods")
 local Displays = BossMods.DisplayTemplates
 local MODULE_NAME = "BossMods_SentinelsRange"

@@ -1,6 +1,7 @@
 -- This entire way of doing it was a mistake, I am too lazy to change it. Luml wanted it done like day of raid while the roster kept changing
 -- Promise future ones will be nicer
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/Queldanas/LuraMap")
 
 E:RegisterModuleDefaults("BossMods_LuraMap", {
     enabled = false,

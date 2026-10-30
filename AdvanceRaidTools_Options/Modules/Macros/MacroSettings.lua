@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/Macros/MacroSettings")
 local T = E.Templates
 
 local NO_SLOT = 0

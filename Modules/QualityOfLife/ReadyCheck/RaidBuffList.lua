@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/QualityOfLife/ReadyCheck/RaidBuffList")
 local Data = E.ReadyCheckData
 
 E:RegisterModuleDefaults("QoL_RaidBuffList", {
@@ -91,6 +92,24 @@ local COLUMNS = {
         key = "movement",
         labelKey = "QoL_ReadyCheckBlessingOfTheBronze",
         texture = 4622448
+    },
+    {
+        key = "healthstones", kind = "supply", labelKey = "QoL_SupplyHealthstones", texture = 538745, minimum = 1
+    },
+    {
+        key = "potions", kind = "supply", labelKey = "QoL_SupplyPotions", texture = 7548909, minimum = 5
+    },
+    {
+        key = "runes", kind = "supply", labelKey = "QoL_SupplyRunes", texture = 4549099, minimum = 5
+    },
+    {
+        key = "mainHand", kind = "supply", labelKey = "QoL_SupplyMainHand", texture = 7548985, width = 42, timed = true
+    },
+    {
+        key = "offHand", kind = "supply", labelKey = "QoL_SupplyOffHand", texture = 7548985, width = 42, timed = true
+    },
+    {
+        key = "itemLevel", kind = "supply", labelKey = "QoL_SupplyItemLevel", texture = 135932, width = 48
     },
     {
         key = "durability",
@@ -319,6 +338,47 @@ local function setDurabilityState(cell, report)
             formatString:format(broken)
         }
     end
+end
+
+local function setSupplyState(cell, column, report, connected)
+    cell.icon:Hide()
+    cell.value:SetShown(connected)
+    cell.tooltipEnabled = connected
+    cell.tooltipLines = nil
+    local value = report and report[column.key]
+    if not value or value == -1 then
+        cell.value:SetText("?")
+        cell.value:SetTextColor(0.5, 0.5, 0.5)
+        cell.tooltipLines = {text("QoL_SupplyUnknown")}
+        return
+    end
+    local warning, missing = false, false
+    local display = tostring(value)
+    if column.key == "itemLevel" then
+        display = ("%.1f"):format(value / 10)
+    elseif column.timed then
+        if value == -2 then
+            display = "-"
+            cell.tooltipLines = {text("QoL_SupplyNotApplicable")}
+        elseif value == -3 then
+            display = "OK"
+        elseif value == -4 then
+            display, missing = "!", true
+            cell.tooltipLines = {text("QoL_SupplyNoWeapon")}
+        else
+            local remaining = math.max(0, value - (GetTime() - report.received))
+            display = remaining > 0 and ("%dm"):format(math.ceil(remaining / 60)) or "0"
+            missing, warning = remaining <= 0, remaining < 600
+            cell.tooltipLines = {text("QoL_SupplyRemaining"):format(math.ceil(remaining))}
+        end
+    else
+        missing, warning = value == 0, value < column.minimum
+        cell.tooltipLines = {text("QoL_SupplyMinimum"):format(column.minimum)}
+    end
+    cell.value:SetText(display)
+    if missing then cell.value:SetTextColor(1, 0.2, 0.2)
+    elseif warning then cell.value:SetTextColor(1, 0.65, 0)
+    else cell.value:SetTextColor(0.2, 1, 0.2) end
 end
 
 function RaidBuffList:GetRowHeight()
@@ -1219,11 +1279,20 @@ function RaidBuffList:RefreshList()
 
             local durabilityReport = preview and nil or
                 self:GetDurabilityReport(member)
+            local supplies = E:GetModule("QoL_RaidSupplies", true)
+            local supplyReport = supplies and not preview and supplies:GetReport(member.unit)
+            if preview then
+                supplyReport = {received = GetTime(), itemLevel = 2850 + index, healthstones = index % 4,
+                    potions = index % 9, runes = index % 8, mainHand = index % 3 == 0 and 300 or 1800,
+                    offHand = index % 2 == 0 and -2 or 0}
+            end
 
             for _, column in ipairs(COLUMNS) do
                 local cell = row.cells[column.key]
                 if column.kind == "durability" then
                     setDurabilityState(cell, durabilityReport)
+                elseif column.kind == "supply" then
+                    setSupplyState(cell, column, supplyReport, connected)
                 else
                     setReadyState(
                         cell,
@@ -1476,6 +1545,7 @@ function RaidBuffList:OnEnable()
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "HideList")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")
+    self:RegisterMessage("ART_RAID_SUPPLIES_UPDATED", "ScheduleRefresh")
 end
 
 function RaidBuffList:OnDisable()

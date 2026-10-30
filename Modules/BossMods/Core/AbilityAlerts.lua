@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/AbilityAlerts")
 
 function E:RegisterAbilityAlertData(raidKey, moduleName, data, tabKey)
     assert(type(raidKey) == "string" and raidKey ~= "", "raidKey required")
@@ -1171,6 +1172,7 @@ bar.frame:SetPoint(
 end
 
 function AbilityAlerts:StartBar(ability, settings, durationOverride, hitNumber)
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace(self.moduleName, "StartBar", ability and ability.spellID, durationOverride, hitNumber) end
     local duration = durationOverride ~= nil
         and getSeconds(durationOverride, 0)
         or getSeconds(settings.secondsBefore, 5)

@@ -438,6 +438,7 @@ local logNext = 1
 local logCount = 0
 
 local function logAppend(severity, channel, msg)
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace(channel or severity, msg) end
     logBuf[logNext] = {
         t = time(),
         severity = severity,

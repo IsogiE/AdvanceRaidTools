@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Core/Templates/Layout")
 local T = E.Templates
 local P = E.TemplatePrivate
 

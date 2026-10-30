@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Misc/PullTools")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_PullTools"
 local PREFIX = "ART_PULL_RECOVER"

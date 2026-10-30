@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/KickDisplay")
 local BossMods = E:GetModule("BossMods")
 local Display = {}
 BossMods.KickDisplay = Display

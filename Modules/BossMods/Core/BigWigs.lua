@@ -15,11 +15,20 @@ local nextToken = 1
 local hooked = false
 local callbacks = E:NewCallbackHandle()
 
+local function dispatchCallback(sub, event, ...)
+    if not E.DiagnosticTimingEnabled then return pcall(sub[event], ...) end
+    local diagnostics = E.RaidDiagnostics
+    local started = diagnostics and diagnostics:BeginDispatch()
+    local ok, err = pcall(sub[event], ...)
+    if started then diagnostics:EndDispatch(sub.owner, event, started) end
+    return ok, err
+end
+
 local function dispatchPull(callbackName, ...)
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and sub[callbackName] then
-            local ok, err = pcall(sub[callbackName], ...)
+            local ok, err = dispatchCallback(sub, callbackName, ...)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed handling a pull: %s", sub.owner, tostring(err))
             end
@@ -36,13 +45,14 @@ local function dispatchStopPull(_, _, reason)
 end
 
 local function dispatchStartBar(_, module, key, text, time)
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace("BigWigs", "StartBar", key, text, time) end
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub
             and sub.onStartBar
             and (not sub.spellKeys or sub.spellKeys[key])
         then
-            local ok, err = pcall(sub.onStartBar, key, text, time, module)
+            local ok, err = dispatchCallback(sub, "onStartBar", key, text, time, module)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed: %s", sub.owner, tostring(err))
             end
@@ -53,14 +63,16 @@ end
 local function dispatchTimer(
     _, module, key, time, maxTime, text, count, icon, isApprox, isBarEnabled
 )
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace("BigWigs", "Timer", key, text, time, count) end
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub
             and sub.onTimer
             and (not sub.spellKeys or sub.spellKeys[key])
         then
-            local ok, err = pcall(
-                sub.onTimer,
+            local ok, err = dispatchCallback(
+                sub,
+                "onTimer",
                 key,
                 text,
                 time,
@@ -84,10 +96,11 @@ local function dispatchTimer(
 end
 
 local function dispatchStopBar(_, module, text)
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace("BigWigs", "StopBar", text) end
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and sub.onStopBar then
-            local ok, err = pcall(sub.onStopBar, text, module)
+            local ok, err = dispatchCallback(sub, "onStopBar", text, module)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed stopping a bar: %s", sub.owner, tostring(err))
             end
@@ -96,10 +109,11 @@ local function dispatchStopBar(_, module, text)
 end
 
 local function dispatchStage(_, module, stage)
+    if E.RaidDiagnostics then E.RaidDiagnostics:Trace("BigWigs", "Phase", stage) end
     for i = 1, #subscriberOrder do
         local sub = subscribers[subscriberOrder[i]]
         if sub and sub.onStage then
-            local ok, err = pcall(sub.onStage, module, stage)
+            local ok, err = dispatchCallback(sub, "onStage", module, stage)
             if not ok then
                 E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed changing stage: %s", sub.owner, tostring(err))
             end

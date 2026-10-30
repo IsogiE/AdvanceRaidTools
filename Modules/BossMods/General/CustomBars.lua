@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/General/CustomBars")
 
 local MODULE_NAME = "BossMods_CustomBars"
 local SHARE_TYPE = "customBar"

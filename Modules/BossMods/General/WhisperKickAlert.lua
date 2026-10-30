@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/General/WhisperKickAlert")
 
 E:RegisterModuleDefaults("BossMods_WhisperKickAlert", {
     enabled = false,

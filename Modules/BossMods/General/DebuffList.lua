@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/General/DebuffList")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_DebuffList"
 

@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/BossMods/DisplayTemplatesSettings")
 local T = E.Templates
 local BossMods = E:GetModule("BossMods")
 local Displays = BossMods.DisplayTemplates

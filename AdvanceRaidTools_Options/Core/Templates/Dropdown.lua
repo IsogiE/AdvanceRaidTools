@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Core/Templates/Dropdown")
 local T = E.Templates
 local P = E.TemplatePrivate
 
@@ -50,6 +51,14 @@ end
 -- =============================================================================
 
 local dropdownPullout
+local function paintDropdownBorder(button)
+    if not button.artPixelBorder then E:CreatePixelBorder(button) end
+    E:LayoutPixelBorder(button, 0, E:PixelSize(button))
+    button:SetBackdropBorderColor(0, 0, 0, 0)
+    local color = button._dropdownDisabled and c_textDim() or button._highlight and c_accent() or c_border()
+    E:SetPixelBorderColor(button, unpack(color))
+end
+
 local function getDropdownPullout()
     if dropdownPullout then
         return dropdownPullout
@@ -81,7 +90,8 @@ local function getDropdownPullout()
     p:HookScript("OnHide", function()
         blocker:Hide()
         if p._owner and p._owner._highlight then
-            p._owner:SetBackdropBorderColor(unpack(c_border()))
+            p._owner._highlight = false
+            paintDropdownBorder(p._owner)
         end
         p._owner = nil
     end)
@@ -193,6 +203,13 @@ function T:Dropdown(parent, opts)
     btn:SetPoint("TOPLEFT", 0, -labelH)
     btn:SetPoint("TOPRIGHT", 0, -labelH)
     btn:SetHeight(buttonH)
+    btn.artOnMediaUpdate = paintDropdownBorder
+    btn:HookScript("OnSizeChanged", paintDropdownBorder)
+    btn:HookScript("OnShow", paintDropdownBorder)
+    btn:HookScript("OnHide", function(self)
+        self._highlight = false
+        if dropdownPullout and dropdownPullout._owner == self then dropdownPullout:Hide() end
+    end)
 
     local text = newFont(btn, 0)
     text:SetTextColor(1, 1, 1)
@@ -371,21 +388,21 @@ function T:Dropdown(parent, opts)
         elseif scrollbar then
             scrollbar.Refresh()
         end
-        self:SetBackdropBorderColor(unpack(c_accent()))
         self._highlight = true
+        paintDropdownBorder(self)
     end)
 
     btn:SetScript("OnEnter", function(self)
         if not state.disabled then
-            self:SetBackdropBorderColor(unpack(c_accent()))
             self._highlight = true
+            paintDropdownBorder(self)
         end
     end)
     btn:SetScript("OnLeave", function(self)
         local p = dropdownPullout
         if not state.disabled and not (p and p:IsShown() and p._owner == self) then
-            self:SetBackdropBorderColor(unpack(c_border()))
             self._highlight = false
+            paintDropdownBorder(self)
         end
     end)
 
@@ -395,22 +412,24 @@ function T:Dropdown(parent, opts)
 
     local function SetDisabled(d)
         state.disabled = d and true or false
+        btn._dropdownDisabled = state.disabled
         btn:EnableMouse(not state.disabled)
         if state.disabled then
+            btn._highlight = false
+            if dropdownPullout and dropdownPullout._owner == btn then dropdownPullout:Hide() end
             if labelFS then
                 labelFS:SetTextColor(unpack(c_textDim()))
             end
             text:SetTextColor(unpack(c_textDim()))
             arrow:SetVertexColor(unpack(c_textDim()))
-            btn:SetBackdropBorderColor(unpack(c_textDim()))
         else
             if labelFS then
                 labelFS:SetTextColor(unpack(c_text()))
             end
             text:SetTextColor(1, 1, 1)
             arrow:SetVertexColor(unpack(c_accent()))
-            btn:SetBackdropBorderColor(unpack(c_border()))
         end
+        paintDropdownBorder(btn)
     end
 
     local _measureFS

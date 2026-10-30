@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Misc/Bress")
 
 E:RegisterModuleDefaults("BossMods_Bress", {
     enabled = false,

@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/DisplayTemplatePreviews")
 local Displays = E:GetModule("BossMods").DisplayTemplates
 
 local samples = {

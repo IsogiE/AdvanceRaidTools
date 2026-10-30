@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/VenomousAbyss/AbilityAlertConfig")
 
 local issecretvalue = issecretvalue or function() return false end
 

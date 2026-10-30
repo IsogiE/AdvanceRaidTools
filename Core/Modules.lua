@@ -117,6 +117,7 @@ function E:NewModule(name, ...)
 
     local mod = aceNewModule(self, name, ...)
     mod.moduleName = name
+    E:InstrumentCallbacks(mod, name)
 
     if not hasModuleDefaults(name) then
         E:ChannelWarn("ModuleDefaults", "module '%s' did not register defaults before NewModule", name)

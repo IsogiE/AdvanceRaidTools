@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/MythicPlusGrouper/MythicPlusGrouper")
 
 local MODULE_NAME = "MythicPlusGrouper"
 local COMM_PREFIX = "ARTMPG2"

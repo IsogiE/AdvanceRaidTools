@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/Queldanas/Dirge")
 
 E:RegisterModuleDefaults("BossMods_Dirge", {
     enabled = false,

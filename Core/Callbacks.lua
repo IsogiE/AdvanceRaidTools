@@ -26,7 +26,7 @@ local function queueCall(pending, kind, ...)
 end
 
 local function makeDeferredHandle()
-    local handle = E.Libs.AceEvent:Embed({})
+    local handle = E:InstrumentCallbacks(E.Libs.AceEvent:Embed({}), "OptionsCallbacks")
     local pending = {}
     handle._artPending = pending
 
@@ -56,7 +56,9 @@ function E:NewCallbackHandle()
     if self._prebuildActive then
         return makeDeferredHandle()
     end
-    return self.Libs.AceEvent:Embed({})
+    if not self.DiagnosticTimingEnabled then return self.Libs.AceEvent:Embed({}) end
+    local source = debugstack(2, 1, 0):match("AddOns[/\\]AdvanceRaidTools[/\\]([^:]+)") or "Callbacks"
+    return self:InstrumentCallbacks(self.Libs.AceEvent:Embed({}), source)
 end
 
 function E:ArmOptionsDeferredHandles()

@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/UnitFrameAuras")
 local BossMods = E:GetModule("BossMods")
 local Engines = BossMods.Engines
 BossMods.unitFrameAuraFeatures = {}

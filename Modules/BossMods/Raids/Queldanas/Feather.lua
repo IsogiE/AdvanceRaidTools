@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/Queldanas/Feather")
 
 E:RegisterModuleDefaults("BossMods_Feather", {
     enabled = false,

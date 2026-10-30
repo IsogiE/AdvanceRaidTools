@@ -1,3 +1,5 @@
+local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/Nicknames/Addons/LiquidAPI")
 local E = _G.ART and _G.ART[1]
 local Nicknames = E and E:GetModule("Nicknames", true)
 

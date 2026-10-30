@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Core/GameMenu")
 local callbacks = E:NewCallbackHandle()
 local button, layoutTimer
 

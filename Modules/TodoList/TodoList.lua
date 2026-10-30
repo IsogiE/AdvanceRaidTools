@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/TodoList/TodoList")
 
 local MODULE_NAME = "TodoList"
 local SHARE_TYPE = "todoList"

@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Misc/BreakTimer")
 
 E:RegisterModuleDefaults("BossMods_BreakTimer", {
     enabled = false,

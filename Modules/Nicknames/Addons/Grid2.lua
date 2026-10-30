@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/Nicknames/Addons/Grid2")
 local Nicknames = E:GetModule("Nicknames")
 
 local gridEvents = E:NewCallbackHandle()

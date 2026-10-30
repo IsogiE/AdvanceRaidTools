@@ -1,4 +1,5 @@
 local E, L, P = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/DisplayTemplates")
 local BossMods = E:GetModule("BossMods")
 local Shared = BossMods.Engines.Shared
 

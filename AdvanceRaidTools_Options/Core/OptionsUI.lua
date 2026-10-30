@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Core/OptionsUI")
 local T = E.Templates
 local OH = E.OptionsHelpers
 

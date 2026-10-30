@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/QualityOfLife/Resources/Resources")
 
 E:RegisterModuleDefaults("QoL_Resources", {
     enabled = false,

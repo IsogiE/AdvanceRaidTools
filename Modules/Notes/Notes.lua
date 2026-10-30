@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/Notes/Notes")
 
 local MAIN_SLOT = 1
 local PINNED_PERSONAL_SLOT = 2
@@ -1425,7 +1426,7 @@ end
 local UNDO_DEBOUNCE = 1.0 -- seconds between distinct undo entries for a slot
 local UNDO_LIMIT = 20
 
-function Notes:PushUndo(index, previousText)
+function Notes:PushUndo(index, previousText, force)
     index = clampIndex(self, index)
     if not index then
         return
@@ -1439,7 +1440,7 @@ function Notes:PushUndo(index, previousText)
         return
     end
 
-    if last and (now - last.ts) < UNDO_DEBOUNCE then
+    if not force and last and (now - last.ts) < UNDO_DEBOUNCE then
         last.ts = now
         return
     end

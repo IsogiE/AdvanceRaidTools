@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/InviteTool/InviteTool")
 
 E:RegisterModuleDefaults("InviteTool", {
     enabled = true,

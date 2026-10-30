@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/VenomousAbyss/UlatekNameplateBuffs")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_UlatekNameplateBuffs"
 local ENCOUNTER_ID = 3492

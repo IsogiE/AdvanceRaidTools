@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/Engines/AuraCircle")
 
 local BossMods = E:GetModule("BossMods")
 local Engines = BossMods.Engines
@@ -789,6 +790,7 @@ function BossMods:RegisterAuraCircleFeature(definition)
             return
         end
 
+        if E.RaidDiagnostics then E.RaidDiagnostics:Trace(self.moduleName, "StartWindow", duration) end
         local display = self:EnsureDisplay()
         if self.definition.mode == "timed" then
             display:StartTimed(duration)
@@ -799,6 +801,7 @@ function BossMods:RegisterAuraCircleFeature(definition)
 
     function module:StopLiveWindow()
         if self.display then
+            if E.RaidDiagnostics then E.RaidDiagnostics:Trace(self.moduleName, "StopWindow") end
             self.display:StopLive()
         end
     end

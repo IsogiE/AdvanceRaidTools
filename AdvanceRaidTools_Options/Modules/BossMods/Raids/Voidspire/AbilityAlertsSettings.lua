@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/BossMods/Raids/Voidspire/AbilityAlertsSettings")
 local T = E.Templates
 
 local BossMods = E:GetModule("BossMods", true)

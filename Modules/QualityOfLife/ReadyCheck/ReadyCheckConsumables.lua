@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/QualityOfLife/ReadyCheck/ReadyCheckConsumables")
 local Data = E.ReadyCheckData
 
 local MODULE_NAME = "QoL_ReadyCheckConsumables"

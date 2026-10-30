@@ -1,4 +1,5 @@
 local E, L, P = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/QualityOfLife/Resources/ResourcesSettings")
 local T = E.Templates
 
 local POWER_TEXT_MODES = {

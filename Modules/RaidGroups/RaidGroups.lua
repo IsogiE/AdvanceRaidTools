@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/RaidGroups/RaidGroups")
 
 E:RegisterModuleDefaults("RaidGroups", {
     enabled = true

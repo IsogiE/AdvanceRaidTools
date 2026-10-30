@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/General/ReadyAssignments")
 
 local TEXT_MIN_WIDTH = 120
 local TEXT_PADDING_X = 20

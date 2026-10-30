@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/AbilityAlertDefaults")
 
 local MODULE_NAME = "BossMods_AbilityAlertDefaults"
 local Shared = E:GetModule("BossMods").Engines.Shared

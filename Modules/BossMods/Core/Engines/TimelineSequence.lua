@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/Engines/TimelineSequence")
 
 local BossMods = E:GetModule("BossMods")
 local Engines = BossMods.Engines
@@ -574,6 +575,7 @@ function BossMods:RegisterTimelineSequenceFeature(definition)
             return
         end
 
+        if E.RaidDiagnostics then E.RaidDiagnostics:Trace(self.moduleName, "StartSequence", sequenceKey) end
         self:EnsureDisplay():StartSequence(sequenceKey)
     end
 

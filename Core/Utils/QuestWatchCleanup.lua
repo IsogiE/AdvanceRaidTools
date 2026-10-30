@@ -1,3 +1,5 @@
+local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Core/Utils/QuestWatchCleanup")
 -- Thanks Xeph for letting us copy
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")

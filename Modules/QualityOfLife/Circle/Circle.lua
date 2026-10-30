@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/QualityOfLife/Circle/Circle")
 
 E:RegisterModuleDefaults("QoL_Circle", {
     enabled = false,

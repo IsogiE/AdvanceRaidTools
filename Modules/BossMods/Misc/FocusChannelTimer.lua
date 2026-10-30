@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Misc/FocusChannelTimer")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_FocusChannelTimer"
 local DIVINE_HYMN_SPELL_ID = 64843

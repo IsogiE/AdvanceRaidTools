@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/RaidGroups/RaidGroupsEditor")
 local T = E.Templates
 
 local RaidGroups = E:GetModule("RaidGroups", true)

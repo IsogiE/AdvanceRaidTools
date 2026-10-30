@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/UnbindingOfKithix/OrbPickup")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_KithixOrbPickup"
 local ENCOUNTER_ID = 3513

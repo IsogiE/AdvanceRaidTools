@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Core/Utils/SoundPreload")
 
 local LSM = E.Libs.LSM
 

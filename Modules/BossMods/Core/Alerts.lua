@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Core/Alerts")
 
 local BossMods = E:GetModule("BossMods")
 BossMods.Alerts = BossMods.Alerts or {}

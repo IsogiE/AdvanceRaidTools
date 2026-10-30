@@ -1,4 +1,5 @@
 local E, L, P = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/Home/Home")
 local LSM = E.Libs.LSM
 
 local function rgba(r, g, b, a)

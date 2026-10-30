@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/QualityOfLife/ReadyCheck/RaidBuffListSettings")
 local T = E.Templates
 
 local OUTLINE_VALUES = {
@@ -34,6 +35,16 @@ local function buildRaidBuffListTab(mod, isDisabled)
     local positionWidget
 
     return {
+        supplies = {
+            order = 5, width = "full",
+            build = function(parent)
+                return T:Checkbox(parent, {
+                    text = L["QoL_SupplyShare"], tooltip = L["QoL_SupplyShareDesc"],
+                    get = function() return E:GetModule("QoL_RaidSupplies"):IsEnabled() end,
+                    onChange = function(_, value) E:SetModuleEnabled("QoL_RaidSupplies", value) end
+                })
+            end
+        },
         scale = {
             order = 10,
             width = "1/2",

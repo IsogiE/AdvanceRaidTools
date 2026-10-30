@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Misc/PullReminder")
 local BossMods = E:GetModule("BossMods")
 local NoteBlock = BossMods.NoteBlock
 local Shared = BossMods.Engines.Shared

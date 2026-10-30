@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/BossMods/BossModsSettings")
 local T = E.Templates
 
 local NAV_WIDTH = 220

@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Core/Templates/Basics")
 local T = E.Templates
 local P = E.TemplatePrivate
 
@@ -166,6 +167,11 @@ function T:Description(parent, opts)
         fs:SetWordWrap(false)
     end
     fs:SetText(tostring(evalMaybeFn(opts.text) or ""))
+
+    if opts.tooltip then
+        f:EnableMouse(true)
+        attachTooltip(f, opts.tooltip, opts.tooltipAnchor)
+    end
 
     -- Only set a text color if the caller asked for one
     if opts.color == "accent" then

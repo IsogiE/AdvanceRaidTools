@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/QualityOfLife/CDMTweaks/CDMTweaks")
 
 E:RegisterModuleDefaults("QoL_CDMTweaks", {
     enabled = false,

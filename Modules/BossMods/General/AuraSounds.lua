@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/General/AuraSounds")
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_AuraSounds"
 local CHANNELS = {Master = true, SFX = true, Music = true, Ambience = true, Dialog = true}

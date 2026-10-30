@@ -1,4 +1,5 @@
 local E = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/Nicknames/Addons/EllesmereUI")
 local Nicknames = E:GetModule("Nicknames")
 local refreshPending = false
 

@@ -4,11 +4,12 @@
 ## Author: Isogi
 ## Version: @project-version@
 ## SavedVariables: AdvanceRaidToolsDB
+## LoadSavedVariablesFirst: 1
 ## AddonCompartmentFunc: ART_OnAddonCompartmentClick
 ## IconTexture: Interface\AddOns\AdvanceRaidTools\Media\Textures\Logo
 ## LoadManagers: AddonLoader
 ## RequiredDeps: AdvanceRaidTools_Libraries, BigWigs
-## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, EllesmereUI, AdvanceRaidTools_Media
+## OptionalDeps: ElvUI, Grid2, MRT, Cell, UnhaltedUnitFrames, DandersFrames, EnhanceQoL, EllesmereUI, AdvanceRaidTools_Media, !BugGrabber, !!AddonProfiler
 ## DefaultState: enabled
 ## Category: Advance
 ## X-Wago-ID: qKQmRoKx
@@ -17,6 +18,7 @@
 Locales\Locales.xml
 
 Core\Core.lua
+Core\Diagnostics.lua
 Core\API.lua
 Core\Callbacks.lua
 Core\UnitFrames.lua
@@ -57,6 +59,7 @@ Modules\Currency\Currency.lua
 Modules\AddonChecker\AddonChecker.lua
 
 Modules\Notes\Notes.lua
+Modules\Notes\NameReplace.lua
 
 Modules\Macros\Macros.lua
 
@@ -68,5 +71,6 @@ Modules\QualityOfLife\Resources\Resources.lua
 Modules\QualityOfLife\CDMTweaks\CDMTweaks.lua
 Modules\QualityOfLife\WhisperSound\WhisperSound.lua
 Modules\QualityOfLife\ReadyCheck\ReadyCheck.xml
+Modules\QualityOfLife\Diagnostics\Diagnostics.lua
 
 Modules\BossMods\BossMods.xml

@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossMods/Raids/VenomousAbyss/CoiledAltarIntermissionBar")
 
 local MODULE_NAME = "BossMods_CoiledAltarIntermissionBar"
 local SHARE_TYPE = "CoiledAltarIntermissionBarLayout"
