@@ -65,13 +65,14 @@ function Mod:ResolveUnits(text)
     local function add(unit)
         if not seen[unit] then seen[unit] = true; result[#result + 1] = unit end
     end
+    local playerIsTank = E:GetUnitRole("player") == "TANK"
     for target in (text or "player"):lower():gmatch("[^,%s]+") do
         local matched
         for _, unit in ipairs(group) do
             local name = E:SafeString(UnitName(unit)) or ""
             local full = E:GetUnitFullName(unit, true) or ""
             local nickname = E.GetNickname and E:GetNickname(unit) or ""
-            if (target == "cotank" and E:GetUnitRole(unit) == "TANK" and not UnitIsUnit(unit, "player"))
+            if (target == "cotank" and playerIsTank and E:GetUnitRole(unit) == "TANK" and not UnitIsUnit(unit, "player"))
                 or target == name:lower() or target == full:lower() or target == nickname:lower() then
                 add(unit)
                 matched = true
