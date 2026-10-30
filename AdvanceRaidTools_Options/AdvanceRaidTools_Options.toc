@@ -52,4 +52,6 @@ Modules\QualityOfLife\WhisperSound\WhisperSoundSettings.lua
 Modules\QualityOfLife\ReadyCheck\ReadyCheck.xml
 Modules\QualityOfLife\Diagnostics\DiagnosticsSettings.lua
 
+Modules\EncounterLogs\EncounterLogsSettings.lua
+
 Modules\BossMods\BossMods.xml
