@@ -475,7 +475,9 @@ local function applyAssignmentAppearance(f, assignmentDB)
             assignmentB,
             assignmentA
         )
-        countdown:SetSize(countdownWidth, countdownSize + 4)
+        -- Auto width so larger fonts never truncate the countdown ("13...").
+        countdown:SetWidth(0)
+        countdown:SetHeight(countdownSize + 4)
     end
 
     return layout
