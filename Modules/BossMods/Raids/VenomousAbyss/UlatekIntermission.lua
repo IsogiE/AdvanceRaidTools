@@ -426,7 +426,7 @@ local function applyAssignmentAppearance(f, assignmentDB)
     )
     local countdownSize = math.max(14, math.floor(assignmentSize * 0.7 + 0.5))
     local countdownWidth = 80
-    local rowHeight = math.max(40, assignmentSize + 10)
+    local rowHeight = math.max(40, assignmentSize + 10, math.ceil(assignmentSize * 1.25))
     local assignmentHeight = rowHeight + countdownSize + 12
     local assignmentFont = E:FetchFont(assignmentDB.font.name)
     E:ApplyFontString(
