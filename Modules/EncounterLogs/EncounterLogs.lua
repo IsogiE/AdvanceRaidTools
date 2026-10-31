@@ -292,6 +292,12 @@ function Mod:OnTimelineEvent(event, info)
         value(info.id), value(spellID), spellName and (" (" .. value(spellName) .. ")") or "", value(info.duration)))
 end
 
+function Mod:OnEncounterWarning(_, info)
+    if not self.active or type(info) ~= "table" then return end
+    self:Log(("warning: severity=%s duration=%s sound=%s target=%s"):format(value(info.severity),
+        value(info.duration), value(info.shouldPlaySound), info.targetGUID == nil and "no" or "yes"))
+end
+
 function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, groupSize)
     if not self:ShouldRecord() then return end
     if self.active then self:Finish(nil, true) end
@@ -330,6 +336,7 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
     self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "OnEngageUnit")
     self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED", "OnTimelineEvent")
     self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED", "OnTimelineEvent")
+    self:RegisterEvent("ENCOUNTER_WARNING", "OnEncounterWarning")
     E:SendMessage("ART_ENCOUNTERLOGS_UPDATED")
 end
 
@@ -366,6 +373,7 @@ function Mod:Finish(success, incomplete)
     self:UnregisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
     self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
     self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
+    self:UnregisterEvent("ENCOUNTER_WARNING")
 
     local duration = math.max(0, GetTime() - capture.clock)
     local outcome = incomplete and "incomplete" or (success and "kill" or "wipe")
