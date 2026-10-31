@@ -1,7 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
     <Script file="BossMods.lua"/>
 
-    <Script file="Core\PhaseTimerData.lua"/>
     <Script file="Core\Engines.lua"/>
     <Script file="Core\Engines\Shared.lua"/>
     <Script file="Core\Engines\Bar.lua"/>
@@ -27,16 +26,22 @@
     <Script file="Core\ReadyAssignments.lua"/>
     <Script file="Core\KickDisplay.lua"/>
 
+    <Script file="Raids\Queldanas\PhaseTimers.lua"/>
     <Script file="Raids\Queldanas\AbilityData.lua"/>
     <Script file="Raids\Queldanas\ReadyAssignments.lua"/>
+    <Script file="Raids\Voidspire\PhaseTimers.lua"/>
     <Script file="Raids\Voidspire\AbilityData.lua"/>
     <Script file="Raids\Voidspire\ReadyAssignments.lua"/>
+    <Script file="Raids\Dreamrift\PhaseTimers.lua"/>
     <Script file="Raids\Dreamrift\AbilityData.lua"/>
     <Script file="Raids\Dreamrift\ReadyAssignments.lua"/>
+    <Script file="Raids\Sporefall\PhaseTimers.lua"/>
     <Script file="Raids\Sporefall\AbilityData.lua"/>
+    <Script file="Raids\UnbindingOfKithix\PhaseTimers.lua"/>
     <Script file="Raids\UnbindingOfKithix\AbilityData.lua"/>
     <Script file="Raids\Voidspire\AbilityAlertConfig.lua"/>
 
+    <Script file="Raids\VenomousAbyss\PhaseTimers.lua"/>
     <Script file="Raids\VenomousAbyss\AbilityData.lua"/>
     <Script file="Raids\VenomousAbyss\UnitFrameAuras.lua"/>
     <Script file="Raids\VenomousAbyss\SentinelsRange.lua"/>

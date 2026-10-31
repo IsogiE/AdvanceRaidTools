@@ -30,7 +30,17 @@ local DIFFICULTY_IDS = {
 local EVENT_TRIGGER_KEYS = {
     ENCOUNTER_TIMELINE_EVENT_ADDED = "timelineAdded",
     ENCOUNTER_TIMELINE_EVENT_REMOVED = "timelineRemoved",
-    INSTANCE_ENCOUNTER_ENGAGE_UNIT = "engageUnit"
+    ENCOUNTER_TIMELINE_EVENT_CANCELED = "timelineCanceled",
+    INSTANCE_ENCOUNTER_ENGAGE_UNIT = "engageUnit",
+    UNIT_CAST = "unitCast"
+}
+
+-- unitCast triggers listen to these boss-unit cast events. `cast` in the
+-- trigger data names which one fires it.
+local UNIT_CAST_EVENTS = {
+    UNIT_SPELLCAST_START = "start",
+    UNIT_SPELLCAST_SUCCEEDED = "succeeded",
+    UNIT_SPELLCAST_CHANNEL_START = "channelStart"
 }
 
 local function normalizeDifficulty(difficulty)
@@ -67,6 +77,14 @@ end
 
 local function encounterTimelineFinishedState()
     return Enum and Enum.EncounterTimelineEventState and Enum.EncounterTimelineEventState.Finished or 2
+end
+
+local function encounterTimelineActiveState()
+    return Enum and Enum.EncounterTimelineEventState and Enum.EncounterTimelineEventState.Active or 0
+end
+
+local function encounterTimelineCanceledState()
+    return Enum and Enum.EncounterTimelineEventState and Enum.EncounterTimelineEventState.Canceled or 3
 end
 
 local function isEncounterTimelineInfo(info)
@@ -295,6 +313,28 @@ function PhaseTimers:TriggerContextMatches(target, trigger, now)
     return self:CanSwapPhase(now, trigger)
 end
 
+-- Number of encounter-sourced timeline events currently active, counted the
+-- same way NSRT does so phase changes line up with NSRT-style notes.
+function PhaseTimers:GetActiveTimelineEventCount()
+    local timeline = C_EncounterTimeline
+    if timeline and timeline.GetEventList and timeline.GetEventInfo and timeline.GetEventState then
+        local count = 0
+        for _, eventID in ipairs(timeline.GetEventList() or {}) do
+            local info = timeline.GetEventInfo(eventID)
+            if info and info.source == encounterTimelineSource()
+                and timeline.GetEventState(eventID) == encounterTimelineActiveState() then
+                count = count + 1
+            end
+        end
+        return count
+    end
+    local count = 0
+    for _ in pairs(self.activeTimelineEvents or {}) do
+        count = count + 1
+    end
+    return count
+end
+
 function PhaseTimers:TriggerConditionsMatch(eventKey, trigger, info, now)
     local durationTolerance = trigger.durationTolerance
     if trigger.duration and not durationMatches(info, trigger.duration, durationTolerance) then
@@ -315,7 +355,12 @@ function PhaseTimers:TriggerConditionsMatch(eventKey, trigger, info, now)
 
     local addedCount = recentCount(self.recentTimelineAdded, now)
     local removedCount = recentCount(self.recentTimelineRemoved, now)
-    local eventCount = eventKey == "timelineRemoved" and removedCount or addedCount
+    local eventCount = addedCount
+    if eventKey == "timelineRemoved" then
+        eventCount = removedCount
+    elseif eventKey == "timelineCanceled" then
+        eventCount = recentCount(self.recentTimelineCanceled, now)
+    end
     if trigger.count and eventCount < trigger.count then
         return false
     end
@@ -350,6 +395,17 @@ function PhaseTimers:TriggerConditionsMatch(eventKey, trigger, info, now)
         return false
     end
 
+    if trigger.castSequence then
+        local sequenceUnit = trigger.castSequence.unit or trigger.unit
+        if not (self.validCastSequences and self.validCastSequences[sequenceUnit]) then
+            return false
+        end
+    end
+
+    if trigger.activeTimelineMax and self:GetActiveTimelineEventCount() > trigger.activeTimelineMax then
+        return false
+    end
+
     return true
 end
 
@@ -374,6 +430,8 @@ function PhaseTimers:RecordPhaseTarget(target, now, updateCurrent)
     self.currentPhase = phase
     self.phaseSwapTime = now
     self.phaseStarts[phase] = now - self.encounterStartTime
+    self.unitCastStarts = {}
+    self.validCastSequences = {}
     return true
 end
 
@@ -393,7 +451,10 @@ function PhaseTimers:EvaluateTriggerSet(eventKey, info, eventID, now)
 
     for target, entries in pairs(triggers) do
         for _, trigger in ipairs(triggerList(entries) or {}) do
-            if self:TriggerContextMatches(target, trigger, now) and self:TriggerConditionsMatch(eventKey, trigger, info, now) then
+            local castMatches = eventKey ~= EVENT_TRIGGER_KEYS.UNIT_CAST
+                or (info and trigger.unit == info.unit and trigger.cast == info.cast)
+            if castMatches and self:TriggerContextMatches(target, trigger, now)
+                and self:TriggerConditionsMatch(eventKey, trigger, info, now) then
                 if eventKey == "timelineFinished" and eventID then
                     self.pendingTimelineTriggers[eventID] = {target = target, trigger = trigger}
                 else
@@ -466,6 +527,93 @@ function PhaseTimers:OnTimelineStateChanged(_, eventID)
         self.pendingTimelineTriggers[eventID] = nil
         self:RecordPhaseTarget(pending.target, now)
     end
+
+    if self.customTimelineEvents[eventID] then
+        return
+    end
+    local timeline = C_EncounterTimeline
+    local state = timeline and timeline.GetEventState and timeline.GetEventState(eventID)
+    if state ~= nil and state == encounterTimelineCanceledState() then
+        addRecentEvent(self.recentTimelineCanceled, info or {id = eventID}, now)
+        self:EvaluateTriggerSet(EVENT_TRIGGER_KEYS.ENCOUNTER_TIMELINE_EVENT_CANCELED, info, eventID, now)
+    end
+end
+
+-- Boss unit casts (unitCast triggers). Only the boss units named in the
+-- current encounter's data are listened to, and only while it is engaged.
+function PhaseTimers:OnUnitCast(event, unit)
+    if not self.encounterStartTime then
+        return
+    end
+    local cast = UNIT_CAST_EVENTS[event]
+    if not cast or type(unit) ~= "string" then
+        return
+    end
+    local now = GetTime()
+
+    if cast == "start" then
+        self.unitCastStarts[unit] = self.unitCastStarts[unit] or {}
+        insert(self.unitCastStarts[unit], now)
+    elseif cast == "succeeded" and self.castSequenceGaps and self.castSequenceGaps[unit] then
+        local sequence = self.castSequenceGaps[unit]
+        for _, startTime in ipairs(self.unitCastStarts[unit] or {}) do
+            if durationEquals(now - startTime, sequence.gap, sequence.tolerance or 0.2) then
+                self.validCastSequences[unit] = true
+                break
+            end
+        end
+    end
+
+    self:EvaluateTriggerSet(EVENT_TRIGGER_KEYS.UNIT_CAST, {unit = unit, cast = cast}, nil, now)
+end
+
+function PhaseTimers:StartUnitCastListeners()
+    self:StopUnitCastListeners()
+    local difficultyData = self:GetDifficultyData(self.currentEncounterID, self.currentDifficultyID)
+    local triggers = difficultyData and difficultyData[EVENT_TRIGGER_KEYS.UNIT_CAST]
+    if type(triggers) ~= "table" then
+        return
+    end
+
+    local units = {}
+    self.castSequenceGaps = {}
+    for _, entries in pairs(triggers) do
+        for _, trigger in ipairs(triggerList(entries) or {}) do
+            if type(trigger.unit) == "string" then
+                units[trigger.unit] = true
+            end
+            local sequence = trigger.castSequence
+            if type(sequence) == "table" then
+                local sequenceUnit = sequence.unit or trigger.unit
+                units[sequenceUnit] = true
+                self.castSequenceGaps[sequenceUnit] = sequence
+            end
+        end
+    end
+
+    self.unitCastFrames = self.unitCastFrames or {}
+    local index = 0
+    for unit in pairs(units) do
+        index = index + 1
+        local frame = self.unitCastFrames[index]
+        if not frame then
+            frame = CreateFrame("Frame")
+            frame:SetScript("OnEvent", function(_, event, eventUnit)
+                PhaseTimers:OnUnitCast(event, eventUnit)
+            end)
+            self.unitCastFrames[index] = frame
+        end
+        for event in pairs(UNIT_CAST_EVENTS) do
+            frame:RegisterUnitEvent(event, unit)
+        end
+    end
+end
+
+function PhaseTimers:StopUnitCastListeners()
+    for _, frame in ipairs(self.unitCastFrames or {}) do
+        frame:UnregisterAllEvents()
+    end
+    self.castSequenceGaps = nil
 end
 
 function PhaseTimers:OnEncounterEngageUnit()
@@ -488,6 +636,9 @@ function PhaseTimers:ResetEncounterState()
     self.customTimelineEvents = {}
     self.recentTimelineAdded = {}
     self.recentTimelineRemoved = {}
+    self.recentTimelineCanceled = {}
+    self.unitCastStarts = {}
+    self.validCastSequences = {}
     self.lastTimelineAddedTime = nil
     self.previousTimelineAddedTime = nil
 end
@@ -501,9 +652,11 @@ function PhaseTimers:OnEncounterStart(_, encounterID, encounterName, difficultyI
     self.currentPhase = 1
     self.phaseSwapTime = self.encounterStartTime
     self.phaseStarts[1] = 0
+    self:StartUnitCastListeners()
 end
 
 function PhaseTimers:OnEncounterEnd()
+    self:StopUnitCastListeners()
     self:ResetEncounterState()
 end
 
@@ -519,6 +672,7 @@ end
 
 function PhaseTimers:OnDisable()
     self:UnregisterAllEvents()
+    self:StopUnitCastListeners()
     self:ResetEncounterState()
 end
 
