@@ -292,6 +292,22 @@ function Mod:OnTimelineEvent(event, info)
         value(info.id), value(spellID), spellName and (" (" .. value(spellName) .. ")") or "", value(info.duration)))
 end
 
+function Mod:OnTimelineStateChanged(_, eventID)
+    if not self.active then return end
+    local state
+    if C_EncounterTimeline and C_EncounterTimeline.GetEventState and eventID ~= nil and not E:IsSecret(eventID) then
+        local ok, result = pcall(C_EncounterTimeline.GetEventState, eventID)
+        if ok then state = result end
+    end
+    local stateName = state
+    if state ~= nil and not E:IsSecret(state) and Enum and Enum.EncounterTimelineEventState then
+        for name, id in pairs(Enum.EncounterTimelineEventState) do
+            if id == state then stateName = name break end
+        end
+    end
+    self:Log(("timeline STATE: id=%s state=%s"):format(value(eventID), value(stateName)))
+end
+
 function Mod:OnEncounterWarning(_, info)
     if not self.active or type(info) ~= "table" then return end
     self:Log(("warning: severity=%s duration=%s sound=%s target=%s"):format(value(info.severity),
@@ -336,6 +352,7 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
     self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "OnEngageUnit")
     self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED", "OnTimelineEvent")
     self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED", "OnTimelineEvent")
+    self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED", "OnTimelineStateChanged")
     self:RegisterEvent("ENCOUNTER_WARNING", "OnEncounterWarning")
     E:SendMessage("ART_ENCOUNTERLOGS_UPDATED")
 end
@@ -373,6 +390,7 @@ function Mod:Finish(success, incomplete)
     self:UnregisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
     self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
     self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
+    self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
     self:UnregisterEvent("ENCOUNTER_WARNING")
 
     local duration = math.max(0, GetTime() - capture.clock)
