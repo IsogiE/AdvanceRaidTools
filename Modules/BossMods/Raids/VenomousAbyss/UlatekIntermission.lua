@@ -375,6 +375,46 @@ local function createAssignmentRegions(assignmentAnchor)
     return assignmentText, assignmentMeasure, assignmentCountdowns
 end
 
+-- Measures marker and connector widths on our own (never secret) measuring
+-- string, so it is safe to call in combat even when the displayed text was
+-- formatted from a secret chat payload. Fonts may not be ready when settings
+-- are first applied (login/loading screens), so this is repeated when an
+-- assignment is actually shown.
+local function measureAssignmentRow(f, layout)
+    local measure = f.assignmentMeasure
+    local markerMarkup = ASSIGNMENT_MARKER_MARKUP:format(1)
+    measure:SetText(markerMarkup)
+    local iconWidth = tonumber(measure:GetStringWidth())
+    measure:SetText(markerMarkup .. L["BossMods_UlatekIntermissionSequenceConnector"] .. markerMarkup)
+    local pairWidth = tonumber(measure:GetStringWidth())
+    measure:SetText("")
+
+    if E:IsSecret(iconWidth) or E:IsSecret(pairWidth) then
+        iconWidth, pairWidth = nil, nil
+    end
+    local valid = iconWidth and pairWidth and iconWidth > 0 and pairWidth > 2 * iconWidth
+    if valid then
+        layout.iconWidth = iconWidth
+        layout.connectorWidth = pairWidth - 2 * iconWidth
+    else
+        layout.iconWidth = layout.iconWidth or ASSIGNMENT_ICON_WIDTH
+        layout.connectorWidth = layout.connectorWidth or 40
+    end
+    layout.measured = valid and true or false
+
+    local width = math.ceil((MAX_ASSIGNMENT_SLOTS - 1) * (layout.iconWidth + layout.connectorWidth)
+        + math.max(layout.iconWidth, layout.countdownWidth or 80) + 8)
+    -- The anchor size only matters for movers and display stacking. Resizing it
+    -- fires the stack layout, which may touch protected frames, so never do it
+    -- in combat; the row text sizes itself and does not depend on it.
+    if (layout.width ~= width or layout.appliedHeight ~= layout.height) and not InCombatLockdown() then
+        layout.width = width
+        layout.appliedHeight = layout.height
+        f.assignmentAnchor:SetSize(width, layout.height or 60)
+    end
+    return valid
+end
+
 local function applyAssignmentAppearance(f, assignmentDB)
     local assignmentSize = math.max(12, tonumber(assignmentDB.font.size) or 30)
     local assignmentR, assignmentG, assignmentB, assignmentA = E:ColorTuple(
@@ -410,17 +450,17 @@ local function applyAssignmentAppearance(f, assignmentDB)
         assignmentSize,
         assignmentDB.font.outline
     )
-    local markerMarkup = ASSIGNMENT_MARKER_MARKUP:format(1)
-    f.assignmentMeasure:SetText(markerMarkup)
-    local iconWidth = f.assignmentMeasure:GetStringWidth()
-    f.assignmentMeasure:SetText(
-        markerMarkup .. L["BossMods_UlatekIntermissionSequenceConnector"] .. markerMarkup
-    )
-    local connectorWidth = f.assignmentMeasure:GetStringWidth() - 2 * iconWidth
-    local assignmentWidth = math.ceil((MAX_ASSIGNMENT_SLOTS - 1) * (iconWidth + connectorWidth)
-        + math.max(iconWidth, countdownWidth) + 8)
-    f.assignmentAnchor:SetSize(assignmentWidth, math.max(60, assignmentHeight))
-    f.assignmentText:SetSize(assignmentWidth, rowHeight)
+    local layout = {
+        countdownOffsetY = -(rowHeight + 17),
+        countdownWidth = countdownWidth,
+        height = math.max(60, assignmentHeight)
+    }
+    measureAssignmentRow(f, layout)
+
+    -- Let the row size itself to its content so it never truncates; it stays
+    -- centred on the anchor because it is anchored by its TOP centre.
+    f.assignmentText:SetWidth(0)
+    f.assignmentText:SetHeight(rowHeight)
 
     for _, countdown in ipairs(f.assignmentCountdowns or {}) do
         E:ApplyFontString(
@@ -438,12 +478,7 @@ local function applyAssignmentAppearance(f, assignmentDB)
         countdown:SetSize(countdownWidth, countdownSize + 4)
     end
 
-    return {
-        connectorWidth = connectorWidth,
-        countdownOffsetY = -(rowHeight + 17),
-        iconWidth = iconWidth,
-        width = assignmentWidth
-    }
+    return layout
 end
 
 local function createClickerArtwork(button, markerID, interactive, labelText)
@@ -773,6 +808,7 @@ function UlatekIntermission:ApplySettings()
     E:GetModule("BossMods").DisplayTemplates:Place(self, "bar", f.barAnchor)
 
     self.assignmentLayout = applyAssignmentAppearance(f, assignmentDB)
+    self.assignmentLayoutFresh = false
     E:GetModule("BossMods").DisplayTemplates:Place(self, "assignment", f.assignmentAnchor)
 
     applyReminderAppearance(f.reminderAnchor, f.reminderText, self.db.reminder, self.db.assignment, "reminder")
@@ -910,6 +946,7 @@ function UlatekIntermission:OnChatMsg(event, msg)
     end
 
     self.assignmentInput = {format = msg}
+    self.assignmentLayoutFresh = false
     self:UpdateDisplay()
 end
 
@@ -1162,7 +1199,15 @@ function UlatekIntermission:UpdateAssignmentSlots(formatMessage, group, elapsed)
     end
 
     local f = self.frames
-    local layout = self.assignmentLayout or {}
+    local layout = self.assignmentLayout
+    if not layout then
+        layout = {}
+        self.assignmentLayout = layout
+    end
+    if not self.assignmentLayoutFresh then
+        measureAssignmentRow(f, layout)
+        self.assignmentLayoutFresh = layout.measured
+    end
     local connectorWidth = layout.connectorWidth or 40
     elapsed = tonumber(elapsed) or 0
 
