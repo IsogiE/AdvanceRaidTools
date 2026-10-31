@@ -1006,6 +1006,15 @@ function ReadyCheckConsumables:OnEnable()
     self.unlocked = false
     self.displayMode = nil
 
+    if not self.readyCheckResponseHooked then
+        hooksecurefunc(C_PartyInfo, "ConfirmReadyCheck", function()
+            if self:IsEnabled() then
+                self:OnReadyCheckFinished()
+            end
+        end)
+        self.readyCheckResponseHooked = true
+    end
+
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("READY_CHECK_CONFIRM", "OnReadyCheckConfirm")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
