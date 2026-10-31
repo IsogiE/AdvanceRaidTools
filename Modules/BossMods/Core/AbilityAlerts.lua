@@ -363,6 +363,12 @@ function AbilityAlerts:BuildAbilityLookup()
                 }
 
                 self.abilitiesBySpellID[spellID] = entry
+                for _, altSpellID in ipairs(ability.altSpellIDs or {}) do
+                    local altID = tonumber(altSpellID)
+                    if altID then
+                        self.abilitiesBySpellID[altID] = entry
+                    end
+                end
                 self.abilitiesBySettingsKey[settingsKey] = entry
 
                 for _, triggerSpellID in ipairs(entry.triggerSpellIDs) do
@@ -2424,7 +2430,8 @@ function AbilityAlerts:StartAssignmentTextAlert(
     testMode,
     bigWigsText,
     triggerSpellID,
-    displaySecondsOverride
+    displaySecondsOverride,
+    barCount
 )
     if not self:IsAbilityFeatureEnabled(ability) then
         return
@@ -2453,7 +2460,8 @@ function AbilityAlerts:StartAssignmentTextAlert(
             ability,
             testMode,
             bigWigsText,
-            triggerSpellID
+            triggerSpellID,
+            barCount
         )
 
     if not state or type(state.message) ~= "string" then
@@ -2710,6 +2718,7 @@ function AbilityAlerts:IsAbilityFeatureEnabled(ability)
 end
 
 function AbilityAlerts:ResetEncounterTracking()
+    self.barCounts = {}
     if config.resetEncounterTracking then
         config.resetEncounterTracking(self)
     end
@@ -3742,6 +3751,10 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, module
             if not duration or duration < 0 then return end
         end
     end
+    self.barCounts = self.barCounts or {}
+    local barCount = (self.barCounts[spellID] or 0) + 1
+    self.barCounts[spellID] = barCount
+
     local suppressCast = self:ShouldSuppressCast(spellID)
 
     if shouldIgnoreTriggerDuration(ability, duration) then
@@ -3866,13 +3879,16 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, module
                 duration,
                 false,
                 bigWigsText,
-                spellID
+                spellID,
+                nil,
+                barCount
             )
         end
     end
 end
 
 function AbilityAlerts:OnBigWigsStage(module, stage)
+    self.barCounts = {}
     -- A new BigWigs stage invalidates timers from the previous encounter
     -- phase. Clear ART's delayed work at the same boundary so a stopped
     -- phase-one timer cannot create an alert during a later phase.

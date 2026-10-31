@@ -184,6 +184,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1291759,
+                altSpellIDs = { 1296061 },
                 settingsKey = "shellSpin",
                 name = L["BossMods_VA_Ability_ShellSpin"],
                 defaultBarColor = "FFF90F",
@@ -192,6 +193,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1290711,
+                altSpellIDs = { 1296025 },
                 settingsKey = "blinkNova",
                 name = L["BossMods_VA_Ability_BlinkNova"],
                 defaultBarColor = "FF0011",
@@ -206,6 +208,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1295886,
+                altSpellIDs = { 1295893 },
                 settingsKey = "Frostfire Volley",
                 name = L["BossMods_VA_Ability_FrostfireVolley"],
                 defaultBarColor = "FF7400",
@@ -328,6 +331,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1285425,
+                altSpellIDs = { 1285419 },
                 settingsKey = "ragingCrosswinds",
                 name = L["BossMods_VA_Ability_RagingCrosswinds"],
                 order = 20,
@@ -539,6 +543,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1282281,
+                altSpellIDs = { 1282287 },
                 settingsKey = "Venomfang",
                 name = L["BossMods_VA_Ability_Venomfang"],
                 order = 45,
@@ -546,7 +551,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = -1283489,
-                triggerSpellIDs = { 1283489, 1299266 },
+                triggerSpellIDs = { 1283489, 1299266, 1299267 },
                 kind = "guillotineSequence",
                 settingsKey = "Guillotine Hit/Explode",
                 name = L["BossMods_VA_Ability_GuillotineHitExplodeBar"],
@@ -557,7 +562,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = -1299266,
-                triggerSpellIDs = { 1283489, 1299266 },
+                triggerSpellIDs = { 1283489, 1299266, 1299267 },
                 kind = "assignmentText",
                 assignmentType = "guillotine",
                 assignmentAudio = true,
@@ -597,6 +602,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1289900,
+                altSpellIDs = { 1285643 },
                 settingsKey = "dreadmarch",
                 name = L["BossMods_VA_Ability_Dreadmarch"],
                 defaultBarColor = "7400FF",
@@ -646,6 +652,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = 1299266,
+                altSpellIDs = { 1299267 },
                 settingsKey = "grimGuillotine",
                 name = L["BossMods_VA_Ability_GrimGuillotine"],
                 defaultBarColor = "FF7400",
