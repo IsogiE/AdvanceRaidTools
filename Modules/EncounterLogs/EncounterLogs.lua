@@ -37,7 +37,7 @@ local CAPTURE_EVENTS = {
     ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED = "OnTimelineStateChanged",
     ENCOUNTER_WARNING = "OnEncounterWarning",
     UNIT_TARGETABLE_CHANGED = "OnBossState", UNIT_FLAGS = "OnBossState", UNIT_FACTION = "OnBossState",
-    UNIT_TARGET = "OnBossTarget", UNIT_POWER_UPDATE = "OnBossPower", UNIT_ABSORB_AMOUNT_CHANGED = "OnBossShield",
+    UNIT_POWER_UPDATE = "OnBossPower", UNIT_ABSORB_AMOUNT_CHANGED = "OnBossShield",
     NAME_PLATE_UNIT_REMOVED = "OnNameplateRemoved", UPDATE_EXTRA_ACTIONBAR = "OnExtraButton",
     RAID_BOSS_EMOTE = "OnBossEmote", RAID_BOSS_WHISPER = "OnBossEmote", CHAT_MSG_MONSTER_YELL = "OnBossEmote",
     ZONE_CHANGED = "OnZoneChanged", ZONE_CHANGED_INDOORS = "OnZoneChanged",
@@ -386,16 +386,6 @@ function Mod:BossState(unit)
     return ("attackable=%s friendly=%s"):format(flag(UnitCanAttack("player", unit)), flag(UnitIsFriend("player", unit)))
 end
 
-function Mod:BossTarget(unit)
-    local target = unit .. "target"
-    local exists = UnitExists(target)
-    if E:IsSecret(exists) then return "?" end
-    if not exists then return "none" end
-    local role = UnitGroupRolesAssigned(target)
-    role = (E:IsSecret(role) or type(role) ~= "string") and "?" or (role == "NONE" and "other" or role:lower())
-    return isTrue(UnitIsUnit(target, "player")) and (role .. " me=yes") or role
-end
-
 function Mod:BossPower(unit)
     local power, maxPower = number(UnitPower(unit)), number(UnitPowerMax(unit))
     if not power or not maxPower or maxPower <= 0 then return end
@@ -410,7 +400,6 @@ end
 function Mod:SnapshotBoss(unit)
     local capture = self.active
     capture.bossState[unit] = self:BossState(unit)
-    capture.bossTarget[unit] = self:BossTarget(unit)
     capture.bossPower[unit] = self:BossPower(unit)
     local shield = self:BossShield(unit)
     capture.bossShield[unit] = shield and shield > 0
@@ -418,7 +407,7 @@ end
 
 function Mod:ForgetBoss(unit)
     local capture = self.active
-    capture.bossState[unit], capture.bossTarget[unit], capture.bossPower[unit], capture.bossShield[unit] = nil, nil, nil, nil
+    capture.bossState[unit], capture.bossPower[unit], capture.bossShield[unit] = nil, nil, nil
 end
 
 local function bossUnitOf(self, unit)
@@ -431,14 +420,6 @@ function Mod:OnBossState(_, unit)
     if self.active.bossState[unit] == state then return end
     self.active.bossState[unit] = state
     self:Log(("boss state: unit=%s %s"):format(unit, state))
-end
-
-function Mod:OnBossTarget(_, unit)
-    if not bossUnitOf(self, unit) then return end
-    local target = self:BossTarget(unit)
-    if self.active.bossTarget[unit] == target then return end
-    self.active.bossTarget[unit] = target
-    self:Log(("boss target: unit=%s target=%s"):format(unit, target))
 end
 
 function Mod:OnBossPower(_, unit)
@@ -578,7 +559,7 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
         encounterID = encounterID, encounterName = text(encounterName, 64), difficulty = difficultyID,
         groupSize = number(groupSize) or 0, started = GetServerTime(), clock = now,
         lines = {}, lineCount = 0, chars = 0, occurrences = {}, presence = {},
-        castBars = {}, addTokens = {}, scriptBars = {}, bossState = {}, bossTarget = {}, bossPower = {}, bossShield = {},
+        castBars = {}, addTokens = {}, scriptBars = {}, bossState = {}, bossPower = {}, bossShield = {},
         errorBaseline = errorSnapshot()
     }
     for _, pending in ipairs(self.pending) do
@@ -667,7 +648,7 @@ function Mod:Finish(success, incomplete)
         v = 1, player = E:GetUnitFullName("player", true) or UnitName("player"),
         encounterID = capture.encounterID, encounterName = capture.encounterName,
         difficulty = capture.difficulty, started = capture.started, duration = duration,
-        success = success == true, incomplete = incomplete == true, lines = capture.lineCount,
+        success = success == true, incomplete = incomplete == true, lines = #capture.lines,
         truncated = capture.truncated == true, errors = totalErrors, art = E.version, text = body
     }
     if self:IsCollector() then self:Store(report, true) end
