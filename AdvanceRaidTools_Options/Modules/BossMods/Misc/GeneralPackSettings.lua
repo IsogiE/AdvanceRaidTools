@@ -189,6 +189,16 @@ local function buildGeneralPackBody(rightPanel, mod, isDisabled)
     y = row(y, {enableBg, enableBorder})
 
     y = section(y, "Alerts")
+    y = full(y, checkbox({
+        text = L["BossMods_GP_AnnounceConsumables"],
+        tooltip = L["BossMods_GP_AnnounceConsumablesDesc"],
+        get = function()
+            return mod.db.announceConsumables ~= false
+        end,
+        onChange = function(v)
+            mod.db.announceConsumables = v and true or false
+        end
+    }))
     local rowWidgets = {}
     for i, def in ipairs(ALERT_TOGGLES) do
         local key = def.key

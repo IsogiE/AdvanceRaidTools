@@ -3,6 +3,7 @@ local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossM
 
 E:RegisterModuleDefaults("BossMods_GeneralPack", {
     enabled = true,
+    announceConsumables = true,
     position = {
         point = "CENTER",
         x = 0,
@@ -86,29 +87,42 @@ local CONSUMABLE_SPELL_TYPES = {
     [1278909] = "FEAST",
     [1259659] = "FEAST",
     [1278895] = "FEAST",
+    [1303407] = "FEAST",
+    [1303408] = "FEAST",
+    [1303409] = "FEAST",
+    [1240019] = "CAULDRON",
+    [1240225] = "CAULDRON",
     [1240267] = "CAULDRON",
     [1240195] = "CAULDRON",
     [29893] = "SOULWELL",
+    [22700] = "REPAIR",
+    [44389] = "REPAIR",
+    [54711] = "REPAIR",
     [199109] = "REPAIR",
-    [67826] = "REPAIR"
+    [67826] = "REPAIR",
+    [453942] = "REPAIR"
 }
 
 local CONSUMABLES = {
     FEAST = {
         spellID = SPELL_FEAST,
-        alertKey = "consumableFeast"
+        alertKey = "consumableFeast",
+        announcementKey = "BossMods_GP_AnnounceFeast"
     },
     CAULDRON = {
         spellID = SPELL_CAULDRON,
-        alertKey = "consumableCauldron"
+        alertKey = "consumableCauldron",
+        announcementKey = "BossMods_GP_AnnounceCauldron"
     },
     SOULWELL = {
         spellID = SPELL_HEALTHSTONE_USE,
-        alertKey = "consumableSoulwell"
+        alertKey = "consumableSoulwell",
+        announcementKey = "BossMods_GP_AnnounceSoulwell"
     },
     REPAIR = {
         spellID = SPELL_REPAIR_BOT,
-        alertKey = "consumableRepair"
+        alertKey = "consumableRepair",
+        announcementKey = "BossMods_GP_AnnounceRepairBot"
     }
 }
 
@@ -1094,7 +1108,11 @@ function Mod:OnConsumableComm(_, message, _, sender)
 end
 
 function Mod:BroadcastConsumable(kind)
-    if not CONSUMABLES[kind] then
+    if InCombatLockdown() or inEncounter() then
+        return
+    end
+    local meta = CONSUMABLES[kind]
+    if not meta then
         return
     end
     local BossMods = E:GetModule("BossMods", true)
@@ -1104,22 +1122,26 @@ function Mod:BroadcastConsumable(kind)
     if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
         return
     end
-    local Comms = E:GetEnabledModule("Comms")
-    if not Comms then
-        return
-    end
     if not IsInGroup() then
         return
     end
     local channel = IsInGroup(LE_PARTY_CATEGORY_INSTANCE) and "INSTANCE_CHAT" or (IsInRaid() and "RAID" or "PARTY")
-    Comms:Broadcast(COMM_PREFIX, kind, channel)
+    if self:IsEnabled() and self.db.announceConsumables ~= false then
+        C_ChatInfo.SendChatMessage(loc(meta.announcementKey), channel)
+    end
+
+    -- Keep sharing drops even when local reminders or chat announcements are disabled.
+    local Comms = E:GetEnabledModule("Comms")
+    if Comms then
+        Comms:Broadcast(COMM_PREFIX, kind, channel)
+    end
 end
 
 function Mod:OnSpellcast(_, unit, _, spellID)
     if InCombatLockdown() then
         return
     end
-    if unit ~= "player" then
+    if E:SafeString(unit) ~= "player" or E:IsSecret(spellID) then
         return
     end
     local kind = CONSUMABLE_SPELL_TYPES[spellID]
@@ -1129,7 +1151,7 @@ function Mod:OnSpellcast(_, unit, _, spellID)
 end
 
 local consumableBroadcastFrame = CreateFrame("Frame")
-consumableBroadcastFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+consumableBroadcastFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 consumableBroadcastFrame:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
     Mod:OnSpellcast(event, unit, castGUID, spellID)
 end)
