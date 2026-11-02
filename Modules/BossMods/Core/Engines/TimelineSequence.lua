@@ -631,11 +631,20 @@ function BossMods:RegisterTimelineSequenceFeature(definition)
         }
     end
 
-    function module:OnBigWigsStartBar(key, _, duration)
-        local timerSpellID = self.definition.timerSpellID
+    function module:TimerSpellKeys()
+        local keys = {self.definition.timerSpellID}
+        for _, spellID in ipairs(self.definition.altTimerSpellIDs or {}) do
+            keys[#keys + 1] = spellID
+        end
+        return keys
+    end
 
-        if key == timerSpellID or tonumber(key) == tonumber(timerSpellID) then
-            self:ScheduleSequence(duration)
+    function module:OnBigWigsStartBar(key, _, duration)
+        for _, timerSpellID in ipairs(self:TimerSpellKeys()) do
+            if key == timerSpellID or tonumber(key) == tonumber(timerSpellID) then
+                self:ScheduleSequence(duration)
+                return
+            end
         end
     end
 
@@ -665,7 +674,7 @@ function BossMods:RegisterTimelineSequenceFeature(definition)
 
         self.bigWigsSubscription = BossMods.BigWigs:Subscribe({
             owner = self.definition.featureKey,
-            spellKeys = {self.definition.timerSpellID},
+            spellKeys = self:TimerSpellKeys(),
             onStartBar = function(key, text, duration)
                 self:OnBigWigsStartBar(key, text, duration)
             end,

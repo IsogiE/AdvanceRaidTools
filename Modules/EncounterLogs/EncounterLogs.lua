@@ -6,9 +6,10 @@ local PREFIX_LOG = "ART_ELOG"
 local PREFIX_COLLECT = "ART_ELOG_COL"
 local COLLECTOR_CHARACTERS = {["isogichi-draenor"] = true}
 local MAX_COLLECTOR_RANK = 2
-local MAX_LINES = 2500
+local LOG_FORMAT = 2
+local MAX_LINES = 5000
 local MAX_LINE_CHARS = 200
-local MAX_TEXT_CHARS = 120000
+local MAX_TEXT_CHARS = 250000
 local MAX_ERRORS = 10
 local MAX_REPORTS_PER_PULL = 40
 local PRE_START_WINDOW = 12
@@ -18,13 +19,34 @@ local COLLECTOR_TTL = 15 * 60
 local PULL_MATCH_WINDOW = 15
 local ANNOUNCE_DEBOUNCE = 5
 local BOSS_UNITS = {}
-for index = 1, 8 do BOSS_UNITS["boss" .. index] = true end
+for index = 1, 10 do BOSS_UNITS["boss" .. index] = true end
+local ADD_UNITS = {target = true, focus = true}
+for index = 1, 40 do ADD_UNITS["nameplate" .. index] = true end
 local CAST_EVENTS = {
     UNIT_SPELLCAST_START = "cast start", UNIT_SPELLCAST_SUCCEEDED = "cast success",
     UNIT_SPELLCAST_STOP = "cast stop", UNIT_SPELLCAST_INTERRUPTED = "cast interrupted",
     UNIT_SPELLCAST_FAILED = "cast failed", UNIT_SPELLCAST_CHANNEL_START = "channel start",
     UNIT_SPELLCAST_CHANNEL_STOP = "channel stop"
 }
+local CAST_BAR_LAST = {UNIT_SPELLCAST_INTERRUPTED = true, UNIT_SPELLCAST_CHANNEL_STOP = true}
+local CAST_INFO = {UNIT_SPELLCAST_START = "UnitCastingInfo", UNIT_SPELLCAST_CHANNEL_START = "UnitChannelInfo"}
+local CAPTURE_EVENTS = {
+    INSTANCE_ENCOUNTER_ENGAGE_UNIT = "OnEngageUnit",
+    ENCOUNTER_TIMELINE_EVENT_ADDED = "OnTimelineEvent",
+    ENCOUNTER_TIMELINE_EVENT_REMOVED = "OnTimelineEvent",
+    ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED = "OnTimelineStateChanged",
+    ENCOUNTER_WARNING = "OnEncounterWarning",
+    UNIT_TARGETABLE_CHANGED = "OnBossState", UNIT_FLAGS = "OnBossState", UNIT_FACTION = "OnBossState",
+    UNIT_TARGET = "OnBossTarget", UNIT_POWER_UPDATE = "OnBossPower", UNIT_ABSORB_AMOUNT_CHANGED = "OnBossShield",
+    NAME_PLATE_UNIT_REMOVED = "OnNameplateRemoved", UPDATE_EXTRA_ACTIONBAR = "OnExtraButton",
+    RAID_BOSS_EMOTE = "OnBossEmote", RAID_BOSS_WHISPER = "OnBossEmote", CHAT_MSG_MONSTER_YELL = "OnBossEmote",
+    ZONE_CHANGED = "OnZoneChanged", ZONE_CHANGED_INDOORS = "OnZoneChanged",
+    ZONE_CHANGED_NEW_AREA = "OnZoneChanged", PLAYER_MAP_CHANGED = "OnZoneChanged"
+}
+local EMOTE_KINDS = {RAID_BOSS_EMOTE = "emote", RAID_BOSS_WHISPER = "whisper", CHAT_MSG_MONSTER_YELL = "yell"}
+local ENCOUNTER_SOURCE = Enum and Enum.EncounterTimelineEventSource and Enum.EncounterTimelineEventSource.Encounter or 0
+local RANGE_ITEM = 32825
+local MAX_EMOTE_CHARS = 100
 
 E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true, collect = false, maxPulls = 25, maxDays = 14, maxStorageKB = 4096
@@ -44,6 +66,75 @@ end
 local function text(v, limit)
     v = E:SafeString(v)
     return v and v:sub(1, limit) or ""
+end
+
+local function isTrue(v)
+    return not E:IsSecret(v) and v and true or false
+end
+
+local function flag(v)
+    if E:IsSecret(v) then return "?" end
+    if v == nil then return "nil" end
+    return v and "yes" or "no"
+end
+
+local function clean(v, limit)
+    local s = E:SafeString(v)
+    if not s then return value(v) end
+    s = s:gsub("|T.-|t", ""):gsub("|H.-|h(.-)|h", "%1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+    return s:sub(1, limit or MAX_LINE_CHARS)
+end
+
+local function castBarKey(v)
+    if not E:IsSecret(v) and v ~= nil then return tostring(v) end
+end
+
+local function isAddUnit(unit)
+    if not ADD_UNITS[unit] then return false end
+    if isTrue(UnitIsUnit(unit, "player")) or isTrue(UnitIsFriend("player", unit)) then return false end
+    for boss in pairs(BOSS_UNITS) do
+        if isTrue(UnitIsUnit(unit, boss)) then return false end
+    end
+    return true
+end
+
+local function npcTag(unit)
+    local guid = UnitGUID(unit)
+    if E:IsSecret(guid) or type(guid) ~= "string" then return "?" end
+    local npc, spawn = guid:match("^%a+%-%d+%-%d+%-%d+%-%d+%-(%d+)%-(%x+)$")
+    return npc and (npc .. ":" .. spawn:sub(-6)) or "?"
+end
+
+local function rangeTag(unit)
+    if not (C_Item and C_Item.IsItemInRange) then return "?" end
+    if InCombatLockdown() and not isTrue(UnitCanAttack("player", unit)) then return "?" end
+    local ok, inRange = pcall(C_Item.IsItemInRange, RANGE_ITEM, unit)
+    if not ok or E:IsSecret(inRange) or inRange == nil then return "?" end
+    return inRange and "60" or "far"
+end
+
+local function addTag(unit)
+    return ("lvl=%s mark=%s npc=%s range=%s"):format(number(UnitLevel(unit)) or "?",
+        number(GetRaidTargetIndex(unit)) or "-", npcTag(unit), rangeTag(unit))
+end
+
+local function castDetails(event, unit)
+    local getInfo = CAST_INFO[event] and _G[CAST_INFO[event]]
+    if not getInfo then return end
+    local results = {getInfo(unit)}
+    local startMS, endMS = number(results[4]), number(results[5])
+    local locked = results[event == "UNIT_SPELLCAST_START" and 8 or 7]
+    local len = startMS and endMS and endMS >= startMS and (endMS - startMS) / 1000 or nil
+    local kick = not E:IsSecret(locked) and locked ~= nil and (locked and "no" or "yes") or nil
+    return len, kick
+end
+
+local function hasExtraButton()
+    local check = C_ActionBar and C_ActionBar.HasExtraActionBar or HasExtraActionBar
+    if not check then return nil end
+    local shown = check()
+    if E:IsSecret(shown) then return nil end
+    return shown and true or false
 end
 
 local function normalizeName(name)
@@ -224,7 +315,8 @@ function Mod:OnBigWigsTimer(key, barText, time, maxTime, count, _, isApprox)
 end
 
 function Mod:OnBigWigsStartBar(key, barText, time)
-    if self.active and self.active.sawTimer then return end
+    local castBar = (E:SafeString(barText) or ""):find("^<") ~= nil
+    if self.active and self.active.sawTimer and not castBar then return end
     self:Log(("BW bar: key=%s text=%s time=%s"):format(value(key), value(barText), value(time)))
 end
 
@@ -244,12 +336,158 @@ function Mod:OnBigWigsStopPull(reason)
     self:Log(("BW pull cancelled: %s"):format(value(reason)))
 end
 
+function Mod:OnBigWigsMessage(key, messageText, color)
+    self:Log(("BW message: key=%s text=%s color=%s"):format(value(key), clean(messageText, 80), value(color)))
+end
+
+function Mod:OnBigWigsSound(key, sound)
+    self:Log(("BW sound: key=%s sound=%s"):format(value(key), value(sound)))
+end
+
 function Mod:OnUnitCast(event, unit, castGUID, spellID, castBarID, interruptedCastBarID)
-    if not self.active or E:IsSecret(unit) or not BOSS_UNITS[unit] then return end
-    local name = C_Spell and C_Spell.GetSpellName and not E:IsSecret(spellID) and spellID and C_Spell.GetSpellName(spellID)
-    self:Log(("%s %s: spell=%s%s castBar=%s%s"):format(unit, CAST_EVENTS[event] or event, value(spellID),
-        name and (" (" .. name .. ")") or "", value(castBarID),
-        interruptedCastBarID ~= nil and (" interrupted=" .. value(interruptedCastBarID)) or ""))
+    local capture = self.active
+    if not capture or E:IsSecret(unit) then return end
+    local castBar = castBarKey(CAST_BAR_LAST[event] and interruptedCastBarID or castBarID)
+    local seenKey = castBar and (event .. castBar)
+    if BOSS_UNITS[unit] then
+        if seenKey then capture.castBars[seenKey] = true end
+        local len = castDetails(event, unit)
+        local name = C_Spell and C_Spell.GetSpellName and not E:IsSecret(spellID) and spellID and C_Spell.GetSpellName(spellID)
+        self:Log(("%s %s: spell=%s%s castBar=%s%s%s"):format(unit, CAST_EVENTS[event] or event, value(spellID),
+            name and (" (" .. name .. ")") or "", value(castBarID),
+            interruptedCastBarID ~= nil and (" interrupted=" .. value(interruptedCastBarID)) or "",
+            len and (" len=%.1f"):format(len) or ""))
+        return
+    end
+    if not isAddUnit(unit) or (seenKey and capture.castBars[seenKey]) then return end
+    if seenKey then capture.castBars[seenKey] = true end
+    local len, kick = castDetails(event, unit)
+    local tag = addTag(unit)
+    if unit:find("^nameplate") then capture.addTokens[unit] = tag end
+    self:Log(("add %s: unit=%s spell=%s %s%s%s%s castBar=%s"):format(CAST_EVENTS[event] or event, unit, value(spellID), tag,
+        len and (" len=%.1f"):format(len) or "", kick and (" kick=" .. kick) or "",
+        CAST_BAR_LAST[event] and (" by=" .. value(castBarID)) or "", value(castBar)))
+end
+
+function Mod:OnNameplateRemoved(_, unit)
+    local capture = self.active
+    if not capture or E:IsSecret(unit) or not capture.addTokens[unit] then return end
+    local tag = capture.addTokens[unit]
+    capture.addTokens[unit] = nil
+    local dead = UnitIsDead(unit)
+    if isTrue(dead) then
+        self:Log(("add died: unit=%s %s"):format(unit, tag))
+    else
+        self:Log(("add lost: unit=%s dead=%s %s"):format(unit, flag(dead), tag))
+    end
+end
+
+function Mod:BossState(unit)
+    return ("attackable=%s friendly=%s"):format(flag(UnitCanAttack("player", unit)), flag(UnitIsFriend("player", unit)))
+end
+
+function Mod:BossTarget(unit)
+    local target = unit .. "target"
+    local exists = UnitExists(target)
+    if E:IsSecret(exists) then return "?" end
+    if not exists then return "none" end
+    local role = UnitGroupRolesAssigned(target)
+    role = (E:IsSecret(role) or type(role) ~= "string") and "?" or (role == "NONE" and "other" or role:lower())
+    return isTrue(UnitIsUnit(target, "player")) and (role .. " me=yes") or role
+end
+
+function Mod:BossPower(unit)
+    local power, maxPower = number(UnitPower(unit)), number(UnitPowerMax(unit))
+    if not power or not maxPower or maxPower <= 0 then return end
+    return math.floor(power / maxPower * 10 + 1e-6) * 10
+end
+
+function Mod:BossShield(unit)
+    local amount = number(UnitGetTotalAbsorbs(unit))
+    return amount and math.floor(amount)
+end
+
+function Mod:SnapshotBoss(unit)
+    local capture = self.active
+    capture.bossState[unit] = self:BossState(unit)
+    capture.bossTarget[unit] = self:BossTarget(unit)
+    capture.bossPower[unit] = self:BossPower(unit)
+    local shield = self:BossShield(unit)
+    capture.bossShield[unit] = shield and shield > 0
+end
+
+function Mod:ForgetBoss(unit)
+    local capture = self.active
+    capture.bossState[unit], capture.bossTarget[unit], capture.bossPower[unit], capture.bossShield[unit] = nil, nil, nil, nil
+end
+
+local function bossUnitOf(self, unit)
+    return self.active and not E:IsSecret(unit) and BOSS_UNITS[unit] and isTrue(UnitExists(unit))
+end
+
+function Mod:OnBossState(_, unit)
+    if not bossUnitOf(self, unit) then return end
+    local state = self:BossState(unit)
+    if self.active.bossState[unit] == state then return end
+    self.active.bossState[unit] = state
+    self:Log(("boss state: unit=%s %s"):format(unit, state))
+end
+
+function Mod:OnBossTarget(_, unit)
+    if not bossUnitOf(self, unit) then return end
+    local target = self:BossTarget(unit)
+    if self.active.bossTarget[unit] == target then return end
+    self.active.bossTarget[unit] = target
+    self:Log(("boss target: unit=%s target=%s"):format(unit, target))
+end
+
+function Mod:OnBossPower(_, unit)
+    if not bossUnitOf(self, unit) then return end
+    local bucket = self:BossPower(unit)
+    if bucket == nil or self.active.bossPower[unit] == bucket then return end
+    self.active.bossPower[unit] = bucket
+    self:Log(("boss power: unit=%s pct=%d"):format(unit, bucket))
+end
+
+function Mod:OnBossShield(_, unit)
+    if not bossUnitOf(self, unit) then return end
+    local amount = self:BossShield(unit)
+    if amount == nil then return end
+    local up = amount > 0
+    if self.active.bossShield[unit] == up then return end
+    self.active.bossShield[unit] = up
+    self:Log(("boss shield: unit=%s up=%s amount=%d"):format(unit, up and "yes" or "no", amount))
+end
+
+function Mod:OnExtraButton()
+    local capture = self.active
+    if not capture then return end
+    local shown = hasExtraButton()
+    if shown == nil or shown == capture.extraButton then return end
+    capture.extraButton = shown
+    self:Log("extra button: " .. (shown and "shown" or "hidden"))
+end
+
+function Mod:OnBossEmote(event, message)
+    if not self.active then return end
+    local msg = E:SafeString(message)
+    local spell = msg and msg:match("|Hspell:(%d+)")
+    self:Log(("boss %s: spell=%s text=%s"):format(EMOTE_KINDS[event] or event, spell or "-", clean(message, MAX_EMOTE_CHARS)))
+end
+
+function Mod:ZoneLine()
+    local map = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
+    local sub = text(GetSubZoneText and GetSubZoneText(), 60)
+    return ("zone: map=%s sub=%s"):format(number(map) or "?", sub ~= "" and sub or "-")
+end
+
+function Mod:OnZoneChanged()
+    local capture = self.active
+    if not capture then return end
+    local line = self:ZoneLine()
+    if line == capture.zone then return end
+    capture.zone = line
+    self:Log(line)
 end
 
 function Mod:BossPresence()
@@ -264,36 +502,53 @@ end
 function Mod:OnEngageUnit()
     local capture = self.active
     if not capture then return end
-    local current, added, removed = self:BossPresence(), {}, {}
+    local current, added, removed, levels = self:BossPresence(), {}, {}, {}
     for unit, name in pairs(current) do
-        if not capture.presence[unit] then added[#added + 1] = unit .. "=" .. name end
+        if not capture.presence[unit] then
+            added[#added + 1] = unit .. "=" .. name
+            levels[#levels + 1] = unit .. ":" .. (number(UnitLevel(unit)) or "?")
+            self:SnapshotBoss(unit)
+        end
     end
     for unit, name in pairs(capture.presence) do
-        if not current[unit] then removed[#removed + 1] = unit .. "=" .. name end
+        if not current[unit] then
+            removed[#removed + 1] = unit .. "=" .. name
+            self:ForgetBoss(unit)
+        end
     end
-    table.sort(added); table.sort(removed)
+    table.sort(added); table.sort(removed); table.sort(levels)
     capture.presence = current
     if #added > 0 or #removed > 0 then
-        self:Log(("engage: added=%s removed=%s"):format(
-            #added > 0 and table.concat(added, ",") or "-", #removed > 0 and table.concat(removed, ",") or "-"))
+        self:Log(("engage: added=%s removed=%s levels=%s"):format(
+            #added > 0 and table.concat(added, ",") or "-", #removed > 0 and table.concat(removed, ",") or "-",
+            #levels > 0 and table.concat(levels, ",") or "-"))
     end
 end
 
 function Mod:OnTimelineEvent(event, info)
-    if not self.active then return end
+    local capture = self.active
+    if not capture then return end
     if type(info) ~= "table" then
+        if not E:IsSecret(info) and capture.scriptBars[info] then return end
         self:Log(("timeline %s: id=%s"):format(event:match("EVENT_(%a+)$") or event, value(info)))
+        return
+    end
+    local source = info.source
+    if not E:IsSecret(source) and source ~= nil and source ~= ENCOUNTER_SOURCE then
+        if not E:IsSecret(info.id) and info.id ~= nil then capture.scriptBars[info.id] = true end
         return
     end
     local spellID = info.spellID
     local spellName = info.spellName or (C_Spell and C_Spell.GetSpellName and not E:IsSecret(spellID)
         and spellID and C_Spell.GetSpellName(spellID))
-    self:Log(("timeline %s: id=%s spell=%s%s duration=%s"):format(event:match("EVENT_(%a+)$") or event,
-        value(info.id), value(spellID), spellName and (" (" .. value(spellName) .. ")") or "", value(info.duration)))
+    self:Log(("timeline %s: id=%s spell=%s%s duration=%s queue=%s source=%s"):format(event:match("EVENT_(%a+)$") or event,
+        value(info.id), value(spellID), spellName and (" (" .. value(spellName) .. ")") or "", value(info.duration),
+        value(info.maxQueueDuration), value(source)))
 end
 
 function Mod:OnTimelineStateChanged(_, eventID)
     if not self.active then return end
+    if not E:IsSecret(eventID) and self.active.scriptBars[eventID] then return end
     local state
     if C_EncounterTimeline and C_EncounterTimeline.GetEventState and eventID ~= nil and not E:IsSecret(eventID) then
         local ok, result = pcall(C_EncounterTimeline.GetEventState, eventID)
@@ -323,6 +578,7 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
         encounterID = encounterID, encounterName = text(encounterName, 64), difficulty = difficultyID,
         groupSize = number(groupSize) or 0, started = GetServerTime(), clock = now,
         lines = {}, lineCount = 0, chars = 0, occurrences = {}, presence = {},
+        castBars = {}, addTokens = {}, scriptBars = {}, bossState = {}, bossTarget = {}, bossPower = {}, bossShield = {},
         errorBaseline = errorSnapshot()
     }
     for _, pending in ipairs(self.pending) do
@@ -340,20 +596,26 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
     local okSpec, specIndex = pcall(function() return getSpec and getSpec() end)
     local okName, specName = pcall(function() return specIndex and getSpecInfo and select(2, getSpecInfo(specIndex)) end)
     specName = (okSpec and okName and E:SafeString(specName)) or "?"
-    self:Log(("ENCOUNTER_START %s (%d) difficulty=%s size=%d | ART %s | BigWigs %s | %s %s"):format(
+    self:Log(("ENCOUNTER_START %s (%d) difficulty=%s size=%d | ART %s | BigWigs %s | %s %s | log %d"):format(
         capture.encounterName, encounterID, value(difficultyID), capture.groupSize, E.version,
-        text(C_AddOns.GetAddOnMetadata("BigWigs", "Version"), 32), specName, text(E:GetPlayerRole(), 12)))
+        text(C_AddOns.GetAddOnMetadata("BigWigs", "Version"), 32), specName, text(E:GetPlayerRole(), 12), LOG_FORMAT))
     capture.presence = self:BossPresence()
     local units = {}
-    for unit, name in pairs(capture.presence) do units[#units + 1] = unit .. "=" .. name end
+    for unit, name in pairs(capture.presence) do
+        units[#units + 1] = unit .. "=" .. name
+        self:SnapshotBoss(unit)
+    end
     table.sort(units)
     self:Log("bosses: " .. (#units > 0 and table.concat(units, ",") or "-"))
+    capture.zone = self:ZoneLine()
+    self:Log(capture.zone)
+    capture.extraButton = hasExtraButton()
+    if C_Item and C_Item.RequestLoadItemDataByID then pcall(C_Item.RequestLoadItemDataByID, RANGE_ITEM) end
     for event in pairs(CAST_EVENTS) do self:RegisterEvent(event, "OnUnitCast") end
-    self:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "OnEngageUnit")
-    self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED", "OnTimelineEvent")
-    self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED", "OnTimelineEvent")
-    self:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED", "OnTimelineStateChanged")
-    self:RegisterEvent("ENCOUNTER_WARNING", "OnEncounterWarning")
+    local validEvent = C_EventUtils and C_EventUtils.IsEventValid
+    for event, handler in pairs(CAPTURE_EVENTS) do
+        if not validEvent or validEvent(event) then self:RegisterEvent(event, handler) end
+    end
     E:SendMessage("ART_ENCOUNTERLOGS_UPDATED")
 end
 
@@ -387,11 +649,7 @@ function Mod:Finish(success, incomplete)
     if not capture then return end
     self.active = nil
     for event in pairs(CAST_EVENTS) do self:UnregisterEvent(event) end
-    self:UnregisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT")
-    self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-    self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
-    self:UnregisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-    self:UnregisterEvent("ENCOUNTER_WARNING")
+    for event in pairs(CAPTURE_EVENTS) do self:UnregisterEvent(event) end
 
     local duration = math.max(0, GetTime() - capture.clock)
     local outcome = incomplete and "incomplete" or (success and "kill" or "wipe")
@@ -719,7 +977,9 @@ function Mod:OnEnable()
             onStopBar = function(...) self:OnBigWigsStopBar(...) end,
             onStage = function(...) self:OnBigWigsStage(...) end,
             onStartPull = function(...) self:OnBigWigsPull(...) end,
-            onStopPull = function(...) self:OnBigWigsStopPull(...) end
+            onStopPull = function(...) self:OnBigWigsStopPull(...) end,
+            onMessage = function(...) self:OnBigWigsMessage(...) end,
+            onSound = function(...) self:OnBigWigsSound(...) end
         })
     end
     self:RequestGuildRoster()

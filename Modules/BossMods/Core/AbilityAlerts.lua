@@ -147,6 +147,7 @@ E:SetModuleParent(MODULE_NAME, "BossMods")
 local BossMods
 
 AbilityAlerts.abilitiesBySpellID = {}
+AbilityAlerts.abilitiesByAltSpellID = {}
 AbilityAlerts.abilitiesBySettingsKey = {}
 AbilityAlerts.triggeredAbilitiesBySpellID = {}
 AbilityAlerts.alertTokens = {}
@@ -248,6 +249,7 @@ end
 
 function AbilityAlerts:BuildAbilityLookup()
     wipe(self.abilitiesBySpellID)
+    wipe(self.abilitiesByAltSpellID)
     wipe(self.abilitiesBySettingsKey)
     wipe(self.triggeredAbilitiesBySpellID)
 
@@ -366,7 +368,7 @@ function AbilityAlerts:BuildAbilityLookup()
                 for _, altSpellID in ipairs(ability.altSpellIDs or {}) do
                     local altID = tonumber(altSpellID)
                     if altID then
-                        self.abilitiesBySpellID[altID] = entry
+                        self.abilitiesByAltSpellID[altID] = entry
                     end
                 end
                 self.abilitiesBySettingsKey[settingsKey] = entry
@@ -554,7 +556,9 @@ function AbilityAlerts:EnsureCustomBarDefaults()
 end
 
 function AbilityAlerts:GetAbility(spellID)
-    return self.abilitiesBySpellID[tonumber(spellID)]
+    spellID = tonumber(spellID)
+    return self.abilitiesBySpellID[spellID]
+        or self.abilitiesByAltSpellID[spellID]
 end
 
 function AbilityAlerts:GetAbilitySettings(spellID)
@@ -2430,8 +2434,7 @@ function AbilityAlerts:StartAssignmentTextAlert(
     testMode,
     bigWigsText,
     triggerSpellID,
-    displaySecondsOverride,
-    barCount
+    displaySecondsOverride
 )
     if not self:IsAbilityFeatureEnabled(ability) then
         return
@@ -2460,8 +2463,7 @@ function AbilityAlerts:StartAssignmentTextAlert(
             ability,
             testMode,
             bigWigsText,
-            triggerSpellID,
-            barCount
+            triggerSpellID
         )
 
     if not state or type(state.message) ~= "string" then
@@ -2718,7 +2720,6 @@ function AbilityAlerts:IsAbilityFeatureEnabled(ability)
 end
 
 function AbilityAlerts:ResetEncounterTracking()
-    self.barCounts = {}
     if config.resetEncounterTracking then
         config.resetEncounterTracking(self)
     end
@@ -3735,6 +3736,9 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, module
     end
 
     local ability = self:GetAbility(spellID)
+    if ability then
+        spellID = ability.spellID
+    end
 
     if config.resolveAbility then
         local resolvedDuration
@@ -3751,10 +3755,6 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, module
             if not duration or duration < 0 then return end
         end
     end
-    self.barCounts = self.barCounts or {}
-    local barCount = (self.barCounts[spellID] or 0) + 1
-    self.barCounts[spellID] = barCount
-
     local suppressCast = self:ShouldSuppressCast(spellID)
 
     if shouldIgnoreTriggerDuration(ability, duration) then
@@ -3879,16 +3879,13 @@ function AbilityAlerts:OnBigWigsStartBar(spellKey, bigWigsText, duration, module
                 duration,
                 false,
                 bigWigsText,
-                spellID,
-                nil,
-                barCount
+                spellID
             )
         end
     end
 end
 
 function AbilityAlerts:OnBigWigsStage(module, stage)
-    self.barCounts = {}
     -- A new BigWigs stage invalidates timers from the previous encounter
     -- phase. Clear ART's delayed work at the same boundary so a stopped
     -- phase-one timer cannot create an alert during a later phase.
@@ -4729,11 +4726,16 @@ function AbilityAlerts:OnEnable()
 
     local spellKeySet = {}
 
-    for spellID, ability in pairs(self.abilitiesBySpellID) do
-        if not ability.triggerSpellID
-            and #(ability.triggerSpellIDs or {}) == 0
-        then
-            spellKeySet[spellID] = true
+    for _, lookup in ipairs({
+        self.abilitiesBySpellID,
+        self.abilitiesByAltSpellID
+    }) do
+        for spellID, ability in pairs(lookup) do
+            if not ability.triggerSpellID
+                and #(ability.triggerSpellIDs or {}) == 0
+            then
+                spellKeySet[spellID] = true
+            end
         end
     end
 

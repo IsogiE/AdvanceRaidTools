@@ -18,6 +18,7 @@ BossMods:RegisterTimelineSequenceFeature({
     descKey = "BossMods_UlatekWavesDesc",
     encounterID = ENCOUNTER_ID,
     timerSpellID = CAUSTIC_WAVES_SPELL_ID,
+    altTimerSpellIDs = {1292403},
     bigWigsModuleName = "Ula'tek",
     stageRequired = 1,
     endStage = 2,

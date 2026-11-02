@@ -551,7 +551,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = -1283489,
-                triggerSpellIDs = { 1283489, 1299266, 1299267 },
+                triggerSpellIDs = { 1283489, 1299266 },
                 kind = "guillotineSequence",
                 settingsKey = "Guillotine Hit/Explode",
                 name = L["BossMods_VA_Ability_GuillotineHitExplodeBar"],
@@ -562,7 +562,7 @@ E.VenomousAbyssAbilityData = {
 
             {
                 spellID = -1299266,
-                triggerSpellIDs = { 1283489, 1299266, 1299267 },
+                triggerSpellIDs = { 1283489, 1299266 },
                 kind = "assignmentText",
                 assignmentType = "guillotine",
                 assignmentAudio = true,
@@ -694,6 +694,7 @@ E.VenomousAbyssAbilityData = {
         abilities = {
             {
                 spellID = 1292999,
+                altSpellIDs = { 1292566, 1301512 },
                 settingsKey = "Submerge",
                 name = L["BossMods_VA_Ability_Submerge"],
                 defaultBarEnabled = false,
@@ -701,6 +702,7 @@ E.VenomousAbyssAbilityData = {
             },
             {
                 spellID = 1292188,
+                altSpellIDs = { 1292403 },
                 settingsKey = "Caustic Waves",
                 name = L["BossMods_VA_Ability_CausticWaves"],
                 defaultBarEnabled = false,
@@ -708,6 +710,7 @@ E.VenomousAbyssAbilityData = {
             },
             {
                 spellID = 1300751,
+                altSpellIDs = { 1304012 },
                 settingsKey = "Call of the Serpent",
                 name = L["BossMods_VA_Ability_CallOfTheSerpent"],
                 defaultBarEnabled = false,
@@ -722,6 +725,7 @@ E.VenomousAbyssAbilityData = {
             },
             {
                 spellID = 1298559,
+                altSpellIDs = { 1293123 },
                 settingsKey = "Gore Rattle",
                 name = L["BossMods_VA_Ability_GoreRattle"],
                 defaultBarEnabled = false,
@@ -738,6 +742,7 @@ E.VenomousAbyssAbilityData = {
             },
             {
                 spellID = 1300530,
+                altSpellIDs = { 1287265 },
                 settingsKey = "Spectral Coils",
                 name = L["BossMods_VA_Ability_SpectralCoils"],
                 defaultBarEnabled = false,

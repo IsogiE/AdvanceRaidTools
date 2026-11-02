@@ -71,6 +71,7 @@ E:RegisterModuleDefaults(MODULE_NAME, {
 local ENCOUNTER_ID = 3492
 local INSTANCE_ID = 3004
 local SPELL_SPECTRAL_COILS = 1300530
+local SPELL_SPECTRAL_COILS_ALT = 1287265
 local DURATION = 25
 local CLICK_WINDOW = 10
 local REMINDER_CLICK_START = 160
@@ -1100,8 +1101,8 @@ function UlatekIntermission:ScheduleFromCoils(duration)
 end
 
 function UlatekIntermission:OnBigWigsStartBar(key, _, duration)
-    if key == SPELL_SPECTRAL_COILS
-        or tonumber(key) == SPELL_SPECTRAL_COILS
+    if tonumber(key) == SPELL_SPECTRAL_COILS
+        or tonumber(key) == SPELL_SPECTRAL_COILS_ALT
     then
         self:ScheduleFromCoils(duration)
     end
@@ -1475,7 +1476,7 @@ function UlatekIntermission:HookBigWigs()
 
     self.bigWigsSubscription = BossMods.BigWigs:Subscribe({
         owner = "UlatekIntermission",
-        spellKeys = {SPELL_SPECTRAL_COILS},
+        spellKeys = {SPELL_SPECTRAL_COILS, SPELL_SPECTRAL_COILS_ALT},
         onStartBar = function(key, text, duration)
             self:OnBigWigsStartBar(key, text, duration)
         end,

@@ -30,7 +30,7 @@ local function dispatchPull(callbackName, ...)
         if sub and sub[callbackName] then
             local ok, err = dispatchCallback(sub, callbackName, ...)
             if not ok then
-                E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed handling a pull: %s", sub.owner, tostring(err))
+                E:ChannelWarn(DEBUG_CHANNEL, "subscriber '%s' failed handling %s: %s", sub.owner, callbackName, tostring(err))
             end
         end
     end
@@ -42,6 +42,14 @@ end
 
 local function dispatchStopPull(_, _, reason)
     dispatchPull("onStopPull", reason)
+end
+
+local function dispatchMessage(_, _, key, text, color)
+    dispatchPull("onMessage", key, text, color)
+end
+
+local function dispatchSound(_, _, key, sound)
+    dispatchPull("onSound", key, sound)
 end
 
 local function dispatchStartBar(_, module, key, text, time)
@@ -137,6 +145,9 @@ local function ensureHook()
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_SetStage", dispatchStage)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StartPull", dispatchStartPull)
     BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_StopPull", dispatchStopPull)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_Message", dispatchMessage)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_Sound", dispatchSound)
+    BigWigsLoader.RegisterMessage(LISTENER_TOKEN, "BigWigs_Voice", dispatchSound)
     hooked = true
 end
 
@@ -155,6 +166,9 @@ local function maybeUnhook()
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_SetStage")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StartPull")
         BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_StopPull")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_Message")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_Sound")
+        BigWigsLoader.UnregisterMessage(LISTENER_TOKEN, "BigWigs_Voice")
     end
     hooked = false
 end
@@ -168,7 +182,9 @@ function BW:Subscribe(opts)
             or type(opts.onStopBar) == "function"
             or type(opts.onStage) == "function"
             or type(opts.onStartPull) == "function"
-            or type(opts.onStopPull) == "function",
+            or type(opts.onStopPull) == "function"
+            or type(opts.onMessage) == "function"
+            or type(opts.onSound) == "function",
         "BigWigs:Subscribe: callback required"
     )
 
@@ -183,6 +199,8 @@ function BW:Subscribe(opts)
         onStage = type(opts.onStage) == "function" and opts.onStage or nil,
         onStartPull = type(opts.onStartPull) == "function" and opts.onStartPull or nil,
         onStopPull = type(opts.onStopPull) == "function" and opts.onStopPull or nil,
+        onMessage = type(opts.onMessage) == "function" and opts.onMessage or nil,
+        onSound = type(opts.onSound) == "function" and opts.onSound or nil,
         spellKeys = nil
     }
     if opts.spellKeys then

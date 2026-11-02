@@ -331,8 +331,7 @@ local function getGuillotineAssignmentState(
     ability,
     testMode,
     bigWigsText,
-    triggerSpellID,
-    barCount
+    triggerSpellID
 )
     if ability.assignmentType ~= "guillotine" then
         return nil
@@ -346,7 +345,7 @@ local function getGuillotineAssignmentState(
         }
     end
 
-    local castNumber = tonumber(barCount) or tonumber(
+    local castNumber = tonumber(
         tostring(bigWigsText or ""):match("(%d+)%D*$")
     )
     local spellID = tonumber(triggerSpellID)
@@ -357,7 +356,7 @@ local function getGuillotineAssignmentState(
         if castNumber == 1 or castNumber == 2 then
             tag = "CAG" .. castNumber
         end
-    elseif spellID == 1299266 or spellID == 1299267 then
+    elseif spellID == 1299266 then
         if castNumber and castNumber >= 1 and castNumber <= 3 then
             tag = "CAGG" .. castNumber
         end
@@ -389,8 +388,7 @@ local function getAssignmentTextState(
     ability,
     testMode,
     bigWigsText,
-    triggerSpellID,
-    barCount
+    triggerSpellID
 )
     if ability and ability.assignmentType == "ulatekStage2" then
         local side = getUlatekStageTwoAssignment()
@@ -418,8 +416,7 @@ local function getAssignmentTextState(
             ability,
             testMode,
             bigWigsText,
-            triggerSpellID,
-            barCount
+            triggerSpellID
         )
     end
 
