@@ -648,7 +648,7 @@ function Mod:Finish(success, incomplete)
         v = 1, player = E:GetUnitFullName("player", true) or UnitName("player"),
         encounterID = capture.encounterID, encounterName = capture.encounterName,
         difficulty = capture.difficulty, started = capture.started, duration = duration,
-        success = success == true, incomplete = incomplete == true, lines = #capture.lines,
+        success = success == true, incomplete = incomplete == true, lines = capture.lineCount,
         truncated = capture.truncated == true, errors = totalErrors, art = E.version, text = body
     }
     if self:IsCollector() then self:Store(report, true) end
