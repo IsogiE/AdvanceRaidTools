@@ -1,5 +1,5 @@
 local MAJOR_VERSION = "LibGetFrame-1.0"
-local MINOR_VERSION = 74
+local MINOR_VERSION = 79
 if not LibStub then
   error(MAJOR_VERSION .. " requires LibStub.")
 end
@@ -18,6 +18,7 @@ local tinsert, CopyTable, wipe = tinsert, CopyTable, wipe
 local maxDepth = 50
 
 local defaultFramePriorities = {
+  "^SpotlightsSlotHeader%d+UnitButton%d+$", -- Spotlights
   -- raid frames
   "^Vd1", -- vuhdo
   "^Vd2", -- vuhdo
@@ -46,6 +47,10 @@ local defaultFramePriorities = {
   "^DandersFlatRaidHeader$", -- Danders (alternative style name)
   "^DandersFlatRaidHeaderUnitButton%d+$", -- Danders (alternative style name)
   "^DandersRaidFrame", -- Danders
+  "^ERFExtraFrame%d+$", -- EllesmereUI (extra/spotlight frames, preferred over the regular raid frames)
+  "^ERFGroupHeader%dUnitButton%d+$", -- EllesmereUI (separated groups)
+  "^ERFFlatHeaderUnitButton%d+$", -- EllesmereUI (merged groups)
+  "^PleebUI_RaidHeader%d+UnitButton%d+$", -- PleebUI
   -- party frames
   "^AleaUI_GroupHeader", -- Alea
   "^SUFHeaderparty", --suf
@@ -58,6 +63,8 @@ local defaultFramePriorities = {
   "^DandersPartyHeaderUnitButton%d$", -- Danders
   "^DandersFrames_Party", -- Danders
   "^DandersFrames_Player$", -- Danders (used for party frames)
+  "^ERFPartyHeaderUnitButton%d+$", -- EllesmereUI
+  "^ERFPartySelfButton$", -- EllesmereUI (static self frame)
   "^CompactRaid", -- blizz
   "^CompactParty", -- blizz
   "^PartyFrame",
@@ -67,6 +74,7 @@ local defaultFramePriorities = {
   "^LUFHeaderbossUnitButton%d$", -- luf
   "^Boss%dTargetFrame$", -- blizz
   "^UUF_Boss%d$", -- unhalted
+  "^EllesmereUIUnitFrames_Boss%d$", -- EllesmereUI
   -- player frame
   "^InvenUnitFrames_Player$",
   "^SUFUnitplayer$",
@@ -76,6 +84,7 @@ local defaultFramePriorities = {
   "^oUF_.-Player$",
   "^XPerl_Player$",
   "^UUF_Player$",
+  "^EllesmereUIUnitFrames_Player$", -- EllesmereUI
   "^PlayerFrame$",
 }
 local getDefaultFramePriorities = function()
@@ -93,6 +102,7 @@ local defaultPlayerFrames = {
   "^oUF_PlayerPlate$",
   "^XPerl_Player$",
   "^UUF_Player$",
+  "^EllesmereUIUnitFrames_Player$", -- EllesmereUI
   "^PlayerFrame$",
 }
 local getDefaultPlayerFrames = function()
@@ -109,6 +119,7 @@ local defaultTargetFrames = {
   "^TargetFrame$",
   "^hbExtra_HealUnit$",
   "^UUF_Target$",
+  "^EllesmereUIUnitFrames_Target$", -- EllesmereUI
   "^XPerl_Target$"
 }
 local getDefaultTargetFrames = function()
@@ -126,6 +137,7 @@ local defaultTargettargetFrames = {
   "^UUF_TargetTarget$",
   "^TargetTargetFrame$",
   "^XPerl_TargetTarget$",
+  "^EllesmereUIUnitFrames_TargetTarget$", -- EllesmereUI
   "^TargetFrameToT$"
 }
 local getDefaultTargettargetFrames = function()
@@ -145,6 +157,8 @@ local defaultPartyFrames = {
   "^DandersPartyHeaderUnitButton%d$",
   "^DandersFrames_Player$", -- depricated?
   "^DandersFrames_Party", -- depricated?
+  "^ERFPartyHeaderUnitButton%d+$", -- EllesmereUI
+  "^ERFPartySelfButton$", -- EllesmereUI (static self frame)
   "^PartyFrame",
   "^CompactParty",
 }
@@ -168,6 +182,7 @@ local defaultFocusFrames = {
   "^FocusFrame$",
   "^hbExtra_HealUnit$",
   "^UUF_Focus$",
+  "^EllesmereUIUnitFrames_Focus$", -- EllesmereUI
   "^XPerl_Focus$"
 }
 local getDefaultFocusFrames = function()
@@ -195,6 +210,10 @@ local defaultRaidFrames = {
   "^DandersFlatRaidHeader$", -- alternative style name
   "^DandersFlatRaidHeaderUnitButton%d+$", -- alternative style name
   "^DandersRaidFrame", -- depricated
+  "^ERFExtraFrame%d+$", -- EllesmereUI (extra/spotlight frames)
+  "^ERFGroupHeader%dUnitButton%d+$", -- EllesmereUI (separated groups)
+  "^ERFFlatHeaderUnitButton%d+$", -- EllesmereUI (merged groups)
+  "^PleebUI_RaidHeader%d+UnitButton%d+$", -- PleebUI
   "^CompactRaid",
 }
 local getDefaultRaidFrames = function()
@@ -206,6 +225,7 @@ local defaultBossFrames = {
   "^SUFHeaderbossUnitButton%d$",
   "^LUFHeaderbossUnitButton%d$",
   "^UUF_Boss%d$",
+  "^EllesmereUIUnitFrames_Boss%d$", -- EllesmereUI
   "^Boss%dTargetFrame$",
 }
 local getDefaultBossFrames = function()
@@ -381,7 +401,7 @@ local function ScanFrames(depth, frame, ...)
   if not frame then
     return
   end
-  if depth < maxDepth and frame.IsForbidden and not frame:IsForbidden() then
+  if depth < maxDepth and frame.IsForbidden and not frame:IsForbidden() and (not frame.CanBeAccessedInContext or frame:CanBeAccessedInContext()) then
     local frameType = frame:GetObjectType()
     if frameType == "Frame" or frameType == "Button" then
       ScanFrames(depth + 1, frame:GetChildren())

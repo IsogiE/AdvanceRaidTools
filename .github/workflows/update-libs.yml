@@ -1,0 +1,81 @@
+name: Update bundled libraries
+
+# Weekly: pull each library in AdvanceRaidTools_Libraries/Libs from upstream
+# (sources and pins in .github/libs.json), check the result, open a PR whose
+# body lists every version change and upstream commit, then merge it.
+#
+# The merge is made with GITHUB_TOKEN, which does not trigger release.yml, so
+# raiders get the new libraries with the next normal push to main.
+#
+# Needs: Settings > Actions > General > "Allow GitHub Actions to create and
+# approve pull requests".
+
+on:
+  schedule:
+    - cron: '17 6 * * 1' # Mondays 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-libs
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      BRANCH: libs/auto-update
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1 subversion
+
+      - name: Sync libraries from upstream
+        id: sync
+        run: python3 -I .github/scripts/update_libs.py --repo . --report "$RUNNER_TEMP/report.md"
+
+      - name: Check Lua syntax
+        if: steps.sync.outputs.changed == 'true'
+        run: git ls-files -z '*.lua' | xargs -0 -r luac5.1 -p
+
+      - name: Check packaging
+        if: steps.sync.outputs.changed == 'true'
+        uses: BigWigsMods/packager@20a3713ec537df54db5c0d8b4822d88ee63c70e8
+        with:
+          args: -d
+
+      - name: Open and merge pull request
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          rm -rf .release
+          git config user.name "github-actions[bot]"
+          git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add -A AdvanceRaidTools_Libraries .github/libs.json
+          { echo "Update bundled libraries"; echo; cat "$RUNNER_TEMP/report.md"; } > "$RUNNER_TEMP/msg.txt"
+          git commit -q -F "$RUNNER_TEMP/msg.txt"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+
+          title="Update bundled libraries ($(date -u +%Y-%m-%d))"
+          if gh pr view "$BRANCH" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/report.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/report.md"
+          fi
+
+          # Checks above already passed. Use auto-merge if branch protection
+          # asks for it, otherwise merge now.
+          gh pr merge "$BRANCH" --squash --delete-branch --auto || gh pr merge "$BRANCH" --squash --delete-branch

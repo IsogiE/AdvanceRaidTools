@@ -196,35 +196,64 @@ function LibSerialize:RunTests()
         assert(tab1[false][3] == 3)
         assert(tab1[false].a == "b")
 
-        -- make a copy of the original table, but first insert a bunch of extra keys (which we'll
-        -- filter out) to force the order of the hashes to be different (tested with lua 5.1 and 5.2)
-        local t2 = {}
-        for i = 100, 10000 do
-            t2[tostring(i)] = i
-        end
-        t2.x = "y"
-        t2[1] = "test"
-        t2[false] = { 1, 2, 3, a = "b" }
+        -- Make a copy of the original table, but first insert a bunch of extra
+        -- keys (which we'll filter out) to force the order of the hashes to be
+        -- different. Modern Lua runtimes randomize the string-hash seed per
+        -- process, so a given construction's iteration order isn't predictable;
+        -- we retry with varying filler until we observe a different iteration
+        -- order, which is what makes the stability check meaningful.
+        --
+        -- Each attempt uses a distinct range of numeric-string keys (so the
+        -- shared keys collide/land differently) and a filler count that spans
+        -- several hash-table capacity boundaries. All filler keys are numeric
+        -- and >= 100, so the `opts` filter removes them from the serialization.
+        local fillerSizes = { 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383 }
 
-        -- ensure the iteration order is different
-        local isDifferent = false
-        local k1, k2 = nil, nil
-        while true do
-            k1 = next(t1, k1)
-            -- get the next key from t2 that's not going to be filtered
+        local function buildCopy(attempt)
+            local t2 = {}
+            local base = 100 + attempt * 100000
+            local count = fillerSizes[((attempt - 1) % #fillerSizes) + 1]
+            for i = 0, count - 1 do
+                t2[tostring(base + i)] = i
+            end
+            t2.x = "y"
+            t2[1] = "test"
+            t2[false] = { 1, 2, 3, a = "b" }
+            return t2
+        end
+
+        local function iteratesDifferently(t2)
+            local isDifferent = false
+            local k1, k2 = nil, nil
             while true do
-                k2 = next(t2, k2)
-                if k2 == nil or not tonumber(k2) or tonumber(k2) < 100 then
+                k1 = next(t1, k1)
+                -- get the next key from t2 that's not going to be filtered
+                while true do
+                    k2 = next(t2, k2)
+                    if k2 == nil or not tonumber(k2) or tonumber(k2) < 100 then
+                        break
+                    end
+                end
+                if k1 == nil and k2 == nil then
                     break
                 end
+                assert(k1 ~= nil and k2 ~= nil)
+                isDifferent = isDifferent or k1 ~= k2
             end
-            if k1 == nil and k2 == nil then
+            return isDifferent
+        end
+
+        -- ensure the iteration order is different, retrying a bounded number of
+        -- times to be robust against hash-seed randomization
+        local t2, isDifferent
+        for attempt = 1, 100 do
+            t2 = buildCopy(attempt)
+            if iteratesDifferently(t2) then
+                isDifferent = true
                 break
             end
-            assert(k1 ~= nil and k2 ~= nil)
-            isDifferent = isDifferent or k1 ~= k2
         end
-        assert(isDifferent)
+        assert(isDifferent, "could not produce a differing iteration order after 100 attempts")
 
         -- serialize the copy and ensure the result is the same
         local serialized2 = LibSerialize:SerializeEx(opts, t2)
@@ -523,8 +552,10 @@ function LibSerialize:RunTests()
                 fail(index, fromVer, toVer, value, ("Deserialization failed: %s"):format(deserialized), true)
             end
 
-            -- Tests involving NaNs will be compared in string form.
-            if type(value) == "number" and isnan(value) then
+            -- Tests involving NaNs or negative zero will be compared in string
+            -- form: `==` treats NaN as unequal to itself and -0.0 as equal to
+            -- +0.0, so a direct comparison can't distinguish either case.
+            if type(value) == "number" and (isnan(value) or (value == 0 and string.sub(tostring(value), 1, 1) == "-")) then
                 value = tostring(value)
                 deserialized = tostring(deserialized)
             end
@@ -554,6 +585,7 @@ function LibSerialize:RunTests()
             { true, 2 },
             { false, 2 },
             { 0, 2 },
+            { 0.0, 2 },
             { 1, 2 },
             { 127, 2 },
             { 128, 3 },
@@ -570,7 +602,7 @@ function LibSerialize:RunTests()
             { 27.32, 8 },
             { 123.45678901235, 10 },
             { 148921291233.23, 10 },
-            { -0, 2 },
+            { -1 / math.huge, 7, nil, 6 }, -- -0.0
             { -1, 3 },
             { -4095, 3 },
             { -4096, 4 },
@@ -584,15 +616,20 @@ function LibSerialize:RunTests()
             { -1.5, 6 },
             { -123.45678901235, 10 },
             { -148921291233.23, 10 },
-            { 0/0, 10, nil, 3 },  -- -1.#IND or -nan(ind)
-            { 1/0, 10, nil, 3 },  -- 1.#INF or inf
-            { -1/0, 10, nil, 3 }, -- -1.#INF or -inf
+            { math.huge - math.huge, 10, nil, 3 }, -- NaN
+            { math.huge, 10, nil, 3 },
+            { -math.huge, 10, nil, 3 },
             { "", 2 },
             { "a", 3 },
             { "abcdefghijklmno", 17 },
             { "abcdefghijklmnop", 19 },
             { ("1234567890"):rep(30), 304 },
             { {}, 2 },
+            { { 0 }, 3 },
+            { { 1, 1, 1, 0 }, 6 },
+            { { [0] = 0 }, 4 },
+            { { x = 0, y = 0 }, 8 },
+            { { { 0 } }, 4 },
             { { 1 }, 3 },
             { { 1, 2, 3, 4, 5 }, 7 },
             { { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }, 17 },
@@ -633,6 +670,7 @@ function LibSerialize:RunTests()
                 -- v1.1.1 skipped due to bug with serialization version causing known failures.
                 { "v1.1.2", require("archive.LibSerialize-v1-1-2") },
                 { "v1.1.3", require("archive.LibSerialize-v1-1-3") },
+                { "v1.2.1", require("archive.LibSerialize-v1-2-1") },
                 { "latest", LibSerialize },
             }
 
@@ -966,6 +1004,469 @@ function LibSerialize:RunTests()
         assert(type(output) == type(value), "expected 'output' to be of the same type as 'value'")
         assert(tCompare(output, value), "expected 'output' to be fully comparable to 'value'")
     end
+
+    --[[---------------------------------------------------------------------------
+        Regression: stable serialization with reference-type keys
+    --]]---------------------------------------------------------------------------
+
+    -- Sorting map keys for `stable` serialization previously errored whenever a
+    -- table contained two or more keys whose types have no value ordering
+    -- (tables, functions, ...) or an incomparable mix (e.g. boolean + table).
+
+    do
+        local k1, k2 = {}, {}
+        local value = { [k1] = "one", [k2] = "two", plain = 3 }
+
+        local bytes = LibSerialize:SerializeEx({ stable = true }, value)
+        local success, out = LibSerialize:Deserialize(bytes)
+        assert(success, "stable serialization with table keys should not error")
+        assert(out.plain == 3, "expected plain key to round-trip")
+
+        local tableKeyCount, seenValues = 0, {}
+        for k, v in pairs(out) do
+            if type(k) == "table" then
+                tableKeyCount = tableKeyCount + 1
+                seenValues[v] = true
+            end
+        end
+        assert(tableKeyCount == 2, "expected two table keys to round-trip")
+        assert(seenValues["one"] and seenValues["two"], "expected table-key values to round-trip")
+
+        -- Determinism within a run: re-serializing the same object is identical.
+        assert(LibSerialize:SerializeEx({ stable = true }, value) == bytes,
+            "expected stable serialization to be deterministic within a run")
+
+        -- Mixed incomparable key types (boolean vs table, table vs table).
+        local mixed = { [true] = 1, [{}] = 2, [{}] = 3, s = "x" }
+        assert(pcall(LibSerialize.SerializeEx, LibSerialize, { stable = true }, mixed),
+            "stable serialization with mixed incomparable keys should not error")
+
+        -- Two reference-type keys surviving a filter must still sort cleanly.
+        local filtered = { [{}] = 1, [{}] = 2, [print] = 3 }
+        assert(pcall(LibSerialize.SerializeEx, LibSerialize,
+            { stable = true, errorOnUnserializableType = false }, filtered),
+            "stable serialization must not crash when sorting filtered reference keys")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Regression: whole numbers too large for the integer encoding
+    --]]---------------------------------------------------------------------------
+
+    -- Whole numbers with magnitude >= 2^56 don't fit the 56-bit integer encoding
+    -- and were previously truncated silently (and math.mininteger errored). They
+    -- now fall back to the lossless double encoding.
+
+    do
+        local function roundtrip(value)
+            local success, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+            assert(success, "expected large-number serialization to succeed")
+            return out
+        end
+
+        -- Whole doubles too large for the 56-bit integer encoding round-trip
+        -- exactly via the lossless double encoding.
+        assert(roundtrip(2^56) == 2^56, "expected 2^56 to round-trip")
+        assert(roundtrip(-(2^56)) == -(2^56), "expected -2^56 to round-trip")
+        assert(roundtrip(2^60) == 2^60, "expected 2^60 to round-trip")
+        assert(roundtrip(2^63) == 2^63, "expected 2^63 to round-trip")
+
+        -- 2^53 is the largest power of two still handled by the exact integer
+        -- byte path (values below the 2^56 float-fallback threshold).
+        assert(roundtrip(9007199254740992) == 9007199254740992,
+            "expected 2^53 to round-trip via the integer path")
+
+        -- Native 64-bit integers (Lua 5.3+) are encoded as their exact decimal
+        -- string, so they round-trip exactly and preserve the integer subtype.
+        if math.maxinteger then
+            local integerCases = {
+                9007199254740993,     -- 2^53 + 1
+                72057594037927935,    -- 2^56 - 1 (previously corrupted to 255)
+                72057594037927937,    -- 2^56 + 1
+                1152921504606846977,  -- 2^60 + 1
+                1311768467294899695,  -- 0x1234567890ABCDEF
+                math.maxinteger,      -- 2^63 - 1
+                math.mininteger,      -- -2^63
+            }
+            for _, value in ipairs(integerCases) do
+                local out = roundtrip(value)
+                assert(out == value,
+                    ("expected integer %s to round-trip exactly (got %s)"):format(
+                        tostring(value), tostring(out)))
+                assert(math.type(out) == "integer",
+                    ("expected %s to remain an integer"):format(tostring(value)))
+            end
+        end
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Regression: subnormal (denormal) floating point values
+    --]]---------------------------------------------------------------------------
+
+    -- Subnormal values were previously flushed to zero on serialization.
+
+    do
+        local function roundtrip(value)
+            local success, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+            assert(success, "expected subnormal serialization to succeed")
+            return out
+        end
+
+        local smallestSubnormal = 2^-1074
+        local largestSubnormal = (2^-1022) - (2^-1074)
+
+        assert(smallestSubnormal ~= 0, "sanity: smallest subnormal is non-zero")
+        assert(roundtrip(smallestSubnormal) == smallestSubnormal,
+            "expected smallest subnormal to round-trip")
+        assert(roundtrip(-smallestSubnormal) == -smallestSubnormal,
+            "expected negative smallest subnormal to round-trip")
+        assert(roundtrip(2^-1050) == 2^-1050, "expected mid-range subnormal to round-trip")
+        assert(roundtrip(2^-1023) == 2^-1023, "expected subnormal near boundary to round-trip")
+        assert(roundtrip(largestSubnormal) == largestSubnormal,
+            "expected largest subnormal to round-trip")
+
+        -- The smallest normal value must remain unaffected.
+        assert(roundtrip(2^-1022) == 2^-1022, "expected smallest normal to round-trip")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Regression: signed zero and NaN without division by zero
+    --]]---------------------------------------------------------------------------
+
+    do
+        local negativeZero = -1 / math.huge
+        local positiveZeroBytes = string.char(1, 1)
+        local negativeZeroBytes = string.char(1, 80, 4) .. "-0.0"
+
+        assert(LibSerialize:Serialize(0) == positiveZeroBytes, "expected compact positive zero encoding")
+        assert(LibSerialize:Serialize(0.0) == positiveZeroBytes, "expected compact floating zero encoding")
+        assert(LibSerialize:Serialize(negativeZero) == negativeZeroBytes, "expected canonical negative zero encoding")
+
+        local ok, positive, negative = LibSerialize:Deserialize(LibSerialize:Serialize(0, negativeZero))
+        assert(ok and positive == 0 and negative == 0, "expected both zero values to round-trip")
+        assert(string.format("%g", positive) == "0", "expected positive zero to keep its sign")
+        assert(string.format("%g", negative) == "-0", "expected negative zero to keep its sign")
+
+        local nanBytes = string.char(1, 72, 0xFF, 0xF8, 0, 0, 0, 0, 0, 0)
+        assert(LibSerialize:Serialize(math.huge - math.huge) == nanBytes, "expected canonical NaN encoding")
+        for _, signByte in ipairs({ 0x7F, 0xFF }) do
+            local bytes = string.char(1, 72, signByte, 0xF8, 0, 0, 0, 0, 0, 0)
+            local success, out = LibSerialize:Deserialize(bytes)
+            assert(success and type(out) == "number" and isnan(out),
+                "expected NaN to deserialize without division by zero")
+        end
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Regression: non-table __LibSerialize metatable field
+    --]]---------------------------------------------------------------------------
+
+    -- A non-table (but truthy) __LibSerialize field was indexed unconditionally,
+    -- raising an error. It should now be ignored gracefully.
+
+    do
+        for _, marker in ipairs({ true, 42, "nope" }) do
+            local value = setmetatable({ a = 1, b = 2 }, { __LibSerialize = marker })
+            local success, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+            assert(success, "expected serialization to ignore non-table __LibSerialize")
+            assert(out.a == 1 and out.b == 2, "expected contents to round-trip")
+        end
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Regression: integer subtype preservation (Lua 5.3+)
+    --]]---------------------------------------------------------------------------
+
+    -- Embedded integers previously decoded as floats (the decoder used float
+    -- division), so `math.type` wasn't preserved and was inconsistent across the
+    -- value range. All integer values should now decode back as integers, across
+    -- every encoding path (embedded 7-bit / 12-bit, multi-byte, decimal string).
+
+    do
+        if math.type then
+            local integerValues = {
+                0, 1, 127,                       -- embedded 7-bit
+                128, 4095, -1, -128, -4095,      -- embedded 12-bit (+/-)
+                4096, 65535, -4096, -65535,      -- 16-bit
+                65536, 16777215, -16777215,      -- 24-bit
+                16777216, 4294967295, -4294967295, -- 32-bit
+                4294967296, 9007199254740992,    -- 56-bit (<= 2^53)
+                -9007199254740992,
+                9007199254740993, -- 2^53 + 1 (decimal string path)
+                72057594037927935, -- 2^56 - 1
+                math.maxinteger, math.mininteger,
+            }
+            for _, value in ipairs(integerValues) do
+                local ok, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+                assert(ok, "expected integer serialization to succeed")
+                assert(out == value,
+                    ("expected %s to round-trip"):format(tostring(value)))
+                assert(math.type(out) == "integer",
+                    ("expected %s to decode as an integer (got %s)"):format(
+                        tostring(value), math.type(out) or "nil"))
+            end
+
+            -- Whole-valued floats normalize to integers (the format doesn't
+            -- distinguish 2 from 2.0); fractional and non-finite values stay floats.
+            assert(math.type((select(2, LibSerialize:Deserialize(LibSerialize:Serialize(2.0))))) == "integer",
+                "expected whole float 2.0 to normalize to an integer")
+            for _, value in ipairs({ 1.5, -27.32, math.huge, -math.huge, math.huge - math.huge }) do
+                local ok, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+                assert(ok and math.type(out) == "float",
+                    ("expected %s to decode as a float"):format(tostring(value)))
+            end
+        end
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: multi-byte counts and lengths (16-bit and 24-bit paths)
+    --]]---------------------------------------------------------------------------
+
+    -- ARRAY_16 and STR_16 are exercised elsewhere (the 1000-element streaming
+    -- tests and the 300-byte string). These cover the larger map counts and the
+    -- 24-bit count/length paths for arrays, strings, tables, and mixed tables.
+
+    do
+        local function roundtrip(v)
+            local ok, out = LibSerialize:Deserialize(LibSerialize:Serialize(v))
+            assert(ok, "large-structure serialization failed")
+            return out
+        end
+
+        -- Map with 300 string keys -> TABLE_16 (2-byte count)
+        local map16 = {}
+        for i = 1, 300 do map16["k" .. i] = i end
+        assert(tCompare(roundtrip(map16), map16), "300-key map (TABLE_16) round-trip")
+
+        -- Map with 70000 string keys -> TABLE_24 (3-byte count)
+        local map24 = {}
+        for i = 1, 70000 do map24["k" .. i] = i end
+        assert(tCompare(roundtrip(map24), map24), "70000-key map (TABLE_24) round-trip")
+
+        -- Array with 70000 elements -> ARRAY_24 (3-byte count)
+        local array24 = {}
+        for i = 1, 70000 do array24[i] = i end
+        assert(tCompare(roundtrip(array24), array24), "70000-element array (ARRAY_24) round-trip")
+
+        -- String of 70000 bytes -> STR_24 (3-byte length)
+        local string24 = ("ab"):rep(35000)
+        assert(roundtrip(string24) == string24, "70000-byte string (STR_24) round-trip")
+
+        -- Mixed table with 300 array + 300 map entries -> MIXED_16
+        local mixed16 = {}
+        for i = 1, 300 do mixed16[i] = i end
+        for i = 1, 300 do mixed16["m" .. i] = i end
+        assert(tCompare(roundtrip(mixed16), mixed16), "mixed table (MIXED_16) round-trip")
+
+        -- Mixed table with 70000 array entries + a few map entries -> MIXED_24
+        local mixed24 = {}
+        for i = 1, 70000 do mixed24[i] = i end
+        mixed24.a, mixed24.b, mixed24.c = 1, 2, 3
+        assert(tCompare(roundtrip(mixed24), mixed24), "mixed table (MIXED_24) round-trip")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: multi-byte reference indices (STRINGREF_16 / TABLEREF_16)
+    --]]---------------------------------------------------------------------------
+
+    -- With more than 255 unique interned strings/tables, later references must
+    -- use a 2-byte index, exercising the 16-bit reference paths (the 8-bit paths
+    -- are covered by the existing interning tests).
+
+    do
+        -- 400 distinct >2-byte strings, each referenced twice.
+        local strings = {}
+        for i = 1, 400 do strings[i] = "unique-string-" .. i end
+        local strValue = {}
+        for i = 1, 400 do
+            strValue[#strValue + 1] = strings[i]
+            strValue[#strValue + 1] = strings[i]
+        end
+        local sok, sout = LibSerialize:Deserialize(LibSerialize:Serialize(strValue))
+        assert(sok, "string-ref-heavy value should deserialize")
+        for i = 1, 400 do
+            assert(sout[2 * i - 1] == strings[i] and sout[2 * i] == strings[i],
+                "STRINGREF_16 round-trip")
+        end
+
+        -- 400 distinct shared subtables, each referenced twice.
+        local subtables = {}
+        for i = 1, 400 do subtables[i] = { id = i } end
+        local tblValue = {}
+        for i = 1, 400 do
+            tblValue[#tblValue + 1] = subtables[i]
+            tblValue[#tblValue + 1] = subtables[i]
+        end
+        local tok, tout = LibSerialize:Deserialize(LibSerialize:Serialize(tblValue))
+        assert(tok, "table-ref-heavy value should deserialize")
+        for i = 1, 400 do
+            assert(tout[2 * i - 1].id == i, "TABLEREF_16 value round-trip")
+            assert(tout[2 * i - 1] == tout[2 * i], "TABLEREF_16 identity/dedup preserved")
+        end
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: malformed / adversarial input is handled gracefully
+    --]]---------------------------------------------------------------------------
+
+    -- The safe Deserialize API must never crash on bad input (it decodes
+    -- untrusted data, e.g. from addon comms); it should return false instead.
+
+    do
+        local valid = LibSerialize:Serialize({ 1, 2, 3, "hello", { a = 1 } })
+
+        -- Truncated input.
+        assert(LibSerialize:Deserialize(valid:sub(1, #valid - 1)) == false,
+            "truncated input should fail gracefully")
+
+        -- Empty input (no version byte).
+        assert(LibSerialize:Deserialize("") == false,
+            "empty input should fail gracefully")
+
+        -- Unknown (too-high) serialization version.
+        assert(LibSerialize:Deserialize(string.char(255) .. valid:sub(2)) == false,
+            "unknown version should fail gracefully")
+
+        -- Out-of-range string reference: STRINGREF_8 (type 26) with index 5 and
+        -- nothing interned. This is defined to decode to nil, not to error.
+        local badRef = string.char(1, 26 * 8, 5)
+        local okRef = LibSerialize:Deserialize(badRef)
+        assert(okRef == true, "out-of-range reference should decode gracefully (to nil)")
+
+        -- Deeply nested input: 200000 nested single-element arrays. Should be
+        -- caught as a stack overflow rather than crashing the process.
+        local embeddedArray1 = string.char(16 * 1 + 4 * 2 + 2)
+        local deep = string.char(1) .. string.rep(embeddedArray1, 200000) .. string.char(0)
+        assert(LibSerialize:Deserialize(deep) == false,
+            "deeply nested input should fail gracefully (stack overflow caught)")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: DeserializeValue vs Deserialize error semantics
+    --]]---------------------------------------------------------------------------
+
+    do
+        local truncated = LibSerialize:Serialize({ 1, 2, 3 })
+        truncated = truncated:sub(1, #truncated - 1)
+
+        -- Deserialize catches errors and returns (false, message).
+        local ok, err = LibSerialize:Deserialize(truncated)
+        assert(ok == false, "Deserialize should catch errors and return false")
+        assert(type(err) == "string", "Deserialize should return an error message")
+
+        -- DeserializeValue does not catch; it raises (must be wrapped in pcall).
+        assert(pcall(function() return LibSerialize:DeserializeValue(truncated) end) == false,
+            "DeserializeValue should raise on malformed input")
+
+        -- DeserializeAsync always catches: it completes with success = false.
+        local handler = LibSerialize:DeserializeAsync(truncated)
+        local completed, success
+        repeat
+            completed, success = handler()
+        until completed
+        assert(success == false, "DeserializeAsync should complete with success = false")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: IsSerializableType
+    --]]---------------------------------------------------------------------------
+
+    do
+        assert(LibSerialize:IsSerializableType() == true, "no arguments is serializable")
+        assert(LibSerialize:IsSerializableType(nil) == true, "nil is serializable")
+        assert(LibSerialize:IsSerializableType(true) == true, "boolean is serializable")
+        assert(LibSerialize:IsSerializableType(42) == true, "number is serializable")
+        assert(LibSerialize:IsSerializableType("s") == true, "string is serializable")
+        assert(LibSerialize:IsSerializableType({}) == true, "table is serializable")
+        assert(LibSerialize:IsSerializableType(1, "a", true) == true, "all-serializable varargs")
+
+        assert(LibSerialize:IsSerializableType(print) == false, "function is not serializable")
+        assert(LibSerialize:IsSerializableType(coroutine.create(function() end)) == false,
+            "thread is not serializable")
+        assert(LibSerialize:IsSerializableType(1, print) == false,
+            "any unserializable argument makes the result false")
+
+        -- Documented: a table argument is considered serializable even if it
+        -- contains unserializable keys or values (only the arg types are checked).
+        assert(LibSerialize:IsSerializableType({ [print] = print, a = print }) == true,
+            "a table is serializable regardless of its contents")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: incomplete writer is ignored
+    --]]---------------------------------------------------------------------------
+
+    -- A writer object without WriteString does not satisfy the Writer protocol
+    -- and must be ignored, falling back to the default buffered-string result.
+
+    do
+        local incompleteWriter = { Flush = function() return "should-not-be-used" end }
+        local value = { 1, 2, 3, "test" }
+        local bytes = LibSerialize:SerializeEx({ writer = incompleteWriter }, value)
+        assert(type(bytes) == "string", "incomplete writer should fall back to a buffered string")
+        assert(bytes ~= "should-not-be-used", "incomplete writer's Flush should be ignored")
+        local ok, out = LibSerialize:Deserialize(bytes)
+        assert(ok and tCompare(out, value), "fallback result should round-trip")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: Flush return values are passed through verbatim
+    --]]---------------------------------------------------------------------------
+
+    do
+        -- Multiple values (including a nil in the middle) are all returned.
+        local multiWriter = {
+            WriteString = function() end,
+            Flush = function() return "a", 2, nil, true end,
+        }
+        local r = PackTable(LibSerialize:SerializeEx({ writer = multiWriter }, { 1 }))
+        assert(r.n == 4, "expected all four Flush values to be returned")
+        assert(r[1] == "a" and r[2] == 2 and r[3] == nil and r[4] == true,
+            "Flush values should pass through verbatim")
+
+        -- A writer with no Flush returns nothing from SerializeEx.
+        local noFlushWriter = { WriteString = function() end }
+        local r2 = PackTable(LibSerialize:SerializeEx({ writer = noFlushWriter }, { 1 }))
+        assert(r2.n == 0, "expected no return values when Flush is absent")
+    end
+
+
+    --[[---------------------------------------------------------------------------
+        Coverage: large integers as table keys (Lua 5.3+)
+    --]]---------------------------------------------------------------------------
+
+    -- The large-integer regression tests use these values as table values; this
+    -- exercises them as keys (key encoding + integer-subtype key round-trip).
+
+    do
+        if math.type then
+            local key1 = 72057594037927935 -- 2^56 - 1
+            local key2 = math.maxinteger
+            local key3 = math.mininteger
+            local value = { [key1] = "a", [key2] = "b", [key3] = "c" }
+
+            local ok, out = LibSerialize:Deserialize(LibSerialize:Serialize(value))
+            assert(ok, "large-integer-keyed table should serialize")
+            assert(out[key1] == "a", "2^56-1 key round-trip")
+            assert(out[key2] == "b", "math.maxinteger key round-trip")
+            assert(out[key3] == "c", "math.mininteger key round-trip")
+            for k in pairs(out) do
+                assert(math.type(k) == "integer", "large integer keys keep the integer subtype")
+            end
+        end
+    end
+
 
     print("All tests passed!")
 end

@@ -1,0 +1,208 @@
+{
+  "_comment": "Bundled libraries in AdvanceRaidTools_Libraries/Libs and where they come from. Maintained by .github/workflows/update-libs.yml; 'pin' is the upstream commit (git) or revision (svn) ART currently ships.",
+  "root": "AdvanceRaidTools_Libraries/Libs",
+  "sources": {
+    "ace3": {
+      "type": "git",
+      "url": "https://github.com/WoWUIDev/Ace3.git",
+      "branch": "master",
+      "pin": "ac3d1225037e0dc74e025a72342c0f7824aae147"
+    },
+    "customglow": {
+      "type": "git",
+      "url": "https://github.com/Stanzilla/LibCustomGlow.git",
+      "branch": "master",
+      "pin": "4f8f5c2607d7384b26df9175bb99fa3df891b015"
+    },
+    "getframe": {
+      "type": "git",
+      "url": "https://github.com/mrbuds/LibGetFrame.git",
+      "branch": "master",
+      "pin": "8a86edfee142f24882e90b5aca30df779d9d6d9a"
+    },
+    "serialize": {
+      "type": "git",
+      "url": "https://github.com/rossnichols/LibSerialize.git",
+      "branch": "main",
+      "pin": "aa6e50dddad28f8dfa6c27c9b1e15ae40262b4a5"
+    },
+    "deflate": {
+      "type": "git",
+      "url": "https://github.com/SafeteeWoW/LibDeflate.git",
+      "branch": "main",
+      "pin": "afc3b78d12fb3bcfa6b21e5332031ad3d7572e19"
+    },
+    "rangecheck": {
+      "type": "git",
+      "url": "https://github.com/WeakAuras/LibRangeCheck-3.0.git",
+      "branch": "main",
+      "pin": "95a6313a44f615738d216bd79cf132dc6f243284"
+    },
+    "ldb": {
+      "type": "git",
+      "url": "https://github.com/tekkub/libdatabroker-1-1.git",
+      "branch": "master",
+      "pin": "1a63ede0248c11aa1ee415187c1f9c9489ce3e02"
+    },
+    "lsm": {
+      "type": "svn",
+      "url": "https://repos.wowace.com/wow/libsharedmedia-3-0/trunk",
+      "pin": null
+    },
+    "dbicon": {
+      "type": "svn",
+      "url": "https://repos.wowace.com/wow/libdbicon-1-0/trunk",
+      "pin": null
+    },
+    "durability": {
+      "type": "svn",
+      "url": "https://repos.wowace.com/wow/libdurability/trunk",
+      "pin": null
+    }
+  },
+  "libs": [
+    {
+      "path": "LibStub",
+      "source": "ace3",
+      "subdir": "LibStub"
+    },
+    {
+      "path": "CallbackHandler-1.0",
+      "source": "ace3",
+      "subdir": "CallbackHandler-1.0"
+    },
+    {
+      "path": "AceAddon-3.0",
+      "source": "ace3",
+      "subdir": "AceAddon-3.0"
+    },
+    {
+      "path": "AceComm-3.0",
+      "source": "ace3",
+      "subdir": "AceComm-3.0",
+      "versions": [
+        "AceComm-3.0.lua",
+        "ChatThrottleLib.lua"
+      ]
+    },
+    {
+      "path": "AceConfig-3.0",
+      "source": "ace3",
+      "subdir": "AceConfig-3.0",
+      "versions": [
+        "AceConfig-3.0.lua",
+        "AceConfigCmd-3.0/AceConfigCmd-3.0.lua",
+        "AceConfigDialog-3.0/AceConfigDialog-3.0.lua",
+        "AceConfigRegistry-3.0/AceConfigRegistry-3.0.lua"
+      ]
+    },
+    {
+      "path": "AceConsole-3.0",
+      "source": "ace3",
+      "subdir": "AceConsole-3.0"
+    },
+    {
+      "path": "AceDB-3.0",
+      "source": "ace3",
+      "subdir": "AceDB-3.0"
+    },
+    {
+      "path": "AceDBOptions-3.0",
+      "source": "ace3",
+      "subdir": "AceDBOptions-3.0"
+    },
+    {
+      "path": "AceEvent-3.0",
+      "source": "ace3",
+      "subdir": "AceEvent-3.0"
+    },
+    {
+      "path": "AceGUI-3.0",
+      "source": "ace3",
+      "subdir": "AceGUI-3.0",
+      "versions": [
+        "AceGUI-3.0.lua",
+        "widgets/*.lua"
+      ]
+    },
+    {
+      "path": "AceHook-3.0",
+      "source": "ace3",
+      "subdir": "AceHook-3.0"
+    },
+    {
+      "path": "AceTimer-3.0",
+      "source": "ace3",
+      "subdir": "AceTimer-3.0"
+    },
+    {
+      "path": "LibCustomGlow-1.0",
+      "source": "customglow",
+      "subdir": ""
+    },
+    {
+      "path": "LibGetFrame-1.0",
+      "source": "getframe",
+      "subdir": "",
+      "exclude": [
+        "CallbackHandler-1.0/*"
+      ]
+    },
+    {
+      "path": "LibSerialize",
+      "source": "serialize",
+      "subdir": "",
+      "only_existing": true
+    },
+    {
+      "path": "LibDeflate",
+      "source": "deflate",
+      "subdir": "",
+      "only_existing": true
+    },
+    {
+      "path": "LibRangeCheck-3.0",
+      "source": "rangecheck",
+      "subdir": "LibRangeCheck-3.0"
+    },
+    {
+      "path": "LibDataBroker-1.1",
+      "source": "ldb",
+      "subdir": "",
+      "only_existing": true
+    },
+    {
+      "path": "LibDBIcon-1.0/LibDataBroker-1.1",
+      "source": "ldb",
+      "subdir": "",
+      "only_existing": true
+    },
+    {
+      "path": "LibSharedMedia-3.0",
+      "source": "lsm",
+      "subdir": "LibSharedMedia-3.0"
+    },
+    {
+      "path": "LibDBIcon-1.0/LibDBIcon-1.0",
+      "source": "dbicon",
+      "subdir": "LibDBIcon-1.0"
+    },
+    {
+      "path": "LibDurability/LibDurability",
+      "source": "durability",
+      "subdir": "LibDurability"
+    },
+    {
+      "path": "LibGetFrame-1.0/CallbackHandler-1.0",
+      "source": "ace3",
+      "subdir": "CallbackHandler-1.0",
+      "only_existing": true
+    },
+    {
+      "path": "LibDBIcon-1.0/CallbackHandler-1.0",
+      "source": "ace3",
+      "subdir": "CallbackHandler-1.0",
+      "only_existing": true
+    }
+  ]
+}
