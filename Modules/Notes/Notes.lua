@@ -811,7 +811,7 @@ function Notes:StripDisplayTextTags(text)
 end
 
 local function isNameBoundaryChar(c)
-    return not c or c == "" or not c:match("[%w_'%-]")
+    return not c or c == "" or not c:match("[%w_'%-\128-\255]")
 end
 
 function isNameBoundary(text, startIndex, endIndex)
@@ -893,7 +893,7 @@ local function colorizePlainDisplayNames(text, aliases)
         aliases.map = aliasMap
     end
 
-    return (text:gsub("[%w_'%-]+", function(token)
+    return (text:gsub("[%w_'%-\128-\255]+", function(token)
         local color = aliasMap[strlower(token)]
         if color then
             return color .. token .. "|r"

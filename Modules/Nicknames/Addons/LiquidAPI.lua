@@ -88,8 +88,10 @@ local LiquidAPI = {
         elseif E and E.GetCharacterInGroup then
             unit = E:GetCharacterInGroup(characterName)
             if not unit then
-                for i = 1, GetNumGroupMembers() do
-                    local currentUnit = "raid" .. i
+                local inRaid = IsInRaid()
+                local num = inRaid and GetNumGroupMembers() or GetNumSubgroupMembers()
+                for i = inRaid and 1 or 0, num do
+                    local currentUnit = i == 0 and "player" or ((inRaid and "raid" or "party") .. i)
                     if UnitExists(currentUnit) then
                         local name = E:SafeString(UnitNameUnmodified(currentUnit))
                         if name and name:lower() == lowerCharName then

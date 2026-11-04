@@ -339,10 +339,10 @@ function Nicknames:_storeAndPropagate(unit, key, nickname)
     self.db.map[key] = nickname
 
     if old then
-        nicknameToUnitCache[old] = nil
+        nicknameToUnitCache[strlower(old)] = nil
     end
     if nickname then
-        nicknameToUnitCache[nickname] = unit
+        nicknameToUnitCache[strlower(nickname)] = unit
     end
 
     for addonKey, handlers in pairs(self.integrations) do
@@ -449,23 +449,33 @@ function Nicknames:Set(unit, nickname)
     return nickname
 end
 
+local function unitHasNickname(unit, wanted)
+    local nick = Nicknames:GetIfAny(unit)
+    return nick ~= nil and strlower(nick) == wanted
+end
+
 function Nicknames:GetCharacterInGroup(nickname)
     if not self:IsEnabled() then
         return nil
     end
-    if not nickname or nickname == "" then
+    nickname = safeName(nickname)
+    if not nickname then
         return nil
     end
-    local cached = nicknameToUnitCache[nickname]
-    if cached and UnitExists(cached) and self:GetIfAny(cached) == nickname then
+    local wanted = strlower(strtrim(nickname))
+    if wanted == "" then
+        return nil
+    end
+    local cached = nicknameToUnitCache[wanted]
+    if cached and UnitExists(cached) and unitHasNickname(cached, wanted) then
         return cached
     end
-    nicknameToUnitCache[nickname] = nil
+    nicknameToUnitCache[wanted] = nil
 
     local num = GetNumGroupMembers() or 0
     if num == 0 then
-        if self:GetIfAny("player") == nickname then
-            nicknameToUnitCache[nickname] = "player"
+        if unitHasNickname("player", wanted) then
+            nicknameToUnitCache[wanted] = "player"
             return "player"
         end
         return nil
@@ -474,13 +484,13 @@ function Nicknames:GetCharacterInGroup(nickname)
     local prefix = IsInRaid() and "raid" or "party"
     for i = 1, num do
         local unit = prefix .. i
-        if UnitExists(unit) and self:GetIfAny(unit) == nickname then
-            nicknameToUnitCache[nickname] = unit
+        if UnitExists(unit) and unitHasNickname(unit, wanted) then
+            nicknameToUnitCache[wanted] = unit
             return unit
         end
     end
-    if self:GetIfAny("player") == nickname then
-        nicknameToUnitCache[nickname] = "player"
+    if unitHasNickname("player", wanted) then
+        nicknameToUnitCache[wanted] = "player"
         return "player"
     end
 end
