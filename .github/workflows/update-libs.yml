@@ -4,11 +4,11 @@ name: Update bundled libraries
 # (sources and pins in .github/libs.json), check the result, open a PR whose
 # body lists every version change and upstream commit, then merge it.
 #
-# The merge is made with GITHUB_TOKEN, which does not trigger release.yml, so
-# raiders get the new libraries with the next normal push to main.
-#
-# Needs: Settings > Actions > General > "Allow GitHub Actions to create and
-# approve pull requests".
+# Main only accepts PRs that pass "Addon source checks", which never run on a
+# PR opened with GITHUB_TOKEN, so this uses the LIBS_UPDATE_TOKEN secret: a
+# fine-grained token for this repo with Contents and Pull requests read/write.
+# The PR then runs CI, auto-merges once it passes, and the merge triggers
+# release.yml. Needs "Allow auto-merge" on in the repo settings.
 
 on:
   schedule:
@@ -57,9 +57,13 @@ jobs:
       - name: Open and merge pull request
         if: steps.sync.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.LIBS_UPDATE_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::LIBS_UPDATE_TOKEN secret is not set; cannot open the library update PR."
+            exit 1
+          fi
           rm -rf .release
           git config user.name "github-actions[bot]"
           git config user.email "41898099+github-actions[bot]@users.noreply.github.com"
@@ -76,6 +80,5 @@ jobs:
             gh pr create --base main --head "$BRANCH" --title "$title" --body-file "$RUNNER_TEMP/report.md"
           fi
 
-          # Checks above already passed. Use auto-merge if branch protection
-          # asks for it, otherwise merge now.
-          gh pr merge "$BRANCH" --squash --delete-branch --auto || gh pr merge "$BRANCH" --squash --delete-branch
+          # Merges once the required "Addon source checks" pass on the PR.
+          gh pr merge "$BRANCH" --squash --delete-branch --auto
