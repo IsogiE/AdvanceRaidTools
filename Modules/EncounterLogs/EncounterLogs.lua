@@ -19,7 +19,12 @@ local COLLECTOR_TTL = 15 * 60
 local PULL_MATCH_WINDOW = 15
 local ANNOUNCE_DEBOUNCE = 5
 local BOSS_UNITS = {}
-for index = 1, 10 do BOSS_UNITS["boss" .. index] = true end
+local BOSS_UNIT_LIST = {}
+for index = 1, 10 do
+    BOSS_UNITS["boss" .. index] = true
+    BOSS_UNIT_LIST[index] = "boss" .. index
+end
+local BOSS_STATE_EVENTS = {"UNIT_TARGETABLE_CHANGED", "UNIT_FLAGS", "UNIT_FACTION"}
 local ADD_UNITS = {target = true, focus = true}
 for index = 1, 40 do ADD_UNITS["nameplate" .. index] = true end
 local CAST_EVENTS = {
@@ -36,7 +41,6 @@ local CAPTURE_EVENTS = {
     ENCOUNTER_TIMELINE_EVENT_REMOVED = "OnTimelineEvent",
     ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED = "OnTimelineStateChanged",
     ENCOUNTER_WARNING = "OnEncounterWarning",
-    UNIT_TARGETABLE_CHANGED = "OnBossState", UNIT_FLAGS = "OnBossState", UNIT_FACTION = "OnBossState",
     UNIT_POWER_UPDATE = "OnBossPower", UNIT_ABSORB_AMOUNT_CHANGED = "OnBossShield",
     NAME_PLATE_UNIT_REMOVED = "OnNameplateRemoved", UPDATE_EXTRA_ACTIONBAR = "OnExtraButton",
     RAID_BOSS_EMOTE = "OnBossEmote", RAID_BOSS_WHISPER = "OnBossEmote", CHAT_MSG_MONSTER_YELL = "OnBossEmote",
@@ -414,12 +418,34 @@ local function bossUnitOf(self, unit)
     return self.active and not E:IsSecret(unit) and BOSS_UNITS[unit] and isTrue(UnitExists(unit))
 end
 
-function Mod:OnBossState(_, unit)
+function Mod:OnBossState(event, unit)
+    local targetable = event == "UNIT_TARGETABLE_CHANGED"
+    if targetable and self.active and not E:IsSecret(unit) and BOSS_UNITS[unit] and not isTrue(UnitExists(unit)) then
+        self:Log(("boss state: unit=%s exists=%s event=targetable"):format(unit, flag(UnitExists(unit))))
+        return
+    end
     if not bossUnitOf(self, unit) then return end
     local state = self:BossState(unit)
-    if self.active.bossState[unit] == state then return end
+    if self.active.bossState[unit] == state and not targetable then return end
     self.active.bossState[unit] = state
-    self:Log(("boss state: unit=%s %s"):format(unit, state))
+    self:Log(("boss state: unit=%s %s%s"):format(unit, state, targetable and " event=targetable" or ""))
+end
+
+function Mod:RegisterBossStateEvents()
+    self.bossStateFrames = self.bossStateFrames or {}
+    for _, unit in ipairs(BOSS_UNIT_LIST) do
+        local frame = self.bossStateFrames[unit]
+        if not frame then
+            frame = CreateFrame("Frame")
+            frame:SetScript("OnEvent", function(_, event, eventUnit) self:OnBossState(event, eventUnit) end)
+            self.bossStateFrames[unit] = frame
+        end
+        for _, event in ipairs(BOSS_STATE_EVENTS) do frame:RegisterUnitEvent(event, unit) end
+    end
+end
+
+function Mod:UnregisterBossStateEvents()
+    for _, frame in pairs(self.bossStateFrames or {}) do frame:UnregisterAllEvents() end
 end
 
 function Mod:OnBossPower(_, unit)
@@ -597,6 +623,7 @@ function Mod:OnEncounterStart(_, encounterID, encounterName, difficultyID, group
     for event, handler in pairs(CAPTURE_EVENTS) do
         if not validEvent or validEvent(event) then self:RegisterEvent(event, handler) end
     end
+    self:RegisterBossStateEvents()
     E:SendMessage("ART_ENCOUNTERLOGS_UPDATED")
 end
 
@@ -631,6 +658,7 @@ function Mod:Finish(success, incomplete)
     self.active = nil
     for event in pairs(CAST_EVENTS) do self:UnregisterEvent(event) end
     for event in pairs(CAPTURE_EVENTS) do self:UnregisterEvent(event) end
+    self:UnregisterBossStateEvents()
 
     local duration = math.max(0, GetTime() - capture.clock)
     local outcome = incomplete and "incomplete" or (success and "kill" or "wipe")
