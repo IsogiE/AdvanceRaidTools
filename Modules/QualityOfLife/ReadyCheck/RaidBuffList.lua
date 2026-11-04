@@ -1331,6 +1331,20 @@ function RaidBuffList:RefreshList()
     self:UpdateTimerBar()
 end
 
+function RaidBuffList:SetLiveEvents(enabled)
+    if enabled == self.liveEvents then
+        return
+    end
+    self.liveEvents = enabled
+    if enabled then
+        self:RegisterEvent("UNIT_AURA", "ScheduleRefresh")
+        self:RegisterEvent("UNIT_CONNECTION", "ScheduleRefresh")
+    else
+        self:UnregisterEvent("UNIT_AURA")
+        self:UnregisterEvent("UNIT_CONNECTION")
+    end
+end
+
 function RaidBuffList:ShowList(localTest, timeout)
     local isTest = localTest and true or false
     if InCombatLockdown() or self.unlocked or self:IsTesting() or
@@ -1363,6 +1377,7 @@ function RaidBuffList:ShowList(localTest, timeout)
     frame.list.ScrollToTop()
     frame:Show()
     self.listActive = true
+    self:SetLiveEvents(true)
     self:StartTimer(duration)
     self:SeedLocalDurability()
     self:RefreshList()
@@ -1384,6 +1399,7 @@ function RaidBuffList:HideList()
     local wasUnlocked = self.unlocked
     local wasTesting = self.localTest
     self.listActive = false
+    self:SetLiveEvents(false)
     self.unlocked = false
     self.localTest = false
     self.durabilityReports = {}
@@ -1495,6 +1511,7 @@ function RaidBuffList:SetUnlocked(value)
     self.unlocked = true
     self.localTest = false
     self.listActive = true
+    self:SetLiveEvents(true)
     self.durabilityReports = {}
     self.readyTotal = 0
     self.readyResponded = 0
@@ -1540,8 +1557,7 @@ function RaidBuffList:OnEnable()
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
     self:RegisterEvent("GROUP_LEFT", "OnGroupLeft")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupRosterUpdate")
-    self:RegisterEvent("UNIT_AURA", "ScheduleRefresh")
-    self:RegisterEvent("UNIT_CONNECTION", "ScheduleRefresh")
+    self.liveEvents = nil
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "HideList")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
     self:RegisterMessage("ART_MEDIA_UPDATED", "Refresh")

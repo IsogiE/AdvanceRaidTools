@@ -194,6 +194,9 @@ local function Init()
     if CompactUnitFrame_UpdateName and not hookedCompactUpdateName then
         hookedCompactUpdateName = true
         hooksecurefunc("CompactUnitFrame_UpdateName", function(frame)
+            if frame and not frame:IsForbidden() and frame.name and hookedFrames[frame.name] then
+                return
+            end
             UpdateFrame(frame)
         end)
     end

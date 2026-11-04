@@ -785,6 +785,22 @@ function ReadyCheckConsumables:UpdateDisplay()
     self:ApplyLayout()
 end
 
+function ReadyCheckConsumables:SetLiveEvents(enabled)
+    if enabled == self.liveEvents then
+        return
+    end
+    self.liveEvents = enabled
+    if enabled then
+        self:RegisterEvent("UNIT_AURA", "OnUnitChanged")
+        self:RegisterEvent("UNIT_INVENTORY_CHANGED", "OnUnitChanged")
+        self:RegisterEvent("BAG_UPDATE_DELAYED", "OnUnitChanged")
+    else
+        self:UnregisterEvent("UNIT_AURA")
+        self:UnregisterEvent("UNIT_INVENTORY_CHANGED")
+        self:UnregisterEvent("BAG_UPDATE_DELAYED")
+    end
+end
+
 function ReadyCheckConsumables:ShowDisplayOutOfCombat()
     local frame = self.frame
     if not frame or InCombatLockdown() then
@@ -795,6 +811,7 @@ function ReadyCheckConsumables:ShowDisplayOutOfCombat()
         RegisterStateDriver(frame, "visibility", VISIBILITY_DRIVER)
         self.visibilityDriverRegistered = true
     end
+    self:SetLiveEvents(true)
     frame:Show()
 end
 
@@ -841,6 +858,7 @@ function ReadyCheckConsumables:HideDisplay(clearActions)
     self.displaySerial = (self.displaySerial or 0) + 1
     self.unlocked = false
     self.displayMode = nil
+    self:SetLiveEvents(false)
     self:CancelTimers()
     self:CancelDeferredWork()
 
@@ -1018,9 +1036,7 @@ function ReadyCheckConsumables:OnEnable()
     self:RegisterEvent("READY_CHECK", "OnReadyCheck")
     self:RegisterEvent("READY_CHECK_CONFIRM", "OnReadyCheckConfirm")
     self:RegisterEvent("READY_CHECK_FINISHED", "OnReadyCheckFinished")
-    self:RegisterEvent("UNIT_AURA", "OnUnitChanged")
-    self:RegisterEvent("UNIT_INVENTORY_CHANGED", "OnUnitChanged")
-    self:RegisterEvent("BAG_UPDATE_DELAYED", "OnUnitChanged")
+    self.liveEvents = nil
     self:RegisterEvent("GROUP_LEFT", "OnReadyCheckFinished")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStart")
     self:RegisterMessage("ART_PROFILE_CHANGED", "Refresh")
