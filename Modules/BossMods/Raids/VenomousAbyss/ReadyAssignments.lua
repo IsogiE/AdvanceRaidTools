@@ -421,7 +421,7 @@ AR({
 AR({
     boss = BOSS_META.coiledAltar,
 
-    key = "venomousAbyssCAKick1",
+    key = "venomousAbyssCAKick",
     sheet = "VenomousAbyssCoiledAltarKicks",
 
     labelKey = "BossMods_NoteKickAssignments",
@@ -430,18 +430,18 @@ AR({
     tab = "VenomousAbyss",
     order = 70,
 
-    tag = "CAKick1",
-    textKey = "BossMods_AR_TextCAKickUnmarked",
+    tag = "CAKick",
+    textKey = "BossMods_AR_TextCAKick",
     note = {
-        tag = "CAKick1",
-        template = "#CAKick1\nPlayer1\nPlayer2\nPlayer3"
+        tag = "CAKick",
+        template = "#CAKick\nPlayer1\nPlayer2\nPlayer3"
     }
 })
 
 AR({
     boss = BOSS_META.coiledAltar,
 
-    key = "venomousAbyssCAKick2",
+    key = "venomousAbyssCAP3Kick",
     sheet = "VenomousAbyssCoiledAltarKicks",
 
     labelKey = "BossMods_NoteKickAssignments",
@@ -450,51 +450,11 @@ AR({
     tab = "VenomousAbyss",
     order = 71,
 
-    tag = "CAKick2",
-    textKey = "BossMods_AR_TextCAKickMarked",
+    tag = "CAP3Kick",
+    textKey = "BossMods_AR_TextCAP3Kick",
     note = {
-        tag = "CAKick2",
-        template = "#CAKick2\nPlayer1\nPlayer2\nPlayer3"
-    }
-})
-
-AR({
-    boss = BOSS_META.coiledAltar,
-
-    key = "venomousAbyssCAP3Kick1",
-    sheet = "VenomousAbyssCoiledAltarKicks",
-
-    labelKey = "BossMods_NoteKickAssignments",
-    itemLabelKey = "BossMods_NoteKickAssignments",
-
-    tab = "VenomousAbyss",
-    order = 72,
-
-    tag = "CAP3Kick1",
-    textKey = "BossMods_AR_TextCAP3KickUnmarked",
-    note = {
-        tag = "CAP3Kick1",
-        template = "#CAP3Kick1\nPlayer1\nPlayer2\nPlayer3"
-    }
-})
-
-AR({
-    boss = BOSS_META.coiledAltar,
-
-    key = "venomousAbyssCAP3Kick2",
-    sheet = "VenomousAbyssCoiledAltarKicks",
-
-    labelKey = "BossMods_NoteKickAssignments",
-    itemLabelKey = "BossMods_NoteKickAssignments",
-
-    tab = "VenomousAbyss",
-    order = 73,
-
-    tag = "CAP3Kick2",
-    textKey = "BossMods_AR_TextCAP3KickMarked",
-    note = {
-        tag = "CAP3Kick2",
-        template = "#CAP3Kick2\nPlayer1\nPlayer2\nPlayer3"
+        tag = "CAP3Kick",
+        template = "#CAP3Kick\nPlayer1\nPlayer2\nPlayer3"
     }
 })
 
