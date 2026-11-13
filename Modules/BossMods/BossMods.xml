@@ -76,6 +76,7 @@
     <Script file="Misc\PullTools.lua"/>
     <Script file="Misc\FocusChannelTimer.lua"/>
     <Script file="Misc\GeneralPack.lua"/>
+    <Script file="Misc\RaidDebuffs.lua"/>
 
     <Script file="General\ReadyAssignments.lua"/>
     <Script file="General\BossPush.lua"/>

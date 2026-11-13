@@ -674,6 +674,20 @@ function E:VersionAtLeast(a, b)
     return self:CompareVersions(a, b) >= 0
 end
 
+-- For Forever stuff
+function E:IsForeverClient()
+    if self._isForeverClient == nil then
+        local version = GetBuildInfo and GetBuildInfo()
+        local major, minor
+        if type(version) == "string" and not self:IsSecret(version) then
+            major, minor = version:match("^(%d+)%.(%d+)")
+        end
+        major, minor = tonumber(major), tonumber(minor)
+        self._isForeverClient = major == 1 and minor ~= nil and minor >= 60
+    end
+    return self._isForeverClient
+end
+
 -- Format a number for compact display
 function E:FormatAmount(n)
     if type(n) ~= "number" then

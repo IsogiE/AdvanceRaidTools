@@ -11,6 +11,7 @@
     <Script file="Misc\PullToolsSettings.lua"/>
     <Script file="Misc\FocusChannelTimerSettings.lua"/>
     <Script file="Misc\GeneralPackSettings.lua"/>
+    <Script file="Misc\RaidDebuffsSettings.lua"/>
 
     <Script file="General\ReadyAssignmentsSettings.lua"/>
     <Script file="General\AuraCircleSettings.lua"/>

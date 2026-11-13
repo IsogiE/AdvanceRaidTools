@@ -1,4 +1,4 @@
-## Interface: 120100, 120105
+## Interface: 120100, 120105, 16001
 ## Title: |cff1784d1Advance|r |cffffffffRaid Tools|r |cff888888Options|r
 ## Notes: Options Window for ART
 ## Author: Isogi
@@ -51,7 +51,12 @@ Modules\QualityOfLife\CDMTweaks\CDMTweaksSettings.lua
 Modules\QualityOfLife\WhisperSound\WhisperSoundSettings.lua
 Modules\QualityOfLife\ReadyCheck\ReadyCheck.xml
 Modules\QualityOfLife\Diagnostics\DiagnosticsSettings.lua
+Modules\QualityOfLife\InstanceTracker\InstanceTrackerSettings.lua
 
 Modules\EncounterLogs\EncounterLogsSettings.lua
 
 Modules\BossMods\BossMods.xml
+
+Modules\LootCoin\LootCoinSettings.lua
+
+Modules\Blessings\BlessingsSettings.lua

@@ -1,4 +1,4 @@
-## Interface: 120100, 120105
+## Interface: 120100, 120105, 16001
 ## Title: |cff1784d1Advance|r |cffffffffRaid Tools|r
 ## Notes: |cffffffff[2:45 AM]|r |cffff7d0aRoiben|r|cffffffff: can never have enough bricks|r
 ## Author: Isogi
@@ -72,7 +72,13 @@ Modules\QualityOfLife\CDMTweaks\CDMTweaks.lua
 Modules\QualityOfLife\WhisperSound\WhisperSound.lua
 Modules\QualityOfLife\ReadyCheck\ReadyCheck.xml
 Modules\QualityOfLife\Diagnostics\Diagnostics.lua
+Modules\QualityOfLife\InstanceTracker\InstanceTracker.lua
 
 Modules\EncounterLogs\EncounterLogs.lua
 
 Modules\BossMods\BossMods.xml
+
+Modules\LootCoin\LootCoin.lua
+Modules\LootCoin\LootCoinSources.lua
+
+Modules\Blessings\Blessings.lua

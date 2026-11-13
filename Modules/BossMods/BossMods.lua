@@ -55,6 +55,7 @@ function BossMods:RegisterRaidTab(key, opts)
         labelKey = opts.labelKey or key,
         order = opts.order or 1000,
         hideFromInterface = opts.hideFromInterface,
+        game = opts.game,
         settingsKey = opts.settingsKey
     })
 
@@ -131,7 +132,11 @@ end
 function BossMods:GetTabs()
     local _, _, _, interfaceVersion = GetBuildInfo()
     interfaceVersion = tonumber(interfaceVersion)
+    local game = E:IsForeverClient() and "forever" or "retail"
     return raidTabs:Filter(function(tab)
+        if tab.game and tab.game ~= game then
+            return false
+        end
         return not tab.hideFromInterface or not interfaceVersion
             or interfaceVersion < tab.hideFromInterface
     end)
@@ -197,29 +202,34 @@ BossMods:RegisterRaidTab("RaidAnchors", {
 BossMods:RegisterRaidTab("Queldanas", {
     labelKey = "BossMods_Queldanas",
     order = 20,
-    hideFromInterface = 120100
+    hideFromInterface = 120100,
+    game = "retail"
 })
 
 BossMods:RegisterRaidTab("Voidspire", {
     labelKey = "BossMods_Season1",
     order = 30,
-    hideFromInterface = 120100
+    hideFromInterface = 120100,
+    game = "retail"
 })
 
 BossMods:RegisterRaidTab("Dreamrift", {
     labelKey = "BossMods_Dreamrift",
-    order = 40
+    order = 40,
+    game = "retail"
 })
 
 BossMods:RegisterRaidTab("VenomousAbyss", {
     labelKey = "BossMods_VenomousAbyss",
     order = 50,
-    hideFromInterface = 120200
+    hideFromInterface = 120200,
+    game = "retail"
 })
 
 BossMods:RegisterRaidTab("UnbindingOfKithix", {
     labelKey = "BossMods_Kithix",
-    order = 60
+    order = 60,
+    game = "retail"
 })
 
 E:FlushModuleFeatureRegistrations("BossMods")
