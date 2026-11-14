@@ -170,7 +170,7 @@ local function buildHourPanel(parent, mod)
                 row.name:SetText(name)
                 row.char:SetText(entry.charName or "")
                 row.char:SetTextColor(classColor(entry.class))
-                row.frees:SetText(L["QoL_InstanceTrackerFreesIn"]:format(mod:FormatTime(entry.at + mod.HOUR - now)))
+                row.frees:SetText(L["QoL_InstanceTrackerFreesIn"]:format(mod:FormatTime(mod:Expires(entry) - now)))
             end
         end
     end

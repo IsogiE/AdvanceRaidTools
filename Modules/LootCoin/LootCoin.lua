@@ -28,13 +28,14 @@ end
 local lookups
 local function getLookups()
     if lookups then return lookups end
-    lookups = {instances = {}, byEncounter = {}, byNPC = {}, noCoin = {}}
+    lookups = {instances = {}, byEncounter = {}, byNPC = {}, noCoin = {}, noCoinNames = {}}
     for _, source in ipairs(Mod.sources) do
         if source.enabled ~= false and source.instanceID then
             lookups.instances[source.instanceID] = true
             for _, boss in ipairs(source.bosses or {}) do
                 if boss.coin == false then
                     lookups.noCoin[boss.encounter] = true
+                    if boss.name then lookups.noCoinNames[boss.name] = true end
                 else
                     lookups.byEncounter[boss.encounter] = boss
                     if boss.npc then lookups.byNPC[boss.npc] = boss end
@@ -278,11 +279,12 @@ function Mod:Remind(encounterID, npcID)
     self:RefreshDisplay()
 end
 
-function Mod:OnEncounterEnd(_, encounterID, _, _, _, success)
+function Mod:OnEncounterEnd(_, encounterID, encounterName, _, _, success)
     encounterID, success = publicNumber(encounterID), publicNumber(success)
     if success ~= 1 or not encounterID or not E:IsForeverClient() then return end
     local known = getLookups()
     if known.noCoin[encounterID] or not known.instances[currentInstanceID()] then return end
+    if type(encounterName) == "string" and not E:IsSecret(encounterName) and known.noCoinNames[encounterName] then return end
     if not self:CountKill(encounterID) then return end
     local boss = known.byEncounter[encounterID]
     self:Remind(encounterID, boss and boss.npc)

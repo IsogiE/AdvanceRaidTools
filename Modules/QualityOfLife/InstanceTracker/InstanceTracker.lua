@@ -7,7 +7,7 @@ E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = true,
     warn = true,
     warnLeft = 2,
-    announceReset = false
+    announceReset = true
 })
 
 local Mod = E:NewModule(MODULE_NAME, "AceEvent-3.0")
@@ -64,28 +64,35 @@ end
 function Mod:GetStore()
     local store = E:GetGlobal(MODULE_NAME)
     store.entries = type(store.entries) == "table" and store.entries or {}
-    store.copies = type(store.copies) == "table" and store.copies or {}
-    store.generations = type(store.generations) == "table" and store.generations or {}
+    store.open = type(store.open) == "table" and store.open or {}
+    store.copies, store.generations = nil, nil
     return store
+end
+
+function Mod:Expires(entry)
+    return (entry.left or entry.at) + HOUR
 end
 
 function Mod:Prune(now)
     local store = self:GetStore()
     now = now or time()
-    local kept = {}
+    local open = {}
+    for _, row in pairs(store.open) do
+        if type(row) == "table" and row.at then open[row.at] = true end
+    end
+    local kept, active = {}, {}
     for _, entry in ipairs(store.entries) do
-        if type(entry) == "table" and type(entry.at) == "number" and entry.at <= now and now - entry.at < HOUR then
-            kept[#kept + 1] = entry
+        if type(entry) == "table" and type(entry.at) == "number" and entry.at <= now then
+            local live = self:Expires(entry) > now
+            if live or open[entry.at] then kept[#kept + 1] = entry end
+            if live then active[#active + 1] = entry end
         end
     end
-    table.sort(kept, function(a, b) return a.at < b.at end)
+    local function byTime(a, b) return a.at < b.at end
+    table.sort(kept, byTime)
+    table.sort(active, byTime)
     store.entries = kept
-    for key, copy in pairs(store.copies) do
-        if type(copy) ~= "table" or type(copy.seen) ~= "number" or now - copy.seen >= HOUR then
-            store.copies[key] = nil
-        end
-    end
-    return kept
+    return active
 end
 
 function Mod:GetCap()
@@ -101,32 +108,34 @@ end
 function Mod:GetHour(now)
     now = now or time()
     local entries = self:Prune(now)
-    local frees = entries[1] and math.max(0, entries[1].at + HOUR - now) or nil
+    local frees
+    for _, entry in ipairs(entries) do
+        local left = math.max(0, self:Expires(entry) - now)
+        if not frees or left < frees then frees = left end
+    end
     return entries, self:GetCap(), frees
 end
 
-function Mod:Generation(char)
-    return publicNumber(self:GetStore().generations[char]) or 0
+local function sameZone(a, b)
+    return a and b and a.instanceID == b.instanceID and a.difficulty == b.difficulty
 end
 
-function Mod:AdvanceGeneration(char)
-    char = char or charKey()
-    if not char then return end
-    local generations = self:GetStore().generations
-    generations[char] = self:Generation(char) + 1
-end
-
-function Mod:CopyKey(zone, char)
-    return ("%s:%d:%d:%d"):format(char, zone.instanceID, zone.difficulty, self:Generation(char))
+function Mod:FindEntry(at)
+    if not at then return end
+    for index, entry in ipairs(self:GetStore().entries) do
+        if entry.at == at then return entry, index end
+    end
 end
 
 function Mod:Changed()
     E:SendMessage("ART_INSTANCETRACKER_UPDATED")
 end
 
-function Mod:AddEntry(zone, char, key, now)
+function Mod:AddEntry(zone, char, now)
     now = now or time()
     local _, class = UnitClass("player")
+    local store = self:GetStore()
+    local prior = store.entries[#store.entries]
     local entry = {
         at = now,
         name = zone.name,
@@ -137,11 +146,10 @@ function Mod:AddEntry(zone, char, key, now)
         char = char,
         charName = publicString(UnitName("player")),
         class = publicString(class),
-        key = key
+        prior = prior and prior.copy and prior.at or nil
     }
-    local store = self:GetStore()
+    while self:FindEntry(entry.at) do entry.at = entry.at + 1 end
     store.entries[#store.entries + 1] = entry
-    store.copies[key] = {seen = now}
     self:Prune(now)
     self:Warn(now)
     self:Changed()
@@ -168,54 +176,71 @@ function Mod:Warn(now)
     end
 end
 
-function Mod:CheckZone(now)
+function Mod:MarkLeft(char, now)
+    local open = self:GetStore().open[char]
+    local entry = self:FindEntry(open and open.at)
+    if entry then entry.left = now or time() end
+end
+
+function Mod:CheckZone(reload, now)
     now = now or time()
     local zone, char = currentZone(), charKey()
-    if not zone or not char then
-        if self.inside and self.resetOnLeave then
-            self.resetOnLeave = nil
-            self:AdvanceGeneration(self.inside.char)
-        end
+    if not char then return end
+    local store = self:GetStore()
+    if not zone then
+        local inInstance, kind = IsInInstance()
+        if E:IsSecret(inInstance) or E:IsSecret(kind) then return end
+        if inInstance and (kind == "party" or kind == "raid") then return end
         if self.inside then
-            local copy = self:GetStore().copies[self.inside.key]
-            if copy then copy.seen = now end
+            self:MarkLeft(char, now)
+            self:Changed()
         end
         self.inside = nil
         self:StopCopyWatch()
         return
     end
-    local key = self:CopyKey(zone, char)
-    if self.inside and self.inside.key == key then return end
-    local store = self:GetStore()
+    if self.inside and sameZone(self.inside.zone, zone) then return end
     self:Prune(now)
-    local copy = store.copies[key]
-    if copy then
-        copy.seen = now
-    else
-        self:AddEntry(zone, char, key, now)
+    local open = store.open[char]
+    local ghost = self.ghostUntil and GetTime() < self.ghostUntil
+    if not ghost and not (reload and sameZone(open, zone)) then
+        local entry = self:AddEntry(zone, char, now)
+        store.open[char] = {at = entry.at, instanceID = zone.instanceID, difficulty = zone.difficulty}
     end
-    self.inside = {key = key, char = char, zone = zone}
+    self.inside = {char = char, zone = zone}
     self:StartCopyWatch()
 end
 
-function Mod:NoteCopy(copyID, now)
+function Mod:OnLeavingWorld()
+    local ghost = UnitIsGhost("player")
+    if E:IsSecret(ghost) or ghost then self.ghostUntil = GetTime() + 5 end
+end
+
+function Mod:OnUnghost()
+    self.ghostUntil = GetTime() + 4
+end
+
+function Mod:OnLogout()
+    local char = charKey()
+    if self.inside and char then self:MarkLeft(char) end
+end
+
+function Mod:NoteCopy(copyID)
     local inside = self.inside
     if not inside or not copyID then return end
     self:StopCopyWatch()
-    local store = self:GetStore()
-    local copy = store.copies[inside.key]
-    if not copy then return end
-    if not copy.id then
-        copy.id = copyID
+    local open = self:GetStore().open[inside.char]
+    local entry, index = self:FindEntry(open and open.at)
+    if not entry or entry.copy then return end
+    local prior = self:FindEntry(entry.prior)
+    entry.prior = nil
+    if prior and prior.copy == copyID then
+        table.remove(self:GetStore().entries, index)
+        open.at = prior.at
+        self:Changed()
         return
     end
-    if copy.id == copyID then return end
-    now = now or time()
-    self:AdvanceGeneration(inside.char)
-    local key = self:CopyKey(inside.zone, inside.char)
-    self:AddEntry(inside.zone, inside.char, key, now)
-    store.copies[key].id = copyID
-    inside.key = key
+    entry.copy = copyID
 end
 
 function Mod:ReadUnitCopy(unit)
@@ -291,7 +316,6 @@ function Mod:OnGameText(text)
     if p.cap and text:match(p.cap) then
         self:LearnCap()
     elseif p.reset and text:match(p.reset) then
-        self:AdvanceGeneration()
         self:AnnounceReset()
     end
 end
@@ -316,26 +340,23 @@ function Mod:OnUIError(_, _, text)
     self:OnGameText(text)
 end
 
-function Mod:OnRosterUpdate()
-    local grouped = IsInGroup()
-    if E:IsSecret(grouped) then return end
-    grouped = grouped and true or false
-    if self.grouped and not grouped then
-        if self.inside then
-            self.resetOnLeave = true
-        else
-            self:AdvanceGeneration()
-        end
+function Mod:OnEnteringWorld(_, _, isReload)
+    self.seenWorld = true
+    local reload = isReload and true or false
+    if self.zoneTimer then
+        self.zoneTimer:Cancel()
+        reload = reload or self.zoneReload
     end
-    self.grouped = grouped
+    self.zoneReload = reload
+    self.zoneTimer = C_Timer.NewTimer(0.5, function()
+        self.zoneTimer, self.zoneReload = nil, nil
+        self:CheckZone(reload)
+    end)
 end
 
-function Mod:OnEnteringWorld()
-    if self.zoneTimer then self.zoneTimer:Cancel() end
-    self.zoneTimer = C_Timer.NewTimer(1, function()
-        self.zoneTimer = nil
-        self:CheckZone()
-    end)
+function Mod:OnZoneChanged()
+    if self.zoneTimer then return end
+    self:OnEnteringWorld()
 end
 
 function Mod:ScheduleExpiry()
@@ -362,15 +383,15 @@ end
 
 function Mod:OnEnable()
     if not E:IsForeverClient() then return end
-    local grouped = IsInGroup()
-    if not E:IsSecret(grouped) then self.grouped = grouped and true or false end
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnteringWorld")
-    self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnEnteringWorld")
+    self:RegisterEvent("ZONE_CHANGED_NEW_AREA", "OnZoneChanged")
     self:RegisterEvent("CHAT_MSG_SYSTEM", "OnSystemMessage")
     self:RegisterEvent("UI_ERROR_MESSAGE", "OnUIError")
-    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
     self:RegisterMessage("ART_INSTANCETRACKER_UPDATED", "OnUpdated")
-    self:CheckZone()
+    self:RegisterEvent("PLAYER_LEAVING_WORLD", "OnLeavingWorld")
+    self:RegisterEvent("PLAYER_UNGHOST", "OnUnghost")
+    self:RegisterEvent("PLAYER_LOGOUT", "OnLogout")
+    if self.seenWorld then self:CheckZone(true) end
     self:ScheduleExpiry()
 end
 
@@ -379,7 +400,6 @@ function Mod:OnDisable()
     self:UnregisterAllMessages()
     self.watching = nil
     self.inside = nil
-    self.resetOnLeave = nil
     if self.zoneTimer then self.zoneTimer:Cancel() end
     if self.expiryTimer then self.expiryTimer:Cancel() end
     self.zoneTimer, self.expiryTimer = nil, nil

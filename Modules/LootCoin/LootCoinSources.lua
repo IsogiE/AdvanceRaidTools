@@ -7,8 +7,9 @@ LootCoin.sources = {
         instanceID = 230,
         bosses = {
             {encounter = 227, npc = 9018, name = "High Interrogator Gerstahn"},
-            {encounter = 228, npc = 9025, name = "Lord Roccor"},
-            {encounter = 229, npc = 9319, name = "Houndmaster Grebmar"},
+            {encounter = 228, npc = 9025, name = "Lord Roccor", coin = false},
+            {encounter = 229, npc = 9319, name = "Houndmaster Grebmar", coin = false},
+            {encounter = 230, name = "Ring of Law", coin = false},
             {encounter = 231, npc = 9024, name = "Pyromancer Loregrain"},
             {encounter = 232, npc = 9017, name = "Lord Incendius"},
             {encounter = 233, npc = 9041, name = "Warder Stilgiss"},
