@@ -30,7 +30,7 @@ LootCoin.sources = {
         name = "Dire Maul",
         instanceID = 429,
         bosses = {
-            {encounter = 2792, npc = 14354, name = "Pusillin"},
+            {encounter = 2792, npc = 14354, name = "Pusillin", coin = false},
             {encounter = 343, npc = 11490, name = "Zevrim Thornhoof"},
             {encounter = 344, npc = 13280, name = "Hydrospawn"},
             {encounter = 345, npc = 14327, name = "Lethtendris"},

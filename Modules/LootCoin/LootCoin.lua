@@ -28,13 +28,17 @@ end
 local lookups
 local function getLookups()
     if lookups then return lookups end
-    lookups = {instances = {}, byEncounter = {}, byNPC = {}}
+    lookups = {instances = {}, byEncounter = {}, byNPC = {}, noCoin = {}}
     for _, source in ipairs(Mod.sources) do
         if source.enabled ~= false and source.instanceID then
             lookups.instances[source.instanceID] = true
             for _, boss in ipairs(source.bosses or {}) do
-                lookups.byEncounter[boss.encounter] = boss
-                if boss.npc then lookups.byNPC[boss.npc] = boss end
+                if boss.coin == false then
+                    lookups.noCoin[boss.encounter] = true
+                else
+                    lookups.byEncounter[boss.encounter] = boss
+                    if boss.npc then lookups.byNPC[boss.npc] = boss end
+                end
             end
         end
     end
@@ -89,7 +93,9 @@ function Mod:GetCoinList()
         if source.enabled ~= false then
             local bosses = {}
             for _, boss in ipairs(source.bosses or {}) do
-                bosses[#bosses + 1] = {name = boss.name, looted = looted[boss.encounter] ~= nil}
+                if boss.coin ~= false then
+                    bosses[#bosses + 1] = {name = boss.name, looted = looted[boss.encounter] ~= nil}
+                end
             end
             out[#out + 1] = {name = source.name, instanceID = source.instanceID, bosses = bosses}
         end
@@ -276,7 +282,8 @@ function Mod:OnEncounterEnd(_, encounterID, _, _, _, success)
     encounterID, success = publicNumber(encounterID), publicNumber(success)
     if success ~= 1 or not encounterID or not E:IsForeverClient() then return end
     local known = getLookups()
-    if not known.instances[currentInstanceID()] or not self:CountKill(encounterID) then return end
+    if known.noCoin[encounterID] or not known.instances[currentInstanceID()] then return end
+    if not self:CountKill(encounterID) then return end
     local boss = known.byEncounter[encounterID]
     self:Remind(encounterID, boss and boss.npc)
 end
