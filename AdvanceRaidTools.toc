@@ -82,3 +82,4 @@ Modules\LootCoin\LootCoin.lua
 Modules\LootCoin\LootCoinSources.lua
 
 Modules\Blessings\Blessings.lua
+Modules\Blessings\BlessingsBar.lua

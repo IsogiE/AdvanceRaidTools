@@ -12,13 +12,7 @@ local MENU_W, MENU_ROW_H, MENU_PAD = 220, 24, 5
 local CLICK_SOUND = 852
 local RED = {0.9, 0.25, 0.25, 1}
 local DIM = {0.55, 0.55, 0.55}
-local CLASS_ICONS = {
-    WARRIOR = "Interface\\Icons\\ClassIcon_Warrior", ROGUE = "Interface\\Icons\\ClassIcon_Rogue",
-    PRIEST = "Interface\\Icons\\ClassIcon_Priest", DRUID = "Interface\\Icons\\ClassIcon_Druid",
-    PALADIN = "Interface\\Icons\\ClassIcon_Paladin", HUNTER = "Interface\\Icons\\ClassIcon_Hunter",
-    MAGE = "Interface\\Icons\\ClassIcon_Mage", WARLOCK = "Interface\\Icons\\ClassIcon_Warlock",
-    SHAMAN = "Interface\\Icons\\ClassIcon_Shaman"
-}
+local BAR_PAD, BAR_MAX_W = 10, 640
 
 local selectedClass
 local menu
@@ -413,6 +407,120 @@ local function createCard(parent)
     return card
 end
 
+local function buildBarBody(parent, mod, isDisabled)
+    local width = parent:GetWidth() or 0
+    if width <= 0 then return {} end
+    local tracker = T:MakeTracker()
+    local track = tracker.track
+    local gap = 8
+
+    local function barDisabled()
+        return isDisabled() or not mod:BarSettings().enabled
+    end
+
+    local function changed()
+        mod:RefreshBar()
+        tracker.refresh()
+    end
+
+    local show = track(T:Checkbox(parent, {
+        text = L["BlessingsBarShow"],
+        labelTop = true,
+        get = function() return mod:BarSettings().enabled end,
+        onChange = function(_, value)
+            mod:BarSettings().enabled = value and true or false
+            changed()
+        end,
+        disabled = isDisabled
+    }))
+    local unlock = track(T:Checkbox(parent, {
+        text = L["BossMods_UnlockFrame"],
+        labelTop = true,
+        tooltip = {title = L["BossMods_UnlockFrame"], desc = L["DragToMove"]},
+        get = function() return not mod:BarSettings().locked end,
+        onChange = function(_, value) mod:SetBarLocked(not value) end,
+        disabled = barDisabled
+    }))
+    local scale = track(T:Slider(parent, {
+        label = L["Scale"],
+        min = 0.6,
+        max = 1.6,
+        step = 0.05,
+        value = mod:BarSettings().scale,
+        get = function() return mod:BarSettings().scale end,
+        onChange = function(value)
+            mod:BarSettings().scale = value
+            mod:ApplyBarPosition()
+        end,
+        disabled = barDisabled
+    }))
+    local y = T:PlaceRow(parent, {show, unlock, scale}, 0, width, {widths = {1, 1, 2}}) + gap
+
+    local positionY, position = T:PositionSection(parent, y, width, {
+        hideHeader = true,
+        hideUnlock = true,
+        tracker = tracker,
+        getPosition = function()
+            local saved = mod:GetBarPosition()
+            return {point = saved.point, x = saved.x, y = saved.y}
+        end,
+        setPosition = function(saved) mod:SaveBarPosition(saved) end,
+        resetPosition = function() mod:ResetBarPosition() end,
+        resetConfirm = L["BossMods_ResetAnchorPositionConfirm"]:format(L["BlessingsBar"]),
+        resetConfirmTitle = L["ResetPosition"],
+        isDisabled = barDisabled,
+        showOffsets = true
+    })
+
+    local height = math.max(positionY, 1)
+    parent:SetHeight(height)
+    return {
+        height = height,
+        Refresh = function()
+            tracker.refresh()
+            position.Refresh()
+        end,
+        Release = function()
+            position.Release()
+            tracker.release()
+        end
+    }
+end
+
+local function createBarPanel(parent, mod, isDisabled)
+    local panel = {frame = CreateFrame("Frame", nil, parent, "BackdropTemplate")}
+    E:SetTemplate(panel.frame, "Transparent")
+    local inner = CreateFrame("Frame", nil, panel.frame)
+    inner:SetPoint("TOPLEFT", panel.frame, "TOPLEFT", 0, -BAR_PAD)
+    local header = T:Header(inner, {text = L["BlessingsBar"]})
+    local body = CreateFrame("Frame", nil, inner)
+    local handle, builtWidth
+
+    function panel.Layout(width)
+        panel.frame:SetWidth(width)
+        inner:SetWidth(width)
+        local top = T:PlaceFull(inner, header, 0, width) + 6
+        body:ClearAllPoints()
+        body:SetPoint("TOPLEFT", inner, "TOPLEFT", 0, -top)
+        body:SetWidth(width)
+        if not builtWidth or math.abs(builtWidth - width) >= 0.5 then
+            if handle and handle.Release then handle.Release() end
+            builtWidth = width
+            handle = buildBarBody(body, mod, isDisabled)
+        end
+        local height = top + (handle and handle.height or 1)
+        inner:SetHeight(height)
+        panel.frame:SetHeight(height + BAR_PAD * 2)
+        return height + BAR_PAD * 2
+    end
+
+    function panel.Refresh()
+        if handle and handle.Refresh then handle.Refresh() end
+    end
+
+    return panel
+end
+
 local function createView(parent, mod, isDisabled)
     local view = {mod = mod, enabled = true}
     local frame = CreateFrame("Frame", nil, parent)
@@ -471,6 +579,7 @@ local function createView(parent, mod, isDisabled)
     local playersTitle = font(players, 13)
     playersTitle:SetPoint("LEFT", players, "TOPLEFT", PAD + 6, -(PAD + TAB + 8 + PLAYER_HEAD_H / 2))
     local tabs, playerHeads, playerRows = {}, {}, {}
+    local barPanel = createBarPanel(frame, mod, isDisabled or function() return false end)
 
     local signature, builtWidth
     local sync
@@ -488,7 +597,7 @@ local function createView(parent, mod, isDisabled)
 
     local function classButton(parent, i)
         local tile = createTile(parent)
-        tile.icon:SetTexture(CLASS_ICONS[mod.CLASSES[i]])
+        tile.icon:SetTexture(mod.CLASS_ICONS[mod.CLASSES[i]])
         tile.badge:SetTextColor(1, 1, 1)
         tile:SetScript("OnClick", function()
             if (mod:ClassCounts()[i] or 0) == 0 then return end
@@ -549,7 +658,7 @@ local function createView(parent, mod, isDisabled)
         local bits = {tostring(selectedClass)}
         for i = 1, #mod.CLASSES do bits[#bits + 1] = (counts[i] or 0) > 0 and "1" or "0" end
         for _, paladin in ipairs(paladins) do bits[#bits + 1] = paladin.name end
-        bits[#bits + 1] = "|"
+        bits[#bits + 1] = mod:IsPaladin() and "|bar" or "|"
         for _, member in ipairs(members) do bits[#bits + 1] = member.name end
         return table.concat(bits, "\031")
     end
@@ -691,8 +800,11 @@ local function createView(parent, mod, isDisabled)
     local function layout(width, paladins, members, counts)
         hideMenu()
         local showPlayers = #paladins > 0 and selectedClass ~= nil
+        local showBar = mod:IsPaladin()
         players:SetShown(showPlayers)
         players:ClearAllPoints()
+        barPanel.frame:SetShown(showBar)
+        barPanel.frame:ClearAllPoints()
 
         local need = math.max(PLAYERS_MIN_W, PAD * 2 + PLAYER_NAME_MIN + #paladins * PLAYER_PITCH_MIN)
         local most = math.max(need, PLAYERS_MAX_W)
@@ -702,21 +814,33 @@ local function createView(parent, mod, isDisabled)
             local playersW = clamp(math.floor(width * 0.3), need, most)
             local gridW, gridH = layoutGrid(width - CARD_GAP - playersW, paladins)
             playersW = clamp(width - CARD_GAP - gridW, need, most)
-            total = math.max(gridH, layoutPlayers(playersW, paladins, members, counts))
+            local playersH = layoutPlayers(playersW, paladins, members, counts)
+            local left = gridH
+            if showBar then
+                barPanel.frame:SetPoint("TOPLEFT", grid, "BOTTOMLEFT", 0, -CARD_GAP)
+                left = left + CARD_GAP + barPanel.Layout(gridW)
+            end
+            total = math.max(left, playersH)
             players:SetPoint("TOPLEFT", grid, "TOPRIGHT", CARD_GAP, 0)
             players:SetHeight(total)
-            grid:SetHeight(total)
+            grid:SetHeight(gridH)
         else
             local _, gridH = layoutGrid(width, paladins)
             grid:SetWidth(width)
             grid:SetHeight(gridH)
             total = gridH
+            local above = grid
             if showPlayers then
                 local hug = math.max(PLAYERS_MIN_W, PAD * 2 + PLAYER_NAME_MAX + #paladins * PLAYER_PITCH_MAX)
                 local playersH = layoutPlayers(math.min(width, hug), paladins, members, counts)
                 players:SetPoint("TOPLEFT", grid, "BOTTOMLEFT", 0, -CARD_GAP)
                 players:SetHeight(playersH)
-                total = gridH + CARD_GAP + playersH
+                total = total + CARD_GAP + playersH
+                above = players
+            end
+            if showBar then
+                barPanel.frame:SetPoint("TOPLEFT", above, "BOTTOMLEFT", 0, -CARD_GAP)
+                total = total + CARD_GAP + barPanel.Layout(math.min(width, BAR_MAX_W))
             end
         end
         frame:SetHeight(total)
@@ -759,6 +883,7 @@ local function createView(parent, mod, isDisabled)
         autoButton.Refresh()
         clearButton.Refresh()
         refreshButton.Refresh()
+        barPanel.Refresh()
     end
 
     sync = function()
@@ -786,7 +911,12 @@ local function createView(parent, mod, isDisabled)
     end
     view.Sync = sync
 
-    frame:SetScript("OnHide", hideMenu)
+    frame:SetScript("OnShow", function() mod:SetBarPlacing(true) end)
+    frame:SetScript("OnHide", function()
+        hideMenu()
+        mod:SetBarPlacing(false)
+    end)
+    if frame:IsVisible() then mod:SetBarPlacing(true) end
     return view
 end
 

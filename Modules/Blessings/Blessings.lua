@@ -10,9 +10,9 @@ local CLASS_INDEX = {}
 for i, class in ipairs(CLASSES) do CLASS_INDEX[class] = i end
 
 local BLESSINGS = {
-    [1] = {key = "wisdom", ranks = {19742, 19850, 19852, 19853, 19854, 25290}},
-    [2] = {key = "might", ranks = {19740, 19834, 19835, 19836, 19837, 19838, 25291}},
-    [3] = {key = "kings", ranks = {20217}}
+    [1] = {key = "wisdom", ranks = {19742, 19850, 19852, 19853, 19854, 25290}, greater = {25894, 25918}},
+    [2] = {key = "might", ranks = {19740, 19834, 19835, 19836, 19837, 19838, 25291}, greater = {25782, 25916}},
+    [3] = {key = "kings", ranks = {20217}, greater = {25898}}
 }
 local BLESSING_ORDER = {1, 2, 3}
 
@@ -34,7 +34,8 @@ local AURA_ORDER = {1, 2, 3, 4, 5, 6, 7}
 local BLESSING_SLOTS, AURA_SLOTS = 6, 7
 
 E:RegisterModuleDefaults(MODULE_NAME, {
-    enabled = true
+    enabled = true,
+    bar = {enabled = true, scale = 1, locked = false, position = {point = "CENTER", x = 0, y = -200}}
 })
 
 local Mod = E:NewModule(MODULE_NAME, "AceEvent-3.0")
@@ -71,6 +72,7 @@ local function knownRank(entry)
     end
 end
 Mod.KnownRank = knownRank
+Mod.Knows = knows
 
 function Mod.SpellIcon(entry)
     local id = entry and entry.ranks[1]
@@ -189,7 +191,7 @@ function Mod:ScanGroup()
         local member = {name = self:PlayerName(), class = class, unit = "player", me = true, lead = true}
         members[1], byKey[member.name] = member, member
     end
-    self.members, self.memberByName, self.paladins = members, byKey, nil
+    self.members, self.memberByName, self.paladins, self.barAuras = members, byKey, nil, nil
     return members
 end
 
@@ -333,6 +335,7 @@ end
 
 function Mod:Changed()
     E:SendMessage("ART_BLESSINGS_UPDATED")
+    if self.QueueBarRefresh then self:QueueBarRefresh() end
 end
 
 local function groupChannel()
@@ -750,10 +753,12 @@ function Mod:OnEnable()
     self:RegisterEvent("SPELLS_CHANGED", "OnSpellsChanged")
     self.grouped = false
     self:OnRosterChanged()
+    if self.EnableBar then self:EnableBar() end
 end
 
 function Mod:OnDisable()
     self:UnregisterAllEvents()
+    if self.DisableBar then self:DisableBar() end
     local Comms = E:GetModule("Comms", true)
     if Comms then Comms:UnregisterProtocol(PREFIX) end
     if self.sendTimer then
