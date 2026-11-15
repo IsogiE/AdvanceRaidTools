@@ -50,7 +50,7 @@ jobs:
 
       - name: Check packaging
         if: steps.sync.outputs.changed == 'true'
-        uses: BigWigsMods/packager@20a3713ec537df54db5c0d8b4822d88ee63c70e8
+        uses: BigWigsMods/packager@01e8631a69c69d7654c788d152630d5fed9e3812 # v2.7.0
         with:
           args: -d
 

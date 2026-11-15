@@ -121,8 +121,10 @@ function Ready:ParseHashSections(noteText)
         end
         current.text = table.concat(current.lines, "\n")
         sections[#sections + 1] = current
-        byTag[current.tag] = byTag[current.tag] or {}
-        byTag[current.tag][#byTag[current.tag] + 1] = current
+        for tag in pairs(current.tags) do
+            byTag[tag] = byTag[tag] or {}
+            byTag[tag][#byTag[tag] + 1] = current
+        end
         current = nil
     end
 
@@ -145,10 +147,19 @@ function Ready:ParseHashSections(noteText)
                 if tag then
                     current = {
                         tag = tag,
+                        tags = {[tag] = true},
                         headerText = "",
                         lines = {}
                     }
                     rest = trim(rest or "")
+                    -- Adjacent heading tags share the same assignment body.
+                    while rest:sub(1, 1) == "#" do
+                        local extra, remaining = rest:match("^#(%S+)%s*(.*)$")
+                        if not extra then break end
+                        extra = self:NormalizeTag(extra)
+                        if extra then current.tags[extra] = true end
+                        rest = trim(remaining or "")
+                    end
                     if rest ~= "" then
                         current.headerText = rest
                         current.lines[#current.lines + 1] = rest
