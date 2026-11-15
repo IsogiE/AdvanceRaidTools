@@ -10,13 +10,14 @@ local TYPE_WORLD = "world"
 local TYPE_FOCUS = "focus"
 local TYPE_FOCUS_MARK = "focus_mark"
 local TYPE_CUSTOM = "custom"
+local TYPE_KICK = "kick"
 local LINE_PREFIX = "prefix"
 local LINE_SUFFIX = "suffix"
 local TARGET_MODE_TARGET = "target"
 local TARGET_MODE_MOUSEOVER = "mouseover"
 local TARGET_MODE_NAME = "name"
 
-local TYPE_ORDER = {TYPE_SPELL, TYPE_MARK, TYPE_WORLD, TYPE_FOCUS, TYPE_FOCUS_MARK, TYPE_CUSTOM}
+local TYPE_ORDER = {TYPE_SPELL, TYPE_MARK, TYPE_WORLD, TYPE_FOCUS, TYPE_FOCUS_MARK, TYPE_CUSTOM, TYPE_KICK}
 local MARKER_ORDER = {1, 2, 3, 4, 5, 6, 7, 8}
 local LINE_ORDER = {LINE_PREFIX, LINE_SUFFIX}
 local TARGET_MODE_ORDER = {TARGET_MODE_TARGET, TARGET_MODE_MOUSEOVER, TARGET_MODE_NAME, "focus", "player", "pet", "boss1",
@@ -170,7 +171,8 @@ local function typeValues()
         [TYPE_WORLD] = L["Macros_TypeWorld"],
         [TYPE_FOCUS] = L["Focus"],
         [TYPE_FOCUS_MARK] = L["Macros_TypeFocusMark"],
-        [TYPE_CUSTOM] = L["Custom"]
+        [TYPE_CUSTOM] = L["Custom"],
+        [TYPE_KICK] = L["Macros_TypeKick"]
     }
     return typeValueCache
 end
@@ -834,17 +836,77 @@ local function buildPanel()
                 name = L["Spell"],
                 hidden = function()
                     local slot = selected()
-                    return not (slot and slot.type == TYPE_SPELL)
+                    return not (slot and (slot.type == TYPE_SPELL or slot.type == TYPE_KICK))
                 end,
                 get = function()
                     local slot = selected()
                     return slot and slot.spell or ""
                 end,
                 set = function(_, value)
-                    setFieldStatusOnly("spell", trim(value))
+                    if selected() and selected().type == TYPE_KICK then
+                        setField("spell", trim(value))
+                    else
+                        setFieldStatusOnly("spell", trim(value))
+                    end
                 end,
                 refresh = false,
                 disabled = noSlot
+            },
+            kickMouseover = {
+                order = 40.1,
+                type = "toggle",
+                width = "1/3",
+                name = L["Mouseover"],
+                labelTop = true,
+                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
+                get = function() local slot = selected(); return slot and slot.targetMode == TARGET_MODE_MOUSEOVER end,
+                set = function() setField("targetMode", TARGET_MODE_MOUSEOVER) end,
+                disabled = noSlot
+            },
+            kickFocus = {
+                order = 40.2,
+                type = "toggle",
+                width = "1/3",
+                name = L["Focus"],
+                labelTop = true,
+                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
+                get = function() local slot = selected(); return slot and slot.targetMode == "focus" end,
+                set = function() setField("targetMode", "focus") end,
+                disabled = noSlot
+            },
+            kickTarget = {
+                order = 40.3,
+                type = "toggle",
+                width = "1/3",
+                name = L["Target"],
+                labelTop = true,
+                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
+                get = function() local slot = selected(); return slot and slot.targetMode == TARGET_MODE_TARGET end,
+                set = function() setField("targetMode", TARGET_MODE_TARGET) end,
+                disabled = noSlot
+            },
+            rotationTag = {
+                order = 41,
+                width = "2/3",
+                build = function(parent)
+                    local widget = T:StatusLine(parent, {height = 80, text = L["Macros_KickHelp"]})
+                    widget.label:SetWordWrap(true)
+                    return widget
+                end,
+                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
+            },
+            kickStatus = {
+                order = 41.5,
+                build = function(parent)
+                    return T:StatusLine(parent, {height = 42, text = function()
+                    local slot = selected()
+                    if not slot then return "" end
+                    if trim(slot.spell) == "" then return L["Macros_KickSpellRequired"] end
+                    local target, reason = m:ResolveKickTarget(slot)
+                    return target and L["Macros_KickNext"]:format(target) or reason
+                    end})
+                end,
+                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end
             },
             targetName = {
                 order = 42,
