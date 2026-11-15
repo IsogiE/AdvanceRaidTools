@@ -188,6 +188,19 @@ local function linePositionValues()
     return linePositionValueCache
 end
 
+local KICK_TARGET_MODE_ORDER = {TARGET_MODE_MOUSEOVER, "focus", TARGET_MODE_TARGET}
+local kickTargetModeValueCache
+local function kickTargetModeValues()
+    if not kickTargetModeValueCache then
+        kickTargetModeValueCache = {
+            [TARGET_MODE_MOUSEOVER] = L["Mouseover"],
+            focus = L["Focus"],
+            [TARGET_MODE_TARGET] = L["Target"]
+        }
+    end
+    return kickTargetModeValueCache
+end
+
 local function targetModeValues()
     if targetModeValueCache then
         return targetModeValueCache
@@ -852,40 +865,30 @@ local function buildPanel()
                 refresh = false,
                 disabled = noSlot
             },
-            kickMouseover = {
+            kickTargetMode = {
                 order = 40.1,
-                type = "toggle",
-                width = "1/3",
-                name = L["Mouseover"],
-                labelTop = true,
-                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
-                get = function() local slot = selected(); return slot and slot.targetMode == TARGET_MODE_MOUSEOVER end,
-                set = function() setField("targetMode", TARGET_MODE_MOUSEOVER) end,
-                disabled = noSlot
-            },
-            kickFocus = {
-                order = 40.2,
-                type = "toggle",
-                width = "1/3",
-                name = L["Focus"],
-                labelTop = true,
-                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
-                get = function() local slot = selected(); return slot and slot.targetMode == "focus" end,
-                set = function() setField("targetMode", "focus") end,
-                disabled = noSlot
-            },
-            kickTarget = {
-                order = 40.3,
-                type = "toggle",
-                width = "1/3",
+                type = "select",
+                width = "1/2",
                 name = L["Target"],
-                labelTop = true,
-                hidden = function() local slot = selected(); return not (slot and slot.type == TYPE_KICK) end,
-                get = function() local slot = selected(); return slot and slot.targetMode == TARGET_MODE_TARGET end,
-                set = function() setField("targetMode", TARGET_MODE_TARGET) end,
+                buttonHeight = CONTROL_H,
+                dropdownHeight = LABELLED_CONTROL_H,
+                values = kickTargetModeValues,
+                sorting = KICK_TARGET_MODE_ORDER,
+                hidden = function()
+                    local slot = selected()
+                    return not (slot and slot.type == TYPE_KICK)
+                end,
+                get = function()
+                    local slot = selected()
+                    return slot and slot.targetMode or TARGET_MODE_MOUSEOVER
+                end,
+                set = function(_, value)
+                    setField("targetMode", value)
+                end,
+                refresh = false,
                 disabled = noSlot
             },
-            rotationTag = {
+            kickHelp = {
                 order = 41,
                 width = "2/3",
                 build = function(parent)

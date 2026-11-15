@@ -492,7 +492,6 @@ function Macros:NormalizeSlot(slot, index)
     end
     slot.type = normalizeType(slot.type or slot.kind)
     slot.spell = trim(slot.spell or slot.spellName)
-    slot.rotationTag = nil -- Rotations are discovered from the player's assignment.
     if slot.type == TYPE_SPELL and slot.spell == "" then
         slot.spell = "Power Infusion"
     end
@@ -841,111 +840,140 @@ function Macros:DeleteSlot(id)
     end
 end
 
--- Resolve every alias against the live roster; never choose the first of two matches.
+-- Kick rotations are read with the same note parser, player matching and
+-- unit lookup as the boss mods, so the macro and the boss mod always agree.
+local GENERIC_KICK_TAGS = {"cakick"}
+local NEK_KICK_TAGS = {"nekg1", "nekg2"}
+
+local function sectionsKey(sections)
+    local parts = {}
+    for i, section in ipairs(sections) do
+        parts[i] = tostring(section)
+    end
+    return table.concat(parts, ",")
+end
+
+function Macros:GetKickRotations(ctx)
+    local BossMods = E:GetModule("BossMods", true)
+    local Ready = BossMods and BossMods.ReadyAssignments
+    if not (Ready and Ready.Words) then
+        return {}
+    end
+    local tags = ctx and ctx.tags or {}
+    local rotations, seen = {}, {}
+
+    local function add(sections, players)
+        local key = sectionsKey(sections)
+        if key == "" or seen[key] then
+            return
+        end
+        seen[key] = true
+        rotations[#rotations + 1] = players
+    end
+
+    local function wordsOf(sections, skipFirst)
+        local players = {}
+        for _, section in ipairs(sections) do
+            for _, token in ipairs(Ready:Words(section.text or section.headerText or "")) do
+                if skipFirst then
+                    skipFirst = false
+                else
+                    players[#players + 1] = token
+                end
+            end
+        end
+        return players
+    end
+
+    -- Ula'tek groups go through the kicker module's own reader (it strips the marker).
+    local Ula = E:GetModule("BossMods_UlatekKicker", true)
+    for groupIndex = 1, 4 do
+        local sections = tags["ulakick" .. groupIndex]
+        if sections and Ula and Ula.ParseGroup then
+            local group = Ula:ParseGroup(ctx, groupIndex)
+            if group then
+                add(sections, group.players)
+            end
+        end
+    end
+
+    -- #NekG1/#NekG2: the first name is not part of the kick order.
+    for _, tag in ipairs(NEK_KICK_TAGS) do
+        local sections = tags[tag]
+        if sections then
+            add(sections, wordsOf(sections, true))
+        end
+    end
+
+    -- #CAKick and #KickRot1, #KickRot2, ... (#CAP3Kick is left to the boss mod).
+    local generic = {}
+    for _, tag in ipairs(GENERIC_KICK_TAGS) do
+        generic[#generic + 1] = tag
+    end
+    local numbered = {}
+    for tag in pairs(tags) do
+        local n = tag:match("^kickrot(%d*)$")
+        if n then
+            numbered[#numbered + 1] = {tag = tag, n = tonumber(n) or 0}
+        end
+    end
+    table.sort(numbered, function(a, b) return a.n < b.n end)
+    for _, entry in ipairs(numbered) do
+        generic[#generic + 1] = entry.tag
+    end
+    for _, tag in ipairs(generic) do
+        local sections = tags[tag]
+        if sections then
+            add(sections, wordsOf(sections, false))
+        end
+    end
+
+    return rotations
+end
+
 function Macros:ResolveKickTarget(slot)
     if InCombatLockdown() then return nil, L["Macros_KickCombat"] end
-    local function clean(value)
-        value = E:SafeString(value) or ""
-        return trim(E:StripColorCodes(value)):gsub("%s+", ""):lower()
+    local BossMods = E:GetModule("BossMods", true)
+    local Ready = BossMods and BossMods.ReadyAssignments
+    local NoteBlock = BossMods and BossMods.NoteBlock
+    if not (Ready and Ready.BuildContext and NoteBlock and NoteBlock.FindUnitByToken) then
+        return nil, L["Macros_KickNotAssigned"]
     end
-    local aliases = {}
-    local function addUnit(unit)
-        if not UnitExists(unit) then return end
-        local full = E:GetUnitFullName(unit, true)
-        if not full then return end
-        for _, alias in ipairs({full, UnitName(unit) or "", E.GetNickname and E:GetNickname(unit) or ""}) do
-            local key = clean(alias)
-            if key ~= "" then
-                if aliases[key] and aliases[key] ~= full then aliases[key] = false
-                elseif aliases[key] == nil then aliases[key] = full end
-            end
-        end
-    end
-    addUnit("player")
-    if IsInRaid() then
-        for i = 1, GetNumGroupMembers() do addUnit("raid" .. i) end
-    else
-        for i = 1, GetNumSubgroupMembers() do addUnit("party" .. i) end
-    end
-    local text = E.GetRawNote and E:GetRawNote(1) or ""
-    local blocks, active, skipFirst = {}, nil, false
-    local function addPlayers(line, split)
-        if not active then return end
-        line = trim(line:gsub("{[rR][tT]%d+}", ""))
-        local function add(entry)
-            if entry == "" then return end
-            if skipFirst then skipFirst = false else active[#active + 1] = entry end
-        end
-        if split then
-            for entry in line:gmatch("%S+") do add(entry) end
-        else
-            add(line)
-        end
-    end
-    local splitPlayers = false
-    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
-    for raw in (text .. "\n"):gmatch("([^\n]*)\n") do
-        local line = trim(E:StripColorCodes(raw))
-        if line:sub(1, 1) == "#" then
-            active = nil
-            local rest, kind, excluded = line, nil, false
-            -- Consume adjacent heading tags once, so #CAKick #KickRot1 is
-            -- one rotation rather than two assignments for every player.
-            while rest:sub(1, 1) == "#" do
-                local tag, remaining = rest:match("^(%S+)%s*(.*)$")
-                tag = tag:lower()
-                if tag == "#cap3kick" then excluded = true
-                elseif tag:match("^#nekg[12]$") then kind = "nek"
-                elseif tag:match("^#ulakick[1-4]$") then kind = kind or "ula"
-                elseif tag == "#cakick" or tag:match("^#kickrot%d*$") then kind = kind or "generic" end
-                rest = trim(remaining)
-            end
-            if kind and not excluded then
-                active = {}
-                blocks[#blocks + 1] = active
-                skipFirst = kind == "nek"
-                splitPlayers = kind == "nek" or kind == "ula"
-                addPlayers(rest, true)
-            end
-        elseif line == "" then
-            active = nil
-        elseif active then
-            addPlayers(line, splitPlayers)
-        end
-    end
-    local player = E:GetUnitFullName("player", true)
+    local ctx = Ready:BuildContext()
+
     local assigned
-    for _, entries in ipairs(blocks) do
-        for _, entry in ipairs(entries) do
-            -- Also recognize our own ambiguous nickname so it is reported, not skipped.
-            if aliases[clean(entry)] == player or E.NoteTargets:IsPlayerToken(entry) then
-                if assigned and assigned ~= entries then return nil, L["Macros_KickMultiple"] end
-                assigned = entries
+    for _, players in ipairs(self:GetKickRotations(ctx)) do
+        for _, token in ipairs(players) do
+            if Ready:TokenIsPlayer(token, ctx) then
+                if assigned and assigned ~= players then return nil, L["Macros_KickMultiple"] end
+                assigned = players
             end
         end
     end
     if not assigned then return nil, L["Macros_KickNotAssigned"] end
     if #assigned < 2 then return nil, L["Macros_KickInvalidBlock"] end
+
     local position
-    for i, entry in ipairs(assigned) do
-        if aliases[clean(entry)] == player or E.NoteTargets:IsPlayerToken(entry) then
-            if position or aliases[clean(entry)] ~= player then
-                return nil, L["Macros_KickUnresolved"]:format(entry)
-            end
+    for i, token in ipairs(assigned) do
+        if Ready:TokenIsPlayer(token, ctx) then
+            if position then return nil, L["Macros_KickUnresolved"]:format(token) end
             position = i
         end
     end
-    -- Only the immediate next player is needed. Unavailable players elsewhere in
-    -- the rotation must not prevent this player's macro from being generated.
-    local nextEntry = assigned[position % #assigned + 1]
-    local target = aliases[clean(nextEntry)]
-    if not target then return nil, L["Macros_KickNextUnresolved"]:format(nextEntry) end
+
+    -- Only the immediate next player is needed; the last player pings the first.
+    local nextToken = assigned[position % #assigned + 1]
+    local unit = NoteBlock:FindUnitByToken(nextToken)
+    local target = unit and E:GetUnitFullName(unit, true)
+    if not target then return nil, L["Macros_KickNextUnresolved"]:format(nextToken) end
     return target
 end
 
 function Macros:RefreshKickMacros()
     if InCombatLockdown() then return end
+    local hasKick
     for _, slot in ipairs(self.db.slots or {}) do
+        if slot.type == TYPE_KICK then hasKick = true end
         if slot.type == TYPE_KICK and self:MacroExists(slot) then
             local text = self:BuildText(slot)
             local _, _, current = getMacroInfo(self:FindMacro(slot.macroName, "general"))
@@ -955,7 +983,8 @@ function Macros:RefreshKickMacros()
             end
         end
     end
-    E:SendMessage("ART_MACROS_CHANGED")
+    -- Kick status lines depend on the note and roster; other macros do not.
+    if hasKick then E:SendMessage("ART_MACROS_CHANGED") end
 end
 
 function Macros:BuildText(slot)
