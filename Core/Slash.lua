@@ -3,7 +3,9 @@ local E, L = unpack(ART)
 local function printHelp()
     E:Printf(L["SlashHelpHeader"])
     E:Printf("  /art            %s", L["SlashHelpOpen"])
-    E:Printf("  /artmp          %s", L["MythicPlusGrouper_MatchWindowTitle"])
+    if not E:IsForeverClient() then
+        E:Printf("  /artmp          %s", L["MythicPlusGrouper_MatchWindowTitle"])
+    end
     E:Printf("  /art map        %s", L["SlashHelpMap"])
     E:Printf("  /art pi         %s", L["SlashHelpPI"])
     E:Printf("  /art innervate  %s", L["SlashHelpInnervate"])
@@ -290,5 +292,7 @@ end
 function E:RegisterSlashCommands()
     self:RegisterChatCommand("art", handler)
     self:RegisterChatCommand("advanceraidtools", handler)
-    self:RegisterChatCommand("artmp", openMythicPlusGroupFinder)
+    if not self:IsForeverClient() then
+        self:RegisterChatCommand("artmp", openMythicPlusGroupFinder)
+    end
 end

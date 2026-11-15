@@ -1,4 +1,6 @@
 local E, L = unpack(ART)
+-- Mythic+ Grouper is retail-only; the Forever (1.60) client has no keystones.
+if E:IsForeverClient() then return end
 local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/MythicPlusGrouper/MythicPlusGrouper")
 
 local MODULE_NAME = "MythicPlusGrouper"
