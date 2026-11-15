@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+if E:IsForeverClient() then return end
 local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("AdvanceRaidTools_Options/Modules/MythicPlusGrouper/MythicPlusGrouperSettings")
 local T = E.Templates
 local CP = E.OptionsHelpers.CHECKER_PALETTE

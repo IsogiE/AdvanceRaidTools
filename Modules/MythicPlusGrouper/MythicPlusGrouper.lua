@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+if E:IsForeverClient() then return end
 local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/MythicPlusGrouper/MythicPlusGrouper")
 
 local MODULE_NAME = "MythicPlusGrouper"
