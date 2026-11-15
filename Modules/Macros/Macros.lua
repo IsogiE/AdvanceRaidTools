@@ -999,6 +999,7 @@ function Macros:BuildText(slot)
             return "#showtooltip\n/stopmacro"
         end
         addLine(lines, "#showtooltip " .. spell)
+        addCustomLines(lines, slot, LINE_PREFIX)
         addLine(lines, "/cast [@" .. kickTargetMode(slot.targetMode) .. ",harm,nodead] " .. spell)
         local target = self:ResolveKickTarget(slot)
         if target then
@@ -1010,6 +1011,7 @@ function Macros:BuildText(slot)
             end
             addLine(lines, "/ping [@" .. target .. ",exists] Assist")
         end
+        addCustomLines(lines, slot, LINE_SUFFIX)
     elseif slot.type == TYPE_CUSTOM then
         addLines(lines, slot.body)
     else
