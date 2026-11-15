@@ -13,6 +13,7 @@ local TYPE_WORLD = "world"
 local TYPE_FOCUS = "focus"
 local TYPE_FOCUS_MARK = "focus_mark"
 local TYPE_CUSTOM = "custom"
+local TYPE_KICK = "kick"
 
 local LINE_PREFIX = "prefix"
 local LINE_SUFFIX = "suffix"
@@ -106,7 +107,8 @@ Macros.TYPES = {
     WORLD = TYPE_WORLD,
     FOCUS = TYPE_FOCUS,
     FOCUS_MARK = TYPE_FOCUS_MARK,
-    CUSTOM = TYPE_CUSTOM
+    CUSTOM = TYPE_CUSTOM,
+    KICK = TYPE_KICK
 }
 
 Macros.LINE_PREFIX = LINE_PREFIX
@@ -215,6 +217,7 @@ local function defaultSlotForID(id)
 end
 
 local function normalizeType(value)
+    if value == TYPE_KICK then return TYPE_KICK end
     if value == TYPE_MARK or value == "target_marker" then
         return TYPE_MARK
     end
@@ -250,6 +253,11 @@ local function normalizeTargetMode(value, useMouseover)
         return value
     end
     return useMouseover and TARGET_MODE_MOUSEOVER or TARGET_MODE_TARGET
+end
+
+local function kickTargetMode(value)
+    if value == TARGET_MODE_TARGET or value == "focus" then return value end
+    return TARGET_MODE_MOUSEOVER
 end
 
 local function addLine(lines, line)
@@ -500,6 +508,7 @@ function Macros:NormalizeSlot(slot, index)
         priorMouseover = slot.useMouseover or slot.targetMode == TARGET_MODE_MOUSEOVER or false
     end
     slot.targetMode = normalizeTargetMode(slot.targetMode, priorMouseover)
+    if slot.type == TYPE_KICK then slot.targetMode = kickTargetMode(slot.targetMode) end
     if slot.type == TYPE_SPELL then
         slot.useMouseover = priorMouseover
     else
@@ -578,6 +587,13 @@ end
 function Macros:OnEnable()
     self:RegisterMessage("ART_PROFILE_CHANGED", "OnProfileChanged")
     self:RegisterEvent("UPDATE_MACROS", "OnMacrosUpdated")
+    self:RegisterMessage("ART_NOTE_CHANGED", "RefreshKickMacros")
+    self:RegisterMessage("ART_NICKNAME_CHANGED", "RefreshKickMacros")
+    self:RegisterMessage("ART_ROSTER_INVALIDATED", "RefreshKickMacros")
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "RefreshKickMacros")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "RefreshKickMacros")
+    self:RegisterEvent("PLAYER_REGEN_ENABLED", "RefreshKickMacros")
+    self:RefreshKickMacros()
 end
 
 function Macros:OnDisable()
@@ -588,6 +604,7 @@ end
 function Macros:OnProfileChanged()
     self:InvalidateMacroCache()
     self:NormalizeDB()
+    self:RefreshKickMacros()
     E:SendMessage("ART_MACROS_CHANGED")
 end
 
@@ -682,10 +699,10 @@ function Macros:AddSlot(slotType)
 
     local slot = {
         id = id,
-        name = self:MakeUniqueDraftName(L["Macros_DefaultName"] or "Macro", id),
-        macroName = self:MakeUniqueMacroName("ART Macro", id),
+        name = self:MakeUniqueDraftName(slotType == TYPE_KICK and L["Macros_TypeKick"] or L["Macros_DefaultName"] or "Macro", id),
+        macroName = self:MakeUniqueMacroName(slotType == TYPE_KICK and "ART KICK" or "ART Macro", id),
         type = normalizeType(slotType),
-        spell = "Power Infusion",
+        spell = slotType == TYPE_KICK and "" or "Power Infusion",
         targetName = "",
         marker = slotType == TYPE_WORLD and 1 or 8,
         useMouseover = slotType ~= TYPE_SPELL,
@@ -823,13 +840,177 @@ function Macros:DeleteSlot(id)
     end
 end
 
+-- Kick rotations are read with the same note parser, player matching and
+-- unit lookup as the boss mods, so the macro and the boss mod always agree.
+local GENERIC_KICK_TAGS = {"cakick"}
+local NEK_KICK_TAGS = {"nekg1", "nekg2"}
+
+local function sectionsKey(sections)
+    local parts = {}
+    for i, section in ipairs(sections) do
+        parts[i] = tostring(section)
+    end
+    return table.concat(parts, ",")
+end
+
+function Macros:GetKickRotations(ctx)
+    local BossMods = E:GetModule("BossMods", true)
+    local Ready = BossMods and BossMods.ReadyAssignments
+    if not (Ready and Ready.Words) then
+        return {}
+    end
+    local tags = ctx and ctx.tags or {}
+    local rotations, seen = {}, {}
+
+    local function add(sections, players)
+        local key = sectionsKey(sections)
+        if key == "" or seen[key] then
+            return
+        end
+        seen[key] = true
+        rotations[#rotations + 1] = players
+    end
+
+    local function wordsOf(sections, skipFirst)
+        local players = {}
+        for _, section in ipairs(sections) do
+            for _, token in ipairs(Ready:Words(section.text or section.headerText or "")) do
+                if skipFirst then
+                    skipFirst = false
+                else
+                    players[#players + 1] = token
+                end
+            end
+        end
+        return players
+    end
+
+    -- Ula'tek groups go through the kicker module's own reader (it strips the marker).
+    local Ula = E:GetModule("BossMods_UlatekKicker", true)
+    for groupIndex = 1, 4 do
+        local sections = tags["ulakick" .. groupIndex]
+        if sections and Ula and Ula.ParseGroup then
+            local group = Ula:ParseGroup(ctx, groupIndex)
+            if group then
+                add(sections, group.players)
+            end
+        end
+    end
+
+    -- #NekG1/#NekG2: the first name is not part of the kick order.
+    for _, tag in ipairs(NEK_KICK_TAGS) do
+        local sections = tags[tag]
+        if sections then
+            add(sections, wordsOf(sections, true))
+        end
+    end
+
+    -- #CAKick and #KickRot1, #KickRot2, ... (#CAP3Kick is left to the boss mod).
+    local generic = {}
+    for _, tag in ipairs(GENERIC_KICK_TAGS) do
+        generic[#generic + 1] = tag
+    end
+    local numbered = {}
+    for tag in pairs(tags) do
+        local n = tag:match("^kickrot(%d*)$")
+        if n then
+            numbered[#numbered + 1] = {tag = tag, n = tonumber(n) or 0}
+        end
+    end
+    table.sort(numbered, function(a, b) return a.n < b.n end)
+    for _, entry in ipairs(numbered) do
+        generic[#generic + 1] = entry.tag
+    end
+    for _, tag in ipairs(generic) do
+        local sections = tags[tag]
+        if sections then
+            add(sections, wordsOf(sections, false))
+        end
+    end
+
+    return rotations
+end
+
+function Macros:ResolveKickTarget(slot)
+    if InCombatLockdown() then return nil, L["Macros_KickCombat"] end
+    local BossMods = E:GetModule("BossMods", true)
+    local Ready = BossMods and BossMods.ReadyAssignments
+    local NoteBlock = BossMods and BossMods.NoteBlock
+    if not (Ready and Ready.BuildContext and NoteBlock and NoteBlock.FindUnitByToken) then
+        return nil, L["Macros_KickNotAssigned"]
+    end
+    local ctx = Ready:BuildContext()
+
+    local assigned
+    for _, players in ipairs(self:GetKickRotations(ctx)) do
+        for _, token in ipairs(players) do
+            if Ready:TokenIsPlayer(token, ctx) then
+                if assigned and assigned ~= players then return nil, L["Macros_KickMultiple"] end
+                assigned = players
+            end
+        end
+    end
+    if not assigned then return nil, L["Macros_KickNotAssigned"] end
+    if #assigned < 2 then return nil, L["Macros_KickInvalidBlock"] end
+
+    local position
+    for i, token in ipairs(assigned) do
+        if Ready:TokenIsPlayer(token, ctx) then
+            if position then return nil, L["Macros_KickUnresolved"]:format(token) end
+            position = i
+        end
+    end
+
+    -- Only the immediate next player is needed; the last player pings the first.
+    local nextToken = assigned[position % #assigned + 1]
+    local unit = NoteBlock:FindUnitByToken(nextToken)
+    local target = unit and E:GetUnitFullName(unit, true)
+    if not target then return nil, L["Macros_KickNextUnresolved"]:format(nextToken) end
+    return target
+end
+
+function Macros:RefreshKickMacros()
+    if InCombatLockdown() then return end
+    local hasKick
+    for _, slot in ipairs(self.db.slots or {}) do
+        if slot.type == TYPE_KICK then hasKick = true end
+        if slot.type == TYPE_KICK and self:MacroExists(slot) then
+            local text = self:BuildText(slot)
+            local _, _, current = getMacroInfo(self:FindMacro(slot.macroName, "general"))
+            if text and current ~= text then
+                local ok, err = self:Write(slot, nil, true)
+                if not ok then E:Printf(L["Macros_ErrorGeneric"]:format(err or "?")) end
+            end
+        end
+    end
+    -- Kick status lines depend on the note and roster; other macros do not.
+    if hasKick then E:SendMessage("ART_MACROS_CHANGED") end
+end
+
 function Macros:BuildText(slot)
     if not slot then
         return nil, "NO_SLOT"
     end
 
     local lines = {}
-    if slot.type == TYPE_CUSTOM then
+    if slot.type == TYPE_KICK then
+        local spell = trim(slot.spell)
+        if spell == "" or spell:find("[\r\n]") then
+            return "#showtooltip\n/stopmacro"
+        end
+        addLine(lines, "#showtooltip " .. spell)
+        addLine(lines, "/cast [@" .. kickTargetMode(slot.targetMode) .. ",harm,nodead] " .. spell)
+        local target = self:ResolveKickTarget(slot)
+        if target then
+            local name, realm = target:match("^([^%-]+)%-(.+)$")
+            local playerFull = E:GetUnitFullName("player", true) or ""
+            local playerRealm = playerFull:match("^[^%-]+%-(.+)$")
+            if realm and playerRealm and realm:lower() == playerRealm:lower() then
+                target = name
+            end
+            addLine(lines, "/ping [@" .. target .. ",exists] Assist")
+        end
+    elseif slot.type == TYPE_CUSTOM then
         addLines(lines, slot.body)
     else
         if slot.type == TYPE_SPELL then
@@ -943,7 +1124,11 @@ function Macros:SetDefaultSpellTargetFromUnit(slotID, unit)
     end
 
     slot.targetName = name
-    local ok, syncErr, extra = self:SyncSlot(slot, nil, true)
+    slot.useMouseover = false
+    slot.targetMode = TARGET_MODE_NAME
+    -- A slash-command assignment must also create a missing macro, and must
+    -- select the named player rather than leave mouseover taking precedence.
+    local ok, syncErr, extra = self:Write(slot, nil, true)
     E:SendMessage("ART_MACROS_CHANGED")
     if not ok then
         return false, syncErr, extra, name
@@ -1024,6 +1209,13 @@ function Macros:Write(slot, previousName, silent)
     local queuedWrite = false
 
     local function writeNow()
+        -- Re-read the note and roster after combat, rather than writing queued stale text.
+        if slot.type == TYPE_KICK then
+            if self:GetSlot(slot.id) ~= slot then return false, "NO_SLOT" end
+            local buildError
+            text, buildError = self:BuildText(slot)
+            if buildError then return false, buildError, text end
+        end
         local index = self:FindMacro(slot.macroName, "general")
         local previousIndex, previousScope
         previousName = macroLookupName(previousName)
