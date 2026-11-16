@@ -604,7 +604,10 @@ function Data:GetPermanentEnchantState()
 
         if link then
             local skip = false
-            if entry.slot == 17 then
+            -- Forever has "Enchant Shield -" and "Enchant Off-Hand -"
+            -- (1219577-1219579) spells, so armor in the off-hand is enchantable
+            -- there; only Retail skips it.
+            if entry.slot == 17 and not self.IS_FOREVER then
                 local classID, _, infoAvailable = getItemInfoInstant(link)
                 if not infoAvailable then
                     return false, false, {}
