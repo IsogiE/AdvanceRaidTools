@@ -688,6 +688,8 @@ function E:IsForeverClient()
     return self._isForeverClient
 end
 
+E.Forever = E:IsForeverClient() and {} or nil
+
 -- Format a number for compact display
 function E:FormatAmount(n)
     if type(n) ~= "number" then

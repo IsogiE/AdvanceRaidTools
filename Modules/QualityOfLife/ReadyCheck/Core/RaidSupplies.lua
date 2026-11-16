@@ -8,6 +8,13 @@ E:SetModuleParent("QoL_RaidSupplies", "QualityOfLife")
 local PREFIX = "ART_SUPPLIES"
 local UNKNOWN, NOT_APPLICABLE, PERMANENT, NO_WEAPON = -1, -2, -3, -4
 local ITEMS = {healthstones = {5512, 224464}, potions = {271884, 271883}, runes = {259085}}
+if E.Forever and E.Forever.RaidSupplies then
+    ITEMS = {
+        healthstones = E.ReadyCheckData.HEALTHSTONE_ITEMS,
+        potions = E.Forever.RaidSupplies.potions,
+        runes = {}
+    }
+end
 local FIELDS = {"itemLevel", "healthstones", "potions", "runes", "mainHand", "offHand"}
 Mod.reports = {}
 

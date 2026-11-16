@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+if E:IsForeverClient() then return end
 local T = E.Templates
 
 local SHOW_WHEN_VALUES = {

@@ -3,12 +3,13 @@ local CreateFrame, C_Timer, hooksecurefunc = E:DiagnosticBindings("Modules/BossM
 local BossMods = E:GetModule("BossMods")
 local MODULE_NAME = "BossMods_FocusChannelTimer"
 local DIVINE_HYMN_SPELL_ID = 64843
+local DEFAULT_ICON_ID = E:IsForeverClient() and 740 or DIVINE_HYMN_SPELL_ID
 
 E:RegisterModuleDefaults(MODULE_NAME, {
     enabled = false,
     displayType = "icon",
     duration = 15,
-    iconID = DIVINE_HYMN_SPELL_ID,
+    iconID = DEFAULT_ICON_ID,
     position = {point = "CENTER", x = 0, y = 180, coordSpace = "UIParent"},
     icon = {
         size = 64,
@@ -65,7 +66,7 @@ end
 function Mod:EnsureDefaults()
     self.db.displayType = self.db.displayType == "bar" and "bar" or "icon"
     self.db.duration = math.max(1, math.min(120, number(self.db.duration, 15)))
-    self.db.iconID = math.max(1, math.floor(number(self.db.iconID, DIVINE_HYMN_SPELL_ID)))
+    self.db.iconID = math.max(1, math.floor(number(self.db.iconID, DEFAULT_ICON_ID)))
 
     self.db.position = type(self.db.position) == "table" and self.db.position or {}
     self.db.position.point = BossMods.Engines.Shared.NormalizeAnchorPoint(self.db.position.point)
@@ -148,7 +149,7 @@ function Mod:EnsureFrames()
 end
 
 function Mod:GetIconTexture()
-    local iconID = math.floor(number(self.db.iconID, DIVINE_HYMN_SPELL_ID))
+    local iconID = math.floor(number(self.db.iconID, DEFAULT_ICON_ID))
     if C_Spell and C_Spell.GetSpellTexture then
         return C_Spell.GetSpellTexture(iconID) or iconID
     end

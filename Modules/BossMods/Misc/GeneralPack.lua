@@ -69,10 +69,24 @@ local SPELL_REPAIR_GEAR = 126462
 local SPELL_PET_GENERIC = 136
 local SPELL_GRIMOIRE_OF_SACRIFICE = 196099
 
+local IS_FOREVER = E:IsForeverClient()
+local FOREVER = E.Forever and E.Forever.GeneralPack
+if FOREVER then
+    SPELL_REPAIR_GEAR = FOREVER.repairGearIcon
+    SPELL_REPAIR_BOT = FOREVER.repairBotIcon
+end
+
 local ITEM_HEALTHSTONE = 5512
 local ITEM_DEMONIC_HEALTHSTONE = 224464
 local ITEM_DEMONIC_GATEWAY = 188152
 local ICON_GATEWAY_SHARD = 607513
+local FOREVER_SOULSTONE_ITEMS = FOREVER and FOREVER.soulstoneItems or {}
+local SOULSTONE_AURAS = {[SPELL_SOULSTONE] = true}
+for _, id in ipairs(FOREVER and FOREVER.soulstoneAuras or {}) do
+    SOULSTONE_AURAS[id] = true
+end
+local FOREVER_UNAVAILABLE_ALERTS = FOREVER and FOREVER.unavailableAlerts or {}
+
 local OMNIUM_FOLIO_TREE_ID = 1186
 local MOTE_TRAIT_CURRENCY_ID = 4230
 local TOTAL_MOTES = 5
@@ -102,6 +116,10 @@ local CONSUMABLE_SPELL_TYPES = {
     [67826] = "REPAIR",
     [453942] = "REPAIR"
 }
+
+for spellID, kind in pairs(FOREVER and FOREVER.consumableSpells or {}) do
+    CONSUMABLE_SPELL_TYPES[spellID] = kind
+end
 
 local CONSUMABLES = {
     FEAST = {
@@ -303,6 +321,9 @@ local function classNeedsPet()
         local aura = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_GRIMOIRE_OF_SACRIFICE)
         return aura == nil
     elseif class == "HUNTER" then
+        if IS_FOREVER then
+            return true
+        end
         local specID = playerSpecID()
         if not specID then
             return false
@@ -345,6 +366,24 @@ local function isSpellReady(spellID)
     return true
 end
 
+local function isSoulstoneReady()
+    if not IS_FOREVER then
+        return isSpellReady(SPELL_SOULSTONE)
+    end
+    for _, itemID in ipairs(FOREVER_SOULSTONE_ITEMS) do
+        if (C_Item.GetItemCount(itemID) or 0) > 0 then
+            local duration
+            if C_Item.GetItemCooldown then
+                duration = select(2, C_Item.GetItemCooldown(itemID))
+            end
+            if duration == nil or E:IsSecret(duration) or duration <= 1.5 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function isSpellOnCooldown(spellID)
     local cd = C_Spell.GetSpellCooldown(spellID)
     return cd and cd.duration and cd.duration > 1.5
@@ -363,7 +402,7 @@ local function groupHasSoulstone()
             if not aura then
                 break
             end
-            if not E:IsSecret(aura.spellId) and aura.spellId == SPELL_SOULSTONE then
+            if not E:IsSecret(aura.spellId) and SOULSTONE_AURAS[aura.spellId] then
                 return true
             end
         end
@@ -702,7 +741,14 @@ function Mod:ClearAll()
     end
 end
 
+function Mod:IsAlertAvailable(key)
+    return not FOREVER_UNAVAILABLE_ALERTS[key]
+end
+
 function Mod:WantAlert(key)
+    if not self:IsAlertAvailable(key) then
+        return false
+    end
     local a = self.db.alerts
     return a and a[key] ~= false
 end
@@ -873,7 +919,7 @@ function Mod:OnReadyCheck()
 
     if self:WantAlert("applySoulstone") then
         local _, class = UnitClass("player")
-        if class == "WARLOCK" and isSpellReady(SPELL_SOULSTONE) and not groupHasSoulstone() then
+        if class == "WARLOCK" and isSoulstoneReady() and not groupHasSoulstone() then
             local size = (self.db.font.size or 18) + 2
             self:Set("applySoulstone", spellTex(SPELL_SOULSTONE, size) .. " " ..
                 colorize("aa66ff", loc("BossMods_GP_ApplySoulstone")), PRIORITY.APPLY_SS,

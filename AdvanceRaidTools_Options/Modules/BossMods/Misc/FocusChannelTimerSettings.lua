@@ -115,7 +115,7 @@ local function build(parent, mod, isDisabled)
     y = header(y, "Icon appearance")
     y = row(y, {
         editbox("Icon ID", function() return mod.db.iconID end,
-            function(value) mod.db.iconID = value or 64843 end, iconDisabled),
+            function(value) mod.db.iconID = value or (E:IsForeverClient() and 740 or 64843) end, iconDisabled),
         slider("Icon size", 16, 256, 1,
             function() return mod.db.icon.size end,
             function(value) mod.db.icon.size = math.floor(value + 0.5) end, iconDisabled)

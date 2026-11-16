@@ -354,7 +354,7 @@ end
 do
     local BossMods = E:GetModule("BossMods", true)
 
-    if BossMods and BossMods.RegisterBossSettingsBuilder then
+    if not E:IsForeverClient() and BossMods and BossMods.RegisterBossSettingsBuilder then
         BossMods:RegisterBossSettingsBuilder(
             "ReadyAssignments",
             buildReadyAssignmentsBody

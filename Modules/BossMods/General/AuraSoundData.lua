@@ -1,4 +1,5 @@
 local E = unpack(ART)
+if E:IsForeverClient() then return end
 local BossMods = E:GetModule("BossMods")
 
 BossMods.AuraSoundPresets = {

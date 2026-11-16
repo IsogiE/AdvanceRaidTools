@@ -321,6 +321,13 @@ Data.HEALTHSTONE_ITEMS = {
 }
 Data.HEALTHSTONE_ITEM = Data.HEALTHSTONE_ITEMS[1]
 
+Data.IS_FOREVER = E:IsForeverClient()
+if E.Forever and E.Forever.ReadyCheck then
+    for key, value in pairs(E.Forever.ReadyCheck) do
+        Data[key] = value
+    end
+end
+
 local function valueIsAccessible(value)
     local ok, secret = pcall(E.IsSecret, E, value)
     return ok and not secret
@@ -401,7 +408,7 @@ function Data:GetPermanentEnchantState()
 
         if link then
             local skip = false
-            if entry.slot == 17 then
+            if entry.slot == 17 and not self.IS_FOREVER then
                 local classID, _, infoAvailable = getItemInfoInstant(link)
                 if not infoAvailable then
                     return false, false, {}

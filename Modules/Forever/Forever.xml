@@ -1,0 +1,5 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Script file="BossPush.lua"/>
+    <Script file="GeneralPack.lua"/>
+    <Script file="ReadyCheck.lua"/>
+</Ui>

@@ -41,6 +41,8 @@ Core\Comms.lua
 Core\SpecProfiles.lua
 Core\Sharing.lua
 
+Modules\Forever\Forever.xml
+
 Modules\Home\Home.lua
 
 Modules\Nicknames\Nicknames.lua

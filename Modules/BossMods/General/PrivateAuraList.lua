@@ -1,4 +1,5 @@
 local E, L = unpack(ART)
+if E:IsForeverClient() then return end
 
 E:RegisterModuleDefaults("BossMods_PrivateAuraList", {
     enabled = false,

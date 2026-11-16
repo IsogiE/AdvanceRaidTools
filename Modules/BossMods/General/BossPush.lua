@@ -112,6 +112,17 @@ local ENCOUNTER_SORTING = {
     CUSTOM_ENCOUNTER
 }
 
+local FOREVER_ENCOUNTERS = E.Forever and E.Forever.BossPushEncounters
+if FOREVER_ENCOUNTERS then
+    ENCOUNTER_VALUES = {[0] = "Any Encounter", [CUSTOM_ENCOUNTER] = L["Custom"] or "Custom"}
+    ENCOUNTER_SORTING = {0}
+    for _, entry in ipairs(FOREVER_ENCOUNTERS) do
+        ENCOUNTER_VALUES[entry[1]] = entry[2]
+        ENCOUNTER_SORTING[#ENCOUNTER_SORTING + 1] = entry[1]
+    end
+    ENCOUNTER_SORTING[#ENCOUNTER_SORTING + 1] = CUSTOM_ENCOUNTER
+end
+
 local function copyTable(src)
     if type(src) ~= "table" then
         return nil

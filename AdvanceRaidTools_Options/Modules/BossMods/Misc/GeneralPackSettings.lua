@@ -52,6 +52,19 @@ local ALERT_TOGGLES = {{
     label = "BossMods_GP_UnspentMotes"
 }}
 
+do
+    local GeneralPack = E:GetModule("BossMods_GeneralPack", true)
+    if GeneralPack and GeneralPack.IsAlertAvailable then
+        local available = {}
+        for _, def in ipairs(ALERT_TOGGLES) do
+            if GeneralPack:IsAlertAvailable(def.key) then
+                available[#available + 1] = def
+            end
+        end
+        ALERT_TOGGLES = available
+    end
+end
+
 local function borderValues()
     local t = E:MediaList("border")
     t["None"] = nil

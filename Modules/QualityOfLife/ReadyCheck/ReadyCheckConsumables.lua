@@ -62,6 +62,14 @@ local ICON_ORDER = {
     "healthstone"
 }
 
+if E.ReadyCheckData.IS_FOREVER then
+    for index = #ICON_ORDER, 1, -1 do
+        if ICON_ORDER[index] == "rune" then
+            table.remove(ICON_ORDER, index)
+        end
+    end
+end
+
 local ICON_INFO = {
     food = {
         labelKey = "QoL_ReadyCheckFood",
@@ -123,7 +131,7 @@ local function itemLink(itemID)
 end
 
 local function setSecureButtonAction(button, itemID, targetSlot)
-    if InCombatLockdown() then
+    if not button or InCombatLockdown() then
         return false
     end
 
@@ -149,6 +157,9 @@ local function setSecureButtonAction(button, itemID, targetSlot)
 end
 
 local function setIconState(button, state, timeText, count, texture)
+    if not button then
+        return
+    end
     button.state = state
     button.icon:SetTexture(texture or button.defaultTexture)
     button.icon:SetDesaturated(state == STATE_NOT_READY)
