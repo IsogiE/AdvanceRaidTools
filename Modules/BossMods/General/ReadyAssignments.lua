@@ -354,6 +354,8 @@ function Mod:OnReadyCheck()
 end
 
 function Mod:OnEnable()
+    -- Every assignment sheet comes from a Retail raid; Forever has none.
+    if E:IsForeverClient() then return end
     BM = BM or E:GetModule("BossMods")
     self:EnsureAlert()
     self:EnsureVisualAnchor()
@@ -376,13 +378,15 @@ function Mod:OnDisable()
     stopReadyActions(self)
 end
 
-E:RegisterBossModFeature("ReadyAssignments", {
-    tab = "General",
-    order = 20,
-    labelKey = "BossMods_AssignmentReminders",
-    descKey = "BossMods_AssignmentRemindersDesc",
-    moduleName = "BossMods_AssignmentReminders"
-})
+if not E:IsForeverClient() then
+    E:RegisterBossModFeature("ReadyAssignments", {
+        tab = "General",
+        order = 20,
+        labelKey = "BossMods_AssignmentReminders",
+        descKey = "BossMods_AssignmentRemindersDesc",
+        moduleName = "BossMods_AssignmentReminders"
+    })
+end
 
 local ReadyText = E:GetModule("BossMods").ReadyAssignmentText
 for _, sheet in ipairs(getCatalogSheets(ReadyText)) do

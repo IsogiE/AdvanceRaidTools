@@ -60,6 +60,7 @@ local GLOW123_LABEL_FIELD = "ARTGP123Label"
 local SPELL_FEAST = 19705
 local SPELL_CAULDRON = 448001
 local SPELL_REPAIR_BOT = 67826
+local SPELL_REPAIR_BOT_FOREVER = 22700
 local SPELL_HEALTHSTONE_USE = 6262
 local SPELL_SOULWELL = 29893
 local SPELL_RITUAL_OF_SUMMONING = 698
@@ -69,10 +70,38 @@ local SPELL_REPAIR_GEAR = 126462
 local SPELL_PET_GENERIC = 136
 local SPELL_GRIMOIRE_OF_SACRIFICE = 196099
 
+local IS_FOREVER = E:IsForeverClient()
+if IS_FOREVER then
+    -- 126462 does not exist on Forever (wago.tools wowf 1.60.1.70938); use the
+    -- vanilla Field Repair Bot icon for the repair reminder instead.
+    SPELL_REPAIR_GEAR = SPELL_REPAIR_BOT_FOREVER
+end
+
 local ITEM_HEALTHSTONE = 5512
 local ITEM_DEMONIC_HEALTHSTONE = 224464
 local ITEM_DEMONIC_GATEWAY = 188152
 local ICON_GATEWAY_SHARD = 607513
+-- Forever (vanilla) soulstones: the item a warlock makes and uses, and the
+-- buff each rank leaves on the target (wago.tools wowf 1.60.1.70938).
+local FOREVER_SOULSTONE_ITEMS = {16896, 16895, 16893, 16892, 5232}
+local SOULSTONE_AURAS = {[SPELL_SOULSTONE] = true}
+if IS_FOREVER then
+    for _, id in ipairs({20762, 20763, 20764, 20765}) do SOULSTONE_AURAS[id] = true end
+end
+
+-- Alerts whose items, spells or systems do not exist on Forever: Demonic
+-- Gateway and its shard, the Omnium Folio, Midnight feasts and cauldrons, and
+-- the Soulwell (Ritual of Souls 29893 is absent from Forever's SpellName).
+local FOREVER_UNAVAILABLE_ALERTS = {
+    gateway = true,
+    gatewayShardMissing = true,
+    unspentMotes = true,
+    consumableFeast = true,
+    consumableCauldron = true,
+    consumableSoulwell = true,
+    chatHealthstone = true
+}
+
 local OMNIUM_FOLIO_TREE_ID = 1186
 local MOTE_TRAIT_CURRENCY_ID = 4230
 local TOTAL_MOTES = 5
@@ -303,6 +332,11 @@ local function classNeedsPet()
         local aura = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_GRIMOIRE_OF_SACRIFICE)
         return aura == nil
     elseif class == "HUNTER" then
+        -- Forever has one spec per class (Hunter 1485), and every hunter there
+        -- fights with a pet.
+        if IS_FOREVER then
+            return true
+        end
         local specID = playerSpecID()
         if not specID then
             return false
@@ -345,6 +379,25 @@ local function isSpellReady(spellID)
     return true
 end
 
+-- Forever warlocks carry a Soulstone item instead of casting the spell.
+local function isSoulstoneReady()
+    if not IS_FOREVER then
+        return isSpellReady(SPELL_SOULSTONE)
+    end
+    for _, itemID in ipairs(FOREVER_SOULSTONE_ITEMS) do
+        if (C_Item.GetItemCount(itemID) or 0) > 0 then
+            local duration
+            if C_Item.GetItemCooldown then
+                duration = select(2, C_Item.GetItemCooldown(itemID))
+            end
+            if duration == nil or E:IsSecret(duration) or duration <= 1.5 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function isSpellOnCooldown(spellID)
     local cd = C_Spell.GetSpellCooldown(spellID)
     return cd and cd.duration and cd.duration > 1.5
@@ -363,7 +416,7 @@ local function groupHasSoulstone()
             if not aura then
                 break
             end
-            if not E:IsSecret(aura.spellId) and aura.spellId == SPELL_SOULSTONE then
+            if not E:IsSecret(aura.spellId) and SOULSTONE_AURAS[aura.spellId] then
                 return true
             end
         end
@@ -702,7 +755,14 @@ function Mod:ClearAll()
     end
 end
 
+function Mod:IsAlertAvailable(key)
+    return not (IS_FOREVER and FOREVER_UNAVAILABLE_ALERTS[key])
+end
+
 function Mod:WantAlert(key)
+    if not self:IsAlertAvailable(key) then
+        return false
+    end
     local a = self.db.alerts
     return a and a[key] ~= false
 end
@@ -873,7 +933,7 @@ function Mod:OnReadyCheck()
 
     if self:WantAlert("applySoulstone") then
         local _, class = UnitClass("player")
-        if class == "WARLOCK" and isSpellReady(SPELL_SOULSTONE) and not groupHasSoulstone() then
+        if class == "WARLOCK" and isSoulstoneReady() and not groupHasSoulstone() then
             local size = (self.db.font.size or 18) + 2
             self:Set("applySoulstone", spellTex(SPELL_SOULSTONE, size) .. " " ..
                 colorize("aa66ff", loc("BossMods_GP_ApplySoulstone")), PRIORITY.APPLY_SS,

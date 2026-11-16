@@ -8,6 +8,19 @@ E:SetModuleParent("QoL_RaidSupplies", "QualityOfLife")
 local PREFIX = "ART_SUPPLIES"
 local UNKNOWN, NOT_APPLICABLE, PERMANENT, NO_WEAPON = -1, -2, -3, -4
 local ITEMS = {healthstones = {5512, 224464}, potions = {271884, 271883}, runes = {259085}}
+if E:IsForeverClient() then
+    -- Forever (wago.tools wowf 1.60.1.70938): its healthstones, every healing
+    -- potion, and no augment runes (the runes column is hidden there).
+    ITEMS = {
+        healthstones = E.ReadyCheckData.HEALTHSTONE_ITEMS,
+        potions = {
+            13446, 223913, 3928, 288896, 1710, 223914, 287977, 929, 858, 287967, 118, 287966,
+            18839, 282011, 4596, 247239, 247240, 247241, 247242, 241650, 241655, 241656,
+            268881, 268882, 268883
+        },
+        runes = {}
+    }
+end
 local FIELDS = {"itemLevel", "healthstones", "potions", "runes", "mainHand", "offHand"}
 Mod.reports = {}
 

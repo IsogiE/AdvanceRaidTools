@@ -120,6 +120,22 @@ local COLUMNS = {
     }
 }
 
+-- Forever has no augment or vantus runes, mastery buff or Blessing of the
+-- Bronze, and Mark of the Wild takes the versatility slot (see ReadyCheckData).
+if Data.IS_FOREVER then
+    local FOREVER_HIDDEN = {rune = true, vantus = true, mastery = true, movement = true, runes = true}
+    local kept = {}
+    for _, column in ipairs(COLUMNS) do
+        if not FOREVER_HIDDEN[column.key] then
+            if column.key == "versatility" then
+                column.labelKey = "QoL_ReadyCheckMarkOfTheWild"
+            end
+            kept[#kept + 1] = column
+        end
+    end
+    COLUMNS = kept
+end
+
 local NAME_WIDTH = 130
 local COLUMN_WIDTH = 30
 local TABLE_WIDTH = NAME_WIDTH
