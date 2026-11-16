@@ -56,7 +56,7 @@ end
 function Mod.CopyFromGUID(guid, instanceID)
     if type(guid) ~= "string" or E:IsSecret(guid) then return end
     local kind, _, _, mapID, zoneUID = strsplit("-", guid)
-    if kind ~= "Creature" or tonumber(mapID) ~= instanceID then return end
+    if (kind ~= "Creature" and kind ~= "Cast") or tonumber(mapID) ~= instanceID then return end
     local copy = tonumber(zoneUID)
     if copy and copy > 0 then return copy end
 end
@@ -243,10 +243,20 @@ function Mod:NoteCopy(copyID)
     entry.copy = copyID
 end
 
+function Mod:ReadCopy(guid)
+    if not self.inside then return end
+    local copyID = self.CopyFromGUID(guid, self.inside.zone.instanceID)
+    if copyID then self:NoteCopy(copyID) end
+end
+
 function Mod:ReadUnitCopy(unit)
     if not self.inside or type(unit) ~= "string" then return end
-    local copyID = self.CopyFromGUID(UnitGUID(unit), self.inside.zone.instanceID)
-    if copyID then self:NoteCopy(copyID) end
+    self:ReadCopy(UnitGUID(unit))
+end
+
+-- Unit GUIDs can be secret on Forever; cast GUIDs carry the same copy id and stay readable
+function Mod:OnUnitCast(_, _, castGUID)
+    self:ReadCopy(castGUID)
 end
 
 function Mod:OnTargetChanged()
@@ -264,7 +274,9 @@ end
 local COPY_EVENTS = {
     PLAYER_TARGET_CHANGED = "OnTargetChanged",
     UPDATE_MOUSEOVER_UNIT = "OnMouseoverUnit",
-    NAME_PLATE_UNIT_ADDED = "OnNamePlateAdded"
+    NAME_PLATE_UNIT_ADDED = "OnNamePlateAdded",
+    UNIT_SPELLCAST_START = "OnUnitCast",
+    UNIT_SPELLCAST_SUCCEEDED = "OnUnitCast"
 }
 
 function Mod:StartCopyWatch()
