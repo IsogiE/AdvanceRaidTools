@@ -90,13 +90,12 @@ if IS_FOREVER then
 end
 
 -- Alerts whose items, spells or systems do not exist on Forever: Demonic
--- Gateway and its shard, the Omnium Folio, Midnight feasts and cauldrons, and
--- the Soulwell (Ritual of Souls 29893 is absent from Forever's SpellName).
+-- Gateway and its shard, the Omnium Folio, cauldrons, and the Soulwell
+-- (Ritual of Souls 29893 is absent from Forever's SpellName).
 local FOREVER_UNAVAILABLE_ALERTS = {
     gateway = true,
     gatewayShardMissing = true,
     unspentMotes = true,
-    consumableFeast = true,
     consumableCauldron = true,
     consumableSoulwell = true,
     chatHealthstone = true
@@ -132,6 +131,16 @@ local CONSUMABLE_SPELL_TYPES = {
     [453942] = "REPAIR"
 }
 
+if IS_FOREVER then
+    -- Forever's own feasts and repair bots. Each name has two spells; these are
+    -- the on-use ones (ItemEffect TriggerType 0). The other copy is the
+    -- recipe/blueprint learn effect (TriggerType 6). wago.tools wowf 1.60.1.70938.
+    CONSUMABLE_SPELL_TYPES[1225906] = "FEAST"  -- Specklefin Feast
+    CONSUMABLE_SPELL_TYPES[1307257] = "FEAST"  -- Cookie's Feast
+    CONSUMABLE_SPELL_TYPES[1307385] = "REPAIR" -- Repair Bot
+    CONSUMABLE_SPELL_TYPES[1324661] = "REPAIR" -- Portable Repair Bot
+end
+
 local CONSUMABLES = {
     FEAST = {
         spellID = SPELL_FEAST,
@@ -149,7 +158,7 @@ local CONSUMABLES = {
         announcementKey = "BossMods_GP_AnnounceSoulwell"
     },
     REPAIR = {
-        spellID = SPELL_REPAIR_BOT,
+        spellID = IS_FOREVER and SPELL_REPAIR_BOT_FOREVER or SPELL_REPAIR_BOT,
         alertKey = "consumableRepair",
         announcementKey = "BossMods_GP_AnnounceRepairBot"
     }

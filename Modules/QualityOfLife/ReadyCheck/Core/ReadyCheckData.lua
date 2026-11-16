@@ -499,10 +499,11 @@ if Data.IS_FOREVER then
         {items = {23122}, subclasses = SHARP_WEAPON_SUBCLASSES} -- Consecrated Sharpening Stone
     }
 
-    -- Only the slots that have an "Enchant <slot> -" spell on Forever: bracer,
-    -- gloves, chest, cloak, boots, weapon and shield (no head, shoulder, leg
-    -- or ring enchants exist there).
+    -- Only the slots that have an "Enchant <slot> -" spell on Forever: neck,
+    -- bracer, gloves, chest, cloak, boots, weapon and shield (no head,
+    -- shoulder, leg or ring enchants exist there).
     Data.PERMANENT_ENCHANT_SLOTS = {
+        {slot = 2, label = "NECKSLOT", fallback = "Neck"},
         {slot = 5, label = "CHESTSLOT", fallback = "Chest"},
         {slot = 8, label = "FEETSLOT", fallback = "Feet"},
         {slot = 9, label = "WRISTSLOT", fallback = "Wrist"},
