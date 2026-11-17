@@ -13,6 +13,17 @@ E:RegisterModuleDefaults(MODULE_NAME, {
 local Mod = E:NewModule(MODULE_NAME, "AceEvent-3.0")
 Mod.HOUR = HOUR
 
+local NO_LOCKOUT = {
+    [249] = true,
+    [409] = true,
+    [469] = true,
+    [531] = true,
+    [533] = true,
+    [2789] = true,
+    [2791] = true,
+    [2804] = true
+}
+
 local function publicNumber(value)
     if E:IsSecret(value) then return end
     local number = tonumber(value)
@@ -56,7 +67,7 @@ end
 function Mod.CopyFromGUID(guid, instanceID)
     if type(guid) ~= "string" or E:IsSecret(guid) then return end
     local kind, _, _, mapID, zoneUID = strsplit("-", guid)
-    if kind ~= "Creature" or tonumber(mapID) ~= instanceID then return end
+    if (kind ~= "Creature" and kind ~= "Cast") or tonumber(mapID) ~= instanceID then return end
     local copy = tonumber(zoneUID)
     if copy and copy > 0 then return copy end
 end
@@ -200,6 +211,16 @@ function Mod:CheckZone(reload, now)
         return
     end
     if self.inside and sameZone(self.inside.zone, zone) then return end
+    if self.inside then
+        self:MarkLeft(char, now)
+        self:StopCopyWatch()
+    end
+    if NO_LOCKOUT[zone.instanceID] then
+        store.open[char] = nil
+        self.inside = {char = char, zone = zone}
+        self:Changed()
+        return
+    end
     self:Prune(now)
     local open = store.open[char]
     local ghost = self.ghostUntil and GetTime() < self.ghostUntil
@@ -243,10 +264,19 @@ function Mod:NoteCopy(copyID)
     entry.copy = copyID
 end
 
+function Mod:ReadCopy(guid)
+    if not self.inside then return end
+    local copyID = self.CopyFromGUID(guid, self.inside.zone.instanceID)
+    if copyID then self:NoteCopy(copyID) end
+end
+
 function Mod:ReadUnitCopy(unit)
     if not self.inside or type(unit) ~= "string" then return end
-    local copyID = self.CopyFromGUID(UnitGUID(unit), self.inside.zone.instanceID)
-    if copyID then self:NoteCopy(copyID) end
+    self:ReadCopy(UnitGUID(unit))
+end
+
+function Mod:OnUnitCast(_, _, castGUID)
+    self:ReadCopy(castGUID)
 end
 
 function Mod:OnTargetChanged()
@@ -264,7 +294,9 @@ end
 local COPY_EVENTS = {
     PLAYER_TARGET_CHANGED = "OnTargetChanged",
     UPDATE_MOUSEOVER_UNIT = "OnMouseoverUnit",
-    NAME_PLATE_UNIT_ADDED = "OnNamePlateAdded"
+    NAME_PLATE_UNIT_ADDED = "OnNamePlateAdded",
+    UNIT_SPELLCAST_START = "OnUnitCast",
+    UNIT_SPELLCAST_SUCCEEDED = "OnUnitCast"
 }
 
 function Mod:StartCopyWatch()
