@@ -1,5 +1,5 @@
 local E, L = unpack(ART)
-local CL = BigWigsAPI:GetLocale("BigWigs: Common")
+local CL = BigWigsAPI and BigWigsAPI:GetLocale("BigWigs: Common") or {}
 
 E.UnbindingOfKithixAbilityData = {
     {

@@ -4,7 +4,7 @@ local BossMods = E:GetModule("BossMods")
 local Mod = BossMods:RegisterAuraCircleFeature({
     moduleName = "BossMods_KithixAddSoakCircle",
     featureKey = "KithixAddSoakCircle",
-    labelKey = BigWigsAPI:GetLocale("BigWigs: Common").debuffs,
+    labelKey = BigWigsAPI and BigWigsAPI:GetLocale("BigWigs: Common").debuffs or "Debuffs",
     descKey = "BossMods_KithixAddSoakCircleDesc",
     tab = "UnbindingOfKithix",
     bossKey = "Kithix", bossLabelKey = "BossMods_Kithix", bossOrder = 10,
