@@ -471,6 +471,6 @@ if E:IsForeverClient() then
     E:RegisterOptions("LootCoin", 34, buildPanel)
     local events = E:NewCallbackHandle()
     events:RegisterMessage("ART_LOOTCOIN_UPDATED", function()
-        if E.OptionsUI and E.OptionsUI.QueueRefresh then E.OptionsUI:QueueRefresh("current") end
+        if E.OptionsUI and E.OptionsUI.QueueRefresh then E.OptionsUI:QueueRefresh("all") end
     end)
 end
