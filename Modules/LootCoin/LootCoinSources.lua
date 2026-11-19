@@ -114,10 +114,16 @@ LootCoin.sources = {
         name = "Shaper's Terrace",
         instanceID = 3001,
         bosses = {
+            {encounter = 3498, npc = 253201, name = "Titanosaur"},
+            {encounter = 3499, npc = 261811, name = "Izha'Rel and Tor'Rel"},
+            {encounter = 3501, npc = 261813, name = "Venomridge"},
+            {encounter = 3500, npc = 261812, name = "Thunderhoof"},
+            {encounter = 3507, npc = 262127, name = "Direhorn Matriarch"},
+            {encounter = 3503, npc = 261974, name = "Cinder", coin = false},
+            {encounter = 3505, npc = 262081, name = "Bolt", coin = false},
+            {encounter = 3600, npc = 272561, name = "Vitrix", coin = false},
+            {encounter = 3597, npc = 262297, name = "Snowtalon", coin = false},
             {encounter = 3502, npc = 261809, name = "Nanaya"},
-            {encounter = 3597, npc = 262297, name = "Snowtalon"},
-            {encounter = 3503, npc = 261974, name = "Cinder"},
-            {encounter = 3505, npc = 262081, name = "Bolt"},
         }
     },
     {
